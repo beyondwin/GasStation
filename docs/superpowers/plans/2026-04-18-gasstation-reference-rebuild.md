@@ -1,156 +1,156 @@
-# GasStation Reference Rebuild Implementation Plan
+# GasStation 레퍼런스 재구축 구현 계획
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **에이전트 작업자용:** 필수 하위 스킬: 작업별 구현에는 `superpowers:subagent-driven-development`(권장) 또는 `superpowers:executing-plans`를 사용한다. 진행 추적은 체크박스 문법(`- [ ]`)을 사용한다.
 
-**Goal:** 레거시 단일 모듈 `GasStation` 앱을 멀티 모듈, 클린 아키텍처, Flow 중심 상태 모델, demo/prod 실행 전략을 갖춘 면접용 reference app으로 재구성한다.
+**목표:** 레거시 단일 모듈 `GasStation` 앱을 멀티 모듈, 클린 아키텍처, Flow 중심 상태 모델, demo/prod 실행 전략을 갖춘 면접용 레퍼런스 앱으로 재구성한다.
 
-**Architecture:** 먼저 계약과 상태를 고정한 뒤 모듈 경계를 세우고, 그 위에 DataStore, Room, Flow reducer, feature UI를 얹는다. 캐시 정책, 권한 정책, 설정 소유권, demo/prod 분리를 구현 초기에 고정해서 이후 단계가 흔들리지 않게 만든다.
+**아키텍처:** 먼저 계약과 상태를 고정한 뒤 모듈 경계를 세우고, 그 위에 DataStore, Room, Flow 리듀서, 기능 UI를 얹는다. 캐시 정책, 권한 정책, 설정 소유권, demo/prod 분리를 구현 초기에 고정해서 이후 단계가 흔들리지 않게 만든다.
 
-**Tech Stack:** Kotlin, Gradle convention plugins, Jetpack Compose, Coroutines/Flow, Hilt, DataStore, Room, Retrofit/OkHttp, Turbine, JUnit, Compose UI Test, Macrobenchmark
+**기술 스택:** Kotlin, Gradle convention plugins, Jetpack Compose, Coroutines/Flow, Hilt, DataStore, Room, Retrofit/OkHttp, Turbine, JUnit, Compose UI Test, Macrobenchmark
 
 ---
 
-## Scope Check
+## 범위 점검
 
-이 계획은 하나의 앱을 완성하는 단일 계획이다. 설정, 위치, 검색, 지도 handoff, demo/prod, 품질 계층이 모두 포함되지만 서로 독립 서비스가 아니라 하나의 사용자 흐름과 모듈 그래프를 공유한다. 따라서 별도 계획으로 쪼개지 않고, **계약 -> 데이터 -> 프레젠테이션 -> 앱 통합 -> 품질 강화** 순으로 하나의 계획에 담는다.
+이 계획은 하나의 앱을 완성하는 단일 계획이다. 설정, 위치, 검색, 지도 연동, demo/prod, 품질 계층이 모두 포함되지만 서로 독립된 서비스가 아니라 하나의 사용자 흐름과 모듈 그래프를 공유한다. 따라서 별도 계획으로 쪼개지 않고, **계약 -> 데이터 -> 프레젠테이션 -> 앱 통합 -> 품질 강화** 순으로 하나의 계획에 담는다.
 
-## File Structure
+## 파일 구조
 
-### Root / Build
-- Modify: `settings.gradle.kts`
-- Modify: `build.gradle.kts`
-- Modify: `gradle/libs.versions.toml`
-- Create: `build-logic/settings.gradle.kts`
-- Create: `build-logic/convention/build.gradle.kts`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidApplicationComposeConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationJvmLibraryConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidHiltConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidRoomConventionPlugin.kt`
+### 루트 / 빌드
+- 수정: `settings.gradle.kts`
+- 수정: `build.gradle.kts`
+- 수정: `gradle/libs.versions.toml`
+- 생성: `build-logic/settings.gradle.kts`
+- 생성: `build-logic/convention/build.gradle.kts`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidApplicationComposeConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationJvmLibraryConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidHiltConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidRoomConventionPlugin.kt`
 
-### Core
-- Create: `core/common/build.gradle.kts`
-- Create: `core/common/src/main/kotlin/com/gasstation/core/common/result/AppResult.kt`
-- Create: `core/common/src/main/kotlin/com/gasstation/core/common/dispatchers/DispatcherProvider.kt`
-- Create: `core/model/build.gradle.kts`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/Coordinates.kt`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/DistanceMeters.kt`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/MoneyWon.kt`
-- Create: `core/ui/build.gradle.kts`
-- Create: `core/designsystem/build.gradle.kts`
-- Create: `core/testing/build.gradle.kts`
-- Create: `core/location/build.gradle.kts`
-- Create: `core/location/src/main/kotlin/com/gasstation/core/location/LocationPermissionState.kt`
-- Create: `core/location/src/main/kotlin/com/gasstation/core/location/ForegroundLocationProvider.kt`
-- Create: `core/network/build.gradle.kts`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkModule.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetStationDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetResponseDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/KakaoTransCoordDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/service/OpinetService.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/service/KakaoService.kt`
-- Create: `core/database/build.gradle.kts`
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/GasStationDatabase.kt`
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheEntity.kt`
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheDao.kt`
-- Create: `core/datastore/build.gradle.kts`
-- Create: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesSerializer.kt`
-- Create: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`
+### 코어
+- 생성: `core/common/build.gradle.kts`
+- 생성: `core/common/src/main/kotlin/com/gasstation/core/common/result/AppResult.kt`
+- 생성: `core/common/src/main/kotlin/com/gasstation/core/common/dispatchers/DispatcherProvider.kt`
+- 생성: `core/model/build.gradle.kts`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/Coordinates.kt`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/DistanceMeters.kt`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/MoneyWon.kt`
+- 생성: `core/ui/build.gradle.kts`
+- 생성: `core/designsystem/build.gradle.kts`
+- 생성: `core/testing/build.gradle.kts`
+- 생성: `core/location/build.gradle.kts`
+- 생성: `core/location/src/main/kotlin/com/gasstation/core/location/LocationPermissionState.kt`
+- 생성: `core/location/src/main/kotlin/com/gasstation/core/location/ForegroundLocationProvider.kt`
+- 생성: `core/network/build.gradle.kts`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkModule.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetStationDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetResponseDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/KakaoTransCoordDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/service/OpinetService.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/service/KakaoService.kt`
+- 생성: `core/database/build.gradle.kts`
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/GasStationDatabase.kt`
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheEntity.kt`
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheDao.kt`
+- 생성: `core/datastore/build.gradle.kts`
+- 생성: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesSerializer.kt`
+- 생성: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`
 
-### Domain
-- Create: `domain/settings/build.gradle.kts`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/model/UserPreferences.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/SettingsRepository.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/ObserveUserPreferencesUseCase.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/UpdatePreferredSortOrderUseCase.kt`
-- Create: `domain/station/build.gradle.kts`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Station.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationFreshness.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQueryCacheKey.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
+### 도메인
+- 생성: `domain/settings/build.gradle.kts`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/model/UserPreferences.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/SettingsRepository.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/ObserveUserPreferencesUseCase.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/UpdatePreferredSortOrderUseCase.kt`
+- 생성: `domain/station/build.gradle.kts`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Station.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationFreshness.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQueryCacheKey.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
 
-### Data
-- Create: `data/settings/build.gradle.kts`
-- Create: `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
-- Create: `data/station/build.gradle.kts`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationRemoteDataSource.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/mapper/StationMappers.kt`
+### 데이터
+- 생성: `data/settings/build.gradle.kts`
+- 생성: `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
+- 생성: `data/station/build.gradle.kts`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/StationRemoteDataSource.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/mapper/StationMappers.kt`
 
-### Feature
-- Create: `feature/settings/build.gradle.kts`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsAction.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsScreen.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsRoute.kt`
-- Create: `feature/station-list/build.gradle.kts`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListAction.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
+### 기능
+- 생성: `feature/settings/build.gradle.kts`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsAction.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsScreen.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsRoute.kt`
+- 생성: `feature/station-list/build.gradle.kts`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListAction.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
 
-### App / Benchmark / Docs
-- Modify: `app/build.gradle.kts`
-- Modify: `app/src/main/AndroidManifest.xml`
-- Create: `app/src/main/kotlin/com/gasstation/MainActivity.kt`
-- Create: `app/src/main/kotlin/com/gasstation/navigation/GasStationNavHost.kt`
-- Create: `app/src/main/kotlin/com/gasstation/navigation/GasStationDestination.kt`
-- Create: `app/src/main/kotlin/com/gasstation/map/ExternalMapLauncher.kt`
-- Create: `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`
-- Create: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
-- Create: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
-- Create: `benchmark/build.gradle.kts`
-- Create: `benchmark/src/androidTest/kotlin/com/gasstation/benchmark/BaselineProfileGenerator.kt`
-- Modify: `README.md`
-- Create: `docs/architecture.md`
-- Create: `docs/state-model.md`
-- Create: `docs/offline-strategy.md`
+### 앱 / 벤치마크 / 문서
+- 수정: `app/build.gradle.kts`
+- 수정: `app/src/main/AndroidManifest.xml`
+- 생성: `app/src/main/kotlin/com/gasstation/MainActivity.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/navigation/GasStationNavHost.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/navigation/GasStationDestination.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/map/ExternalMapLauncher.kt`
+- 생성: `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`
+- 생성: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
+- 생성: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
+- 생성: `benchmark/build.gradle.kts`
+- 생성: `benchmark/src/androidTest/kotlin/com/gasstation/benchmark/BaselineProfileGenerator.kt`
+- 수정: `README.md`
+- 생성: `docs/architecture.md`
+- 생성: `docs/state-model.md`
+- 생성: `docs/offline-strategy.md`
 
-## Task 1: Bootstrap build-logic and the module graph
+## 작업 1: build-logic과 모듈 그래프 초기 구성
 
-**Files:**
-- Create: `build-logic/settings.gradle.kts`
-- Create: `build-logic/convention/build.gradle.kts`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidApplicationComposeConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationJvmLibraryConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidHiltConventionPlugin.kt`
-- Create: `build-logic/convention/src/main/kotlin/GasStationAndroidRoomConventionPlugin.kt`
-- Modify: `settings.gradle.kts`
-- Modify: `build.gradle.kts`
-- Modify: `gradle/libs.versions.toml`
-- Create: `core/common/build.gradle.kts`
-- Create: `core/model/build.gradle.kts`
-- Create: `core/location/build.gradle.kts`
-- Create: `core/network/build.gradle.kts`
-- Create: `core/database/build.gradle.kts`
-- Create: `core/datastore/build.gradle.kts`
-- Create: `core/ui/build.gradle.kts`
-- Create: `core/designsystem/build.gradle.kts`
-- Create: `core/testing/build.gradle.kts`
-- Create: `domain/settings/build.gradle.kts`
-- Create: `domain/station/build.gradle.kts`
-- Create: `data/settings/build.gradle.kts`
-- Create: `data/station/build.gradle.kts`
-- Create: `feature/settings/build.gradle.kts`
-- Create: `feature/station-list/build.gradle.kts`
-- Create: `benchmark/build.gradle.kts`
+**대상 파일:**
+- 생성: `build-logic/settings.gradle.kts`
+- 생성: `build-logic/convention/build.gradle.kts`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidApplicationComposeConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationJvmLibraryConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidHiltConventionPlugin.kt`
+- 생성: `build-logic/convention/src/main/kotlin/GasStationAndroidRoomConventionPlugin.kt`
+- 수정: `settings.gradle.kts`
+- 수정: `build.gradle.kts`
+- 수정: `gradle/libs.versions.toml`
+- 생성: `core/common/build.gradle.kts`
+- 생성: `core/model/build.gradle.kts`
+- 생성: `core/location/build.gradle.kts`
+- 생성: `core/network/build.gradle.kts`
+- 생성: `core/database/build.gradle.kts`
+- 생성: `core/datastore/build.gradle.kts`
+- 생성: `core/ui/build.gradle.kts`
+- 생성: `core/designsystem/build.gradle.kts`
+- 생성: `core/testing/build.gradle.kts`
+- 생성: `domain/settings/build.gradle.kts`
+- 생성: `domain/station/build.gradle.kts`
+- 생성: `data/settings/build.gradle.kts`
+- 생성: `data/station/build.gradle.kts`
+- 생성: `feature/settings/build.gradle.kts`
+- 생성: `feature/station-list/build.gradle.kts`
+- 생성: `benchmark/build.gradle.kts`
 
-- [ ] **Step 1: Wire in the included build and new module list**
+- [ ] **단계 1: 포함 빌드와 새 모듈 목록 연결**
 
 ```kotlin
 // settings.gradle.kts
@@ -194,7 +194,7 @@ include(
 )
 ```
 
-- [ ] **Step 2: Create the convention build**
+- [ ] **단계 2: 컨벤션 빌드 생성**
 
 ```kotlin
 // build-logic/settings.gradle.kts
@@ -250,7 +250,7 @@ gradlePlugin {
 }
 ```
 
-- [ ] **Step 3: Add the core plugin implementations**
+- [ ] **단계 3: 코어 플러그인 구현 추가**
 
 ```kotlin
 // build-logic/convention/src/main/kotlin/GasStationAndroidApplicationComposeConventionPlugin.kt
@@ -328,7 +328,7 @@ class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
 }
 ```
 
-- [ ] **Step 4: Add Hilt/Room plugins and skeletal module build files**
+- [ ] **단계 4: Hilt/Room 플러그인과 기본 모듈 빌드 파일 추가**
 
 ```kotlin
 // build-logic/convention/src/main/kotlin/GasStationAndroidHiltConventionPlugin.kt
@@ -397,17 +397,17 @@ dependencies {
 }
 ```
 
-- [ ] **Step 5: Verify the build graph exists**
+- [ ] **단계 5: 빌드 그래프 존재 여부 검증**
 
-Run: `./gradlew projects`  
-Expected: `:core:*`, `:domain:*`, `:data:*`, `:feature:*`, `:benchmark` modules appear and configuration succeeds.
+실행: `./gradlew projects`
+예상: `:core:*`, `:domain:*`, `:data:*`, `:feature:*`, `:benchmark` modules appear and configuration succeeds.
 
-- [ ] **Step 6: Verify the app can at least configure**
+- [ ] **단계 6: 앱이 최소한 구성 단계까지 진행되는지 검증**
 
-Run: `./gradlew :app:assembleDebug`  
-Expected: `BUILD SUCCESSFUL` or a single missing-source failure that points to the next task, not plugin misconfiguration.
+실행: `./gradlew :app:assembleDebug`
+예상: `BUILD SUCCESSFUL` 또는 다음 작업을 가리키는 단일 소스 누락 실패이며, 플러그인 오설정은 아님
 
-- [ ] **Step 7: Commit**
+- [ ] **단계 7: 커밋**
 
 ```bash
 git add settings.gradle.kts build.gradle.kts gradle/libs.versions.toml build-logic \
@@ -415,32 +415,32 @@ git add settings.gradle.kts build.gradle.kts gradle/libs.versions.toml build-log
 git commit -m "build: bootstrap gasstation module graph"
 ```
 
-## Task 2: Define shared value objects and domain contracts
+## 작업 2: 공용 값 객체와 도메인 계약 정의
 
-**Files:**
-- Create: `core/common/src/main/kotlin/com/gasstation/core/common/result/AppResult.kt`
-- Create: `core/common/src/main/kotlin/com/gasstation/core/common/dispatchers/DispatcherProvider.kt`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/Coordinates.kt`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/DistanceMeters.kt`
-- Create: `core/model/src/main/kotlin/com/gasstation/core/model/MoneyWon.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/model/UserPreferences.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/SettingsRepository.kt`
-- Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/ObserveUserPreferencesUseCase.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Station.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQueryCacheKey.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt`
-- Create: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
-- Test: `domain/station/src/test/kotlin/com/gasstation/domain/station/StationQueryCacheKeyTest.kt`
-- Test: `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UserPreferencesTest.kt`
+**대상 파일:**
+- 생성: `core/common/src/main/kotlin/com/gasstation/core/common/result/AppResult.kt`
+- 생성: `core/common/src/main/kotlin/com/gasstation/core/common/dispatchers/DispatcherProvider.kt`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/Coordinates.kt`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/DistanceMeters.kt`
+- 생성: `core/model/src/main/kotlin/com/gasstation/core/model/MoneyWon.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/model/UserPreferences.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/SettingsRepository.kt`
+- 생성: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/ObserveUserPreferencesUseCase.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Station.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQueryCacheKey.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt`
+- 생성: `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
+- 테스트: `domain/station/src/test/kotlin/com/gasstation/domain/station/StationQueryCacheKeyTest.kt`
+- 테스트: `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UserPreferencesTest.kt`
 
-- [ ] **Step 1: Write the failing domain tests for cache-key and preference defaults**
+- [ ] **단계 1: 캐시 키와 기본 선호값용 실패 테스트 작성**
 
 ```kotlin
 // domain/station/src/test/kotlin/com/gasstation/domain/station/StationQueryCacheKeyTest.kt
@@ -482,12 +482,12 @@ class UserPreferencesTest {
 }
 ```
 
-- [ ] **Step 2: Run the domain tests to verify they fail**
+- [ ] **단계 2: 도메인 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :domain:station:test :domain:settings:test`  
-Expected: FAIL because `StationQuery`, `toCacheKey`, and `UserPreferences` do not exist yet.
+실행: `./gradlew :domain:station:test :domain:settings:test`
+예상: `StationQuery`, `toCacheKey`, `UserPreferences`가 아직 없으므로 실패
 
-- [ ] **Step 3: Implement the shared value objects and settings contract**
+- [ ] **단계 3: 공용 값 객체와 설정 계약 구현**
 
 ```kotlin
 // core/model/src/main/kotlin/com/gasstation/core/model/Coordinates.kt
@@ -557,7 +557,7 @@ interface SettingsRepository {
 }
 ```
 
-- [ ] **Step 4: Implement station domain models and cache-key logic**
+- [ ] **단계 4: 주유소 도메인 모델과 캐시 키 로직 구현**
 
 ```kotlin
 // domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt
@@ -675,7 +675,7 @@ sealed interface StationFreshness {
 }
 ```
 
-- [ ] **Step 5: Add use case shells and rerun tests**
+- [ ] **단계 5: 유스케이스 틀 추가 후 테스트 재실행**
 
 ```kotlin
 // domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt
@@ -727,25 +727,25 @@ class RefreshNearbyStationsUseCase(
 }
 ```
 
-Run: `./gradlew :domain:station:test :domain:settings:test`  
-Expected: PASS
+실행: `./gradlew :domain:station:test :domain:settings:test`
+예상: 통과
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add core/common core/model domain/settings domain/station
 git commit -m "feat: add domain contracts for settings and station search"
 ```
 
-## Task 3: Implement persisted settings with DataStore
+## 작업 3: DataStore 기반 영속 설정 구현
 
-**Files:**
-- Create: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesSerializer.kt`
-- Create: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`
-- Create: `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
-- Test: `data/settings/src/test/kotlin/com/gasstation/data/settings/DefaultSettingsRepositoryTest.kt`
+**대상 파일:**
+- 생성: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesSerializer.kt`
+- 생성: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`
+- 생성: `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
+- 테스트: `data/settings/src/test/kotlin/com/gasstation/data/settings/DefaultSettingsRepositoryTest.kt`
 
-- [ ] **Step 1: Write the failing repository test**
+- [ ] **단계 1: 실패하는 리포지토리 테스트 작성**
 
 ```kotlin
 class DefaultSettingsRepositoryTest {
@@ -773,12 +773,12 @@ private class InMemoryUserPreferencesDataSource(
 }
 ```
 
-- [ ] **Step 2: Run the settings repository test to verify it fails**
+- [ ] **단계 2: 설정 리포지토리 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :data:settings:testDebugUnitTest`  
-Expected: FAIL because `DefaultSettingsRepository` and `UserPreferencesDataSource` do not exist.
+실행: `./gradlew :data:settings:testDebugUnitTest`
+예상: `DefaultSettingsRepository`와 `UserPreferencesDataSource`가 없으므로 실패
 
-- [ ] **Step 3: Create the DataStore-facing data source**
+- [ ] **단계 3: DataStore 연동 데이터 소스 생성**
 
 ```kotlin
 // core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt
@@ -808,7 +808,7 @@ object UserPreferencesSerializer {
 }
 ```
 
-- [ ] **Step 4: Implement the repository**
+- [ ] **단계 4: 리포지토리 구현**
 
 ```kotlin
 // data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt
@@ -832,10 +832,10 @@ class DefaultSettingsRepository(
 }
 ```
 
-- [ ] **Step 5: Re-run the test and then add the Android-backed DataStore implementation**
+- [ ] **단계 5: 테스트를 다시 실행한 뒤 Android 기반 DataStore 구현 추가**
 
-Run: `./gradlew :data:settings:testDebugUnitTest`  
-Expected: PASS with the in-memory fake.
+실행: `./gradlew :data:settings:testDebugUnitTest`
+예상: 인메모리 가짜 구현 기준으로 통과
 
 ```kotlin
 // core/datastore/src/main/kotlin/com/gasstation/core/datastore/AndroidUserPreferencesDataSource.kt
@@ -866,45 +866,45 @@ class AndroidUserPreferencesDataSource(
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add core/datastore data/settings
 git commit -m "feat: add datastore-backed settings repository"
 ```
 
-## Task 4: Implement the station cache policy and Room schema
+## 작업 4: 주유소 캐시 정책과 Room 스키마 구현
 
-**Files:**
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/GasStationDatabase.kt`
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheEntity.kt`
-- Create: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheDao.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt`
-- Test: `data/station/src/test/kotlin/com/gasstation/data/station/StationCachePolicyTest.kt`
+**대상 파일:**
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/GasStationDatabase.kt`
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheEntity.kt`
+- 생성: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheDao.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt`
+- 테스트: `data/station/src/test/kotlin/com/gasstation/data/station/StationCachePolicyTest.kt`
 
-- [ ] **Step 1: Write the failing cache-policy test**
+- [ ] **단계 1: 실패하는 캐시 정책 테스트 작성**
 
 ```kotlin
 class StationCachePolicyTest {
     @Test
-    fun `result becomes stale after five minutes`() {
+    fun `result becomes 오래된 데이터 after five minutes`() {
         val fetchedAt = Instant.parse("2026-04-18T03:00:00Z")
         val now = Instant.parse("2026-04-18T03:05:01Z")
 
         assertEquals(
             StationFreshness.Stale,
-            StationCachePolicy(staleAfter = Duration.ofMinutes(5)).freshnessOf(fetchedAt, now),
+            StationCachePolicy(오래된 데이터After = Duration.ofMinutes(5)).freshnessOf(fetchedAt, now),
         )
     }
 }
 ```
 
-- [ ] **Step 2: Run the cache-policy test to verify it fails**
+- [ ] **단계 2: 캐시 정책 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :data:station:testDebugUnitTest`  
-Expected: FAIL because `StationCachePolicy` and `StationFreshness` do not exist.
+실행: `./gradlew :data:station:testDebugUnitTest`
+예상: `StationCachePolicy`와 `StationFreshness`가 없으므로 실패
 
-- [ ] **Step 3: Implement the freshness policy**
+- [ ] **단계 3: 신선도 정책 구현**
 
 ```kotlin
 // data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt
@@ -915,10 +915,10 @@ import java.time.Duration
 import java.time.Instant
 
 class StationCachePolicy(
-    private val staleAfter: Duration = Duration.ofMinutes(5),
+    private val 오래된 데이터After: Duration = Duration.ofMinutes(5),
 ) {
     fun freshnessOf(fetchedAt: Instant, now: Instant): StationFreshness =
-        if (Duration.between(fetchedAt, now) > staleAfter) {
+        if (Duration.between(fetchedAt, now) > 오래된 데이터After) {
             StationFreshness.Stale
         } else {
             StationFreshness.Fresh
@@ -926,7 +926,7 @@ class StationCachePolicy(
 }
 ```
 
-- [ ] **Step 4: Add the Room cache schema**
+- [ ] **단계 4: Room 캐시 스키마 추가**
 
 ```kotlin
 // core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheEntity.kt
@@ -979,33 +979,33 @@ interface StationCacheDao {
 }
 ```
 
-- [ ] **Step 5: Re-run the unit test and verify the schema compiles**
+- [ ] **단계 5: 단위 테스트를 다시 실행하고 스키마 컴파일을 검증**
 
-Run: `./gradlew :data:station:testDebugUnitTest :core:database:testDebugUnitTest`  
-Expected: PASS for the policy test and `BUILD SUCCESSFUL` for database module compilation.
+실행: `./gradlew :data:station:testDebugUnitTest :core:database:testDebugUnitTest`
+예상: 정책 테스트는 통과하고 데이터베이스 모듈 컴파일은 `BUILD SUCCESSFUL`
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add core/database data/station
 git commit -m "feat: define station cache policy and room schema"
 ```
 
-## Task 5: Implement network mappers and the repository merge path
+## 작업 5: 네트워크 매퍼와 리포지토리 병합 경로 구현
 
-**Files:**
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetStationDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetResponseDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/model/KakaoTransCoordDto.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/service/OpinetService.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/service/KakaoService.kt`
-- Create: `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkModule.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationRemoteDataSource.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/mapper/StationMappers.kt`
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
-- Test: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
+**대상 파일:**
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetStationDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetResponseDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/model/KakaoTransCoordDto.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/service/OpinetService.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/service/KakaoService.kt`
+- 생성: `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkModule.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/StationRemoteDataSource.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/mapper/StationMappers.kt`
+- 생성: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- 테스트: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
 
-- [ ] **Step 1: Write the failing repository merge test**
+- [ ] **단계 1: 실패하는 리포지토리 병합 테스트 작성**
 
 ```kotlin
 class DefaultStationRepositoryTest {
@@ -1085,12 +1085,12 @@ private class InMemoryStationCacheDao : StationCacheDao {
 }
 ```
 
-- [ ] **Step 2: Run the repository test to verify it fails**
+- [ ] **단계 2: 리포지토리 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :data:station:testDebugUnitTest`  
-Expected: FAIL because DTOs, mappers, repository, and fake DAO contract do not exist yet.
+실행: `./gradlew :data:station:testDebugUnitTest`
+예상: DTO, 매퍼, 리포지토리, 가짜 DAO 계약이 아직 없으므로 실패
 
-- [ ] **Step 3: Implement the remote DTOs and service interfaces**
+- [ ] **단계 3: 원격 DTO와 서비스 인터페이스 구현**
 
 ```kotlin
 // core/network/src/main/kotlin/com/gasstation/core/network/model/OpinetStationDto.kt
@@ -1129,7 +1129,7 @@ interface OpinetService {
 }
 ```
 
-- [ ] **Step 4: Implement mappers and repository**
+- [ ] **단계 4: 매퍼와 리포지토리 구현**
 
 ```kotlin
 // data/station/src/main/kotlin/com/gasstation/data/station/StationRemoteDataSource.kt
@@ -1218,26 +1218,26 @@ class DefaultStationRepository(
 }
 ```
 
-- [ ] **Step 5: Re-run the repository test**
+- [ ] **단계 5: 리포지토리 테스트 재실행**
 
-Run: `./gradlew :data:station:testDebugUnitTest`  
-Expected: PASS
+실행: `./gradlew :data:station:testDebugUnitTest`
+예상: 통과
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add core/network data/station
 git commit -m "feat: add station repository merge path"
 ```
 
-## Task 6: Implement the location contract and permission state model
+## 작업 6: 위치 계약과 권한 상태 모델 구현
 
-**Files:**
-- Create: `core/location/src/main/kotlin/com/gasstation/core/location/LocationPermissionState.kt`
-- Create: `core/location/src/main/kotlin/com/gasstation/core/location/ForegroundLocationProvider.kt`
-- Test: `core/location/src/test/kotlin/com/gasstation/core/location/LocationPermissionStateTest.kt`
+**대상 파일:**
+- 생성: `core/location/src/main/kotlin/com/gasstation/core/location/LocationPermissionState.kt`
+- 생성: `core/location/src/main/kotlin/com/gasstation/core/location/ForegroundLocationProvider.kt`
+- 테스트: `core/location/src/test/kotlin/com/gasstation/core/location/LocationPermissionStateTest.kt`
 
-- [ ] **Step 1: Write the failing permission-state test**
+- [ ] **단계 1: 실패하는 권한 상태 테스트 작성**
 
 ```kotlin
 class LocationPermissionStateTest {
@@ -1251,12 +1251,12 @@ class LocationPermissionStateTest {
 }
 ```
 
-- [ ] **Step 2: Run the location test to verify it fails**
+- [ ] **단계 2: 위치 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :core:location:testDebugUnitTest`  
-Expected: FAIL because `LocationPermissionState` does not exist.
+실행: `./gradlew :core:location:testDebugUnitTest`
+예상: `LocationPermissionState`가 없으므로 실패
 
-- [ ] **Step 3: Add the permission and provider contracts**
+- [ ] **단계 3: 권한과 제공자 계약 추가**
 
 ```kotlin
 // core/location/src/main/kotlin/com/gasstation/core/location/LocationPermissionState.kt
@@ -1274,29 +1274,29 @@ interface ForegroundLocationProvider {
 }
 ```
 
-- [ ] **Step 4: Re-run the test**
+- [ ] **단계 4: 테스트 재실행**
 
-Run: `./gradlew :core:location:testDebugUnitTest`  
-Expected: PASS
+실행: `./gradlew :core:location:testDebugUnitTest`
+예상: 통과
 
-- [ ] **Step 5: Commit**
+- [ ] **단계 5: 커밋**
 
 ```bash
 git add core/location
 git commit -m "feat: add location permission contract"
 ```
 
-## Task 7: Build the settings feature with persisted preferences
+## 작업 7: 영속 선호값 기반 설정 기능 구성
 
-**Files:**
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsAction.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsScreen.kt`
-- Create: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsRoute.kt`
-- Test: `feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsViewModelTest.kt`
+**대상 파일:**
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsAction.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsScreen.kt`
+- 생성: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsRoute.kt`
+- 테스트: `feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsViewModelTest.kt`
 
-- [ ] **Step 1: Write the failing SettingsViewModel test**
+- [ ] **단계 1: 실패하는 SettingsViewModel 테스트 작성**
 
 ```kotlin
 class SettingsViewModelTest {
@@ -1327,12 +1327,12 @@ private class FakeSettingsRepository(
 }
 ```
 
-- [ ] **Step 2: Run the feature test to verify it fails**
+- [ ] **단계 2: 기능 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :feature:settings:testDebugUnitTest`  
-Expected: FAIL because `SettingsViewModel`, `SettingsUiState`, and `SettingsAction` do not exist.
+실행: `./gradlew :feature:settings:testDebugUnitTest`
+예상: `SettingsViewModel`, `SettingsUiState`, `SettingsAction`이 아직 없으므로 실패
 
-- [ ] **Step 3: Implement the feature state and actions**
+- [ ] **단계 3: 기능 상태와 액션 구현**
 
 ```kotlin
 // feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt
@@ -1366,7 +1366,7 @@ sealed interface SettingsAction {
 }
 ```
 
-- [ ] **Step 4: Implement the ViewModel and route**
+- [ ] **단계 4: ViewModel과 라우트 구현**
 
 ```kotlin
 // feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt
@@ -1416,12 +1416,12 @@ fun SettingsScreen(
 }
 ```
 
-- [ ] **Step 5: Re-run the feature test**
+- [ ] **단계 5: 기능 테스트 재실행**
 
-Run: `./gradlew :feature:settings:testDebugUnitTest`  
-Expected: PASS
+실행: `./gradlew :feature:settings:testDebugUnitTest`
+예상: 통과
 
-- [ ] **Step 6: Add the Compose route and verify it compiles**
+- [ ] **단계 6: Compose 라우트 추가 및 컴파일 검증**
 
 ```kotlin
 // feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsRoute.kt
@@ -1437,39 +1437,39 @@ fun SettingsRoute(
 }
 ```
 
-Run: `./gradlew :feature:settings:compileDebugKotlin`  
-Expected: `BUILD SUCCESSFUL`
+실행: `./gradlew :feature:settings:compileDebugKotlin`
+예상: `BUILD SUCCESSFUL`
 
-- [ ] **Step 7: Commit**
+- [ ] **단계 7: 커밋**
 
 ```bash
 git add feature/settings
 git commit -m "feat: add settings feature flow"
 ```
 
-## Task 8: Build the station list feature, app navigation, and external map handoff
+## 작업 8: 주유소 목록 기능, 앱 내비게이션, 외부 지도 연동 구성
 
-**Files:**
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListAction.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
-- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
-- Create: `app/src/main/kotlin/com/gasstation/navigation/GasStationDestination.kt`
-- Create: `app/src/main/kotlin/com/gasstation/navigation/GasStationNavHost.kt`
-- Create: `app/src/main/kotlin/com/gasstation/map/ExternalMapLauncher.kt`
-- Create: `app/src/main/kotlin/com/gasstation/MainActivity.kt`
-- Modify: `app/src/main/AndroidManifest.xml`
-- Test: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
+**대상 파일:**
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListAction.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
+- 생성: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/navigation/GasStationDestination.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/navigation/GasStationNavHost.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/map/ExternalMapLauncher.kt`
+- 생성: `app/src/main/kotlin/com/gasstation/MainActivity.kt`
+- 수정: `app/src/main/AndroidManifest.xml`
+- 테스트: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
-- [ ] **Step 1: Write the failing StationListViewModel test**
+- [ ] **단계 1: 실패하는 StationListViewModel 테스트 작성**
 
 ```kotlin
 class StationListViewModelTest {
     @Test
-    fun `successful refresh emits content state with stale flag from repository`() = runTest {
+    fun `successful refresh emits content state with 오래된 데이터 flag from repository`() = runTest {
         val repository = FakeStationRepository(
             result = StationSearchResult(
                 stations = listOf(
@@ -1511,12 +1511,12 @@ private class FakeStationRepository(
 }
 ```
 
-- [ ] **Step 2: Run the feature test to verify it fails**
+- [ ] **단계 2: 기능 테스트를 실행해 실패를 확인**
 
-Run: `./gradlew :feature:station-list:testDebugUnitTest`  
-Expected: FAIL because the station-list state, action, and view model do not exist.
+실행: `./gradlew :feature:station-list:testDebugUnitTest`
+예상: 주유소 목록 상태, 액션, ViewModel이 아직 없으므로 실패
 
-- [ ] **Step 3: Implement state, action, and effect**
+- [ ] **단계 3: 상태, 액션, 효과 구현**
 
 ```kotlin
 // feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt
@@ -1574,7 +1574,7 @@ sealed interface StationListEffect {
 }
 ```
 
-- [ ] **Step 4: Implement the ViewModel reducer**
+- [ ] **단계 4: ViewModel 리듀서 구현**
 
 ```kotlin
 // feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt
@@ -1673,12 +1673,12 @@ fun StationListRoute(
 }
 ```
 
-- [ ] **Step 5: Re-run the unit test**
+- [ ] **단계 5: 단위 테스트 재실행**
 
-Run: `./gradlew :feature:station-list:testDebugUnitTest`  
-Expected: PASS
+실행: `./gradlew :feature:station-list:testDebugUnitTest`
+예상: 통과
 
-- [ ] **Step 6: Add navigation and external map launcher**
+- [ ] **단계 6: 내비게이션과 외부 지도 실행기 추가**
 
 ```kotlin
 // app/src/main/kotlin/com/gasstation/navigation/GasStationDestination.kt
@@ -1722,43 +1722,43 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-- [ ] **Step 7: Verify app compilation**
+- [ ] **단계 7: 앱 컴파일 검증**
 
-Run: `./gradlew :app:assembleDebug`  
-Expected: `BUILD SUCCESSFUL`
+실행: `./gradlew :app:assembleDebug`
+예상: `BUILD SUCCESSFUL`
 
-- [ ] **Step 8: Commit**
+- [ ] **단계 8: 커밋**
 
 ```bash
 git add feature/station-list app/src/main
 git commit -m "feat: add station list flow and app shell"
 ```
 
-## Task 9: Add demo/prod execution modes, CI, benchmarks, and docs
+## 작업 9: demo/prod 실행 모드, CI, 벤치마크, 문서 추가
 
-**Files:**
-- Modify: `app/build.gradle.kts`
-- Create: `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`
-- Create: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
-- Create: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
-- Create: `benchmark/src/androidTest/kotlin/com/gasstation/benchmark/BaselineProfileGenerator.kt`
-- Create: `.github/workflows/android.yml`
-- Modify: `README.md`
-- Create: `docs/architecture.md`
-- Create: `docs/state-model.md`
-- Create: `docs/offline-strategy.md`
+**대상 파일:**
+- 수정: `app/build.gradle.kts`
+- 생성: `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`
+- 생성: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
+- 생성: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
+- 생성: `benchmark/src/androidTest/kotlin/com/gasstation/benchmark/BaselineProfileGenerator.kt`
+- 생성: `.github/workflows/android.yml`
+- 수정: `README.md`
+- 생성: `docs/architecture.md`
+- 생성: `docs/state-model.md`
+- 생성: `docs/offline-strategy.md`
 
-- [ ] **Step 1: Add the failing documentation acceptance check**
+- [ ] **단계 1: 실패하는 문서 완료 기준 점검 항목 추가**
 
 ```markdown
 <!-- README acceptance checklist -->
-- demo flavor can run without API keys
-- prod flavor documents required local secrets
-- architecture diagram reflects actual module graph
-- offline/stale behavior is described with screenshots or state table
+- demo flavor는 API 키 없이 실행 가능
+- prod flavor 문서에 필요한 로컬 시크릿이 정리되어 있음
+- 아키텍처 다이어그램이 실제 모듈 그래프를 반영함
+- 오프라인 / 오래된 데이터 동작이 스크린샷 또는 상태 표로 설명된다
 ```
 
-- [ ] **Step 2: Configure demo and prod flavors**
+- [ ] **단계 2: demo와 prod flavor 구성**
 
 ```kotlin
 // app/build.gradle.kts
@@ -1790,7 +1790,7 @@ object DemoLocationModule {
 }
 ```
 
-- [ ] **Step 3: Add the benchmark shell and CI workflow**
+- [ ] **단계 3: 벤치마크 기본 틀과 CI 워크플로 추가**
 
 ```kotlin
 // benchmark/src/androidTest/kotlin/com/gasstation/benchmark/BaselineProfileGenerator.kt
@@ -1831,64 +1831,64 @@ jobs:
       - run: ./gradlew :app:assembleDemoDebug :domain:station:test :domain:settings:test :data:settings:testDebugUnitTest :data:station:testDebugUnitTest
 ```
 
-- [ ] **Step 4: Write the docs and README updates**
+- [ ] **단계 4: 문서와 README 업데이트 작성**
 
 ```markdown
 <!-- docs/offline-strategy.md -->
-# Offline Strategy
+# 오프라인 전략
 
-- Cache key: `locationBucket + searchRadius + fuelType`
-- Sort order excluded from cache key
-- Demo flavor uses deterministic seed data
-- Stale threshold: 5 minutes
-- Last successful result remains visible after refresh failures
+- 캐시 키: `locationBucket + searchRadius + fuelType`
+- 정렬 순서는 캐시 키에서 제외
+- demo flavor는 결정적인 시드 데이터를 사용
+- 오래된 데이터 기준 시간: 5분
+- 새로고침 실패 후에도 마지막 성공 결과가 계속 보인다
 ```
 
 ```markdown
 <!-- README.md additions -->
-## Run modes
+## 실행 모드
 
-### Demo
-- no API keys required
-- fake location + fixture station data
-- recommended for reviewers
+### 데모
+- API 키 필요 없음
+- 가짜 위치 + 픽스처 주유소 데이터
+- 검토자에게 권장
 
-### Prod
-- requires local `opinet.apikey` and `kakao.apikey`
-- real network + real device location
+### 프로덕션
+- 로컬 `opinet.apikey`와 `kakao.apikey` 필요
+- 실제 네트워크 + 실제 기기 위치
 ```
 
-- [ ] **Step 5: Run the final verification set**
+- [ ] **단계 5: 최종 검증 세트 실행**
 
-Run: `./gradlew :app:assembleDemoDebug :benchmark:assemble :domain:station:test :data:station:testDebugUnitTest`  
-Expected: `BUILD SUCCESSFUL`
+실행: `./gradlew :app:assembleDemoDebug :benchmark:assemble :domain:station:test :data:station:testDebugUnitTest`
+예상: `BUILD SUCCESSFUL`
 
-Run (with local secrets configured): `./gradlew :app:assembleProdDebug`  
-Expected: `BUILD SUCCESSFUL`
+실행(로컬 시크릿 설정 후): `./gradlew :app:assembleProdDebug`
+예상: `BUILD SUCCESSFUL`
 
-- [ ] **Step 6: Commit**
+- [ ] **단계 6: 커밋**
 
 ```bash
 git add app benchmark .github/workflows/android.yml README.md docs
 git commit -m "docs: finalize execution modes and quality gates"
 ```
 
-## Self-Review
+## 자체 점검
 
-### Spec coverage
-- 아키텍처와 모듈 그래프: Task 1, Task 2
-- 캐시 정책과 stale 규칙: Task 2, Task 4, Task 5
-- 설정 소유권과 DataStore: Task 2, Task 3, Task 7
-- 위치 권한과 approximate 대응: Task 6, Task 8
-- station list 상태 모델 / reducer / effect: Task 8
-- demo/prod reviewer onboarding: Task 9
-- benchmark / CI / docs: Task 9
+### 스펙 반영 범위
+- 아키텍처와 모듈 그래프: 작업 1, 작업 2
+- 캐시 정책과 오래된 데이터 규칙: 작업 2, 작업 4, 작업 5
+- 설정 소유권과 DataStore: 작업 2, 작업 3, 작업 7
+- 위치 권한과 대략 위치 대응: 작업 6, 작업 8
+- 주유소 목록 상태 모델 / 리듀서 / 효과: 작업 8
+- demo/prod 검토자 온보딩: 작업 9
+- 벤치마크 / CI / 문서: 작업 9
 
-### Placeholder scan
+### 플레이스홀더 점검
 - `TBD`, `TODO`, `implement later`, `similar to` 없음
-- 각 task마다 파일 경로, 코드, 명령, 기대 결과, commit 메시지 포함
+- 각 작업마다 파일 경로, 코드, 명령, 기대 결과, 커밋 메시지 포함
 
-### Type consistency
-- `UserPreferences`, `StationQuery`, `StationQueryCacheKey`, `StationSearchResult`, `LocationPermissionState` 이름을 전 task에서 동일하게 사용
-- `StationFreshness`는 Task 2에서 도메인 모델로 정의하고 Task 4, Task 8에서 그대로 사용
-- `ExternalMapLauncher`, `SettingsRepository`, `StationRepository` 이름을 task 간 일관되게 유지
+### 타입 일관성
+- `UserPreferences`, `StationQuery`, `StationQueryCacheKey`, `StationSearchResult`, `LocationPermissionState` 이름을 전 작업에서 동일하게 사용
+- `StationFreshness`는 작업 2에서 도메인 모델로 정의하고 작업 4, 작업 8에서 그대로 사용
+- `ExternalMapLauncher`, `SettingsRepository`, `StationRepository` 이름을 작업 간 일관되게 유지

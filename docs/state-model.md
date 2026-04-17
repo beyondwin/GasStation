@@ -1,34 +1,34 @@
-# State Model
+# 상태 모델
 
-The reference app keeps persisted preferences and volatile session state separate.
+이 레퍼런스 앱은 영속 설정 상태와 일시적인 세션 상태를 분리해서 유지합니다.
 
-## Persisted preference state
+## 영속 선호 설정 상태
 
-`data:settings` writes long-lived user choices into DataStore through `SettingsRepository`.
+`data:settings`는 `SettingsRepository`를 통해 장기 사용자 선택 값을 DataStore에 기록합니다.
 
-- Search radius
-- Fuel type
-- Brand filter
-- Sort order
-- External map provider
+- 검색 반경
+- 유종
+- 브랜드 필터
+- 정렬 순서
+- 외부 지도 제공자
 
-`core:datastore` also performs a one-time migration from the legacy shared-preferences keys into the same `UserPreferences` model, so existing installs converge onto the DataStore-backed state surface.
+`core:datastore`는 기존 shared preferences 키를 동일한 `UserPreferences` 모델로 한 번만 마이그레이션합니다. 기존 설치 사용자도 결국 DataStore 기반 상태 표면으로 수렴하게 됩니다.
 
-These values survive process death and feed both the settings screen and the station query pipeline.
+이 값들은 프로세스가 종료되어도 유지되며, 설정 화면과 주유소 조회 파이프라인 모두의 입력으로 사용됩니다.
 
-## Session state
+## 세션 상태
 
-`feature:station-list` keeps session-only state inside `StationListSessionState` and derives `StationListUiState` from a combination of preferences, session inputs, and cached search results.
+`feature:station-list`는 세션 전용 상태를 `StationListSessionState`에 두고, 선호 설정, 세션 입력, 캐시된 검색 결과를 조합해 `StationListUiState`를 만듭니다.
 
-- Current coordinates
-- Permission state
-- GPS availability
-- Loading / refreshing flags
-- Snackbar and external-map effects
-- Stale/fresh rendering derived from cached result freshness
+- 현재 좌표
+- 권한 상태
+- GPS 사용 가능 여부
+- 로딩 / 새로고침 플래그
+- 스낵바와 외부 지도 효과
+- 캐시 결과의 신선도에서 파생된 오래된 상태 / 최신 상태 렌더링
 
-This state is recreated per process and is intentionally not written back to DataStore. That keeps runtime conditions out of persisted settings and preserves the intended ownership split from the design review: preferences are durable inputs, while permissions, location, stale status, and UI effects are session concerns.
+이 상태는 프로세스마다 다시 생성되며 의도적으로 DataStore에 기록하지 않습니다. 이렇게 해야 실행 중 조건이 영속 설정에 섞이지 않고, 설계 검토에서 정한 책임 분리가 유지됩니다. 즉 선호값은 오래 유지되는 입력이고, 권한, 위치, 오래된 상태, UI 효과는 세션 관심사입니다.
 
-## Demo onboarding path
+## 데모 온보딩 경로
 
-`demo` keeps the same reducer and stale/offline semantics as `prod`, but starts from deterministic seeded cache data and a fake coordinate source. Reviewers can exercise the state model without live API credentials, while `prod` still uses the exact same domain and data contracts with real secrets.
+`demo`는 `prod`와 동일한 reducer 및 오래된 데이터 / 오프라인 의미 체계를 유지하지만, 결정적인 시드 캐시 데이터와 가짜 좌표 공급자에서 시작합니다. 검토자는 실제 API 자격 증명 없이도 상태 모델을 검증할 수 있고, `prod`는 같은 도메인 및 데이터 계약을 실제 시크릿과 함께 그대로 사용합니다.

@@ -1,24 +1,24 @@
-# Offline Strategy
+# 오프라인 전략
 
-`data:station` treats the Room cache as the read model for station search results.
+`data:station`은 주유소 검색 결과의 읽기 모델로 Room 캐시를 사용합니다.
 
-## Cache key
+## 캐시 키
 
-- Cache key = `locationBucket + searchRadius + fuelType`
-- `sortOrder` is excluded from the key because distance/price sorting is applied on the cached result set
-- Brand filtering is applied client-side after the cached snapshot is loaded
-- `mapProvider` is also excluded because it only changes the external handoff target, not the fetched station dataset
+- 캐시 키는 `locationBucket + searchRadius + fuelType` 조합으로 구성합니다.
+- `sortOrder`는 캐시된 결과 집합에 거리순 / 가격순 정렬을 적용할 수 있으므로 키에서 제외합니다.
+- 브랜드 필터는 캐시 스냅샷을 읽은 뒤 클라이언트에서 적용합니다.
+- `mapProvider`는 외부 앱 연동 대상만 바꾸고 가져오는 주유소 데이터셋은 바꾸지 않으므로 키에서 제외합니다.
 
-## Freshness and stale behavior
+## 신선도와 오래된 데이터 처리
 
-- Freshness is determined by `StationCachePolicy`
-- The stale threshold is 5 minutes
-- Cached data is still rendered when it is stale
-- When refresh fails, `DefaultStationRepository.refreshNearbyStations()` throws without replacing the Room snapshot
-- Because the observe path still reads the existing snapshot, the last successful result remains visible and the UI stays in a stale state instead of clearing the list
+- 신선도는 `StationCachePolicy`가 판정합니다.
+- 오래된 데이터 기준 시간은 5분입니다.
+- 캐시가 오래되었더라도 화면에는 계속 렌더링합니다.
+- 새로고침이 실패하면 `DefaultStationRepository.refreshNearbyStations()`는 Room 스냅샷을 교체하지 않고 예외를 던집니다.
+- 관찰 경로는 기존 스냅샷을 계속 읽기 때문에 마지막 성공 결과가 화면에 남고, 목록을 비우는 대신 UI는 오래된 상태를 유지합니다.
 
-## Demo flavor
+## 데모 flavor
 
-- `demo` preloads a deterministic station snapshot for the default search radius and gasoline fuel type
-- `demo` also uses a fixed Seoul coordinate so the seeded cache bucket lines up with reviewer onboarding
-- No API keys are required for `demo`; the fake coordinate plus seeded snapshot demonstrate the same stale/offline semantics that `prod` uses with live network refreshes
+- `demo`는 기본 검색 반경과 휘발유 유종에 맞는 결정적 주유소 스냅샷을 미리 적재합니다.
+- `demo`는 시드 캐시 버킷이 검토자 온보딩과 맞물리도록 고정된 서울 좌표도 함께 사용합니다.
+- `demo`는 API 키가 필요 없습니다. 가짜 좌표와 시드 스냅샷으로 `prod`가 실제 네트워크 새로고침에서 사용하는 것과 같은 오래된 데이터 / 오프라인 의미 체계를 보여줍니다.
