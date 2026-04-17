@@ -1,16 +1,12 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -20,5 +16,23 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "GasStation"
-include(":app")
- 
+
+include(
+    ":app",
+    ":core:common",
+    ":core:model",
+    ":core:ui",
+    ":core:designsystem",
+    ":core:testing",
+    ":core:location",
+    ":core:network",
+    ":core:database",
+    ":core:datastore",
+    ":domain:settings",
+    ":domain:station",
+    ":data:settings",
+    ":data:station",
+    ":feature:settings",
+    ":feature:station-list",
+    ":benchmark",
+)
