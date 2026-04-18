@@ -13,7 +13,6 @@ android {
 dependencies {
     implementation(project(":domain:settings"))
     implementation(project(":domain:station"))
-    implementation(project(":core:ui"))
     implementation(project(":core:designsystem"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

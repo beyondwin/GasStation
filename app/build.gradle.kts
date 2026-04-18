@@ -47,6 +47,10 @@ android {
             )
         }
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -64,6 +68,10 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
+
+    testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.robolectric)
+    kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.android.compiler)
