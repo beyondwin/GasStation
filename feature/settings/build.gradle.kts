@@ -5,9 +5,6 @@ plugins {
 
 android {
     namespace = "com.gasstation.feature.settings"
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {
