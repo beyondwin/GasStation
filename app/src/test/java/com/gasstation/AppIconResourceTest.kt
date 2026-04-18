@@ -1,8 +1,10 @@
 package com.gasstation
 
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.BitmapDrawable
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,5 +31,17 @@ class AppIconResourceTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
         assertNotNull(context.getDrawable(R.mipmap.ic_launcher))
+    }
+
+    @Test
+    fun `launcher foreground is not backed by a low resolution bitmap`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val drawable = context.getDrawable(R.drawable.ic_launcher_foreground)
+
+        assertNotNull(drawable)
+        assertFalse(
+            "ic_launcher_foreground should be vector or xml based to avoid bitmap scaling artifacts",
+            drawable is BitmapDrawable,
+        )
     }
 }

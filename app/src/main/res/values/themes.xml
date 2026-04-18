@@ -2,4 +2,10 @@
 <resources>
 
     <style name="Theme.GasStation" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.GasStation.Launcher" parent="@style/Theme.GasStation">
+        <item name="android:windowBackground">@drawable/splash_screen_background</item>
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_foreground</item>
+    </style>
 </resources>
