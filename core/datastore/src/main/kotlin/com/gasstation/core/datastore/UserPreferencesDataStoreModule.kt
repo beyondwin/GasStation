@@ -22,14 +22,6 @@ object UserPreferencesDataStoreModule {
     ): DataStore<UserPreferences> =
         DataStoreFactory.create(
             serializer = UserPreferencesSerializer,
-            migrations = listOf(
-                LegacyUserPreferencesMigration(
-                    context.getSharedPreferences(
-                        LegacyUserPreferencesMigration.LEGACY_PREFERENCES_FILE_NAME,
-                        Context.MODE_PRIVATE,
-                    ),
-                ),
-            ),
             produceFile = { context.filesDir.resolve(USER_PREFERENCES_FILE_NAME) },
         )
 
