@@ -1,22 +1,16 @@
 package com.gasstation.feature.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,10 +23,10 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray4
-import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
+import com.gasstation.core.designsystem.component.LegacyChromeCard
+import com.gasstation.core.designsystem.component.LegacyListRow
+import com.gasstation.core.designsystem.component.LegacySectionHeading
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 
@@ -60,36 +54,27 @@ fun SettingsDetailScreen(
                 )
             },
         ) { innerPadding ->
-            Box(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(ColorGray4),
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = ColorWhite,
-                        ) {
-                            Column {
-                                options.forEachIndexed { index, option ->
-                                    SettingsDetailRow(
-                                        label = option.label,
-                                        isSelected = option.isSelected,
-                                        onClick = { onOptionClick(option) },
-                                    )
-                                    if (index != options.lastIndex) {
-                                        HorizontalDivider(color = ColorGray4)
-                                    }
-                                }
-                            }
-                        }
+                item {
+                    LegacyChromeCard {
+                        LegacySectionHeading(
+                            title = section.title,
+                            subtitle = section.subtitle,
+                        )
                     }
+                }
+                items(options, key = SettingOptionUiModel::label) { option ->
+                    SettingsDetailRow(
+                        section = section,
+                        option = option,
+                        onClick = { onOptionClick(option) },
+                    )
                 }
             }
         }
@@ -98,31 +83,27 @@ fun SettingsDetailScreen(
 
 @Composable
 private fun SettingsDetailRow(
-    label: String,
-    isSelected: Boolean,
+    section: SettingsSection,
+    option: SettingOptionUiModel,
     onClick: () -> Unit,
 ) {
-    Row(
+    LegacyListRow(
         modifier = Modifier
-            .fillMaxWidth()
             .semantics {
-                selected = isSelected
+                selected = option.isSelected
                 role = Role.RadioButton
+            },
+        overline = section.overline,
+        title = option.label,
+        subtitle = option.subtitle,
+        meta = option.meta,
+        onClick = onClick,
+        trailingContent = {
+            if (option.isSelected) {
+                SelectedCheckIcon()
             }
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f),
-            color = ColorBlack,
-        )
-        if (isSelected) {
-            Spacer(modifier = Modifier.size(12.dp))
-            SelectedCheckIcon()
-        }
-    }
+        },
+    )
 }
 
 @Composable

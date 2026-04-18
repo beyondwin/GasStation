@@ -1,23 +1,16 @@
 package com.gasstation.feature.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,13 +21,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorGray4
-import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
+import com.gasstation.core.designsystem.component.LegacyListRow
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 
@@ -61,36 +51,19 @@ fun SettingsScreen(
                 )
             },
         ) { innerPadding ->
-            Box(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(ColorGray4),
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = ColorWhite,
-                        ) {
-                            Column {
-                                SettingsSection.entries.forEachIndexed { index, section ->
-                                    SettingsMenuRow(
-                                        title = section.title,
-                                        summary = uiState.selectedLabelFor(section),
-                                        onClick = { onSectionClick(section) },
-                                    )
-                                    if (index != SettingsSection.entries.lastIndex) {
-                                        HorizontalDivider(color = ColorGray4)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                items(SettingsSection.entries, key = SettingsSection::routeSegment) { section ->
+                    SettingsMenuRow(
+                        section = section,
+                        selectedLabel = uiState.selectedLabelFor(section),
+                        onClick = { onSectionClick(section) },
+                    )
                 }
             }
         }
@@ -99,30 +72,20 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsMenuRow(
-    title: String,
-    summary: String,
+    section: SettingsSection,
+    selectedLabel: String,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            color = ColorBlack,
-        )
-        Spacer(modifier = Modifier.size(12.dp))
-        Text(
-            text = summary,
-            color = ColorGray2,
-        )
-        Spacer(modifier = Modifier.size(12.dp))
-        LegacyChevronIcon()
-    }
+    LegacyListRow(
+        overline = section.overline,
+        title = section.title,
+        subtitle = section.subtitle,
+        meta = "현재 설정: $selectedLabel",
+        onClick = onClick,
+        trailingContent = {
+            LegacyChevronIcon()
+        },
+    )
 }
 
 @Composable

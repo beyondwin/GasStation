@@ -35,14 +35,114 @@ import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorGray4
+import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.ColorSupportSuccess
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 
-private val LegacyOuterShape = RoundedCornerShape(20.dp)
-private val LegacyInnerShape = RoundedCornerShape(18.dp)
+enum class LegacyMaterialTypographySlot {
+    TitleLarge,
+    TitleMedium,
+    TitleSmall,
+    BodyMedium,
+    LabelLarge,
+    LabelMedium,
+    LabelSmall,
+}
+
+enum class LegacyChromeTextRole(
+    val fallbackMaterialSlot: LegacyMaterialTypographySlot,
+) {
+    TopBarTitle(LegacyMaterialTypographySlot.TitleLarge),
+    SectionTitle(LegacyMaterialTypographySlot.TitleMedium),
+    CardTitle(LegacyMaterialTypographySlot.TitleMedium),
+    PriceHero(LegacyMaterialTypographySlot.LabelLarge),
+    MetricValue(LegacyMaterialTypographySlot.LabelMedium),
+    Body(LegacyMaterialTypographySlot.BodyMedium),
+    Meta(LegacyMaterialTypographySlot.LabelSmall),
+    Chip(LegacyMaterialTypographySlot.LabelSmall),
+    BannerTitle(LegacyMaterialTypographySlot.TitleSmall),
+    BannerBody(LegacyMaterialTypographySlot.LabelSmall),
+    ;
+
+    fun isProminentNumericEmphasis(): Boolean = this == PriceHero || this == MetricValue
+}
+
+enum class LegacyStructuredTextSlot {
+    Overline,
+    Title,
+    Subtitle,
+    Body,
+    Meta,
+}
+
+data class LegacyTextSlotRole(
+    val slot: LegacyStructuredTextSlot,
+    val role: LegacyChromeTextRole,
+)
+
+enum class LegacyChromeCardSection {
+    Header,
+    PrimaryMetric,
+    SupportingInfo,
+    Actions,
+}
+
+data class LegacyChromeCardStructure(
+    val hasHeader: Boolean = false,
+    val hasPrimaryMetric: Boolean = false,
+    val hasSupportingInfo: Boolean = false,
+    val hasActions: Boolean = false,
+) {
+    fun orderedSections(): List<LegacyChromeCardSection> = buildList {
+        if (hasHeader) add(LegacyChromeCardSection.Header)
+        if (hasPrimaryMetric) add(LegacyChromeCardSection.PrimaryMetric)
+        if (hasSupportingInfo) add(LegacyChromeCardSection.SupportingInfo)
+        if (hasActions) add(LegacyChromeCardSection.Actions)
+    }
+}
+
+data class LegacyStatusBannerContent(
+    val title: String,
+    val body: String? = null,
+) {
+    init {
+        require(title.isNotBlank()) { "Status banner title is required." }
+    }
+
+    fun orderedSlots(): List<LegacyTextSlotRole> = buildList {
+        add(LegacyTextSlotRole(LegacyStructuredTextSlot.Title, LegacyChromeTextRole.BannerTitle))
+        if (!body.isNullOrBlank()) {
+            add(LegacyTextSlotRole(LegacyStructuredTextSlot.Body, LegacyChromeTextRole.BannerBody))
+        }
+    }
+}
+
+data class LegacyListRowContent(
+    val title: String,
+    val overline: String? = null,
+    val subtitle: String? = null,
+    val meta: String? = null,
+) {
+    init {
+        require(title.isNotBlank()) { "List row title is required." }
+    }
+
+    fun orderedSlots(): List<LegacyTextSlotRole> = buildList {
+        if (!overline.isNullOrBlank()) {
+            add(LegacyTextSlotRole(LegacyStructuredTextSlot.Overline, LegacyChromeTextRole.Meta))
+        }
+        add(LegacyTextSlotRole(LegacyStructuredTextSlot.Title, LegacyChromeTextRole.CardTitle))
+        if (!subtitle.isNullOrBlank()) {
+            add(LegacyTextSlotRole(LegacyStructuredTextSlot.Subtitle, LegacyChromeTextRole.Body))
+        }
+        if (!meta.isNullOrBlank()) {
+            add(LegacyTextSlotRole(LegacyStructuredTextSlot.Meta, LegacyChromeTextRole.Meta))
+        }
+    }
+}
 
 @Composable
 fun LegacyYellowBackground(
@@ -63,8 +163,9 @@ fun LegacyTopBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val corner = GasStationTheme.corner
     TopAppBar(
-        modifier = modifier,
+        modifier = modifier.clip(RoundedCornerShape(bottomStart = corner.large, bottomEnd = corner.large)),
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = ColorBlack,
             scrolledContainerColor = ColorBlack,
@@ -73,7 +174,7 @@ fun LegacyTopBar(
             actionIconContentColor = ColorYellow,
         ),
         title = {
-            ProvideTextStyle(MaterialTheme.typography.titleLarge) {
+            ProvideTextStyle(LegacyChromeTextRole.TopBarTitle.style()) {
                 title()
             }
         },
@@ -88,21 +189,25 @@ fun LegacyChromeCard(
     contentPadding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val corner = GasStationTheme.corner
+    val stroke = GasStationTheme.stroke
+    val spacing = GasStationTheme.spacing
+
     Surface(
         modifier = modifier,
         color = ColorBlack,
-        shape = LegacyOuterShape,
+        shape = RoundedCornerShape(corner.large),
     ) {
         Surface(
-            modifier = Modifier.padding(2.dp),
+            modifier = Modifier.padding(stroke.default),
             color = ColorWhite,
-            shape = LegacyInnerShape,
+            shape = RoundedCornerShape(corner.medium),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing.space12),
                 content = content,
             )
         }
@@ -115,19 +220,21 @@ fun LegacySectionHeading(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
 ) {
+    val spacing = GasStationTheme.spacing
+
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing.space4),
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = LegacyChromeTextRole.SectionTitle.style(),
             color = ColorBlack,
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.titleSmall,
+                style = LegacyChromeTextRole.Body.style(),
                 color = ColorGray2,
             )
         }
@@ -141,38 +248,52 @@ fun LegacyStatusBanner(
     detail: String? = null,
     tone: LegacyStatusTone = LegacyStatusTone.Neutral,
 ) {
+    val content = LegacyStatusBannerContent(
+        title = text,
+        body = detail,
+    )
     val colors = tone.colors()
+    val corner = GasStationTheme.corner
+    val spacing = GasStationTheme.spacing
+    val stroke = GasStationTheme.stroke
 
     Surface(
         modifier = modifier,
         color = colors.container,
         contentColor = colors.content,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(corner.medium),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(width = 2.dp, color = ColorBlack, shape = RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .border(
+                    width = stroke.default,
+                    color = ColorBlack,
+                    shape = RoundedCornerShape(corner.medium),
+                )
+                .padding(
+                    horizontal = spacing.space12,
+                    vertical = spacing.space12,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 10.dp, height = 42.dp)
+                    .size(width = 8.dp, height = 40.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(colors.accent),
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Spacer(modifier = Modifier.width(spacing.space12))
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
                 Text(
-                    text = text,
-                    style = MaterialTheme.typography.titleSmall,
+                    text = content.title,
+                    style = LegacyChromeTextRole.BannerTitle.style(),
                     color = colors.content,
                 )
-                if (detail != null) {
+                if (content.body != null) {
                     Text(
-                        text = detail,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = content.body,
+                        style = LegacyChromeTextRole.BannerBody.style(),
                         color = colors.content.copy(alpha = 0.8f),
                     )
                 }
@@ -192,6 +313,13 @@ fun LegacyListRow(
     leadingContent: (@Composable (() -> Unit))? = null,
     trailingContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    val content = LegacyListRowContent(
+        title = title,
+        overline = overline,
+        subtitle = subtitle,
+        meta = meta,
+    )
+    val spacing = GasStationTheme.spacing
     val interactiveModifier = if (onClick != null) {
         Modifier.clickable(onClick = onClick)
     } else {
@@ -200,7 +328,10 @@ fun LegacyListRow(
 
     LegacyChromeCard(
         modifier = modifier.then(interactiveModifier),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space12,
+        ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -208,45 +339,45 @@ fun LegacyListRow(
         ) {
             if (leadingContent != null) {
                 leadingContent()
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(spacing.space12))
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing.space4),
             ) {
-                if (overline != null) {
+                if (content.overline != null) {
                     Text(
-                        text = overline,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = content.overline,
+                        style = LegacyChromeTextRole.Meta.style(),
                         color = ColorGray3,
                     )
                 }
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = content.title,
+                    style = LegacyChromeTextRole.CardTitle.style(),
                     color = ColorBlack,
                 )
-                if (subtitle != null) {
+                if (content.subtitle != null) {
                     Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = content.subtitle,
+                        style = LegacyChromeTextRole.Body.style(),
                         color = ColorGray2,
                     )
                 }
-                if (meta != null) {
+                if (content.meta != null) {
                     Text(
-                        text = meta,
-                        style = MaterialTheme.typography.titleSmall,
+                        text = content.meta,
+                        style = LegacyChromeTextRole.Meta.style(),
                         color = ColorGray3,
                     )
                 }
             }
             if (trailingContent != null) {
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(spacing.space16))
                 Column(
                     modifier = Modifier.wrapContentWidth(),
                     horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(spacing.space8),
                 ) {
                     trailingContent.invoke(this)
                 }
@@ -295,4 +426,18 @@ private fun LegacyStatusTone.colors(): LegacyStatusColors = when (this) {
         content = ColorBlack,
         accent = ColorSupportError,
     )
+}
+
+@Composable
+private fun LegacyChromeTextRole.style(): androidx.compose.ui.text.TextStyle = when (this) {
+    LegacyChromeTextRole.TopBarTitle -> GasStationTheme.typography.topBarTitle
+    LegacyChromeTextRole.SectionTitle -> GasStationTheme.typography.sectionTitle
+    LegacyChromeTextRole.CardTitle -> GasStationTheme.typography.cardTitle
+    LegacyChromeTextRole.PriceHero -> GasStationTheme.typography.priceHero
+    LegacyChromeTextRole.MetricValue -> GasStationTheme.typography.metricValue
+    LegacyChromeTextRole.Body -> GasStationTheme.typography.body
+    LegacyChromeTextRole.Meta -> GasStationTheme.typography.meta
+    LegacyChromeTextRole.Chip -> GasStationTheme.typography.chip
+    LegacyChromeTextRole.BannerTitle -> GasStationTheme.typography.bannerTitle
+    LegacyChromeTextRole.BannerBody -> GasStationTheme.typography.bannerBody
 }

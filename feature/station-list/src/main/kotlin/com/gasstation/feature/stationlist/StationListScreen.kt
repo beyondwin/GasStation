@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +28,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -36,18 +37,22 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorGray4
+import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.LegacyChromeCard
@@ -58,6 +63,9 @@ import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.domain.station.model.BrandFilter
+
+internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
+internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 
 @Composable
 fun StationListScreen(
@@ -143,8 +151,11 @@ private fun SortToggleTitle(
     sortOrder: com.gasstation.domain.station.model.SortOrder,
     onClick: () -> Unit,
 ) {
+    val typography = GasStationTheme.typography
+
     Text(
         text = sortOrder.toTitleLabel(),
+        style = typography.topBarTitle,
         modifier = Modifier
             .semantics {
                 stateDescription = sortOrder.toStateDescription()
@@ -165,11 +176,15 @@ private fun StationListContent(
     modifier: Modifier = Modifier,
 ) {
     val banners = StationListBannerModel.from(uiState)
+    val spacing = GasStationTheme.spacing
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space12,
+        ),
+        verticalArrangement = Arrangement.spacedBy(spacing.space12),
     ) {
         items(
             items = banners,
@@ -212,12 +227,20 @@ private fun StationListContent(
 private fun FilterSummary(
     uiState: StationListUiState,
 ) {
-    LegacyChromeCard(modifier = Modifier.fillMaxWidth()) {
+    val spacing = GasStationTheme.spacing
+
+    LegacyChromeCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space16,
+        ),
+    ) {
         LegacySectionHeading(
             title = "현재 조건",
             subtitle = "반경과 유종 기준으로 정렬합니다.",
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.space8)) {
             FilterPill(text = uiState.selectedRadius.toLabel())
             FilterPill(text = uiState.selectedFuelType.toLabel())
         }
@@ -228,16 +251,28 @@ private fun FilterSummary(
 private fun FilterPill(
     text: String,
 ) {
+    val spacing = GasStationTheme.spacing
+    val corner = GasStationTheme.corner
+    val stroke = GasStationTheme.stroke
+    val typography = GasStationTheme.typography
+
     Surface(
         color = ColorGray4,
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(corner.small),
     ) {
         Text(
             text = text,
             modifier = Modifier
-                .border(width = 2.dp, color = ColorBlack, shape = RoundedCornerShape(999.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelLarge,
+                .border(
+                    width = stroke.default,
+                    color = ColorBlack,
+                    shape = RoundedCornerShape(corner.small),
+                )
+                .padding(
+                    horizontal = spacing.space12,
+                    vertical = spacing.space4,
+                ),
+            style = typography.chip,
             color = ColorBlack,
         )
     }
@@ -250,51 +285,68 @@ private fun StationCard(
     onClick: () -> Unit,
     onWatchToggle: () -> Unit,
 ) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+
     LegacyChromeCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space16,
+        ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(spacing.space16),
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing.space12),
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.testTag(STATION_LIST_METRIC_ROW_TAG),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space24),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    FuelChip(text = fuelTypeLabel)
-                    Text(
-                        text = station.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = ColorGray2,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     MetricBlock(
                         label = "가격",
                         number = station.priceNumberLabel,
                         unit = station.priceUnitLabel,
+                        emphasis = MetricEmphasis.Primary,
                     )
                     MetricBlock(
                         label = "거리",
                         number = station.distanceNumberLabel,
                         unit = station.distanceUnitLabel,
+                        emphasis = MetricEmphasis.Secondary,
+                    )
+                }
+                Text(
+                    text = station.name,
+                    modifier = Modifier.testTag(STATION_LIST_CARD_TITLE_TAG),
+                    style = typography.cardTitle,
+                    color = ColorBlack,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FuelChip(text = fuelTypeLabel)
+                    Text(
+                        text = station.brandLabel,
+                        style = typography.meta,
+                        color = ColorGray2,
                     )
                 }
                 Text(
                     text = station.priceDeltaLabel,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typography.body,
                     color = ColorGray2,
-                )
-                Text(
-                    text = station.brandLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = ColorGray3,
                 )
             }
             WatchToggleButton(
@@ -309,19 +361,36 @@ private fun StationCard(
 private fun FuelChip(
     text: String,
 ) {
+    val spacing = GasStationTheme.spacing
+    val corner = GasStationTheme.corner
+    val stroke = GasStationTheme.stroke
+    val typography = GasStationTheme.typography
+
     Surface(
         color = ColorGray4,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(corner.small),
     ) {
         Text(
             text = text,
             modifier = Modifier
-                .border(width = 2.dp, color = ColorBlack, shape = RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
+                .border(
+                    width = stroke.default,
+                    color = ColorBlack,
+                    shape = RoundedCornerShape(corner.small),
+                )
+                .padding(
+                    horizontal = spacing.space8,
+                    vertical = spacing.space4,
+                ),
+            style = typography.chip,
             color = ColorBlack,
         )
     }
+}
+
+private enum class MetricEmphasis {
+    Primary,
+    Secondary,
 }
 
 @Composable
@@ -329,25 +398,39 @@ private fun MetricBlock(
     label: String,
     number: String,
     unit: String,
+    emphasis: MetricEmphasis,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+    val numberStyle = when (emphasis) {
+        MetricEmphasis.Primary -> typography.priceHero
+        MetricEmphasis.Secondary -> typography.metricValue
+    }
+    val unitBottomPadding = when (emphasis) {
+        MetricEmphasis.Primary -> 4.dp
+        MetricEmphasis.Secondary -> 3.dp
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = typography.meta,
             color = ColorGray3,
         )
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = number,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black,
+                style = numberStyle,
                 color = ColorBlack,
             )
             Text(
                 text = unit,
-                modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = ColorBlack,
+                modifier = Modifier.padding(
+                    start = spacing.space4,
+                    bottom = unitBottomPadding,
+                ),
+                style = typography.meta,
+                color = ColorGray2,
             )
         }
     }
@@ -358,14 +441,20 @@ private fun WatchToggleButton(
     watched: Boolean,
     onClick: () -> Unit,
 ) {
-    val backgroundColor = if (watched) ColorBlack else ColorWhite
+    val corner = GasStationTheme.corner
+    val stroke = GasStationTheme.stroke
+    val backgroundColor = if (watched) ColorBlack else ColorGray4
     val contentColor = if (watched) ColorYellow else ColorBlack
 
     IconButton(
         modifier = Modifier
-            .size(44.dp)
-            .background(color = backgroundColor, shape = RoundedCornerShape(12.dp))
-            .border(width = 2.dp, color = ColorBlack, shape = RoundedCornerShape(12.dp))
+            .size(42.dp)
+            .background(color = backgroundColor, shape = RoundedCornerShape(corner.small))
+            .border(
+                width = stroke.emphasis,
+                color = ColorBlack,
+                shape = RoundedCornerShape(corner.small),
+            )
             .semantics {
                 selected = watched
                 stateDescription = if (watched) {
@@ -390,7 +479,7 @@ private fun PermissionRequired(
     onRequestPermissions: () -> Unit,
 ) {
     BrandedStateContainer(modifier = modifier) {
-        BrandedStateCard(
+        StationListActionStateCard(
             title = "위치 권한이 필요합니다.",
             body = "주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.",
             buttonLabel = "권한 요청",
@@ -405,7 +494,7 @@ private fun GpsRequired(
     onOpenLocationSettings: () -> Unit,
 ) {
     BrandedStateContainer(modifier = modifier) {
-        BrandedStateCard(
+        StationListActionStateCard(
             title = "위치 서비스를 켜야 합니다.",
             body = "GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 관심 비교를 정확하게 불러올 수 있습니다.",
             buttonLabel = "위치 설정 열기",
@@ -418,11 +507,39 @@ private fun GpsRequired(
 private fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(color = ColorBlack)
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+    BrandedStateContainer(modifier = modifier) {
+        LegacyChromeCard(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(
+                horizontal = spacing.space16,
+                vertical = spacing.space16,
+            ),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.space12),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    color = ColorBlack,
+                    strokeWidth = 3.dp,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
+                    Text(
+                        text = "주변 주유소를 불러오는 중입니다.",
+                        style = typography.sectionTitle,
+                        color = ColorBlack,
+                    )
+                    Text(
+                        text = "현재 조건을 유지한 채 최신 가격을 확인하고 있습니다.",
+                        style = typography.body,
+                        color = ColorGray2,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -430,7 +547,15 @@ private fun LoadingState(
 private fun EmptyState(
     onAction: (StationListAction) -> Unit,
 ) {
-    LegacyChromeCard(modifier = Modifier.fillMaxWidth()) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+    LegacyChromeCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space16,
+        ),
+    ) {
         LegacySectionHeading(
             title = "주변 주유소가 없습니다.",
             subtitle = "반경이나 유종 조건을 유지한 채 다시 조회할 수 있습니다.",
@@ -442,7 +567,10 @@ private fun EmptyState(
             ),
             onClick = { onAction(StationListAction.RetryClicked) },
         ) {
-            Text(text = "다시 시도")
+            Text(
+                text = "다시 시도",
+                style = typography.body,
+            )
         }
     }
 }
@@ -452,21 +580,30 @@ private fun BrandedStateContainer(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val spacing = GasStationTheme.spacing
     Box(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier.padding(spacing.space24),
         contentAlignment = Alignment.Center,
         content = content,
     )
 }
 
 @Composable
-private fun BrandedStateCard(
+private fun StationListActionStateCard(
     title: String,
     body: String,
     buttonLabel: String,
     onClick: () -> Unit,
 ) {
-    LegacyChromeCard(modifier = Modifier.fillMaxWidth()) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+    LegacyChromeCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space16,
+            vertical = spacing.space16,
+        ),
+    ) {
         LegacySectionHeading(title = title, subtitle = body)
         Button(
             colors = ButtonDefaults.buttonColors(
@@ -475,7 +612,10 @@ private fun BrandedStateCard(
             ),
             onClick = onClick,
         ) {
-            Text(text = buttonLabel)
+            Text(
+                text = buttonLabel,
+                style = typography.body,
+            )
         }
     }
 }
