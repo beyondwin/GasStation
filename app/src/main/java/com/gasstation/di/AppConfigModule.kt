@@ -18,7 +18,6 @@ object AppConfigModule {
     @Provides
     @Singleton
     fun provideNetworkRuntimeConfig(): NetworkRuntimeConfig = NetworkRuntimeConfig(
-        kakaoApiKey = BuildConfig.KAKAO_API_KEY,
         opinetApiKey = BuildConfig.OPINET_API_KEY,
     )
 
