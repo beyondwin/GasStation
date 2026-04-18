@@ -1,8 +1,10 @@
 package com.gasstation.feature.watchlist
 
+import com.gasstation.core.model.DistanceMeters
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.WatchedStationSummary
+import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -12,24 +14,48 @@ data class WatchlistItemUiModel(
     val name: String,
     val brandLabel: String,
     val priceLabel: String,
+    val priceNumberLabel: String,
+    val priceUnitLabel: String,
     val distanceLabel: String,
+    val distanceNumberLabel: String,
+    val distanceUnitLabel: String,
     val priceDeltaLabel: String,
     val lastSeenLabel: String,
     val latitude: Double,
     val longitude: Double,
 ) {
+    init {
+        require(priceNumberLabel.isNotBlank()) { "priceNumberLabel must not be blank" }
+        require(priceUnitLabel.isNotBlank()) { "priceUnitLabel must not be blank" }
+        require(distanceNumberLabel.isNotBlank()) { "distanceNumberLabel must not be blank" }
+        require(distanceUnitLabel.isNotBlank()) { "distanceUnitLabel must not be blank" }
+    }
+
     constructor(summary: WatchedStationSummary) : this(
         id = summary.station.id,
         name = summary.station.name,
         brandLabel = summary.station.brand.toLabel(),
-        priceLabel = "${summary.station.price.value}원",
-        distanceLabel = "${summary.station.distance.value}m",
+        priceLabel = summary.station.price.value.toPriceLabel(),
+        priceNumberLabel = summary.station.price.value.toGroupedDigits(),
+        priceUnitLabel = "원",
+        distanceLabel = summary.station.distance.toDistanceLabel(),
+        distanceNumberLabel = summary.station.distance.toDistanceNumberLabel(),
+        distanceUnitLabel = "km",
         priceDeltaLabel = summary.priceDelta.toLabel(),
         lastSeenLabel = summary.lastSeenAt.toLabel(),
         latitude = summary.station.coordinates.latitude,
         longitude = summary.station.coordinates.longitude,
     )
 }
+
+private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
+
+private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
+
+private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
+
+private fun DistanceMeters.toDistanceNumberLabel(): String =
+    DecimalFormat("#,##0.0").format(value / 1000.0)
 
 private fun Brand.toLabel(): String = when (this) {
     Brand.SKE -> "SK에너지"

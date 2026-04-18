@@ -7,11 +7,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SettingsRoute(
+    onCloseClick: () -> Unit,
+    onSectionClick: (SettingsSection) -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SettingsScreen(
         uiState = uiState,
-        onAction = viewModel::onAction,
+        onCloseClick = onCloseClick,
+        onSectionClick = onSectionClick,
     )
 }

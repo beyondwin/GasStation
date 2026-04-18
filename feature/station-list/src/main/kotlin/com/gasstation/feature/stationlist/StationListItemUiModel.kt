@@ -1,8 +1,10 @@
 package com.gasstation.feature.stationlist
 
+import com.gasstation.core.model.DistanceMeters
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
+import java.text.DecimalFormat
 
 data class StationListItemUiModel(
     val id: String,
@@ -10,6 +12,10 @@ data class StationListItemUiModel(
     val brandLabel: String,
     val priceLabel: String,
     val distanceLabel: String,
+    val priceNumberLabel: String,
+    val priceUnitLabel: String,
+    val distanceNumberLabel: String,
+    val distanceUnitLabel: String,
     val priceDeltaLabel: String,
     val isWatched: Boolean,
     val latitude: Double,
@@ -19,14 +25,27 @@ data class StationListItemUiModel(
         id = entry.station.id,
         name = entry.station.name,
         brandLabel = entry.station.brand.toLabel(),
-        priceLabel = "${entry.station.price.value}원",
-        distanceLabel = "${entry.station.distance.value}m",
+        priceLabel = entry.station.price.value.toPriceLabel(),
+        distanceLabel = entry.station.distance.toDistanceLabel(),
+        priceNumberLabel = entry.station.price.value.toGroupedDigits(),
+        priceUnitLabel = "원",
+        distanceNumberLabel = entry.station.distance.toDistanceNumberLabel(),
+        distanceUnitLabel = "km",
         priceDeltaLabel = entry.priceDelta.toLabel(),
         isWatched = entry.isWatched,
         latitude = entry.station.coordinates.latitude,
         longitude = entry.station.coordinates.longitude,
     )
 }
+
+private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
+
+private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
+
+private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
+
+private fun DistanceMeters.toDistanceNumberLabel(): String =
+    DecimalFormat("#,##0.0").format(value / 1000.0)
 
 private fun Brand.toLabel(): String = when (this) {
     Brand.SKE -> "SK에너지"

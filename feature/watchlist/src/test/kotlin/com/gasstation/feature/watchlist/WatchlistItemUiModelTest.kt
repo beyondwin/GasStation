@@ -1,0 +1,96 @@
+package com.gasstation.feature.watchlist
+
+import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.DistanceMeters
+import com.gasstation.core.model.MoneyWon
+import com.gasstation.domain.station.model.Brand
+import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationPriceDelta
+import com.gasstation.domain.station.model.WatchedStationSummary
+import java.time.Instant
+import java.util.TimeZone
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Test
+
+class WatchlistItemUiModelTest {
+    @Test
+    fun `summary constructor exposes split legacy metric labels`() {
+        val originalTimeZone = TimeZone.getDefault()
+
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"))
+
+            val item = WatchlistItemUiModel(
+                WatchedStationSummary(
+                    station = Station(
+                        id = "station-1",
+                        name = "Gangnam First",
+                        brand = Brand.GSC,
+                        price = MoneyWon(1689),
+                        distance = DistanceMeters(300),
+                        coordinates = Coordinates(37.498095, 127.02761),
+                    ),
+                    priceDelta = StationPriceDelta.Decreased(27),
+                    lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
+                ),
+            )
+
+            assertEquals("1,689원", item.priceLabel)
+            assertEquals("1,689", item.priceNumberLabel)
+            assertEquals("원", item.priceUnitLabel)
+            assertEquals("0.3km", item.distanceLabel)
+            assertEquals("0.3", item.distanceNumberLabel)
+            assertEquals("km", item.distanceUnitLabel)
+            assertEquals("27원 하락", item.priceDeltaLabel)
+            assertEquals("4월 18일 12:00", item.lastSeenLabel)
+        } finally {
+            TimeZone.setDefault(originalTimeZone)
+        }
+    }
+
+    @Test
+    fun `direct constructor accepts explicit split metric labels`() {
+        val item = WatchlistItemUiModel(
+            id = "station-1",
+            name = "테스트 주유소",
+            brandLabel = "GS칼텍스",
+            priceLabel = "1689원",
+            priceNumberLabel = "1689",
+            priceUnitLabel = "원",
+            distanceLabel = "300m",
+            distanceNumberLabel = "0.3",
+            distanceUnitLabel = "km",
+            priceDeltaLabel = "직전 가격과 동일",
+            lastSeenLabel = "4월 18일 12:00",
+            latitude = 37.498095,
+            longitude = 127.02761,
+        )
+
+        assertEquals("1689", item.priceNumberLabel)
+        assertEquals("원", item.priceUnitLabel)
+        assertEquals("0.3", item.distanceNumberLabel)
+        assertEquals("km", item.distanceUnitLabel)
+    }
+
+    @Test
+    fun `direct constructor rejects blank split metric labels`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            WatchlistItemUiModel(
+                id = "station-1",
+                name = "테스트 주유소",
+                brandLabel = "GS칼텍스",
+                priceLabel = "1689원",
+                priceNumberLabel = "",
+                priceUnitLabel = "원",
+                distanceLabel = "300m",
+                distanceNumberLabel = "0.3",
+                distanceUnitLabel = "km",
+                priceDeltaLabel = "직전 가격과 동일",
+                lastSeenLabel = "4월 18일 12:00",
+                latitude = 37.498095,
+                longitude = 127.02761,
+            )
+        }
+    }
+}
