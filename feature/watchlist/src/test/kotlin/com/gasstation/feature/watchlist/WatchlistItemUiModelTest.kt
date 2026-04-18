@@ -43,10 +43,39 @@ class WatchlistItemUiModelTest {
             assertEquals("0.3", item.distanceNumberLabel)
             assertEquals("km", item.distanceUnitLabel)
             assertEquals("27원 하락", item.priceDeltaLabel)
+            assertEquals(WatchlistPriceDeltaTone.Fall, item.priceDeltaTone)
             assertEquals("4월 18일 12:00", item.lastSeenLabel)
         } finally {
             TimeZone.setDefault(originalTimeZone)
         }
+    }
+
+    @Test
+    fun `summary constructor maps increased delta to rise tone`() {
+        val item = WatchlistItemUiModel(
+            WatchedStationSummary(
+                station = Station(
+                    id = "station-1",
+                    name = "Gangnam First",
+                    brand = Brand.GSC,
+                    price = MoneyWon(1689),
+                    distance = DistanceMeters(300),
+                    coordinates = Coordinates(37.498095, 127.02761),
+                ),
+                priceDelta = StationPriceDelta.Increased(14),
+                lastSeenAt = null,
+            ),
+        )
+
+        assertEquals("14원 상승", item.priceDeltaLabel)
+        assertEquals(WatchlistPriceDeltaTone.Rise, item.priceDeltaTone)
+    }
+
+    @Test
+    fun `watchlist price delta tone resolves stock colors`() {
+        assertEquals(com.gasstation.core.designsystem.ColorSupportError, WatchlistPriceDeltaTone.Rise.toColor())
+        assertEquals(com.gasstation.core.designsystem.ColorSupportInfo, WatchlistPriceDeltaTone.Fall.toColor())
+        assertEquals(com.gasstation.core.designsystem.ColorGray2, WatchlistPriceDeltaTone.Neutral.toColor())
     }
 
     @Test

@@ -1,15 +1,27 @@
 package com.gasstation.feature.stationlist
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,10 +32,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,12 +44,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -49,13 +62,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.core.tween
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorGray4
-import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
+import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.LegacyChromeCard
@@ -70,6 +84,13 @@ import com.gasstation.domain.station.model.BrandFilter
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 
+private enum class StationListBodyState {
+    PermissionRequired,
+    GpsRequired,
+    InitialLoading,
+    Results,
+}
+
 @Composable
 fun StationListScreen(
     uiState: StationListUiState,
@@ -80,9 +101,6 @@ fun StationListScreen(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (() -> Unit)? = null,
 ) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-
     LegacyYellowBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -96,22 +114,15 @@ fun StationListScreen(
                     },
                     actions = {
                         if (onWatchlistClick != null) {
-                            TextButton(
+                            IconButton(
                                 modifier = Modifier.semantics {
-                                    contentDescription = "관심 비교"
+                                    contentDescription = "북마크"
                                 },
-                                contentPadding = PaddingValues(
-                                    horizontal = spacing.space8,
-                                    vertical = 0.dp,
-                                ),
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = ColorYellow,
-                                ),
                                 onClick = onWatchlistClick,
                             ) {
-                                Text(
-                                    text = "관심 비교",
-                                    style = typography.meta.copy(fontWeight = FontWeight.Bold),
+                                Icon(
+                                    imageVector = Icons.Outlined.BookmarkBorder,
+                                    contentDescription = null,
                                 )
                             }
                         }
@@ -126,34 +137,35 @@ fun StationListScreen(
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { innerPadding ->
-            when {
-                uiState.permissionState == LocationPermissionState.Denied -> PermissionRequired(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    onRequestPermissions = onRequestPermissions,
-                )
+            AnimatedContent(
+                targetState = uiState.toBodyState(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                transitionSpec = { subtleContentTransform() },
+                label = "station-list-body",
+            ) { bodyState ->
+                when (bodyState) {
+                    StationListBodyState.PermissionRequired -> PermissionRequired(
+                        modifier = Modifier.fillMaxSize(),
+                        onRequestPermissions = onRequestPermissions,
+                    )
 
-                !uiState.isGpsEnabled -> GpsRequired(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    onOpenLocationSettings = onOpenLocationSettings,
-                )
+                    StationListBodyState.GpsRequired -> GpsRequired(
+                        modifier = Modifier.fillMaxSize(),
+                        onOpenLocationSettings = onOpenLocationSettings,
+                    )
 
-                uiState.isLoading -> LoadingState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
+                    StationListBodyState.InitialLoading -> LoadingState(
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-                else -> StationListContent(
-                    uiState = uiState,
-                    onAction = onAction,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
+                    StationListBodyState.Results -> StationListResultsPane(
+                        uiState = uiState,
+                        onAction = onAction,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }
@@ -248,23 +260,31 @@ private fun StationListContent(
             key = { banner -> banner.title + (banner.detail ?: "") },
         ) { banner ->
             LegacyStatusBanner(
+                modifier = Modifier.animateContentSize(),
                 text = banner.title,
                 detail = banner.detail,
                 tone = banner.tone.toLegacyTone(),
             )
         }
         item {
-            FilterSummary(uiState = uiState)
+            FilterSummary(
+                uiState = uiState,
+                modifier = Modifier.animateContentSize(),
+            )
         }
         if (uiState.stations.isEmpty()) {
             item {
-                EmptyState(onAction = onAction)
+                EmptyState(
+                    onAction = onAction,
+                    modifier = Modifier.animateContentSize(),
+                )
             }
         } else {
             items(uiState.stations, key = StationListItemUiModel::id) { station ->
                 StationCard(
                     station = station,
                     fuelTypeLabel = uiState.selectedFuelType.toLabel(),
+                    modifier = Modifier.animateContentSize(),
                     onClick = { onAction(StationListAction.StationClicked(station)) },
                     onWatchToggle = {
                         onAction(
@@ -283,11 +303,12 @@ private fun StationListContent(
 @Composable
 private fun FilterSummary(
     uiState: StationListUiState,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = GasStationTheme.spacing
 
     LegacyChromeCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space16,
             vertical = spacing.space16,
@@ -344,6 +365,7 @@ private fun FilterPill(
 private fun StationCard(
     station: StationListItemUiModel,
     fuelTypeLabel: String,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onWatchToggle: () -> Unit,
 ) {
@@ -351,7 +373,7 @@ private fun StationCard(
     val typography = GasStationTheme.typography
 
     LegacyChromeCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         contentPadding = PaddingValues(
@@ -369,17 +391,21 @@ private fun StationCard(
                 verticalArrangement = Arrangement.spacedBy(spacing.space12),
             ) {
                 Row(
-                    modifier = Modifier.testTag(STATION_LIST_METRIC_ROW_TAG),
+                    modifier = Modifier
+                        .testTag(STATION_LIST_METRIC_ROW_TAG)
+                        .height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(spacing.space24),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     MetricBlock(
+                        modifier = Modifier.fillMaxHeight(),
                         label = "가격",
                         number = station.priceNumberLabel,
                         unit = station.priceUnitLabel,
                         emphasis = MetricEmphasis.Primary,
                     )
                     MetricBlock(
+                        modifier = Modifier.fillMaxHeight(),
                         label = "거리",
                         number = station.distanceNumberLabel,
                         unit = station.distanceUnitLabel,
@@ -465,6 +491,7 @@ private enum class MetricEmphasis {
 
 @Composable
 private fun MetricBlock(
+    modifier: Modifier = Modifier,
     label: String,
     number: String,
     unit: String,
@@ -481,7 +508,10 @@ private fun MetricBlock(
         MetricEmphasis.Secondary -> 3.dp
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
         Text(
             text = label,
             style = typography.meta,
@@ -511,34 +541,28 @@ private fun WatchToggleButton(
     watched: Boolean,
     onClick: () -> Unit,
 ) {
-    val corner = GasStationTheme.corner
-    val stroke = GasStationTheme.stroke
-    val backgroundColor = if (watched) ColorBlack else ColorGray4
-    val contentColor = if (watched) ColorYellow else ColorBlack
+    val iconTint = animateColorAsState(
+        targetValue = if (watched) ColorYellow else ColorGray2,
+        label = "watch-toggle-icon",
+    )
 
     IconButton(
         modifier = Modifier
-            .size(42.dp)
-            .background(color = backgroundColor, shape = RoundedCornerShape(corner.small))
-            .border(
-                width = stroke.emphasis,
-                color = ColorBlack,
-                shape = RoundedCornerShape(corner.small),
-            )
             .semantics {
                 selected = watched
                 stateDescription = if (watched) {
-                    "관심 주유소에 추가됨"
+                    "저장됨"
                 } else {
-                    "관심 주유소에 추가되지 않음"
+                    "저장되지 않음"
                 }
             },
         onClick = onClick,
     ) {
         Icon(
-            imageVector = if (watched) Icons.Filled.Star else Icons.Outlined.StarOutline,
-            contentDescription = "관심 주유소 토글",
-            tint = contentColor,
+            imageVector = if (watched) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+            contentDescription = "저장",
+            modifier = Modifier.size(22.dp),
+            tint = iconTint.value,
         )
     }
 }
@@ -566,7 +590,7 @@ private fun GpsRequired(
     BrandedStateContainer(modifier = modifier) {
         StationListActionStateCard(
             title = "위치 서비스를 켜야 합니다.",
-            body = "GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 관심 비교를 정확하게 불러올 수 있습니다.",
+            body = "GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 북마크를 정확하게 불러올 수 있습니다.",
             buttonLabel = "위치 설정 열기",
             onClick = onOpenLocationSettings,
         )
@@ -616,11 +640,12 @@ private fun LoadingState(
 @Composable
 private fun EmptyState(
     onAction: (StationListAction) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
     LegacyChromeCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space16,
             vertical = spacing.space16,
@@ -659,6 +684,82 @@ private fun BrandedStateContainer(
 }
 
 @Composable
+private fun StationListResultsPane(
+    uiState: StationListUiState,
+    onAction: (StationListAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        StationListContent(
+            uiState = uiState,
+            onAction = onAction,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(if (uiState.isLoading) 0.82f else 1f),
+        )
+
+        AnimatedVisibility(
+            visible = uiState.isLoading || uiState.isRefreshing,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = GasStationTheme.spacing.space16)
+                .padding(top = GasStationTheme.spacing.space12),
+            enter = fadeIn(animationSpec = tween(durationMillis = 160)) +
+                slideInVertically(
+                    animationSpec = tween(durationMillis = 180),
+                    initialOffsetY = { -it / 2 },
+                ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 140)) +
+                slideOutVertically(
+                    animationSpec = tween(durationMillis = 160),
+                    targetOffsetY = { -it / 3 },
+                ),
+            label = "station-list-loading-overlay",
+        ) {
+            RefreshingOverlayCard()
+        }
+    }
+}
+
+@Composable
+private fun RefreshingOverlayCard() {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+
+    LegacyChromeCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = spacing.space12,
+            vertical = spacing.space12,
+        ),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.space8)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = ColorBlack,
+                    strokeWidth = 2.5.dp,
+                )
+                Text(
+                    text = "주변 주유소를 불러오는 중입니다.",
+                    style = typography.body.copy(fontWeight = FontWeight.Bold),
+                    color = ColorBlack,
+                )
+            }
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = ColorBlack,
+                trackColor = ColorGray4,
+            )
+        }
+    }
+}
+
+@Composable
 private fun StationListActionStateCard(
     title: String,
     body: String,
@@ -689,6 +790,25 @@ private fun StationListActionStateCard(
         }
     }
 }
+
+private fun StationListUiState.toBodyState(): StationListBodyState = when {
+    permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
+    !isGpsEnabled -> StationListBodyState.GpsRequired
+    isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
+    else -> StationListBodyState.Results
+}
+
+private fun subtleContentTransform(): ContentTransform = fadeIn(
+    animationSpec = tween(durationMillis = 180),
+) + slideInVertically(
+    animationSpec = tween(durationMillis = 220),
+    initialOffsetY = { it / 14 },
+) togetherWith fadeOut(
+    animationSpec = tween(durationMillis = 140),
+) + slideOutVertically(
+    animationSpec = tween(durationMillis = 180),
+    targetOffsetY = { -it / 18 },
+)
 
 internal fun PriceDeltaTone.toColor(): Color = when (this) {
     PriceDeltaTone.Rise -> ColorSupportError

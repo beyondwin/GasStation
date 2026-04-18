@@ -60,11 +60,11 @@ class StationPortfolioFlowTest {
             .performClick()
 
         rule.waitUntil(timeoutMillis = 10_000) {
-            rule.onAllNodesWithContentDescription("관심 비교")
+            rule.onAllNodesWithContentDescription("북마크")
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        rule.onNodeWithText("관심 비교").performClick()
+        rule.onNodeWithText("북마크").performClick()
 
         rule.waitUntil(timeoutMillis = 10_000) {
             rule.onAllNodesWithTag(

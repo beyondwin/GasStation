@@ -8,8 +8,8 @@ val ColorYellow = Color(0xFFFFDC00)
 val ColorBlack = Color(0xFF222222)
 val ColorWhite = Color(0xFFFFFFFF)
 val ColorGray = Color(0xFFCCCCCC)
-val ColorGray2 = Color(0xFF888888)
-val ColorGray3 = Color(0xFF9A9A9A)
+val ColorGray2 = Color(0xFF5F5F5F)
+val ColorGray3 = Color(0xFF727272)
 val ColorGray4 = Color(0xFFF2F2F2)
 val ColorGrayLight = ColorGray4
 

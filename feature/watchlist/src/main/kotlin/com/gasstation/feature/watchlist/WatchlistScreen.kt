@@ -1,5 +1,13 @@
 package com.gasstation.feature.watchlist
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,86 +46,102 @@ fun WatchlistScreen(
             containerColor = Color.Transparent,
             topBar = {
                 LegacyTopBar(
-                    title = { Text(text = "관심 비교") },
+                    title = { Text(text = "북마크") },
                 )
             },
         ) { innerPadding ->
-            if (uiState.stations.isEmpty()) {
-                EmptyWatchlist(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(
-                        horizontal = spacing.space16,
-                        vertical = spacing.space12,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(spacing.space12),
-                ) {
-                    items(uiState.stations, key = WatchlistItemUiModel::id) { station ->
-                        LegacyChromeCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(WATCHLIST_CARD_CONTENT_DESCRIPTION),
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(spacing.space12)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(spacing.space12),
-                                ) {
-                                    MetricBlock(
-                                        modifier = Modifier.weight(1f),
-                                        label = "가격",
-                                        number = station.priceNumberLabel,
-                                        unit = station.priceUnitLabel,
-                                        prominent = true,
-                                    )
-                                    MetricBlock(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .testTag(WATCHLIST_DISTANCE_METRIC_TAG),
-                                        label = "거리",
-                                        number = station.distanceNumberLabel,
-                                        unit = station.distanceUnitLabel,
-                                        prominent = false,
-                                    )
-                                }
-                                Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
+            AnimatedContent(
+                targetState = uiState.stations.isEmpty(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(durationMillis = 180)) +
+                        slideInVertically(
+                            animationSpec = tween(durationMillis = 220),
+                            initialOffsetY = { it / 16 },
+                        ) togetherWith fadeOut(animationSpec = tween(durationMillis = 140)) +
+                        slideOutVertically(
+                            animationSpec = tween(durationMillis = 180),
+                            targetOffsetY = { -it / 20 },
+                        )
+                },
+                label = "watchlist-body",
+            ) { isEmpty ->
+                if (isEmpty) {
+                    EmptyWatchlist(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            horizontal = spacing.space16,
+                            vertical = spacing.space12,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(spacing.space12),
+                    ) {
+                        items(uiState.stations, key = WatchlistItemUiModel::id) { station ->
+                            LegacyChromeCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateContentSize()
+                                    .testTag(WATCHLIST_CARD_CONTENT_DESCRIPTION),
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(spacing.space12)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(spacing.space12),
+                                    ) {
+                                        MetricBlock(
+                                            modifier = Modifier.weight(1f),
+                                            label = "가격",
+                                            number = station.priceNumberLabel,
+                                            unit = station.priceUnitLabel,
+                                            prominent = true,
+                                        )
+                                        MetricBlock(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag(WATCHLIST_DISTANCE_METRIC_TAG),
+                                            label = "거리",
+                                            number = station.distanceNumberLabel,
+                                            unit = station.distanceUnitLabel,
+                                            prominent = false,
+                                        )
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
+                                        Text(
+                                            text = station.name,
+                                            style = GasStationTheme.typography.cardTitle,
+                                            color = ColorBlack,
+                                        )
+                                        Text(
+                                            text = station.brandLabel,
+                                            style = GasStationTheme.typography.meta,
+                                            color = ColorGray2,
+                                        )
+                                    }
                                     Text(
-                                        text = station.name,
-                                        style = GasStationTheme.typography.cardTitle,
-                                        color = ColorBlack,
+                                        text = station.priceDeltaLabel,
+                                        style = GasStationTheme.typography.body,
+                                        color = station.priceDeltaTone.toColor(),
                                     )
-                                    Text(
-                                        text = station.brandLabel,
-                                        style = GasStationTheme.typography.meta,
-                                        color = ColorGray3,
-                                    )
-                                }
-                                Text(
-                                    text = station.priceDeltaLabel,
-                                    style = GasStationTheme.typography.body,
-                                    color = ColorGray2,
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(spacing.space16),
-                                ) {
-                                    SupportingBlock(
-                                        modifier = Modifier.weight(1f),
-                                        label = "변동",
-                                        value = station.priceLabel,
-                                    )
-                                    SupportingBlock(
-                                        modifier = Modifier.weight(1f),
-                                        label = "확인",
-                                        value = station.lastSeenLabel,
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(spacing.space16),
+                                    ) {
+                                        SupportingBlock(
+                                            modifier = Modifier.weight(1f),
+                                            label = "변동",
+                                            value = station.priceLabel,
+                                        )
+                                        SupportingBlock(
+                                            modifier = Modifier.weight(1f),
+                                            label = "확인",
+                                            value = station.lastSeenLabel,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -145,7 +169,7 @@ private fun MetricBlock(
         Text(
             text = label,
             style = typography.meta,
-            color = ColorGray3,
+            color = ColorGray2,
         )
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -178,12 +202,12 @@ private fun SupportingBlock(
         Text(
             text = label,
             style = typography.meta,
-            color = ColorGray3,
+            color = ColorBlack,
         )
         Text(
             text = value,
             style = typography.body,
-            color = ColorGray2,
+            color = ColorBlack,
         )
     }
 }
@@ -194,22 +218,24 @@ private fun EmptyWatchlist(
 ) {
     val spacing = GasStationTheme.spacing
     Column(
-        modifier = modifier.padding(horizontal = spacing.space16, vertical = spacing.space24),
+        modifier = modifier
+            .padding(horizontal = spacing.space16, vertical = spacing.space24)
+            .animateContentSize(),
         verticalArrangement = Arrangement.Center,
     ) {
         LegacyChromeCard(modifier = Modifier.fillMaxWidth()) {
             LegacySectionHeading(
-                title = "비교할 주유소가 없습니다.",
-                subtitle = "주유소 목록에서 별표를 눌러 가격과 거리를 한곳에 모아보세요.",
+                title = "저장한 주유소가 없습니다.",
+                subtitle = "주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.",
             )
             Column(verticalArrangement = Arrangement.spacedBy(spacing.space8)) {
                 SupportingBlock(
                     label = "다음 단계",
-                    value = "목록 화면에서 별표를 눌러 비교 대상을 추가하세요.",
+                    value = "목록 화면에서 북마크를 눌러 바로 추가하세요.",
                 )
                 SupportingBlock(
                     label = "화면 목적",
-                    value = "선택한 주유소의 가격과 거리를 한 번에 비교합니다.",
+                    value = "저장한 주유소의 가격과 거리를 한 번에 비교합니다.",
                 )
             }
         }
