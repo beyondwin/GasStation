@@ -30,8 +30,9 @@ flowchart LR
 
     fstation --> domSettings
     fstation --> domStation
-    fstation --> clocation
+    fstation --> domLocation["domain:location"]
     fstation --> cdesign
+    fstation --> cmodel
 
     fsettings --> domSettings
     fsettings --> domStation
@@ -49,8 +50,11 @@ flowchart LR
     dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
 
+    clocation --> domLocation
+    clocation --> cmodel
     domSettings --> domStation
     domSettings --> cmodel
+    domLocation --> cmodel
     domStation --> cmodel
 
     tools["tools:demo-seed"] --> cnetwork
@@ -66,13 +70,14 @@ flowchart LR
 | `feature:station-list` | 권한/GPS/위치/새로고침을 포함한 목록 화면 상태와 effect 처리 |
 | `feature:settings` | 설정 요약 목록과 상세 선택 화면 렌더링, 같은 `SettingsViewModel` 공유 |
 | `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
+| `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability 유스케이스 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
 | `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약 |
 | `data:settings` | DataStore 기반 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
 | `core:designsystem` | `GasStationTheme`, 카드/배너/탑바 등 공유 UI primitive |
-| `core:location` | 현재 위치 조회 계약과 Android 구현, demo 위치 override |
+| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher |
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer |
@@ -84,19 +89,21 @@ flowchart LR
 ### 1. 목록 화면
 
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
-2. Route는 위치 권한 상태와 `gpsAvailabilityFlow()`를 관찰해 `StationListViewModel` 액션으로 전달합니다.
-3. ViewModel은 `UserPreferences`와 세션 상태를 결합해 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
-4. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
-5. UI는 `StationListUiState`를 통해 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다.
+2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다.
+3. ViewModel은 `ObserveLocationAvailabilityUseCase`와 `ObserveUserPreferencesUseCase`를 구독해 세션 상태와 `UserPreferences`를 관찰하고, 새로고침 시점에만 `GetCurrentLocationUseCase`를 호출합니다.
+4. ViewModel은 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
+5. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
+6. UI는 `StationListUiState`를 통해 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다.
 
 ### 2. 새로고침과 실패 처리
 
 1. 새로고침은 먼저 현재 위치를 얻습니다.
-2. `demo`에서는 `DemoLocationOverride`가 좌표를 바로 공급하고 원격 새로고침을 건너뜁니다.
-3. `prod`에서는 `ForegroundLocationProvider`가 성공, timeout, unavailable, permission denied, 예외를 `LocationLookupResult`로 돌려줍니다.
-4. `refreshNearbyStations()` 성공 시 저장소는 스냅샷과 가격 히스토리를 갱신합니다.
-5. 실패 시 `StationRefreshException(reason)`이 올라오고, 기존 캐시는 그대로 유지됩니다.
-6. 전면 실패 여부는 `StationListUiState.blockingFailure`와 `StationSearchResult.hasCachedSnapshot` 조합으로 결정합니다.
+2. 위치 조회 계약은 `domain:location`의 `GetCurrentLocationUseCase`가 담당하고, 실제 구현은 `core:location`의 `DefaultLocationRepository`가 제공합니다.
+3. `demo`에서는 `DemoLocationOverride`가 좌표를 공급하고, 새로고침 자체는 seed 기반 `SeedStationRemoteDataSource`를 통해 같은 저장소 갱신 경로를 탑니다.
+4. `prod`에서는 `ForegroundLocationProvider`가 성공, timeout, unavailable, permission denied, 예외를 `LocationLookupResult`로 돌려줍니다.
+5. `refreshNearbyStations()` 성공 시 저장소는 스냅샷과 가격 히스토리를 갱신합니다.
+6. 실패 시 `StationRefreshException(reason)`이 올라오고, 기존 캐시는 그대로 유지됩니다.
+7. 전면 실패 여부는 `StationListUiState.blockingFailure`와 `StationSearchResult.hasCachedSnapshot` 조합으로 결정합니다.
 
 중요한 점은 `fetchedAt`만으로 캐시 존재를 판단하지 않는다는 것입니다. 코드가 실제로 보는 기준은 `StationSearchResult.hasCachedSnapshot`이며, 이 값은 `station_cache_snapshot` 행 존재 여부와 맞물립니다.
 
@@ -104,7 +111,7 @@ flowchart LR
 
 1. `SettingsRoute`는 설정 요약 목록을, `SettingsDetailRoute`는 항목별 상세 선택 화면을 렌더링합니다.
 2. 상세 화면은 별도 ViewModel을 만들지 않고, `GasStationNavHost`에서 settings back stack owner를 공유받아 같은 `SettingsViewModel`을 사용합니다.
-3. 사용자가 값을 바꾸면 `SettingsRepository`를 통해 `UserPreferences`가 갱신되고, 목록 화면도 같은 값을 즉시 반영합니다.
+3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신되고, 목록 화면도 같은 값을 즉시 반영합니다.
 
 ### 4. watchlist(북마크) 화면
 

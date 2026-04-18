@@ -1020,7 +1020,7 @@ git commit -m "refactor: decouple station list from location infrastructure"
 - Modify: `docs/architecture.md`
 - Modify: `docs/module-contracts.md`
 
-- [ ] **Step 1: Update the architecture docs to match the new boundaries**
+- [x] **Step 1: Update the architecture docs to match the new boundaries**
 
 ```markdown
 <!-- docs/architecture.md -->
@@ -1036,13 +1036,13 @@ clocation --> domLocation
 | `core:location` | 현재 위치 조회 구현, provider availability 감시, demo override | `domain:location`, `core:model` | 목록 화면 정책 |
 ```
 
-- [ ] **Step 2: Run the full verification command**
+- [x] **Step 2: Run the full verification command**
 
 Run: `./gradlew :domain:location:test :domain:settings:test :domain:station:test :core:location:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:station-list:testDebugUnitTest :data:station:testDebugUnitTest :app:assembleDemoDebug :app:testDemoDebugUnitTest`
 
 Expected: PASS across all listed modules
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/architecture.md docs/module-contracts.md
