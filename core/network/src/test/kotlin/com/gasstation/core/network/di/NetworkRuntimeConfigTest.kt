@@ -1,5 +1,6 @@
 package com.gasstation.core.network.di
 
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -38,5 +39,18 @@ class NetworkRuntimeConfigTest {
             ),
             methodNames,
         )
+    }
+
+    @Test
+    fun `default okhttp client applies bounded timeout policy`() {
+        val factory = NetworkModule::class.java.getDeclaredMethod("defaultOkHttpClient").apply {
+            isAccessible = true
+        }
+
+        val client = factory.invoke(NetworkModule) as OkHttpClient
+
+        assertEquals(8_000, client.callTimeoutMillis.toLong())
+        assertEquals(4_000, client.connectTimeoutMillis.toLong())
+        assertEquals(8_000, client.readTimeoutMillis.toLong())
     }
 }

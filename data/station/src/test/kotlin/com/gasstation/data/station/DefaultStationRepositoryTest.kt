@@ -134,7 +134,9 @@ class DefaultStationRepositoryTest {
         )
         val repository = repository(
             stationCacheDao = stationCacheDao,
-            remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Failure),
+            remoteDataSource = FakeStationRemoteDataSource(
+                RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network),
+            ),
             seedRemoteDataSource = Optional.of(
                 FakeSeedStationRemoteDataSource(
                     RemoteStationFetchResult.Success(
@@ -348,10 +350,12 @@ class DefaultStationRepositoryTest {
         )
         val repository = repository(
             stationCacheDao = stationCacheDao,
-            remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Failure),
+            remoteDataSource = FakeStationRemoteDataSource(
+                RemoteStationFetchResult.Failure(StationRefreshFailureReason.Timeout),
+            ),
         )
 
-        assertThrows(StationRefreshException::class.java) {
+        val error = assertThrows(StationRefreshException::class.java) {
             runBlocking {
                 repository.refreshNearbyStations(query)
             }
@@ -359,6 +363,8 @@ class DefaultStationRepositoryTest {
 
         val cachedStations = stationCacheDao.snapshotFor(cacheKey)
 
+        assertEquals(StationRefreshFailureReason.Timeout, error.reason)
+        assertEquals(null, error.cause)
         assertEquals(0, stationCacheDao.replaceSnapshotCalls.size)
         assertEquals(listOf("cached-station"), cachedStations.map { it.stationId })
         assertEquals(now.minusSeconds(180).toEpochMilli(), cachedStations.single().fetchedAtEpochMillis)

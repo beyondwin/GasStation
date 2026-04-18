@@ -118,7 +118,10 @@ class DefaultStationRepository @Inject constructor(
         }
         when (remoteStations) {
             is RemoteStationFetchResult.Failure -> {
-                throw StationRefreshException()
+                throw StationRefreshException(
+                    reason = remoteStations.reason,
+                    cause = remoteStations.cause,
+                )
             }
             is RemoteStationFetchResult.Success -> {
                 val snapshotEntities = remoteStations.stations.map { it.toEntity(cacheKey, fetchedAt) }
@@ -311,5 +314,3 @@ private fun distanceBetween(
     val centralAngle = 2 * atan2(sqrt(haversine), sqrt(1 - haversine))
     return (earthRadiusMeters * centralAngle).roundToInt()
 }
-
-class StationRefreshException : IllegalStateException("Failed to refresh nearby stations")

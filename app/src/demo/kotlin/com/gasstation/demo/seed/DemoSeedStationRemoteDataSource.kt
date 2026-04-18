@@ -4,6 +4,7 @@ import android.content.Context
 import com.gasstation.data.station.RemoteStation
 import com.gasstation.data.station.RemoteStationFetchResult
 import com.gasstation.data.station.SeedStationRemoteDataSource
+import com.gasstation.data.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -16,7 +17,7 @@ class DemoSeedStationRemoteDataSource @Inject constructor(
         val snapshot = assetLoader.load(context).queries.firstOrNull { candidate ->
             candidate.radiusMeters == query.radius.meters &&
                 candidate.fuelType == query.fuelType.name
-        } ?: return RemoteStationFetchResult.Failure
+        } ?: return RemoteStationFetchResult.Failure(StationRefreshFailureReason.InvalidPayload)
 
         return RemoteStationFetchResult.Success(
             snapshot.stations.map { station ->
