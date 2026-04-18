@@ -13,11 +13,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +39,9 @@ import com.gasstation.core.designsystem.component.LegacyChromeCard
 import com.gasstation.core.designsystem.component.LegacySectionHeading
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
+
+internal const val WATCHLIST_CHANGE_VALUE_TAG = "watchlist-change-value"
+internal const val WATCHLIST_DELTA_INDICATOR_TAG = "watchlist-delta-indicator"
 
 @Composable
 fun WatchlistScreen(
@@ -122,11 +130,6 @@ fun WatchlistScreen(
                                             color = ColorGray2,
                                         )
                                     }
-                                    Text(
-                                        text = station.priceDeltaLabel,
-                                        style = GasStationTheme.typography.body,
-                                        color = station.priceDeltaTone.toColor(),
-                                    )
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(spacing.space16),
@@ -135,6 +138,14 @@ fun WatchlistScreen(
                                             modifier = Modifier.weight(1f),
                                             label = "변동",
                                             value = station.priceLabel,
+                                            valueTag = WATCHLIST_CHANGE_VALUE_TAG,
+                                            trailingContent = {
+                                                WatchlistDeltaIndicator(
+                                                    label = station.priceDeltaLabel,
+                                                    tone = station.priceDeltaTone,
+                                                    modifier = Modifier.testTag(WATCHLIST_DELTA_INDICATOR_TAG),
+                                                )
+                                            },
                                         )
                                         SupportingBlock(
                                             modifier = Modifier.weight(1f),
@@ -192,6 +203,8 @@ private fun SupportingBlock(
     modifier: Modifier = Modifier,
     label: String,
     value: String,
+    valueTag: String? = null,
+    trailingContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
@@ -204,10 +217,66 @@ private fun SupportingBlock(
             style = typography.meta,
             color = ColorBlack,
         )
+        if (trailingContent == null) {
+            Text(
+                text = value,
+                modifier = valueTag?.let { Modifier.testTag(it) } ?: Modifier,
+                style = typography.body,
+                color = ColorBlack,
+            )
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = value,
+                    modifier = valueTag?.let { Modifier.testTag(it) } ?: Modifier,
+                    style = typography.body,
+                    color = ColorBlack,
+                )
+                trailingContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun WatchlistDeltaIndicator(
+    label: String,
+    tone: WatchlistPriceDeltaTone,
+    modifier: Modifier = Modifier,
+) {
+    val typography = GasStationTheme.typography
+    val color = tone.toColor()
+
+    if (tone == WatchlistPriceDeltaTone.Neutral) {
         Text(
-            text = value,
+            text = "-",
+            modifier = modifier,
             style = typography.body,
-            color = ColorBlack,
+            color = color,
+        )
+        return
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (tone == WatchlistPriceDeltaTone.Rise) {
+                Icons.Filled.ArrowDropUp
+            } else {
+                Icons.Filled.ArrowDropDown
+            },
+            contentDescription = null,
+            tint = color,
+        )
+        Text(
+            text = label,
+            style = typography.body,
+            color = color,
         )
     }
 }

@@ -32,6 +32,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -83,6 +85,7 @@ import com.gasstation.domain.station.model.BrandFilter
 
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
+internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
 
 private enum class StationListBodyState {
     PermissionRequired,
@@ -436,12 +439,10 @@ private fun StationCard(
                             color = ColorGray2,
                         )
                     }
-                    Text(
-                        text = station.priceDeltaLabel,
-                        style = typography.body,
-                        color = station.priceDeltaTone.toColor(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    PriceDeltaIndicator(
+                        modifier = Modifier.testTag(STATION_LIST_PRICE_CHANGE_TAG),
+                        label = station.priceDeltaLabel,
+                        tone = station.priceDeltaTone,
                     )
                 }
             }
@@ -450,6 +451,50 @@ private fun StationCard(
                 onClick = onWatchToggle,
             )
         }
+    }
+}
+
+@Composable
+private fun PriceDeltaIndicator(
+    label: String,
+    tone: PriceDeltaTone,
+    modifier: Modifier = Modifier,
+) {
+    val typography = GasStationTheme.typography
+    val color = tone.toColor()
+
+    if (tone == PriceDeltaTone.Neutral) {
+        Text(
+            text = "-",
+            modifier = modifier,
+            style = typography.body,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        return
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (tone == PriceDeltaTone.Rise) {
+                Icons.Filled.ArrowDropUp
+            } else {
+                Icons.Filled.ArrowDropDown
+            },
+            contentDescription = null,
+            tint = color,
+        )
+        Text(
+            text = label,
+            style = typography.body,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

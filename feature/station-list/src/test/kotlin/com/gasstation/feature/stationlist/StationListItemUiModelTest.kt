@@ -18,7 +18,7 @@ class StationListItemUiModelTest {
             entry = stationEntry(priceDelta = StationPriceDelta.Increased(amountWon = 32)),
         )
 
-        assertEquals("32원 상승", item.priceDeltaLabel)
+        assertEquals("32원", item.priceDeltaLabel)
         assertEquals(PriceDeltaTone.Rise, item.priceDeltaTone)
     }
 
@@ -28,8 +28,18 @@ class StationListItemUiModelTest {
             entry = stationEntry(priceDelta = StationPriceDelta.Decreased(amountWon = 18)),
         )
 
-        assertEquals("18원 하락", item.priceDeltaLabel)
+        assertEquals("18원", item.priceDeltaLabel)
         assertEquals(PriceDeltaTone.Fall, item.priceDeltaTone)
+    }
+
+    @Test
+    fun `station list item maps unchanged delta to compact neutral label`() {
+        val item = StationListItemUiModel(
+            entry = stationEntry(priceDelta = StationPriceDelta.Unchanged),
+        )
+
+        assertEquals("-", item.priceDeltaLabel)
+        assertEquals(PriceDeltaTone.Neutral, item.priceDeltaTone)
     }
 
     @Test

@@ -42,7 +42,7 @@ class WatchlistItemUiModelTest {
             assertEquals("0.3km", item.distanceLabel)
             assertEquals("0.3", item.distanceNumberLabel)
             assertEquals("km", item.distanceUnitLabel)
-            assertEquals("27원 하락", item.priceDeltaLabel)
+            assertEquals("27원", item.priceDeltaLabel)
             assertEquals(WatchlistPriceDeltaTone.Fall, item.priceDeltaTone)
             assertEquals("4월 18일 12:00", item.lastSeenLabel)
         } finally {
@@ -67,8 +67,29 @@ class WatchlistItemUiModelTest {
             ),
         )
 
-        assertEquals("14원 상승", item.priceDeltaLabel)
+        assertEquals("14원", item.priceDeltaLabel)
         assertEquals(WatchlistPriceDeltaTone.Rise, item.priceDeltaTone)
+    }
+
+    @Test
+    fun `summary constructor maps unchanged delta to neutral compact label`() {
+        val item = WatchlistItemUiModel(
+            WatchedStationSummary(
+                station = Station(
+                    id = "station-1",
+                    name = "Gangnam First",
+                    brand = Brand.GSC,
+                    price = MoneyWon(1689),
+                    distance = DistanceMeters(300),
+                    coordinates = Coordinates(37.498095, 127.02761),
+                ),
+                priceDelta = StationPriceDelta.Unchanged,
+                lastSeenAt = null,
+            ),
+        )
+
+        assertEquals("-", item.priceDeltaLabel)
+        assertEquals(WatchlistPriceDeltaTone.Neutral, item.priceDeltaTone)
     }
 
     @Test

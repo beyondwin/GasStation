@@ -83,10 +83,10 @@ private fun Brand.toLabel(): String = when (this) {
 }
 
 private fun StationPriceDelta.toLabel(): String = when (this) {
-    StationPriceDelta.Unavailable -> "가격 변동 정보 없음"
-    StationPriceDelta.Unchanged -> "직전 가격과 동일"
-    is StationPriceDelta.Increased -> "${amountWon}원 상승"
-    is StationPriceDelta.Decreased -> "${amountWon}원 하락"
+    StationPriceDelta.Unavailable -> "-"
+    StationPriceDelta.Unchanged -> "-"
+    is StationPriceDelta.Increased -> "${amountWon}원"
+    is StationPriceDelta.Decreased -> "${amountWon}원"
 }
 
 internal fun StationPriceDelta.toTone(): WatchlistPriceDeltaTone = when (this) {
