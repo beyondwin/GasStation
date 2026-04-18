@@ -10,7 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 class DemoSeedStationRemoteDataSource @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val assetLoader: DemoSeedAssetLoader,
 ) : SeedStationRemoteDataSource {
     override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult {

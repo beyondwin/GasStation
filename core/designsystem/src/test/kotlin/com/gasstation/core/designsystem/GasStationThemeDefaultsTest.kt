@@ -56,7 +56,7 @@ class GasStationThemeDefaultsTest {
 }
 
 @Composable
-private fun chromeApisCompile() {
+private fun ChromeApisCompile() {
     GasStationTopBar(
         title = {
             Text(text = "가격순")

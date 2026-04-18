@@ -1,6 +1,7 @@
 package com.gasstation.core.designsystem
 
 import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
@@ -22,6 +23,7 @@ object GasStationThemeDefaults {
     val iconSize: GasStationIconSize = DefaultGasStationIconSize
     val materialTypography: Typography = DefaultMaterialTypography
 
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
     fun shouldUseDynamicColor(
         dynamicColor: Boolean,
         sdkInt: Int,

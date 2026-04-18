@@ -32,6 +32,9 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
 
             testOptions {
                 unitTests.isIncludeAndroidResources = true
+                unitTests.all {
+                    it.jvmArgs("--enable-native-access=ALL-UNNAMED")
+                }
             }
 
             packaging {

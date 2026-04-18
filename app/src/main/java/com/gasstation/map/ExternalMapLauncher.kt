@@ -4,7 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
 import com.gasstation.domain.station.model.MapProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -24,7 +24,7 @@ interface ExternalMapLauncher {
 
 @Singleton
 class IntentExternalMapLauncher @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) : ExternalMapLauncher {
     override fun open(
         provider: MapProvider,
@@ -37,22 +37,20 @@ class IntentExternalMapLauncher @Inject constructor(
         val packageName = provider.packageName()
         val mapIntent = Intent(
             Intent.ACTION_VIEW,
-            Uri.parse(
-                provider.mapUri(
-                    stationName = stationName,
-                    originLatitude = originLatitude,
-                    originLongitude = originLongitude,
-                    latitude = latitude,
-                    longitude = longitude,
-                ),
-            ),
+            provider.mapUri(
+                stationName = stationName,
+                originLatitude = originLatitude,
+                originLongitude = originLongitude,
+                latitude = latitude,
+                longitude = longitude,
+            ).toUri(),
         )
             .addCategory(Intent.CATEGORY_BROWSABLE)
 
         val launchIntent = if (isInstalled(packageName)) {
             mapIntent
         } else {
-            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
         }
 
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -62,7 +60,7 @@ class IntentExternalMapLauncher @Inject constructor(
             context.startActivity(
                 Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://play.google.com/store/apps/details?id=$packageName"),
+                    "https://play.google.com/store/apps/details?id=$packageName".toUri(),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }

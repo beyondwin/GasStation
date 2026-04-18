@@ -2,6 +2,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
@@ -23,6 +24,10 @@ class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
 
         tasks.withType<KotlinCompile>().configureEach {
             compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        }
+
+        tasks.withType<Test>().configureEach {
+            jvmArgs("--enable-native-access=ALL-UNNAMED")
         }
 
         dependencies {
