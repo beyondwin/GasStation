@@ -44,6 +44,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -86,6 +89,7 @@ import com.gasstation.domain.station.model.BrandFilter
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
+internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 
 private sealed interface StationListBodyState {
     data object PermissionRequired : StationListBodyState
@@ -763,35 +767,54 @@ private fun StationListResultsPane(
     onAction: (StationListAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val pullToRefreshState = rememberPullToRefreshState()
     val showTopLoadingRail = uiState.isRefreshing || uiState.isLoading
     val refreshRailInset = if (showTopLoadingRail) 58.dp else 0.dp
 
-    Box(modifier = modifier) {
-        StationListContent(
-            uiState = uiState,
-            onAction = onAction,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = refreshRailInset)
-                .alpha(if (uiState.isLoading) 0.82f else 1f),
-        )
+    PullToRefreshBox(
+        isRefreshing = showTopLoadingRail,
+        onRefresh = { onAction(StationListAction.RefreshRequested) },
+        state = pullToRefreshState,
+        modifier = modifier.testTag(STATION_LIST_PULL_REFRESH_TAG),
+        indicator = {
+            if (!showTopLoadingRail && pullToRefreshState.distanceFraction > 0f) {
+                PullToRefreshDefaults.Indicator(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    state = pullToRefreshState,
+                    isRefreshing = false,
+                    containerColor = ColorBlack,
+                    color = ColorYellow,
+                )
+            }
+        },
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            StationListContent(
+                uiState = uiState,
+                onAction = onAction,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = refreshRailInset)
+                    .alpha(if (uiState.isLoading) 0.82f else 1f),
+            )
 
-        AnimatedVisibility(
-            visible = showTopLoadingRail,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(horizontal = GasStationTheme.spacing.space16)
-                .padding(top = GasStationTheme.spacing.space12),
-            enter = fadeIn(animationSpec = tween(durationMillis = 150)) +
-                slideInVertically(
-                    animationSpec = tween(durationMillis = 180),
-                    initialOffsetY = { -it / 2 },
-                ),
-            exit = fadeOut(animationSpec = tween(durationMillis = 120)),
-            label = "station-list-refresh-rail",
-        ) {
-            RefreshingStatusRail()
+            AnimatedVisibility(
+                visible = showTopLoadingRail,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = GasStationTheme.spacing.space16)
+                    .padding(top = GasStationTheme.spacing.space12),
+                enter = fadeIn(animationSpec = tween(durationMillis = 150)) +
+                    slideInVertically(
+                        animationSpec = tween(durationMillis = 180),
+                        initialOffsetY = { -it / 2 },
+                    ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+                label = "station-list-refresh-rail",
+            ) {
+                RefreshingStatusRail()
+            }
         }
     }
 }
