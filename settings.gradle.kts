@@ -21,7 +21,6 @@ include(
     ":app",
     ":core:common",
     ":core:model",
-    ":core:ui",
     ":core:designsystem",
     ":core:testing",
     ":core:location",
@@ -34,5 +33,6 @@ include(
     ":data:station",
     ":feature:settings",
     ":feature:station-list",
+    ":feature:watchlist",
     ":benchmark",
 )

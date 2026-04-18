@@ -47,6 +47,10 @@ android {
             )
         }
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -59,11 +63,16 @@ dependencies {
     implementation(project(":data:station"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:station-list"))
+    implementation(project(":feature:watchlist"))
     implementation(project(":core:designsystem"))
 
     implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
+
+    testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.robolectric)
+    kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.android.compiler)

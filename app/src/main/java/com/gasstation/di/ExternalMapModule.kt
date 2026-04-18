@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object LocationModule {
+object ExternalMapModule {
     @Provides
     @Singleton
     fun provideExternalMapLauncher(
