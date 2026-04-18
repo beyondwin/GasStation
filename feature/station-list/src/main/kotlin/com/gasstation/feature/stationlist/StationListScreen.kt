@@ -74,12 +74,12 @@ import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
-import com.gasstation.core.designsystem.component.LegacyChromeCard
-import com.gasstation.core.designsystem.component.LegacySectionHeading
-import com.gasstation.core.designsystem.component.LegacyStatusBanner
-import com.gasstation.core.designsystem.component.LegacyStatusTone
-import com.gasstation.core.designsystem.component.LegacyTopBar
-import com.gasstation.core.designsystem.component.LegacyYellowBackground
+import com.gasstation.core.designsystem.component.ChromeCard
+import com.gasstation.core.designsystem.component.SectionHeading
+import com.gasstation.core.designsystem.component.StatusBanner
+import com.gasstation.core.designsystem.component.StatusTone
+import com.gasstation.core.designsystem.component.TopBar
+import com.gasstation.core.designsystem.component.YellowBackground
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.domain.station.model.BrandFilter
 
@@ -104,11 +104,11 @@ fun StationListScreen(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (() -> Unit)? = null,
 ) {
-    LegacyYellowBackground(modifier = Modifier.fillMaxSize()) {
+    YellowBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                LegacyTopBar(
+                TopBar(
                     title = {
                         SortToggleTitle(
                             sortOrder = uiState.selectedSortOrder,
@@ -262,11 +262,11 @@ private fun StationListContent(
             items = banners,
             key = { banner -> banner.title + (banner.detail ?: "") },
         ) { banner ->
-            LegacyStatusBanner(
+            StatusBanner(
                 modifier = Modifier.animateContentSize(),
                 text = banner.title,
                 detail = banner.detail,
-                tone = banner.tone.toLegacyTone(),
+                tone = banner.tone.toStatusTone(),
             )
         }
         item {
@@ -310,14 +310,14 @@ private fun FilterSummary(
 ) {
     val spacing = GasStationTheme.spacing
 
-    LegacyChromeCard(
+    ChromeCard(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space16,
             vertical = spacing.space16,
         ),
     ) {
-        LegacySectionHeading(
+        SectionHeading(
             title = "현재 조건",
             subtitle = "반경과 유종 기준으로 정렬합니다.",
         )
@@ -375,7 +375,7 @@ private fun StationCard(
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
 
-    LegacyChromeCard(
+    ChromeCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
@@ -649,7 +649,7 @@ private fun LoadingState(
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
     BrandedStateContainer(modifier = modifier) {
-        LegacyChromeCard(
+        ChromeCard(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(
                 horizontal = spacing.space16,
@@ -689,14 +689,14 @@ private fun EmptyState(
 ) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
-    LegacyChromeCard(
+    ChromeCard(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space16,
             vertical = spacing.space16,
         ),
     ) {
-        LegacySectionHeading(
+        SectionHeading(
             title = "주변 주유소가 없습니다.",
             subtitle = "반경이나 유종 조건을 유지한 채 다시 조회할 수 있습니다.",
         )
@@ -772,7 +772,7 @@ private fun RefreshingOverlayCard() {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
 
-    LegacyChromeCard(
+    ChromeCard(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space12,
@@ -813,14 +813,14 @@ private fun StationListActionStateCard(
 ) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
-    LegacyChromeCard(
+    ChromeCard(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = spacing.space16,
             vertical = spacing.space16,
         ),
     ) {
-        LegacySectionHeading(title = title, subtitle = body)
+        SectionHeading(title = title, subtitle = body)
         Button(
             colors = ButtonDefaults.buttonColors(
                 containerColor = ColorBlack,
@@ -861,11 +861,11 @@ internal fun PriceDeltaTone.toColor(): Color = when (this) {
     PriceDeltaTone.Neutral -> ColorGray2
 }
 
-private fun StationListBannerTone.toLegacyTone(): LegacyStatusTone = when (this) {
-    StationListBannerTone.Neutral -> LegacyStatusTone.Neutral
-    StationListBannerTone.Info -> LegacyStatusTone.Info
-    StationListBannerTone.Warning -> LegacyStatusTone.Warning
-    StationListBannerTone.Error -> LegacyStatusTone.Error
+private fun StationListBannerTone.toStatusTone(): StatusTone = when (this) {
+    StationListBannerTone.Neutral -> StatusTone.Neutral
+    StationListBannerTone.Info -> StatusTone.Info
+    StationListBannerTone.Warning -> StatusTone.Warning
+    StationListBannerTone.Error -> StatusTone.Error
 }
 
 private fun com.gasstation.domain.station.model.SortOrder.toStateDescription(): String = when (this) {

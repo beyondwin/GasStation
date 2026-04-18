@@ -3,8 +3,7 @@ package com.gasstation.core.designsystem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.gasstation.core.designsystem.component.LegacyListRow
-import com.gasstation.core.designsystem.component.LegacyTopBar
+import com.gasstation.core.designsystem.component.TopBar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -55,27 +54,10 @@ class GasStationThemeDefaultsTest {
 }
 
 @Composable
-private fun legacyChromeApisCompile() {
-    LegacyTopBar(
+private fun currentChromeApisCompile() {
+    TopBar(
         title = {
             Text(text = "가격순")
-        },
-    )
-
-    LegacyListRow(
-        title = "주유소",
-        subtitle = "GS칼텍스",
-        meta = "120m",
-        trailingContent = {
-            Text(text = "1,599원")
-        },
-    )
-
-    LegacyListRow(
-        title = "찾기 범위",
-        subtitle = "현재 설정",
-        trailingContent = {
-            Text(text = "5km")
         },
     )
 }
