@@ -310,6 +310,7 @@ fun LegacyListRow(
     meta: String? = null,
     onClick: (() -> Unit)? = null,
     leadingContent: (@Composable (() -> Unit))? = null,
+    titleTrailingContent: (@Composable RowScope.() -> Unit)? = null,
     trailingContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val content = LegacyListRowContent(
@@ -351,11 +352,21 @@ fun LegacyListRow(
                         color = ColorGray3,
                     )
                 }
-                Text(
-                    text = content.title,
-                    style = LegacyChromeTextRole.CardTitle.style(),
-                    color = ColorBlack,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = content.title,
+                        modifier = Modifier.weight(1f),
+                        style = LegacyChromeTextRole.CardTitle.style(),
+                        color = ColorBlack,
+                    )
+                    if (titleTrailingContent != null) {
+                        Spacer(modifier = Modifier.width(spacing.space12))
+                        titleTrailingContent()
+                    }
+                }
                 if (content.subtitle != null) {
                     Text(
                         text = content.subtitle,

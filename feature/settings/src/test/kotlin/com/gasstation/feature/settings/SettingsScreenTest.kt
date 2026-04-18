@@ -1,8 +1,10 @@
 package com.gasstation.feature.settings
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.model.SearchRadius
@@ -11,6 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import androidx.compose.ui.unit.dp
 
 @RunWith(RobolectricTestRunner::class)
 class SettingsScreenTest {
@@ -19,33 +22,58 @@ class SettingsScreenTest {
 
     @Test
     fun `settings menu rows are laid out vertically`() {
+        val uiState = SettingsUiState.from(UserPreferences.default())
+
         composeRule.setContent {
             SettingsScreen(
-                uiState = SettingsUiState.from(UserPreferences.default()),
+                uiState = uiState,
                 onCloseClick = {},
                 onSectionClick = {},
             )
         }
 
-        val searchRadiusTop = composeRule.onNodeWithText("찾기 범위").fetchSemanticsNode().boundsInRoot.top
-        val fuelTypeTop = composeRule.onNodeWithText("오일 타입").fetchSemanticsNode().boundsInRoot.top
+        val searchRadiusTop = composeRule
+            .onNodeWithText("찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}")
+            .fetchSemanticsNode()
+            .boundsInRoot.top
+        val fuelTypeTop = composeRule
+            .onNodeWithText("오일 타입 : ${uiState.selectedLabelFor(SettingsSection.FuelType)}")
+            .fetchSemanticsNode()
+            .boundsInRoot.top
 
         assertTrue("Expected settings rows to stack vertically", fuelTypeTop > searchRadiusTop)
     }
 
     @Test
-    fun `settings menu rows show overline subtitle and current selection in one hierarchy`() {
+    fun `settings menu rows combine section title and selected value into one left aligned line`() {
+        val uiState = SettingsUiState.from(UserPreferences.default())
+
         composeRule.setContent {
             SettingsScreen(
-                uiState = SettingsUiState.from(UserPreferences.default()),
+                uiState = uiState,
                 onCloseClick = {},
                 onSectionClick = {},
             )
         }
 
         composeRule.onAllNodesWithText("탐색 설정").assertCountEquals(3)
-        composeRule.onNodeWithText("주변 주유소를 불러올 반경을 정합니다.").assertExists()
-        composeRule.onNodeWithText("현재 설정: 3km").assertExists()
+
+        val combinedTitleBounds = composeRule
+            .onNodeWithText(
+                "찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}",
+                useUnmergedTree = true,
+            )
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val subtitleBounds = composeRule
+            .onNodeWithText("주변 주유소를 불러올 반경을 정합니다.", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue(
+            "Expected combined title/value text to appear above the descriptive subtitle.",
+            combinedTitleBounds.top < subtitleBounds.top,
+        )
     }
 
     @Test
@@ -81,7 +109,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `selected detail option keeps stable hierarchy with descriptive subtitle and meta`() {
+    fun `selected detail option relies on a larger check icon instead of current selection text`() {
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.SearchRadius,
@@ -100,7 +128,25 @@ class SettingsScreenTest {
         }
 
         composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(2)
-        composeRule.onNodeWithText("가장 촘촘하게 주변 가격을 비교합니다.").assertExists()
-        composeRule.onNodeWithText("현재 선택").assertExists()
+
+        val subtitleBounds = composeRule
+            .onNodeWithText("가장 촘촘하게 주변 가격을 비교합니다.", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        composeRule.onAllNodesWithText("현재 선택").assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true)
+            .assertHeightIsAtLeast(24.dp)
+
+        val checkBounds = composeRule
+            .onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue(
+            "Expected selected check icon to stay above the descriptive subtitle.",
+            checkBounds.top < subtitleBounds.top,
+        )
     }
 }
