@@ -1,6 +1,6 @@
 # 주유주유소
 
-현재 위치 기반 주유소 목록, stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동을 한 흐름으로 묶은 멀티모듈 Compose Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet 조회 경로를 제공합니다.
+주유주유소는 Jetpack Compose, Hilt, Coroutines, Flow, Room, ViewModel, Material Design, MVVM 아키텍처를 활용해 현재 위치 기반 주유소 탐색부터 stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동까지 하나의 흐름으로 구현한 멀티모듈 Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet 조회 경로를 제공합니다.
 
 ## 미리보기
 
