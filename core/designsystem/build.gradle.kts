@@ -1,5 +1,5 @@
 plugins {
-    id("gasstation.android.library")
+    id("gasstation.android.library.compose")
 }
 
 android {

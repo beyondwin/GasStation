@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.application")
-        pluginManager.apply("org.jetbrains.kotlin.android")
+        pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
@@ -32,12 +32,8 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                 buildConfig = true
             }
 
-            composeOptions {
-                kotlinCompilerExtensionVersion =
-                    libs.findVersion("androidxComposeCompiler").get().requiredVersion
-            }
-
             compileOptions {
+                isCoreLibraryDesugaringEnabled = true
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
@@ -52,6 +48,7 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
         }
 
         dependencies {
+            add("coreLibraryDesugaring", libs.findLibrary("android-desugarJdkLibs").get())
             add("implementation", libs.findLibrary("androidx-core-ktx").get())
             add("implementation", libs.findLibrary("androidx-lifecycle-runtime-ktx").get())
             add("implementation", libs.findLibrary("androidx-activity-compose").get())

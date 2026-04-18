@@ -31,6 +31,10 @@ gradlePlugin {
             id = "gasstation.android.library"
             implementationClass = "GasStationAndroidLibraryConventionPlugin"
         }
+        register("gasStationAndroidLibraryCompose") {
+            id = "gasstation.android.library.compose"
+            implementationClass = "GasStationAndroidLibraryComposeConventionPlugin"
+        }
         register("gasStationJvmLibrary") {
             id = "gasstation.jvm.library"
             implementationClass = "GasStationJvmLibraryConventionPlugin"

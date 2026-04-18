@@ -4,6 +4,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -12,7 +13,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.library")
-        pluginManager.apply("org.jetbrains.kotlin.android")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
@@ -24,12 +24,8 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             }
 
-            composeOptions {
-                kotlinCompilerExtensionVersion =
-                    libs.findVersion("androidxComposeCompiler").get().requiredVersion
-            }
-
             compileOptions {
+                isCoreLibraryDesugaringEnabled = true
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
@@ -45,6 +41,10 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
 
         tasks.withType<KotlinCompile>().configureEach {
             compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        }
+
+        dependencies {
+            add("coreLibraryDesugaring", libs.findLibrary("android-desugarJdkLibs").get())
         }
     }
 }
