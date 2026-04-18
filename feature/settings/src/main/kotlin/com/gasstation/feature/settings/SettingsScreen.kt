@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -76,14 +77,16 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             color = ColorWhite,
                         ) {
-                            SettingsSection.entries.forEachIndexed { index, section ->
-                                SettingsMenuRow(
-                                    title = section.title,
-                                    summary = uiState.selectedLabelFor(section),
-                                    onClick = { onSectionClick(section) },
-                                )
-                                if (index != SettingsSection.entries.lastIndex) {
-                                    HorizontalDivider(color = ColorGray4)
+                            Column {
+                                SettingsSection.entries.forEachIndexed { index, section ->
+                                    SettingsMenuRow(
+                                        title = section.title,
+                                        summary = uiState.selectedLabelFor(section),
+                                        onClick = { onSectionClick(section) },
+                                    )
+                                    if (index != SettingsSection.entries.lastIndex) {
+                                        HorizontalDivider(color = ColorGray4)
+                                    }
                                 }
                             }
                         }
