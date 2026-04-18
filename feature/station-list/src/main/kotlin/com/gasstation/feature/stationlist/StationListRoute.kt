@@ -54,8 +54,8 @@ fun StationListRoute(
         }
     }
 
-    LaunchedEffect(permissionState.toPermissionState(), isGpsEnabled) {
-        if (permissionState.toPermissionState() != LocationPermissionState.Denied && isGpsEnabled) {
+    LaunchedEffect(permissionState.toPermissionState(), uiState.isGpsEnabled) {
+        if (permissionState.toPermissionState() != LocationPermissionState.Denied && uiState.isGpsEnabled) {
             viewModel.onAction(StationListAction.RefreshRequested)
         }
     }
@@ -77,10 +77,17 @@ fun StationListRoute(
         snackbarHostState = snackbarHostState,
         onAction = viewModel::onAction,
         onRequestPermissions = { permissionState.launchMultiplePermissionRequest() },
-        onSettingsClick = onSettingsClick,
-        onWatchlistClick = uiState.currentCoordinates?.let { coordinates ->
-            { onWatchlistClick(coordinates) }
+        onOpenLocationSettings = {
+            context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
+        onSettingsClick = onSettingsClick,
+        onWatchlistClick = uiState.currentCoordinates
+            ?.takeIf {
+                uiState.permissionState != LocationPermissionState.Denied && uiState.isGpsEnabled
+            }
+            ?.let { coordinates ->
+                { onWatchlistClick(coordinates) }
+            },
     )
 }
 

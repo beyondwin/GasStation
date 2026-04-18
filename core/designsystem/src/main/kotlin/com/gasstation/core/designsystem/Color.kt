@@ -8,4 +8,11 @@ val ColorYellow = Color(0xFFFFDC00)
 val ColorBlack = Color(0xFF222222)
 val ColorWhite = Color(0xFFFFFFFF)
 val ColorGray = Color(0xFFCCCCCC)
-val ColorGrayLight = Color(0xFFF2F2F2)
+val ColorGray2 = Color(0xFF888888)
+val ColorGray3 = Color(0xFF9A9A9A)
+val ColorGray4 = Color(0xFFF2F2F2)
+val ColorGrayLight = ColorGray4
+
+val ColorSupportSuccess = Color(0xFF2E7D32)
+val ColorSupportInfo = Color(0xFF1565C0)
+val ColorSupportError = Color(0xFFC62828)
