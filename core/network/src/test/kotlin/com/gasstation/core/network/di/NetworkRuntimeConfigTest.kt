@@ -2,6 +2,7 @@ package com.gasstation.core.network.di
 
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Test
 
 class NetworkRuntimeConfigTest {
@@ -52,5 +53,15 @@ class NetworkRuntimeConfigTest {
         assertEquals(8_000, client.callTimeoutMillis.toLong())
         assertEquals(4_000, client.connectTimeoutMillis.toLong())
         assertEquals(8_000, client.readTimeoutMillis.toLong())
+    }
+
+    @Test
+    fun `network module no longer ships kakao trans coord dto`() {
+        try {
+            Class.forName("com.gasstation.core.network.model.KakaoTransCoordDto")
+            fail("KakaoTransCoordDto should be removed when Kakao API integration is gone")
+        } catch (_: ClassNotFoundException) {
+            // Expected once the unused Kakao DTO is removed.
+        }
     }
 }
