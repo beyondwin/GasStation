@@ -1,6 +1,6 @@
 # 주유주유소
 
-주유주유소는 Jetpack Compose, Hilt, Coroutines, Flow, Room, ViewModel, Material Design, MVVM 아키텍처를 활용해 현재 위치 기반 주유소 탐색부터 stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동까지 하나의 흐름으로 구현한 멀티모듈 Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet 조회 경로를 제공합니다.
+주유주유소는 Jetpack Compose, Hilt, Coroutines, Flow, Room, ViewModel, Material Design, MVVM 아키텍처를 활용해 현재 위치 기반 주유소 탐색부터 stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동까지 하나의 흐름으로 구현한 멀티모듈 Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet Open API 연동 경로를 제공합니다.
 
 ## 미리보기
 
@@ -19,9 +19,9 @@
 | --- | --- |
 | 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
-| 런타임 | 재현 가능한 `demo`, 실제 API 키 기반 `prod` |
+| 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
-| 데이터 | `prod`는 Opinet, `demo`는 승인된 seed JSON 자산 |
+| 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
 
 ## 이 저장소가 보여주는 것
@@ -75,7 +75,7 @@ flowchart LR
 | `demo` | 같은 시작 상태를 반복 재현 | 앱 시작 시 seed DB 적재, 선호 초기화, 강남역 2번 출구 고정 좌표 | `./gradlew :app:assembleDemoDebug` |
 | `prod` | 실제 API 키와 기기 상태로 동작 | 앱 시작 시 `opinet.apikey` 존재 확인, 실제 위치/네트워크 사용 | `./gradlew :app:assembleProdDebug` |
 
-`prod` 앱을 실제로 실행하려면 `opinet.apikey`가 필요합니다. 빌드는 빈 값으로도 가능하지만, 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다.
+`prod` 앱을 실제로 실행하려면 `opinet.apikey`가 필요합니다. 빌드는 빈 값으로도 가능하지만, 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다. 참고할 공식 페이지는 [오피넷 홈페이지](https://www.opinet.co.kr)와 [오피넷 Open API 소개](https://www.opinet.co.kr/user/custapi/openApiIntro.do)입니다.
 
 ```properties
 # ~/.gradle/gradle.properties 또는 프로젝트 gradle.properties
