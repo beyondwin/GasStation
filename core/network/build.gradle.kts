@@ -12,4 +12,6 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
+    testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.0.0-alpha.12")
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DomainContractSurfaceTest {
 
@@ -31,6 +32,7 @@ class DomainContractSurfaceTest {
             listOf("GASOLINE", "DIESEL", "PREMIUM_GASOLINE", "KEROSENE", "LPG"),
             FuelType.entries.map { it.name },
         )
+        assertTrue(FuelType::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
         assertFalse(FuelType::class.java.declaredMethods.any { it.name == "getDisplayName" })
         assertFalse(FuelType::class.java.declaredMethods.any { it.name == "getProductCode" })
 
@@ -38,22 +40,29 @@ class DomainContractSurfaceTest {
             listOf("SKE", "GSC", "HDO", "SOL", "RTO", "RTX", "NHO", "ETC", "E1G", "SKG"),
             Brand.entries.map { it.name },
         )
+        assertTrue(Brand::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
+        assertFalse(Brand::class.java.declaredMethods.any { it.name == "getDisplayName" })
+        assertFalse(Brand::class.java.declaredMethods.any { it.name == "getBrandCode" })
         assertEquals(
             listOf("ALL", "SKE", "GSC", "HDO", "SOL", "RTO", "RTX", "NHO", "ETC", "E1G", "SKG"),
             BrandFilter.entries.map { it.name },
         )
+        assertTrue(BrandFilter::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
         assertFalse(BrandFilter::class.java.declaredMethods.any { it.name == "getDisplayName" })
         assertFalse(BrandFilter::class.java.declaredMethods.any { it.name == "getBrandCode" })
 
         assertEquals(listOf("DISTANCE", "PRICE"), SortOrder.entries.map { it.name })
+        assertTrue(SortOrder::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
         assertFalse(SortOrder::class.java.declaredMethods.any { it.name == "getDisplayName" })
         assertFalse(SortOrder::class.java.declaredMethods.any { it.name == "getApiCode" })
 
         assertEquals(3_000, SearchRadius.KM_3.meters)
         assertEquals(4_000, SearchRadius.KM_4.meters)
+        assertTrue(SearchRadius::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
         assertFalse(SearchRadius::class.java.declaredMethods.any { it.name == "getDisplayName" })
 
         assertEquals(listOf("TMAP", "KAKAO_NAVI", "NAVER_MAP"), MapProvider.entries.map { it.name })
+        assertTrue(MapProvider::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
         assertFalse(MapProvider::class.java.declaredMethods.any { it.name == "getDisplayName" })
     }
 }

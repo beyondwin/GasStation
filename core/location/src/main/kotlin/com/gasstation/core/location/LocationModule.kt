@@ -1,7 +1,5 @@
-package com.gasstation.di
+package com.gasstation.core.location
 
-import com.gasstation.map.ExternalMapLauncher
-import com.gasstation.map.IntentExternalMapLauncher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,7 +11,7 @@ import javax.inject.Singleton
 object LocationModule {
     @Provides
     @Singleton
-    fun provideExternalMapLauncher(
-        launcher: IntentExternalMapLauncher,
-    ): ExternalMapLauncher = launcher
+    fun provideForegroundLocationProvider(
+        provider: AndroidForegroundLocationProvider,
+    ): ForegroundLocationProvider = provider
 }

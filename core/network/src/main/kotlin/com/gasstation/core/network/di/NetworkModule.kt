@@ -16,7 +16,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    private const val APP_BUILD_CONFIG_CLASS = "com.gasstation.BuildConfig"
     private const val KAKAO_BASE_URL = "https://dapi.kakao.com/"
     private const val OPINET_BASE_URL = "http://www.opinet.co.kr/"
 
@@ -32,13 +31,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @Named("kakaoApiKey")
-    fun provideKakaoApiKey(): String = readBuildConfigString("KAKAO_API_KEY")
-
-    @Provides
-    @Singleton
     @Named("opinetApiKey")
-    fun provideOpinetApiKey(): String = readBuildConfigString("OPINET_API_KEY")
+    fun provideOpinetApiKey(config: NetworkRuntimeConfig): String = config.opinetApiKey
 
     @Provides
     @Singleton
@@ -55,12 +49,12 @@ object NetworkModule {
     @Singleton
     fun provideKakaoService(
         @Named("kakaoBaseUrl") baseUrl: String,
-        @Named("kakaoApiKey") apiKey: String,
+        config: NetworkRuntimeConfig,
     ): KakaoService = Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(
             defaultOkHttpClient().newBuilder()
-                .addInterceptor(KakaoAuthorizationInterceptor(apiKey))
+                .addInterceptor(KakaoAuthorizationInterceptor(config.kakaoApiKey))
                 .build(),
         )
         .addConverterFactory(GsonConverterFactory.create())
@@ -68,11 +62,6 @@ object NetworkModule {
         .create(KakaoService::class.java)
 
     private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder().build()
-
-    private fun readBuildConfigString(fieldName: String): String = runCatching {
-        val buildConfigClass = Class.forName(APP_BUILD_CONFIG_CLASS)
-        buildConfigClass.getField(fieldName).get(null) as? String
-    }.getOrNull().orEmpty()
 
     private class KakaoAuthorizationInterceptor(
         private val apiKey: String,

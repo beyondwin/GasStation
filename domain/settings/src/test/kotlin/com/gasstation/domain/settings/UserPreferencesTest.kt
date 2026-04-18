@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 class UserPreferencesTest {
 
     @Test
-    fun `defaults match current legacy behavior`() {
+    fun `defaults stay aligned with station domain value objects`() {
         val defaults = UserPreferences.default()
 
         assertEquals(SearchRadius.KM_3, defaults.searchRadius)
