@@ -290,7 +290,7 @@ private fun EmptyWatchlist(
         modifier = modifier
             .padding(horizontal = spacing.space16, vertical = spacing.space24)
             .animateContentSize(),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
     ) {
         GasStationCard(modifier = Modifier.fillMaxWidth()) {
             GasStationSectionHeading(
