@@ -63,6 +63,7 @@ dependencies {
     implementation(project(":data:station"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:station-list"))
+    implementation(project(":feature:watchlist"))
     implementation(project(":core:designsystem"))
 
     implementation(libs.timber)

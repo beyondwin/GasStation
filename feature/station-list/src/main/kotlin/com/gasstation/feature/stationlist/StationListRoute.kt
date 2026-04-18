@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.core.model.Coordinates
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun StationListRoute(
     onSettingsClick: () -> Unit,
+    onWatchlistClick: (Coordinates) -> Unit,
     onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Unit,
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
@@ -76,6 +78,9 @@ fun StationListRoute(
         onAction = viewModel::onAction,
         onRequestPermissions = { permissionState.launchMultiplePermissionRequest() },
         onSettingsClick = onSettingsClick,
+        onWatchlistClick = uiState.currentCoordinates?.let { coordinates ->
+            { onWatchlistClick(coordinates) }
+        },
     )
 }
 

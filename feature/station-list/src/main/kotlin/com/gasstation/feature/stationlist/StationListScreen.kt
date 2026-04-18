@@ -28,10 +28,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.location.LocationPermissionState
 import java.time.Instant
@@ -46,6 +49,7 @@ fun StationListScreen(
     onAction: (StationListAction) -> Unit,
     onRequestPermissions: () -> Unit,
     onSettingsClick: () -> Unit,
+    onWatchlistClick: (() -> Unit)? = null,
 ) {
     Scaffold(
         topBar = {
@@ -57,6 +61,16 @@ fun StationListScreen(
                     )
                 },
                 actions = {
+                    if (onWatchlistClick != null) {
+                        TextButton(
+                            modifier = Modifier.semantics {
+                                contentDescription = "관심 비교"
+                            },
+                            onClick = onWatchlistClick,
+                        ) {
+                            Text(text = "관심 비교")
+                        }
+                    }
                     IconButton(onClick = { onAction(StationListAction.RefreshRequested) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "새로고침")
                     }
