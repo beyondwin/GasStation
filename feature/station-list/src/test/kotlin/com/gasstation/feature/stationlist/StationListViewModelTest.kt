@@ -934,6 +934,85 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `preference driven query change clears stale blocking failure when new query observes no cache`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                observeResults = MutableSharedFlow(),
+                refreshFailure = StationRefreshException(StationRefreshFailureReason.Timeout),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                ),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(
+                    StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+                )
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListEffect.ShowSnackbar("서버 응답이 늦어 가격을 새로고침하지 못했습니다."),
+                    awaitItem(),
+                )
+                repository.emitObservedResult(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = StationFreshness.Stale,
+                        fetchedAt = null,
+                    ),
+                )
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListFailureReason.RefreshTimedOut,
+                    viewModel.uiState.value.blockingFailure,
+                )
+
+                settingsRepository.updateUserPreferences { current ->
+                    current.copy(sortOrder = SortOrder.PRICE)
+                }
+                advanceUntilIdle()
+
+                repository.emitObservedResult(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = StationFreshness.Stale,
+                        fetchedAt = null,
+                    ),
+                )
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+            assertEquals(Coordinates(37.498095, 127.027610), viewModel.uiState.value.currentCoordinates)
+            assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun `remote timeout with cached stations keeps list visible and only emits snackbar`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         try {
