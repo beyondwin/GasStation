@@ -82,6 +82,7 @@ fun GasStationTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             statusBarStyle?.let {
+                @Suppress("DEPRECATION")
                 window.statusBarColor = it.backgroundColor.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars =
                     it.useDarkIcons

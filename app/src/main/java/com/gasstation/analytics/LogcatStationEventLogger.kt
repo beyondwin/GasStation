@@ -1,15 +1,15 @@
 package com.gasstation.analytics
 
-import android.util.Log
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.StationEvent
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Singleton
 class LogcatStationEventLogger @Inject constructor() : StationEventLogger {
     override fun log(event: StationEvent) {
-        Log.d(TAG, event.toLogMessage())
+        Timber.tag(TAG).d(event.toLogMessage())
     }
 
     private fun StationEvent.toLogMessage(): String = when (this) {

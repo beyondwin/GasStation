@@ -1,5 +1,6 @@
 package com.gasstation.core.location
 
+import android.annotation.SuppressLint
 import com.gasstation.core.model.Coordinates
 import com.google.android.gms.location.LocationServices
 import dagger.Module
@@ -13,6 +14,7 @@ import javax.inject.Singleton
 object LocationModule {
     @Provides
     @Singleton
+    @SuppressLint("MissingPermission")
     fun provideCurrentLocationClient(): CurrentLocationClient = CurrentLocationClient {
             context,
             priority,
