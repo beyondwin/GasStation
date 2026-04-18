@@ -4,7 +4,7 @@
 
 **Goal:** 가격 변동 인사이트, 관심 주유소 비교, 검증 가능한 품질 계층을 추가해서 GasStation을 포트폴리오 대표작으로 업그레이드한다.
 
-**Architecture:** 기존 `domain:station -> data:station -> feature:* -> app` 경계는 유지하고, `core:database`에 가격 히스토리와 관심 주유소 저장을 추가한다. 이후 `data:station`이 읽기 모델을 조합해 `feature:station-list`와 신규 `feature:watchlist`에 공급하고, 마지막에 analytics/benchmark/README를 붙여 검증 결과까지 한 묶음으로 마무리한다.
+**Architecture:** 먼저 reflection 기반 startup 훅, demo location 바인딩 위치, 빈 `core:ui` 모듈 같은 멀티모듈 경계 문제를 정리한다. 그 다음 `core:database`에 가격 히스토리와 관심 주유소 저장을 추가하고, `data:station`이 읽기 모델을 조합해 `feature:station-list`와 신규 `feature:watchlist`에 공급한다. 마지막에 analytics/benchmark/README를 붙여 검증 결과까지 한 묶음으로 마무리한다.
 
 **Tech Stack:** Kotlin, Jetpack Compose, Coroutines/Flow, Room, Hilt, Navigation Compose, JUnit4, Turbine, Robolectric, Macrobenchmark
 
@@ -15,6 +15,26 @@
 이 작업은 하나의 사용자 흐름에 묶인 단일 확장 계획이다. 가격 변화 계산, 관심 주유소 저장, 비교 화면, analytics, benchmark는 모두 "주유소 탐색 의사결정 경험"을 보강하는 같은 제품 흐름에 속하므로 별도 계획으로 분리하지 않는다.
 
 ## File Structure
+
+### Module Hygiene
+- Create: `app/src/main/java/com/gasstation/startup/AppStartupHook.kt`
+- Create: `app/src/main/java/com/gasstation/startup/AppStartupRunner.kt`
+- Create: `app/src/main/java/com/gasstation/di/DemoLocationOverrideModule.kt`
+- Create: `app/src/main/java/com/gasstation/di/ExternalMapModule.kt`
+- Create: `app/src/test/java/com/gasstation/startup/AppStartupRunnerTest.kt`
+- Create: `app/src/demo/kotlin/com/gasstation/di/DemoStartupModule.kt`
+- Create: `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`
+- Create: `app/src/prod/kotlin/com/gasstation/di/ProdStartupModule.kt`
+- Create: `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`
+- Modify: `app/src/main/java/com/gasstation/App.kt`
+- Modify: `settings.gradle.kts`
+- Modify: `feature/settings/build.gradle.kts`
+- Modify: `feature/station-list/build.gradle.kts`
+- Delete: `app/src/main/java/com/gasstation/di/LocationModule.kt`
+- Delete: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
+- Delete: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
+- Delete: `core/location/src/main/kotlin/com/gasstation/core/location/DemoLocationOverrideModule.kt`
+- Delete: `core/ui/build.gradle.kts`
 
 ### Database / Storage
 - Create: `core/database/src/main/kotlin/com/gasstation/core/database/station/StationPriceHistoryEntity.kt`
@@ -73,6 +93,338 @@
 - Modify: `docs/architecture.md`
 - Modify: `docs/state-model.md`
 - Modify: `docs/offline-strategy.md`
+
+### Task 0: Tighten module boundaries before feature work
+
+**Files:**
+- Create: `app/src/main/java/com/gasstation/startup/AppStartupHook.kt`
+- Create: `app/src/main/java/com/gasstation/startup/AppStartupRunner.kt`
+- Create: `app/src/main/java/com/gasstation/di/DemoLocationOverrideModule.kt`
+- Create: `app/src/main/java/com/gasstation/di/ExternalMapModule.kt`
+- Create: `app/src/test/java/com/gasstation/startup/AppStartupRunnerTest.kt`
+- Create: `app/src/demo/kotlin/com/gasstation/di/DemoStartupModule.kt`
+- Create: `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`
+- Create: `app/src/prod/kotlin/com/gasstation/di/ProdStartupModule.kt`
+- Create: `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`
+- Modify: `app/src/main/java/com/gasstation/App.kt`
+- Modify: `settings.gradle.kts`
+- Modify: `feature/settings/build.gradle.kts`
+- Modify: `feature/station-list/build.gradle.kts`
+- Delete: `app/src/main/java/com/gasstation/di/LocationModule.kt`
+- Delete: `app/src/demo/kotlin/com/gasstation/DemoSeedData.kt`
+- Delete: `app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt`
+- Delete: `core/location/src/main/kotlin/com/gasstation/core/location/DemoLocationOverrideModule.kt`
+- Delete: `core/ui/build.gradle.kts`
+
+- [ ] **Step 1: Write the failing startup runner test**
+
+```kotlin
+package com.gasstation.startup
+
+import android.app.Application
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class AppStartupRunnerTest {
+    @Test
+    fun `runner executes every registered hook`() {
+        val calls = mutableListOf<String>()
+        val runner = AppStartupRunner(
+            hooks = setOf(
+                AppStartupHook { calls += "demo" },
+                AppStartupHook { calls += "prod" },
+            ),
+        )
+
+        runner.run(application = Application())
+
+        assertEquals(setOf("demo", "prod"), calls.toSet())
+    }
+}
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run:
+
+```bash
+./gradlew :app:testDebugUnitTest --tests "*AppStartupRunnerTest"
+```
+
+Expected: `BUILD FAILED` because `AppStartupRunner` and `AppStartupHook` do not exist yet.
+
+- [ ] **Step 3: Replace reflection startup hooks, move demo binding ownership to app, and remove the empty UI module**
+
+Create the startup abstractions:
+
+```kotlin
+// app/src/main/java/com/gasstation/startup/AppStartupHook.kt
+package com.gasstation.startup
+
+import android.app.Application
+
+fun interface AppStartupHook {
+    fun run(application: Application)
+}
+```
+
+```kotlin
+// app/src/main/java/com/gasstation/startup/AppStartupRunner.kt
+package com.gasstation.startup
+
+import android.app.Application
+import javax.inject.Inject
+
+class AppStartupRunner @Inject constructor(
+    private val hooks: Set<@JvmSuppressWildcards AppStartupHook>,
+) {
+    fun run(application: Application) {
+        hooks.forEach { hook -> hook.run(application) }
+    }
+}
+```
+
+Update `App.kt` to use injection instead of reflection:
+
+```kotlin
+@HiltAndroidApp
+class App : Application() {
+    @Inject
+    lateinit var appStartupRunner: AppStartupRunner
+
+    override fun onCreate() {
+        super.onCreate()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+            Timber.d("TimberInitializer is initialized.")
+        }
+        appStartupRunner.run(this)
+    }
+}
+```
+
+Move demo/prod startup responsibilities into source-set-specific hook classes:
+
+```kotlin
+// app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt
+package com.gasstation.startup
+
+import android.app.Application
+import androidx.room.Room
+import com.gasstation.core.database.GasStationDatabase
+import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.station.model.BrandFilter
+import com.gasstation.domain.station.model.FuelType
+import com.gasstation.domain.station.model.MapProvider
+import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.domain.station.model.StationQuery
+import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
+
+class DemoSeedStartupHook @Inject constructor() : AppStartupHook {
+    override fun run(application: Application) {
+        val database = Room.databaseBuilder(
+            application,
+            GasStationDatabase::class.java,
+            GasStationDatabase.DATABASE_NAME,
+        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+
+        runBlocking {
+            val reviewerCoordinates = Coordinates(37.498095, 127.02761)
+            val cacheKey = StationQuery(
+                coordinates = reviewerCoordinates,
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+                brandFilter = BrandFilter.ALL,
+                sortOrder = SortOrder.DISTANCE,
+                mapProvider = MapProvider.TMAP,
+            ).toCacheKey(bucketMeters = 250)
+            val fetchedAt = System.currentTimeMillis()
+            database.stationCacheDao().replaceSnapshot(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType.name,
+                entities = listOf(
+                    StationCacheEntity(
+                        latitudeBucket = cacheKey.latitudeBucket,
+                        longitudeBucket = cacheKey.longitudeBucket,
+                        radiusMeters = cacheKey.radiusMeters,
+                        fuelType = cacheKey.fuelType.name,
+                        stationId = "demo-1",
+                        brandCode = "SKE",
+                        name = "강남역 데모 주유소",
+                        priceWon = 1_639,
+                        latitude = 37.49761,
+                        longitude = 127.02874,
+                        fetchedAtEpochMillis = fetchedAt,
+                    ),
+                ),
+            )
+        }
+        database.close()
+    }
+}
+```
+
+```kotlin
+// app/src/demo/kotlin/com/gasstation/di/DemoStartupModule.kt
+package com.gasstation.di
+
+import com.gasstation.startup.AppStartupHook
+import com.gasstation.startup.DemoSeedStartupHook
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DemoStartupModule {
+    @Binds
+    @IntoSet
+    abstract fun bindDemoSeedStartupHook(
+        hook: DemoSeedStartupHook,
+    ): AppStartupHook
+}
+```
+
+```kotlin
+// app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt
+package com.gasstation.startup
+
+import android.app.Application
+import com.gasstation.BuildConfig
+import javax.inject.Inject
+import timber.log.Timber
+
+class ProdSecretsStartupHook @Inject constructor() : AppStartupHook {
+    override fun run(application: Application) {
+        val missingSecrets = buildList {
+            if (BuildConfig.OPINET_API_KEY.isBlank()) add("opinet.apikey")
+            if (BuildConfig.KAKAO_API_KEY.isBlank()) add("kakao.apikey")
+        }
+        check(missingSecrets.isEmpty()) {
+            "Prod flavor requires local secrets: ${missingSecrets.joinToString()}."
+        }
+        Timber.i("Prod secrets loaded from local Gradle properties.")
+    }
+}
+```
+
+```kotlin
+// app/src/prod/kotlin/com/gasstation/di/ProdStartupModule.kt
+package com.gasstation.di
+
+import com.gasstation.startup.AppStartupHook
+import com.gasstation.startup.ProdSecretsStartupHook
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ProdStartupModule {
+    @Binds
+    @IntoSet
+    abstract fun bindProdStartupHook(
+        hook: ProdSecretsStartupHook,
+    ): AppStartupHook
+}
+```
+
+Move optional demo location binding ownership to `app`:
+
+```kotlin
+// app/src/main/java/com/gasstation/di/DemoLocationOverrideModule.kt
+package com.gasstation.di
+
+import com.gasstation.core.location.DemoLocationOverride
+import dagger.BindsOptionalOf
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DemoLocationOverrideModule {
+    @BindsOptionalOf
+    abstract fun bindDemoLocationOverride(): DemoLocationOverride
+}
+```
+
+Rename the external map binding module:
+
+```kotlin
+// app/src/main/java/com/gasstation/di/ExternalMapModule.kt
+package com.gasstation.di
+
+import com.gasstation.map.ExternalMapLauncher
+import com.gasstation.map.IntentExternalMapLauncher
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object ExternalMapModule {
+    @Provides
+    @Singleton
+    fun provideExternalMapLauncher(
+        launcher: IntentExternalMapLauncher,
+    ): ExternalMapLauncher = launcher
+}
+```
+
+Remove the empty `core:ui` module from `settings.gradle.kts`, `feature/settings/build.gradle.kts`, and `feature/station-list/build.gradle.kts` by deleting the module include and the two `implementation(project(":core:ui"))` lines.
+
+- [ ] **Step 4: Run focused verification**
+
+Run:
+
+```bash
+./gradlew :app:testDebugUnitTest --tests "*AppStartupRunnerTest"
+./gradlew :core:location:testDebugUnitTest
+./gradlew :app:compileDemoDebugKotlin :app:compileProdDebugKotlin
+```
+
+Expected:
+
+- First command: `BUILD SUCCESSFUL`
+- Second command: `BUILD SUCCESSFUL`
+- Third command: `BUILD SUCCESSFUL`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add \
+  app/src/main/java/com/gasstation/App.kt \
+  app/src/main/java/com/gasstation/di/DemoLocationOverrideModule.kt \
+  app/src/main/java/com/gasstation/di/ExternalMapModule.kt \
+  app/src/main/java/com/gasstation/startup/AppStartupHook.kt \
+  app/src/main/java/com/gasstation/startup/AppStartupRunner.kt \
+  app/src/test/java/com/gasstation/startup/AppStartupRunnerTest.kt \
+  app/src/demo/kotlin/com/gasstation/di/DemoStartupModule.kt \
+  app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt \
+  app/src/prod/kotlin/com/gasstation/di/ProdStartupModule.kt \
+  app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt \
+  settings.gradle.kts \
+  feature/settings/build.gradle.kts \
+  feature/station-list/build.gradle.kts \
+  core/location/src/main/kotlin/com/gasstation/core/location/DemoLocationOverrideModule.kt \
+  app/src/main/java/com/gasstation/di/LocationModule.kt \
+  app/src/demo/kotlin/com/gasstation/DemoSeedData.kt \
+  app/src/prod/kotlin/com/gasstation/ProdSecretsModule.kt \
+  core/ui/build.gradle.kts
+git commit -m "refactor: tighten app and module boundaries"
+```
 
 ### Task 1: Add Room storage for price history and watched stations
 
@@ -924,7 +1276,7 @@ include(":feature:watchlist")
 implementation(project(":feature:watchlist"))
 ```
 
-Use the same plugin set as `feature/station-list/build.gradle.kts`, with dependencies on `:domain:station`, `:core:model`, `:core:ui`, and `:core:designsystem`.
+Use the same plugin set as `feature/station-list/build.gradle.kts`, with dependencies on `:domain:station`, `:core:model`, and `:core:designsystem`.
 
 Create a minimal route and screen:
 
@@ -1175,6 +1527,7 @@ git commit -m "docs: finish portfolio validation and presentation"
 - 각 작업에 실행 명령과 기대 결과 포함
 
 ### Type Consistency
+- 선행 경계 정리: `AppStartupHook`, `AppStartupRunner`, `ExternalMapModule`
 - 저장 모델: `StationPriceHistoryEntity`, `WatchedStationEntity`
 - 도메인 읽기 모델: `StationListEntry`, `WatchedStationSummary`, `StationPriceDelta`
 - feature 모듈 이름은 `feature:watchlist`로 고정
