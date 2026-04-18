@@ -4,7 +4,7 @@ import android.content.Context
 import com.gasstation.data.station.RemoteStation
 import com.gasstation.data.station.RemoteStationFetchResult
 import com.gasstation.data.station.SeedStationRemoteDataSource
-import com.gasstation.data.station.StationRefreshFailureReason
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

@@ -11,6 +11,8 @@ import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationFreshness
@@ -95,6 +97,7 @@ class StationListViewModel @Inject constructor(
                 isLoading = session.isLoading,
                 isRefreshing = session.isRefreshing,
                 isStale = result.freshness is StationFreshness.Stale,
+                blockingFailure = session.blockingFailure,
                 stations = result.stations.map(::StationListItemUiModel),
                 selectedBrandFilter = prefs.brandFilter,
                 selectedRadius = prefs.searchRadius,
@@ -161,52 +164,105 @@ class StationListViewModel @Inject constructor(
                 )
             }
 
-            val demoCoordinates = demoLocationOverride
-                .takeIf(Optional<DemoLocationOverride>::isPresent)
-                ?.get()
-                ?.currentLocation(session.permissionState)
-            if (demoCoordinates != null) {
+            try {
+                val demoCoordinates = demoLocationOverride
+                    .takeIf(Optional<DemoLocationOverride>::isPresent)
+                    ?.get()
+                    ?.currentLocation(session.permissionState)
+                if (demoCoordinates != null) {
+                    sessionState.update {
+                        it.copy(
+                            currentCoordinates = demoCoordinates,
+                            blockingFailure = null,
+                        )
+                    }
+                    return@launch
+                }
+
+                val coordinates = handleLocationResult(
+                    foregroundLocationProvider.currentLocation(session.permissionState),
+                ) ?: return@launch
+
                 sessionState.update {
                     it.copy(
-                        currentCoordinates = demoCoordinates,
+                        currentCoordinates = coordinates,
+                        blockingFailure = null,
+                    )
+                }
+
+                runCatching {
+                    refreshNearbyStations(buildQuery(preferences.value, coordinates))
+                }.onSuccess {
+                    sessionState.update { current -> current.copy(blockingFailure = null) }
+                }.onFailure { throwable ->
+                    handleRefreshFailure((throwable as? StationRefreshException)?.reason)
+                }
+            } finally {
+                sessionState.update {
+                    it.copy(
                         isLoading = false,
                         isRefreshing = false,
                     )
                 }
-                return@launch
-            }
-
-            val coordinates = when (
-                val locationResult = foregroundLocationProvider.currentLocation(session.permissionState)
-            ) {
-                is LocationLookupResult.Success -> locationResult.coordinates
-                else -> null
-            }
-            if (coordinates == null) {
-                sessionState.update { it.copy(isLoading = false, isRefreshing = false) }
-                mutableEffects.emit(StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."))
-                return@launch
-            }
-
-            sessionState.update {
-                it.copy(
-                    currentCoordinates = coordinates,
-                    isLoading = false,
-                )
-            }
-
-            runCatching {
-                refreshNearbyStations(buildQuery(preferences.value, coordinates))
-            }.onFailure {
-                mutableEffects.emit(StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."))
-            }
-            sessionState.update {
-                it.copy(
-                    isLoading = false,
-                    isRefreshing = false,
-                )
             }
         }
+    }
+
+    private suspend fun handleLocationResult(
+        result: LocationLookupResult,
+    ): Coordinates? = when (result) {
+        is LocationLookupResult.Success -> {
+            sessionState.update { it.copy(blockingFailure = null) }
+            result.coordinates
+        }
+
+        LocationLookupResult.TimedOut -> {
+            onBlockingFailure(
+                reason = StationListFailureReason.LocationTimedOut,
+                message = "현재 위치 확인이 지연되고 있습니다.",
+            )
+            null
+        }
+
+        LocationLookupResult.Unavailable,
+        LocationLookupResult.PermissionDenied,
+        is LocationLookupResult.Error -> {
+            onBlockingFailure(
+                reason = StationListFailureReason.LocationFailed,
+                message = "현재 위치를 확인하지 못했습니다.",
+            )
+            null
+        }
+    }
+
+    private suspend fun handleRefreshFailure(
+        reason: StationRefreshFailureReason?,
+    ) {
+        when (reason) {
+            StationRefreshFailureReason.Timeout -> onBlockingFailure(
+                reason = StationListFailureReason.RefreshTimedOut,
+                message = "서버 응답이 늦어 가격을 새로고침하지 못했습니다.",
+            )
+
+            StationRefreshFailureReason.Network,
+            StationRefreshFailureReason.InvalidPayload,
+            StationRefreshFailureReason.Unknown,
+            null -> onBlockingFailure(
+                reason = StationListFailureReason.RefreshFailed,
+                message = "주유소 목록을 새로고침하지 못했습니다.",
+            )
+        }
+    }
+
+    private suspend fun onBlockingFailure(
+        reason: StationListFailureReason,
+        message: String,
+    ) {
+        val hasCachedSnapshot = searchResult.value.fetchedAt != null
+        sessionState.update {
+            it.copy(blockingFailure = if (hasCachedSnapshot) null else reason)
+        }
+        mutableEffects.emit(StationListEffect.ShowSnackbar(message))
     }
 
     private fun toggleSortOrder() {
@@ -264,4 +320,5 @@ private data class StationListSessionState(
     val currentCoordinates: Coordinates? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+    val blockingFailure: StationListFailureReason? = null,
 )

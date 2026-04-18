@@ -1,4 +1,4 @@
-package com.gasstation.data.station
+package com.gasstation.domain.station
 
 sealed interface StationRefreshFailureReason {
     data object Timeout : StationRefreshFailureReason

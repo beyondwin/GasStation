@@ -12,6 +12,7 @@ import com.gasstation.core.model.MoneyWon
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
 import com.gasstation.domain.station.StationRepository
+import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.Station

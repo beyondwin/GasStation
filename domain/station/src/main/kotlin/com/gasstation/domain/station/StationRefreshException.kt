@@ -1,4 +1,4 @@
-package com.gasstation.data.station
+package com.gasstation.domain.station
 
 class StationRefreshException(
     val reason: StationRefreshFailureReason,
