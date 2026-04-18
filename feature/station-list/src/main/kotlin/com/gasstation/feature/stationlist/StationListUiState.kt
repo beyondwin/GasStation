@@ -1,6 +1,6 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.FuelType
@@ -11,7 +11,10 @@ import java.time.Instant
 data class StationListUiState(
     val currentCoordinates: Coordinates? = null,
     val permissionState: LocationPermissionState = LocationPermissionState.Denied,
+    val hasDeniedLocationAccess: Boolean = false,
+    val needsRecoveryRefresh: Boolean = false,
     val isGpsEnabled: Boolean = true,
+    val isAvailabilityKnown: Boolean = false,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isStale: Boolean = false,

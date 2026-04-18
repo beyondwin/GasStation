@@ -8,7 +8,6 @@ data class StationQuery(
     val fuelType: FuelType,
     val brandFilter: BrandFilter,
     val sortOrder: SortOrder,
-    val mapProvider: MapProvider,
 ) {
     fun toCacheKey(bucketMeters: Int): StationQueryCacheKey {
         require(bucketMeters > 0) { "bucketMeters must be greater than 0" }

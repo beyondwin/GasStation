@@ -7,10 +7,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
-import org.junit.Assert.assertEquals
-import com.gasstation.core.location.LocationPermissionState
-import com.gasstation.domain.station.model.FuelType
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.station.model.FuelType
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -390,6 +390,54 @@ class StationListScreenTest {
         composeRule.onNodeWithText("현재 위치를 확인하지 못했습니다.").assertExists()
         composeRule.onNodeWithText("위치 권한과 위치 서비스 상태를 확인한 뒤 다시 시도해주세요.").assertExists()
         composeRule.onNodeWithText("주변 주유소가 없습니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `denied permission with stale coordinates still shows permission required state`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    currentCoordinates = com.gasstation.core.model.Coordinates(37.498095, 127.02761),
+                    permissionState = LocationPermissionState.Denied,
+                    hasDeniedLocationAccess = false,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("위치 권한이 필요합니다.").assertExists()
+        composeRule.onNodeWithText("테스트 주유소").assertDoesNotExist()
+    }
+
+    @Test
+    fun `denied permission without bypass shows permission required instead of stale failure`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.Denied,
+                    hasDeniedLocationAccess = false,
+                    blockingFailure = StationListFailureReason.LocationFailed,
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("위치 권한이 필요합니다.").assertExists()
+        composeRule.onNodeWithText(
+            "주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.",
+        ).assertExists()
+        composeRule.onNodeWithText("현재 위치를 확인하지 못했습니다.").assertDoesNotExist()
     }
 
     @Test

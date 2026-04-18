@@ -14,7 +14,6 @@ import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.model.StationQueryCacheKey
 import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationQuery
@@ -129,7 +128,6 @@ class DemoSeedStartupHook @Inject constructor(
         fuelType = FuelType.valueOf(fuelType),
         brandFilter = BrandFilter.ALL,
         sortOrder = SortOrder.DISTANCE,
-        mapProvider = MapProvider.TMAP,
     ).toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
 
     private companion object {

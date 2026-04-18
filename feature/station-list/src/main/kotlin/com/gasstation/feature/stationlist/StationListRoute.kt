@@ -14,13 +14,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationPermissionState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -36,24 +35,36 @@ fun StationListRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val permissionState = rememberLocationPermissionsState()
+    val domainPermissionState = permissionState.toPermissionState()
 
-    LaunchedEffect(permissionState.allPermissionsGranted, permissionState.permissions) {
+    LaunchedEffect(domainPermissionState) {
         viewModel.onAction(
-            StationListAction.PermissionChanged(permissionState.toPermissionState()),
+            StationListAction.PermissionChanged(domainPermissionState),
         )
     }
 
     LaunchedEffect(context, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            context.gpsAvailabilityFlow().collect { isEnabled ->
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
-            }
+            viewModel.collectLocationAvailability()
         }
     }
 
-    LaunchedEffect(uiState.permissionState, uiState.isGpsEnabled) {
-        if (uiState.permissionState != LocationPermissionState.Denied && uiState.isGpsEnabled) {
-            viewModel.onAction(StationListAction.RefreshRequested)
+    LaunchedEffect(
+        uiState.permissionState,
+        uiState.isGpsEnabled,
+        uiState.isAvailabilityKnown,
+        uiState.needsRecoveryRefresh,
+    ) {
+        if (
+            uiState.isAvailabilityKnown &&
+            uiState.isGpsEnabled &&
+            (
+                uiState.currentCoordinates == null ||
+                    uiState.hasDeniedLocationAccess ||
+                    uiState.needsRecoveryRefresh
+                )
+        ) {
+            viewModel.onAction(StationListAction.AutoRefreshRequested)
         }
     }
 
@@ -80,7 +91,11 @@ fun StationListRoute(
         onSettingsClick = onSettingsClick,
         onWatchlistClick = uiState.currentCoordinates
             ?.takeIf {
-                uiState.permissionState != LocationPermissionState.Denied && uiState.isGpsEnabled
+                uiState.isGpsEnabled &&
+                    (
+                        uiState.permissionState != LocationPermissionState.Denied ||
+                            uiState.hasDeniedLocationAccess
+                        )
             }
             ?.let { coordinates ->
                 { onWatchlistClick(coordinates) }

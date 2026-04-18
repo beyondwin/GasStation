@@ -9,9 +9,9 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":domain:location"))
     implementation(project(":domain:station"))
     implementation(project(":domain:settings"))
-    implementation(project(":core:location"))
     implementation(project(":core:designsystem"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.accompanist.permissions)

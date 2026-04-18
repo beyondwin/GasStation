@@ -93,7 +93,6 @@ class StationRemoteDataSourceTest {
         fuelType = FuelType.GASOLINE,
         brandFilter = BrandFilter.ALL,
         sortOrder = SortOrder.DISTANCE,
-        mapProvider = MapProvider.TMAP,
     )
 
     private class FakeOpinetService(

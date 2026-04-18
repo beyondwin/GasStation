@@ -2,14 +2,14 @@ package com.gasstation.feature.stationlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gasstation.core.location.DemoLocationOverride
-import com.gasstation.core.location.ForegroundLocationProvider
-import com.gasstation.core.location.LocationLookupResult
-import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.settings.SettingsRepository
+import com.gasstation.domain.location.GetCurrentLocationUseCase
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
@@ -22,10 +22,10 @@ import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.Optional
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -47,10 +47,10 @@ class StationListViewModel @Inject constructor(
     private val refreshNearbyStations: RefreshNearbyStationsUseCase,
     private val updateWatchState: UpdateWatchStateUseCase,
     observeUserPreferences: ObserveUserPreferencesUseCase,
-    private val settingsRepository: SettingsRepository,
-    private val foregroundLocationProvider: ForegroundLocationProvider,
+    private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
+    private val observeLocationAvailability: ObserveLocationAvailabilityUseCase,
+    private val getCurrentLocation: GetCurrentLocationUseCase,
     private val stationEventLogger: StationEventLogger,
-    private val demoLocationOverride: Optional<DemoLocationOverride>,
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
     private val sessionState = MutableStateFlow(StationListSessionState())
@@ -76,7 +76,11 @@ class StationListViewModel @Inject constructor(
 
         combine(preferences, sessionState) { prefs, session ->
             session.currentCoordinates?.takeIf {
-                session.isGpsEnabled && session.permissionState != LocationPermissionState.Denied
+                session.isGpsEnabled &&
+                    (
+                        session.permissionState != LocationPermissionState.Denied ||
+                            session.hasDeniedLocationAccess
+                        )
             }?.let { coordinates -> buildQuery(preferences = prefs, coordinates = coordinates) }
         }.distinctUntilChanged()
             .onEach { query ->
@@ -122,7 +126,10 @@ class StationListViewModel @Inject constructor(
             StationListUiState(
                 currentCoordinates = session.currentCoordinates,
                 permissionState = session.permissionState,
+                hasDeniedLocationAccess = session.hasDeniedLocationAccess,
+                needsRecoveryRefresh = session.needsRecoveryRefresh,
                 isGpsEnabled = session.isGpsEnabled,
+                isAvailabilityKnown = session.isAvailabilityKnown,
                 isLoading = session.isLoading,
                 isRefreshing = session.isRefreshing,
                 isStale = result.freshness is StationFreshness.Stale,
@@ -140,8 +147,14 @@ class StationListViewModel @Inject constructor(
 
     fun onAction(action: StationListAction) {
         when (action) {
+            StationListAction.AutoRefreshRequested -> refresh(
+                showPermissionDeniedFeedback = false,
+            )
+
             StationListAction.RefreshRequested,
-            StationListAction.RetryClicked -> refresh()
+            StationListAction.RetryClicked -> refresh(
+                showPermissionDeniedFeedback = true,
+            )
 
             StationListAction.SortToggleRequested -> toggleSortOrder()
 
@@ -151,11 +164,14 @@ class StationListViewModel @Inject constructor(
             )
 
             is StationListAction.PermissionChanged -> sessionState.update {
-                it.copy(permissionState = effectivePermissionState(action.permissionState))
+                it.withLocationRecoveryState(permissionState = action.permissionState)
             }
 
             is StationListAction.GpsAvailabilityChanged -> sessionState.update {
-                it.copy(isGpsEnabled = action.isEnabled || demoLocationOverride.isPresent)
+                it.withLocationRecoveryState(
+                    isGpsEnabled = action.isEnabled,
+                    isAvailabilityKnown = true,
+                )
             }
 
             is StationListAction.StationClicked -> viewModelScope.launch {
@@ -174,15 +190,22 @@ class StationListViewModel @Inject constructor(
         }
     }
 
-    private fun refresh() {
+    suspend fun collectLocationAvailability(
+        flowOverride: Flow<Boolean>? = null,
+    ) {
+        (flowOverride ?: observeLocationAvailability())
+            .collect { isEnabled ->
+                onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
+            }
+    }
+
+    private fun refresh(
+        showPermissionDeniedFeedback: Boolean,
+    ) {
         viewModelScope.launch {
             val session = sessionState.value
             if (!session.isGpsEnabled) {
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
-                return@launch
-            }
-            if (effectivePermissionState(session.permissionState) == LocationPermissionState.Denied) {
-                mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
                 return@launch
             }
 
@@ -194,27 +217,16 @@ class StationListViewModel @Inject constructor(
             }
 
             try {
-                val demoCoordinates = demoLocationOverride
-                    .takeIf(Optional<DemoLocationOverride>::isPresent)
-                    ?.get()
-                    ?.currentLocation(session.permissionState)
-                if (demoCoordinates != null) {
-                    sessionState.update {
-                        it.copy(
-                            currentCoordinates = demoCoordinates,
-                            blockingFailure = null,
-                        )
-                    }
-                    return@launch
-                }
-
                 val coordinates = handleLocationResult(
-                    foregroundLocationProvider.currentLocation(session.permissionState),
+                    getCurrentLocation(session.permissionState),
+                    showPermissionDeniedFeedback = showPermissionDeniedFeedback,
                 ) ?: return@launch
 
                 sessionState.update {
                     it.copy(
                         currentCoordinates = coordinates,
+                        hasDeniedLocationAccess = session.permissionState == LocationPermissionState.Denied,
+                        needsRecoveryRefresh = false,
                         blockingFailure = null,
                     )
                 }
@@ -251,10 +263,18 @@ class StationListViewModel @Inject constructor(
 
     private suspend fun handleLocationResult(
         result: LocationLookupResult,
+        showPermissionDeniedFeedback: Boolean,
     ): Coordinates? = when (result) {
         is LocationLookupResult.Success -> {
             sessionState.update { it.copy(blockingFailure = null) }
             result.coordinates
+        }
+
+        LocationLookupResult.PermissionDenied -> {
+            if (showPermissionDeniedFeedback) {
+                mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
+            }
+            null
         }
 
         LocationLookupResult.TimedOut -> {
@@ -266,7 +286,6 @@ class StationListViewModel @Inject constructor(
         }
 
         LocationLookupResult.Unavailable,
-        LocationLookupResult.PermissionDenied,
         is LocationLookupResult.Error -> {
             onBlockingFailure(
                 reason = StationListFailureReason.LocationFailed,
@@ -344,9 +363,7 @@ class StationListViewModel @Inject constructor(
                 SortOrder.DISTANCE -> SortOrder.PRICE
                 SortOrder.PRICE -> SortOrder.DISTANCE
             }
-            settingsRepository.updateUserPreferences { current ->
-                current.copy(sortOrder = toggled)
-            }
+            updatePreferredSortOrder(toggled)
         }
     }
 
@@ -375,26 +392,46 @@ class StationListViewModel @Inject constructor(
         fuelType = preferences.fuelType,
         brandFilter = preferences.brandFilter,
         sortOrder = preferences.sortOrder,
-        mapProvider = preferences.mapProvider,
     )
-
-    private fun effectivePermissionState(
-        permissionState: LocationPermissionState,
-    ): LocationPermissionState = if (demoLocationOverride.isPresent) {
-        LocationPermissionState.PreciseGranted
-    } else {
-        permissionState
-    }
 }
 
 private data class StationListSessionState(
     val permissionState: LocationPermissionState = LocationPermissionState.Denied,
+    val hasDeniedLocationAccess: Boolean = false,
+    val needsRecoveryRefresh: Boolean = false,
     val isGpsEnabled: Boolean = true,
+    val isAvailabilityKnown: Boolean = false,
     val currentCoordinates: Coordinates? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,
 )
+
+private fun StationListSessionState.withLocationRecoveryState(
+    permissionState: LocationPermissionState = this.permissionState,
+    isGpsEnabled: Boolean = this.isGpsEnabled,
+    isAvailabilityKnown: Boolean = this.isAvailabilityKnown,
+): StationListSessionState {
+    val updated = copy(
+        permissionState = permissionState,
+        isGpsEnabled = isGpsEnabled,
+        isAvailabilityKnown = isAvailabilityKnown,
+    )
+    val needsRecoveryRefresh = !isLocationUsable() &&
+        updated.isLocationUsable() &&
+        currentCoordinates != null &&
+        !hasDeniedLocationAccess
+    return updated.copy(
+        needsRecoveryRefresh = updated.needsRecoveryRefresh || needsRecoveryRefresh,
+    )
+}
+
+private fun StationListSessionState.isLocationUsable(): Boolean =
+    isGpsEnabled &&
+        (
+            permissionState != LocationPermissionState.Denied ||
+                hasDeniedLocationAccess
+            )
 
 private data class ActiveStationQueryState(
     val query: StationQuery? = null,

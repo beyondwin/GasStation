@@ -1,6 +1,6 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.domain.location.LocationPermissionState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
