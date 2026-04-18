@@ -1,5 +1,6 @@
 package com.gasstation.feature.settings
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -29,6 +31,8 @@ import com.gasstation.core.designsystem.component.LegacyListRow
 import com.gasstation.core.designsystem.component.LegacySectionHeading
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
+
+internal const val SETTINGS_SELECTED_CHECK_TAG = "settings-selected-check"
 
 @Composable
 fun SettingsDetailScreen(
@@ -89,6 +93,7 @@ private fun SettingsDetailRow(
 ) {
     LegacyListRow(
         modifier = Modifier
+            .animateContentSize()
             .semantics {
                 selected = option.isSelected
                 role = Role.RadioButton
@@ -96,7 +101,6 @@ private fun SettingsDetailRow(
         overline = section.overline,
         title = option.label,
         subtitle = option.subtitle,
-        meta = option.meta,
         onClick = onClick,
         trailingContent = {
             if (option.isSelected) {
@@ -151,7 +155,11 @@ private fun LegacyBackIcon() {
 
 @Composable
 private fun SelectedCheckIcon() {
-    Canvas(modifier = Modifier.size(18.dp)) {
+    Canvas(
+        modifier = Modifier
+            .testTag(SETTINGS_SELECTED_CHECK_TAG)
+            .size(24.dp),
+    ) {
         val strokeWidth = size.minDimension * 0.18f
         drawLine(
             color = ColorYellow,

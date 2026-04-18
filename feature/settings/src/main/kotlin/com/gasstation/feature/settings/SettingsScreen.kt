@@ -1,5 +1,6 @@
 package com.gasstation.feature.settings
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -77,10 +78,10 @@ private fun SettingsMenuRow(
     onClick: () -> Unit,
 ) {
     LegacyListRow(
+        modifier = Modifier.animateContentSize(),
         overline = section.overline,
-        title = section.title,
+        title = "${section.title} : $selectedLabel",
         subtitle = section.subtitle,
-        meta = "현재 설정: $selectedLabel",
         onClick = onClick,
         trailingContent = {
             LegacyChevronIcon()
