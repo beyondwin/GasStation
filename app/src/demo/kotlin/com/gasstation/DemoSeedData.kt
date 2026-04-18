@@ -11,7 +11,6 @@ import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationQuery
-import java.time.Instant
 import kotlinx.coroutines.runBlocking
 
 object DemoSeedData {
@@ -39,7 +38,7 @@ object DemoSeedData {
                 sortOrder = SortOrder.DISTANCE,
                 mapProvider = MapProvider.TMAP,
             ).toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
-            val fetchedAt = Instant.now().toEpochMilli()
+            val fetchedAt = System.currentTimeMillis()
 
             database.stationCacheDao().replaceSnapshot(
                 latitudeBucket = cacheKey.latitudeBucket,

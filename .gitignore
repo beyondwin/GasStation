@@ -16,3 +16,21 @@
 local.properties
 .idea
 .gstack/
+.kotlin
+
+# signing and local secrets
+*.jks
+*.keystore
+keystore.properties
+
+# local env files
+.env
+.env.*
+
+# generated app artifacts
+*.apk
+*.aab
+*.ap_
+
+# profiling and crash dumps
+*.hprof

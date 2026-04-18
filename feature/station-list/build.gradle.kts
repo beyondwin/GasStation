@@ -1,5 +1,5 @@
 plugins {
-    id("gasstation.android.library")
+    id("gasstation.android.library.compose")
     id("gasstation.android.hilt")
 }
 
@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
