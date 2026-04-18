@@ -4,6 +4,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.model.OpinetResponseDto
 import com.gasstation.core.network.service.OpinetService
 import com.gasstation.core.network.station.NetworkStationFetcher
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.FuelType
 import com.gasstation.domain.station.model.MapProvider

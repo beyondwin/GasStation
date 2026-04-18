@@ -3,6 +3,8 @@ package com.gasstation.data.station
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.FuelType
 import com.gasstation.domain.station.model.MapProvider

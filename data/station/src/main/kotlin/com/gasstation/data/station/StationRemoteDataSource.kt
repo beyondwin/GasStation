@@ -3,6 +3,7 @@ package com.gasstation.data.station
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.core.network.station.NetworkStationFetcher
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
 import java.io.IOException
 import java.io.InterruptedIOException
