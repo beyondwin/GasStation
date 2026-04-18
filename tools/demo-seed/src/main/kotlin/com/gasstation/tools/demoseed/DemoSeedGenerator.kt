@@ -2,7 +2,6 @@ package com.gasstation.tools.demoseed
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.di.NetworkModule
-import com.gasstation.core.network.di.NetworkRuntimeConfig
 import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.core.network.station.NetworkStationFetcher
 import com.gasstation.domain.station.model.FuelType
@@ -108,15 +107,11 @@ class DemoSeedGenerator(
         const val GangnamStationExit2Label: String = "Gangnam Station Exit 2"
 
         fun fromSystemProperties(): DemoSeedGenerator {
-            val config = NetworkRuntimeConfig(
-                kakaoApiKey = System.getProperty("kakao.apikey").orEmpty(),
-                opinetApiKey = System.getProperty("opinet.apikey").orEmpty(),
-            )
             return DemoSeedGenerator(
                 fetcher = SharedNetworkSeedStationFetcher(
                     fetcher = NetworkStationFetcher(
                         opinetService = NetworkModule.provideOpinetService(NetworkModule.provideOpinetBaseUrl()),
-                        opinetApiKey = config.opinetApiKey,
+                        opinetApiKey = System.getProperty("opinet.apikey").orEmpty(),
                     ),
                 ),
             )

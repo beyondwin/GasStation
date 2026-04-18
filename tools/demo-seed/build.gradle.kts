@@ -26,5 +26,4 @@ tasks.register<JavaExec>("generateDemoSeed") {
     mainClass.set(application.mainClass)
     args(outputFile.asFile.absolutePath)
     systemProperty("opinet.apikey", providers.gradleProperty("opinet.apikey").orNull ?: "")
-    systemProperty("kakao.apikey", providers.gradleProperty("kakao.apikey").orNull ?: "")
 }

@@ -4,7 +4,6 @@ plugins {
 }
 
 val opinetApiKey = providers.gradleProperty("opinet.apikey").orElse("").get()
-val kakaoApiKey = providers.gradleProperty("kakao.apikey").orElse("").get()
 
 android {
     namespace = "com.gasstation"
@@ -24,13 +23,11 @@ android {
             testInstrumentationRunner = "com.gasstation.HiltTestRunner"
             buildConfigField("boolean", "DEMO_MODE", "true")
             buildConfigField("String", "OPINET_API_KEY", "\"\"")
-            buildConfigField("String", "KAKAO_API_KEY", "\"\"")
         }
         create("prod") {
             dimension = "environment"
             buildConfigField("boolean", "DEMO_MODE", "false")
             buildConfigField("String", "OPINET_API_KEY", "\"$opinetApiKey\"")
-            buildConfigField("String", "KAKAO_API_KEY", "\"$kakaoApiKey\"")
         }
     }
 
