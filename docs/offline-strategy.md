@@ -1,114 +1,131 @@
 # 오프라인 전략
 
-GasStation의 오프라인 전략은 "마지막 성공 결과를 비우지 않고 계속 보여준다"로 요약할 수 있습니다. 핵심 구현은 `data:station`의 Room 기반 읽기 모델 조합입니다.
+GasStation의 오프라인 전략은 "마지막 성공 스냅샷을 버리지 않고, 실패와 빈 결과를 구분한 채 계속 보여준다"로 요약할 수 있습니다. 핵심 구현은 `data:station/DefaultStationRepository.kt`와 `core:database` 스키마입니다.
 
-## 핵심 전략 요약
+## 핵심 원칙
 
-| 항목 | 전략 |
+| 질문 | 현재 답 |
 | --- | --- |
-| 목록 fallback | 마지막 성공 스냅샷을 Room에 유지하고 실패 시 그대로 재사용 |
-| stale 판정 | `StationCachePolicy` 5분 기준으로 `Fresh`/`Stale` 구분 |
-| 가격 변화 | `station_price_history`로 상승/하락/변동 없음 계산 |
-| watchlist 유지 | 현재 검색 결과가 없어도 저장된 항목과 최신 히스토리로 비교 화면 유지 |
-| demo 의미 | 고정 seed를 다시 적재해 오프라인 의미 체계를 반복 가능하게 재현 |
+| 네트워크가 실패하면 목록을 비우나 | 아니요. 기존 스냅샷을 유지합니다. |
+| 결과가 0건이면 실패로 간주하나 | 아니요. 성공한 빈 결과도 별도 스냅샷 마커로 남깁니다. |
+| stale 기준은 무엇인가 | `StationCachePolicy`의 5분 |
+| 가격 변화는 어떻게 계산하나 | `station_price_history` 최신 이력으로 계산 |
+| watchlist는 현재 목록에 없으면 사라지나 | 아니요. 저장 항목과 최신 히스토리로 최대한 복원합니다. |
 
-이 문서의 핵심은 "네트워크 실패 시 빈 화면으로 무너지지 않는다"는 점입니다.
+## 저장 모델
 
-## 저장 단위
+Room은 네 개의 저장 단위를 씁니다.
 
-`core:database`는 아래 세 저장 단위를 가집니다.
+| 테이블 | 역할 |
+| --- | --- |
+| `station_cache` | 특정 쿼리 버킷에 속한 최신 주유소 행 |
+| `station_cache_snapshot` | 그 버킷이 마지막으로 언제 성공적으로 갱신됐는지 나타내는 마커 |
+| `station_price_history` | 주유소/유종별 최근 가격 기록 |
+| `watched_station` | 사용자가 저장한 watchlist 항목 |
 
-- `station_cache`
-  특정 질의 버킷에 대한 최신 주유소 스냅샷
-- `station_price_history`
-  주유소별 가격 변화 히스토리
-- `watched_station`
-  사용자가 관심 저장한 주유소 목록
-
-목록 화면과 watchlist 화면은 이 세 테이블을 조합해 그려집니다.
+`station_cache_snapshot`이 따로 있다는 점이 중요합니다. 이 테이블이 없으면 "성공했지만 0건"과 "아직 캐시가 없음"을 구분하기 어렵습니다.
 
 ## 캐시 키
 
-스냅샷 캐시 키는 `StationQueryCacheKey`로 표현되며 다음 값만 포함합니다.
+캐시 키는 `StationQueryCacheKey`로 표현되며 아래 값만 포함합니다.
 
-- 위도 버킷
-- 경도 버킷
+- 위치 버킷(`latitudeBucket`, `longitudeBucket`)
 - 검색 반경
 - 유종
 
-현재 기본 버킷 크기는 250m입니다.
+현재 버킷 크기는 250m입니다.
 
 다음 값들은 캐시 키에 포함되지 않습니다.
 
-- 정렬 순서
-  같은 스냅샷 집합을 거리순/가격순으로 다시 정렬할 수 있기 때문입니다.
 - 브랜드 필터
-  스냅샷을 읽은 뒤 클라이언트에서 필터링합니다.
+- 정렬 순서
 - 외부 지도 제공자
-  조회 데이터가 아니라 이동 연동 대상만 바꾸기 때문입니다.
 
-## 조회 동작
+이 값들은 스냅샷을 다시 받아오지 않고 읽기 모델 단계에서 적용할 수 있기 때문입니다.
 
-`observeNearbyStations()`는 먼저 Room 스냅샷을 읽고, 그 결과에 관심 여부와 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
+## observeNearbyStations 동작
 
-- 캐시가 없으면 빈 목록 + `Stale`
-- 캐시가 있으면 마지막 fetch 시각 기준으로 `Fresh` 또는 `Stale`
-- 브랜드 필터와 정렬은 캐시를 읽은 뒤 적용
+저장소는 먼저 현재 쿼리 버킷의 스냅샷 마커와 캐시 행을 같이 읽습니다.
 
-즉, 화면은 네트워크 응답을 직접 기다리지 않고 저장된 읽기 모델을 우선 봅니다.
+### 경우 1. 스냅샷 마커가 없음
+
+- `stations = emptyList()`
+- `freshness = Stale`
+- `fetchedAt = null`
+- `hasCachedSnapshot = false`
+
+이 상태는 "아직 보여줄 캐시가 없음"을 뜻합니다.
+
+### 경우 2. 스냅샷 마커는 있지만 캐시 행이 0건
+
+- `stations = emptyList()`
+- `fetchedAt = 스냅샷 마커가 기록한 마지막 성공 시각`
+- `hasCachedSnapshot = true`
+
+이 상태는 "성공적으로 조회했지만 결과가 0건"을 뜻합니다. 전면 오류와 같은 상태가 아닙니다.
+
+### 경우 3. 캐시 행이 존재함
+
+저장소는 여기에 watch 상태와 가격 히스토리를 결합해 `StationListEntry` 목록을 만듭니다.
+
+- 브랜드 필터는 클라이언트에서 적용
+- 정렬도 클라이언트에서 적용
+- 가격 변화는 같은 유종 히스토리만 사용
 
 ## stale 판정
 
-`StationCachePolicy`의 stale 기준은 5분입니다.
+`StationCachePolicy`는 현재 5분 기준으로 `Fresh`와 `Stale`를 나눕니다.
 
-- 5분 이내면 `Fresh`
-- 5분 초과면 `Stale`
+- 5분 이내: `Fresh`
+- 5분 초과: `Stale`
 
-stale이라고 해서 결과를 버리지 않습니다. UI는 오래된 결과를 그대로 유지한 채 stale 배너만 보여줄 수 있습니다.
+stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를 띄우고 마지막 갱신 시각을 보여줍니다.
 
-## 새로고침 실패 시 동작
+## 새로고침 성공 시
 
-`refreshNearbyStations()`는 원격 조회가 실패하면 `StationRefreshException`을 던지고, 기존 Room 스냅샷은 유지합니다.
+`refreshNearbyStations()` 성공 시 저장소는 한 버킷 단위로 아래 작업을 합니다.
 
-이 설계 때문에 네트워크 실패 시에도 아래가 보장됩니다.
+1. 기존 `station_cache` 행 삭제
+2. 새 스냅샷 행 저장
+3. `station_cache_snapshot` 마커 갱신
+4. 새 가격을 `station_price_history`에 추가
+5. 주유소/유종별 히스토리를 최신 10건으로 자르기
 
-- 목록이 빈 상태로 덮어써지지 않는다
-- 마지막 성공 스냅샷은 계속 렌더링된다
-- stale 여부만 바뀌거나 새로고침 실패 메시지만 추가된다
+즉 스냅샷 교체는 "행 + 마커"가 함께 움직이는 구조입니다.
 
-## 가격 히스토리
+## 새로고침 실패 시
 
-새로고침이 성공하면 각 주유소의 현재 가격을 `station_price_history`에 추가합니다. 히스토리는 주유소 ID + 유종 기준으로 최신 10건만 유지합니다.
+원격 조회가 실패하면 저장소는 `StationRefreshException(reason)`을 던집니다.
 
-이 히스토리로 다음 정보를 계산합니다.
+- `Timeout`
+- `Network`
+- `InvalidPayload`
+- `Unknown`
 
-- 목록 화면의 가격 상승/하락/변동 없음 배지
-- watchlist 화면의 최근 비교 정보
-
-히스토리가 충분하지 않으면 가격 변화는 `Unavailable`로 남습니다.
+하지만 기존 `station_cache`와 `station_cache_snapshot`은 지우지 않습니다. 이 덕분에 UI는 실패 중에도 마지막 성공 결과를 계속 렌더링할 수 있습니다.
 
 ## watchlist fallback
 
-watchlist는 현재 검색 결과에 없는 주유소도 유지해야 하므로 목록보다 한 단계 더 방어적으로 동작합니다.
+watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 
-- 최신 `station_cache`가 있으면 그 값을 우선 사용
-- 없으면 `watched_station`에 저장된 마지막 좌표/브랜드/이름과 `station_price_history`의 최신 가격으로 대체
-- 둘 다 없으면 해당 항목은 요약을 만들지 않음
+1. `watched_station`에서 저장 항목을 읽습니다.
+2. 같은 `stationId`의 최신 캐시가 있으면 그 정보를 우선 사용합니다.
+3. 최신 캐시가 없으면 `station_price_history` 최신 행과 저장된 좌표/브랜드/이름으로 대체 모델을 만듭니다.
+4. 둘 다 없으면 해당 항목은 요약에서 빠집니다.
 
-이 덕분에 사용자가 관심 저장한 항목은 현재 화면의 검색 결과에 사라져도 비교 화면에서 쉽게 사라지지 않습니다.
+즉 사용자가 저장한 항목은 현재 검색 결과에서 사라져도 바로 비어 버리지 않습니다.
 
-## demo flavor의 오프라인 의미
+## demo와 prod의 의미
 
-`demo`는 오프라인 의미 체계를 보여주기 위한 고정 데이터 경로를 가집니다.
+| 경로 | 오프라인 관점에서 하는 일 |
+| --- | --- |
+| `demo` | 앱 시작 때 승인된 seed JSON을 DB에 다시 적재해 같은 스냅샷/히스토리 상태로 시작 |
+| `prod` | 실제 위치와 Opinet 조회 결과를 같은 캐시 규칙으로 저장 |
 
-- 앱 시작 시 `DemoSeedStartupHook`이 Room에 demo seed 자산을 다시 적재
-- `DemoSeedStationRemoteDataSource`가 실제 네트워크 대신 seed 문서에서 스냅샷을 읽음
-- 위치는 강남역 2번 출구 고정 좌표 사용
-
-즉, demo는 API 키 없이도 항상 같은 스냅샷과 히스토리에서 시작하고, prod와 같은 캐시/stale/watchlist 규칙을 그대로 보여줍니다.
+`demo`는 "가짜 화면 모드"가 아닙니다. `prod`와 같은 캐시/stale/watchlist 규칙을 재현 가능한 데이터로 보여주는 정식 실행 경로입니다.
 
 ## 운영 메모
 
-- `prod` 런타임의 실제 검색은 Opinet API 키만 필요하다.
-- `tools:demo-seed:generateDemoSeed`는 seed 재생성을 위해 `opinet.apikey`만 사용한다.
-- demo는 "오프라인 fallback을 보여주기 위한 샘플 모드"가 아니라, 고정된 공식 실행 경로다.
+- `prod` 검색과 demo seed 생성은 모두 `opinet.apikey`만 사용합니다.
+- `GasStationDatabaseMigrationTest`는 `station_cache_snapshot` 도입 이후의 마이그레이션까지 검증합니다.
+- 문서나 UI에서 "캐시 있음"을 말할 때는 `fetchedAt != null`보다 `hasCachedSnapshot` 의미를 기준으로 이해하는 편이 더 정확합니다.
