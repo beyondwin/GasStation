@@ -21,7 +21,6 @@ include(
     ":app",
     ":core:common",
     ":core:model",
-    ":core:ui",
     ":core:designsystem",
     ":core:testing",
     ":core:location",

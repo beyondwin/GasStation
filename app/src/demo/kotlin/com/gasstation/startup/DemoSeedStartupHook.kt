@@ -1,6 +1,6 @@
-package com.gasstation
+package com.gasstation.startup
 
-import android.content.Context
+import android.app.Application
 import androidx.room.Room
 import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.core.database.station.StationCacheEntity
@@ -11,19 +11,13 @@ import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationQuery
+import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 
-object DemoSeedData {
-    private const val CACHE_BUCKET_METERS = 250
-
-    private val reviewerCoordinates = Coordinates(
-        latitude = 37.498095,
-        longitude = 127.02761,
-    )
-
-    fun seed(context: Context) {
+class DemoSeedStartupHook @Inject constructor() : AppStartupHook {
+    override fun run(application: Application) {
         val database = Room.databaseBuilder(
-            context.applicationContext,
+            application,
             GasStationDatabase::class.java,
             GasStationDatabase.DATABASE_NAME,
         ).fallbackToDestructiveMigration(dropAllTables = true)
@@ -31,7 +25,7 @@ object DemoSeedData {
 
         runBlocking {
             val cacheKey = StationQuery(
-                coordinates = reviewerCoordinates,
+                coordinates = REVIEWER_COORDINATES,
                 radius = SearchRadius.KM_3,
                 fuelType = FuelType.GASOLINE,
                 brandFilter = BrandFilter.ALL,
@@ -109,4 +103,13 @@ object DemoSeedData {
             fetchedAtEpochMillis = fetchedAtEpochMillis,
         ),
     )
+
+    private companion object {
+        const val CACHE_BUCKET_METERS = 250
+
+        val REVIEWER_COORDINATES = Coordinates(
+            latitude = 37.498095,
+            longitude = 127.02761,
+        )
+    }
 }

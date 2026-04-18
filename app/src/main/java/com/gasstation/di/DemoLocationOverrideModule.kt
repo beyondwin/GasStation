@@ -1,5 +1,6 @@
-package com.gasstation.core.location
+package com.gasstation.di
 
+import com.gasstation.core.location.DemoLocationOverride
 import dagger.BindsOptionalOf
 import dagger.Module
 import dagger.hilt.InstallIn
