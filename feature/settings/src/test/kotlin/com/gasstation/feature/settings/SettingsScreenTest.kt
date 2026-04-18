@@ -2,10 +2,13 @@ package com.gasstation.feature.settings
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.model.SearchRadius
 import org.junit.Assert.assertTrue
@@ -45,7 +48,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `settings menu rows combine section title and selected value into one left aligned line`() {
+    fun `settings menu groups rows under section headings`() {
         val uiState = SettingsUiState.from(UserPreferences.default())
 
         composeRule.setContent {
@@ -56,24 +59,113 @@ class SettingsScreenTest {
             )
         }
 
-        composeRule.onAllNodesWithText("탐색 설정").assertCountEquals(3)
+        assertTrue(composeRule.onAllNodesWithText("탐색 설정").fetchSemanticsNodes().isNotEmpty())
 
-        val combinedTitleBounds = composeRule
+        val exploreHeadingBounds = composeRule
+            .onNodeWithText("탐색 설정", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val searchRadiusBounds = composeRule
             .onNodeWithText(
                 "찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}",
                 useUnmergedTree = true,
             )
             .fetchSemanticsNode()
             .boundsInRoot
-        val subtitleBounds = composeRule
-            .onNodeWithText("주변 주유소를 불러올 반경을 정합니다.", useUnmergedTree = true)
+        composeRule
+            .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+            .performScrollToNode(hasText("표시 설정"))
+        assertTrue(composeRule.onAllNodesWithText("표시 설정").fetchSemanticsNodes().isNotEmpty())
+
+        val displayHeadingBounds = composeRule
+            .onNodeWithText("표시 설정", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val sortOrderBounds = composeRule
+            .onNodeWithText(
+                "정렬기준 : ${uiState.selectedLabelFor(SettingsSection.SortOrder)}",
+                useUnmergedTree = true,
+            )
             .fetchSemanticsNode()
             .boundsInRoot
 
+        composeRule
+            .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+            .performScrollToNode(hasText("연결 설정"))
+        assertTrue(composeRule.onAllNodesWithText("연결 설정").fetchSemanticsNodes().isNotEmpty())
+
         assertTrue(
-            "Expected combined title/value text to appear above the descriptive subtitle.",
-            combinedTitleBounds.top < subtitleBounds.top,
+            "Expected 탐색 설정 heading to appear above its grouped options.",
+            exploreHeadingBounds.top < searchRadiusBounds.top,
         )
+        assertTrue(
+            "Expected 표시 설정 heading to appear above its grouped option.",
+            displayHeadingBounds.top < sortOrderBounds.top,
+        )
+        assertTrue(composeRule.onAllNodesWithText("연결 설정").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun `settings menu renders a dedicated group container for each section`() {
+        val uiState = SettingsUiState.from(UserPreferences.default())
+
+        composeRule.setContent {
+            SettingsScreen(
+                uiState = uiState,
+                onCloseClick = {},
+                onSectionClick = {},
+            )
+        }
+
+        SettingsSectionGroup.entries.forEach { group ->
+            composeRule
+                .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+                .performScrollToNode(hasTestTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}"))
+            composeRule
+                .onNodeWithTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}")
+                .assertExists()
+        }
+    }
+
+    @Test
+    fun `settings menu renders flat rows inside each group container`() {
+        val uiState = SettingsUiState.from(UserPreferences.default())
+
+        composeRule.setContent {
+            SettingsScreen(
+                uiState = uiState,
+                onCloseClick = {},
+                onSectionClick = {},
+            )
+        }
+
+        SettingsSection.entries.forEach { section ->
+            composeRule
+                .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+                .performScrollToNode(hasTestTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}"))
+            composeRule
+                .onNodeWithTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}")
+                .assertExists()
+        }
+    }
+
+    @Test
+    fun `settings menu combines option title and current value into one line`() {
+        val uiState = SettingsUiState.from(UserPreferences.default())
+
+        composeRule.setContent {
+            SettingsScreen(
+                uiState = uiState,
+                onCloseClick = {},
+                onSectionClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText(
+            "찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}",
+        ).assertExists()
+        composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(0)
+        composeRule.onAllNodesWithText(uiState.selectedLabelFor(SettingsSection.SearchRadius)).assertCountEquals(0)
     }
 
     @Test
