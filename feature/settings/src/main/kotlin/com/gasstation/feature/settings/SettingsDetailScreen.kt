@@ -37,10 +37,10 @@ import com.gasstation.core.designsystem.ColorGray
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.component.LegacyChromeCard
-import com.gasstation.core.designsystem.component.LegacySectionHeading
-import com.gasstation.core.designsystem.component.LegacyTopBar
-import com.gasstation.core.designsystem.component.LegacyYellowBackground
+import com.gasstation.core.designsystem.component.ChromeCard
+import com.gasstation.core.designsystem.component.SectionHeading
+import com.gasstation.core.designsystem.component.TopBar
+import com.gasstation.core.designsystem.component.YellowBackground
 
 internal const val SETTINGS_SELECTED_CHECK_TAG = "settings-selected-check"
 internal const val SETTINGS_OPTIONS_GROUP_TAG = "settings-options-group"
@@ -52,11 +52,11 @@ fun SettingsDetailScreen(
     onBackClick: () -> Unit,
     onOptionClick: (SettingOptionUiModel) -> Unit,
 ) {
-    LegacyYellowBackground(modifier = Modifier.fillMaxSize()) {
+    YellowBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                LegacyTopBar(
+                TopBar(
                     title = { Text(text = section.title) },
                     navigationIcon = {
                         SettingsDetailTopBarAction(
@@ -77,10 +77,10 @@ fun SettingsDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    LegacyChromeCard(
+                    ChromeCard(
                         modifier = Modifier.testTag(SETTINGS_OPTIONS_GROUP_TAG),
                     ) {
-                        LegacySectionHeading(
+                        SectionHeading(
                             title = section.group.title,
                             subtitle = section.subtitle,
                         )
