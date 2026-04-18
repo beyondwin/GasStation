@@ -3,6 +3,7 @@ package com.gasstation.feature.watchlist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Assert.assertEquals
@@ -98,6 +99,28 @@ class WatchlistScreenTest {
         composeRule.onNodeWithText("주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.").assertExists()
         composeRule.onNodeWithText("목록 화면에서 북마크를 눌러 바로 추가하세요.").assertExists()
         composeRule.onNodeWithText("저장한 주유소의 가격과 거리를 한 번에 비교합니다.").assertExists()
+    }
+
+    @Test
+    fun `watchlist empty card stays in the upper portion of the screen`() {
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = emptyList(),
+                ),
+            )
+        }
+
+        val rootBounds = composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val emptyTitleTop = composeRule
+            .onNodeWithText("저장한 주유소가 없습니다.", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot.top
+
+        assertTrue(
+            "Expected empty watchlist card to sit in the upper portion of the screen (titleTop=$emptyTitleTop, rootHeight=${rootBounds.height})",
+            emptyTitleTop < rootBounds.height * 0.3f,
+        )
     }
 
     @Test
