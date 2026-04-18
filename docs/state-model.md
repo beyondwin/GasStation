@@ -12,7 +12,7 @@
 - 정렬 순서
 - 외부 지도 제공자
 
-`core:datastore`는 기존 shared preferences 키를 동일한 `UserPreferences` 모델로 한 번만 마이그레이션합니다. 기존 설치 사용자도 결국 DataStore 기반 상태 표면으로 수렴하게 됩니다.
+`core:datastore`는 앱의 장기 사용자 선호값을 `UserPreferences` 단일 모델로 저장합니다. 신규 설치 기준으로 영속 설정의 기준 원천은 DataStore 하나입니다.
 
 이 값들은 프로세스가 종료되어도 유지되며, 설정 화면과 주유소 조회 파이프라인 모두의 입력으로 사용됩니다.
 
