@@ -5,6 +5,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import org.junit.Assert.assertEquals
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.domain.station.model.FuelType
@@ -452,6 +454,55 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithContentDescription("북마크").assertExists()
+    }
+
+    @Test
+    fun `pull to refresh on populated results requests refresh`() {
+        val actions = mutableListOf<StationListAction>()
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = actions::add,
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_PULL_REFRESH_TAG, useUnmergedTree = true)
+            .performTouchInput { swipeDown() }
+
+        assertEquals(listOf(StationListAction.RefreshRequested), actions)
+    }
+
+    @Test
+    fun `pull to refresh on empty results requests refresh`() {
+        val actions = mutableListOf<StationListAction>()
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = actions::add,
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_PULL_REFRESH_TAG, useUnmergedTree = true)
+            .performTouchInput { swipeDown() }
+
+        assertEquals(listOf(StationListAction.RefreshRequested), actions)
     }
 
     private fun testStation() = StationListItemUiModel(
