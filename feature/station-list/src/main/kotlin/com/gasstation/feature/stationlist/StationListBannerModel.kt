@@ -29,14 +29,6 @@ data class StationListBannerModel(
                     ),
                 )
             }
-            if (uiState.isRefreshing) {
-                add(
-                    StationListBannerModel(
-                        title = "새로고침 중입니다.",
-                        tone = StationListBannerTone.Neutral,
-                    ),
-                )
-            }
         }
     }
 }

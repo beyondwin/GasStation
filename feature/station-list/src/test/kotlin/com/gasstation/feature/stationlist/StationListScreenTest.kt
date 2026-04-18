@@ -215,6 +215,47 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `refreshing keeps rendered station list visible without overlay loading card`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    isRefreshing = true,
+                    stations = listOf(
+                        StationListItemUiModel(
+                            id = "station-1",
+                            name = "테스트 주유소",
+                            brandLabel = "GS칼텍스",
+                            priceLabel = "1,689원",
+                            distanceLabel = "0.3km",
+                            priceNumberLabel = "1,689",
+                            priceUnitLabel = "원",
+                            distanceNumberLabel = "0.3",
+                            distanceUnitLabel = "km",
+                            priceDeltaLabel = "직전 가격과 동일",
+                            isWatched = true,
+                            latitude = 37.498095,
+                            longitude = 127.02761,
+                        ),
+                    ),
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("가격 갱신 중").assertExists()
+        composeRule.onNodeWithText("현재 조건 기준 최신 가격을 확인하고 있습니다.").assertExists()
+        composeRule.onNodeWithText("새로고침 중입니다.").assertDoesNotExist()
+        composeRule.onNodeWithText("주변 주유소를 불러오는 중입니다.").assertDoesNotExist()
+    }
+
+    @Test
     fun `top bar watchlist action uses bookmark copy`() {
         composeRule.setContent {
             StationListScreen(
