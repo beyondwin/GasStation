@@ -3,8 +3,10 @@ package com.gasstation.feature.watchlist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -98,6 +100,46 @@ class WatchlistScreenTest {
         composeRule.onNodeWithText("저장한 주유소의 가격과 거리를 한 번에 비교합니다.").assertExists()
     }
 
+    @Test
+    fun `watchlist shows delta indicator to the right of change value`() {
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = listOf(
+                        WatchlistItemUiModel(
+                            id = "station-1",
+                            name = "테스트 주유소",
+                            brandLabel = "GS칼텍스",
+                            priceLabel = "2,022원",
+                            priceNumberLabel = "2,022",
+                            priceUnitLabel = "원",
+                            distanceLabel = "0.3km",
+                            distanceNumberLabel = "0.3",
+                            distanceUnitLabel = "km",
+                            priceDeltaLabel = "17원",
+                            priceDeltaTone = WatchlistPriceDeltaTone.Rise,
+                            lastSeenLabel = "4월 18일 12:00",
+                            latitude = 37.498095,
+                            longitude = 127.02761,
+                        ),
+                    ),
+                ),
+            )
+        }
+
+        val changeValueBounds = composeRule
+            .onNodeWithTag(WATCHLIST_CHANGE_VALUE_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val deltaIndicatorBounds = composeRule
+            .onNodeWithTag(WATCHLIST_DELTA_INDICATOR_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue(deltaIndicatorBounds.left > changeValueBounds.right)
+        assertEquals(changeValueBounds.top, deltaIndicatorBounds.top, 2f)
+    }
+
     private fun watchlistStation(
         id: String,
         name: String,
@@ -112,7 +154,7 @@ class WatchlistScreenTest {
         distanceLabel = "0.3km",
         distanceNumberLabel = "0.3",
         distanceUnitLabel = "km",
-        priceDeltaLabel = "직전 가격과 동일",
+        priceDeltaLabel = "-",
         lastSeenLabel = "4월 18일 12:00",
         latitude = 37.498095,
         longitude = 127.02761,

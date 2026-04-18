@@ -134,7 +134,8 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "가격비교",
+                            priceDeltaLabel = "17원",
+                            priceDeltaTone = PriceDeltaTone.Fall,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -159,7 +160,7 @@ class StationListScreenTest {
             .fetchSemanticsNode()
             .boundsInRoot.top
         val priceComparisonBounds = composeRule
-            .onNodeWithText("가격비교", useUnmergedTree = true)
+            .onNodeWithTag(STATION_LIST_PRICE_CHANGE_TAG, useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
 
