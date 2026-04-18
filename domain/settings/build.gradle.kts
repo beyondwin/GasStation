@@ -7,4 +7,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
     testImplementation(libs.app.cash.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

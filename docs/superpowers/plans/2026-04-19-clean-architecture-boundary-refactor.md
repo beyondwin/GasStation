@@ -576,7 +576,7 @@ git commit -m "refactor: move location infrastructure behind repository"
 - Create: `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/UpdateMapProviderUseCase.kt`
 - Test: `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UpdateSettingsUseCasesTest.kt`
 
-- [ ] **Step 1: Write the failing settings use-case tests**
+- [x] **Step 1: Write the failing settings use-case tests**
 
 ```kotlin
 package com.gasstation.domain.settings
@@ -636,13 +636,13 @@ private class FakeSettingsRepository(
 }
 ```
 
-- [ ] **Step 2: Run the domain settings test to verify it fails**
+- [x] **Step 2: Run the domain settings test to verify it fails**
 
 Run: `./gradlew :domain:settings:test --tests "com.gasstation.domain.settings.UpdateSettingsUseCasesTest"`
 
 Expected: FAIL with unresolved references for the four new use cases.
 
-- [ ] **Step 3: Write the minimal production use cases**
+- [x] **Step 3: Write the minimal production use cases**
 
 ```kotlin
 package com.gasstation.domain.settings.usecase
@@ -687,13 +687,13 @@ class UpdateMapProviderUseCase @Inject constructor(
 }
 ```
 
-- [ ] **Step 4: Run the domain settings test to verify it passes**
+- [x] **Step 4: Run the domain settings test to verify it passes**
 
 Run: `./gradlew :domain:settings:test --tests "com.gasstation.domain.settings.UpdateSettingsUseCasesTest"`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase domain/settings/src/test/kotlin/com/gasstation/domain/settings/UpdateSettingsUseCasesTest.kt
