@@ -32,8 +32,13 @@ GasStation은 상태를 네 층으로 나눠 생각하면 이해하기 쉽습니
 - 현재 좌표
 - 초기 로딩 여부
 - 새로고침 진행 여부
+- `blockingFailure`
 
 이 세션 상태는 `StationListViewModel` 내부에만 있고 저장되지 않습니다. `demo`에서는 `DemoLocationOverride`가 들어오면 권한 상태를 사실상 허용으로 취급하고, 실제 GPS 대신 고정 좌표를 공급합니다.
+
+위치 조회 자체는 `ForegroundLocationProvider`가 `LocationLookupResult`로 돌려줍니다. 즉 세션 상태는 단순히 "좌표가 있나"만 들고 있는 것이 아니라, ViewModel이 성공/timeout/unavailable/error를 구분한 뒤 그 결과를 `currentCoordinates`와 `blockingFailure`, snackbar 효과에 반영하는 구조입니다.
+
+GPS 사용 가능 여부도 더 이상 `onResume`성 재확인 한 번으로 끝나지 않습니다. `StationListRoute`는 화면이 foreground인 동안 broadcast-backed flow를 수집해 provider 변경을 즉시 `GpsAvailabilityChanged` 액션으로 보냅니다.
 
 ## 목록 읽기 모델
 
@@ -55,8 +60,17 @@ GasStation은 상태를 네 층으로 나눠 생각하면 이해하기 쉽습니
 - 화면 카드용 `StationListItemUiModel`
 - 현재 선택된 필터/반경/유종/정렬
 - 마지막 업데이트 시각
+- `blockingFailure`
 
 즉, 목록 화면은 "영속 선호 + 런타임 환경 + 캐시된 검색 결과"를 동시에 보는 구조입니다.
+
+여기서 중요한 분기가 있습니다.
+
+- `fetchedAt != null`이면 적어도 한 번 저장된 캐시 스냅샷이 남아 있다는 뜻입니다. 이 값은 cached result의 존재를 증명하지만, 모든 successful empty 결과의 공통 마커는 아닙니다.
+- location/refresh 실패가 발생해도 캐시 스냅샷이 남아 있으면 `blockingFailure`는 비워 두고, 기존 결과를 계속 보여주면서 snackbar와 stale 데이터만 갱신합니다.
+- location/refresh 실패와 동시에 화면에 남길 캐시 스냅샷도 없으면 `StationListUiState.blockingFailure`가 채워지고 전면 실패 상태로 전환됩니다.
+
+즉 empty results와 "새로고침이 실패했고 캐시도 없어 아무 것도 못 보여주는 상태"는 별개의 상태이며, 이 구분은 `fetchedAt` 단독이 아니라 `blockingFailure`와 캐시 스냅샷 존재 여부를 함께 봐야 정확합니다.
 
 ## watchlist 상태
 
@@ -92,6 +106,8 @@ watchlist 화면이 가진 상태 관심사는 단순합니다.
 - stale 여부에 따른 최신/오래된 스냅샷 의미
 
 핵심은 이 파생 계산이 ViewModel이 아니라 저장소 구현에 있다는 점입니다.
+
+새로고침 실패도 저장소 구현에서 바로 일반 예외로 뭉개지지 않습니다. remote 계층은 `StationRefreshFailureReason`을 붙인 `RemoteStationFetchResult.Failure`를 만들고, 저장소 경계에서는 이를 `StationRefreshException(reason, cause)`로 승격합니다. 이 덕분에 domain/use case/UI는 timeout과 generic refresh failure를 구분하면서도 기존 캐시 스냅샷을 그대로 유지하는 정책을 적용할 수 있습니다.
 
 ## 단발성 UI 효과
 

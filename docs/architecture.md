@@ -62,7 +62,7 @@ flowchart LR
 - `domain:settings`
   `SettingsRepository`, `ObserveUserPreferencesUseCase`, `UpdatePreferredSortOrderUseCase`, `UserPreferences`를 소유합니다.
 - `domain:station`
-  `StationRepository`, 검색/비교 유스케이스, 이벤트 계약(`StationEvent`, `StationEventLogger`), 검색/캐시/정렬/필터 모델을 소유합니다.
+  `StationRepository`, 검색/비교 유스케이스, 이벤트 계약(`StationEvent`, `StationEventLogger`), 검색/캐시/정렬/필터 모델을 소유합니다. 새로고침 실패는 이 경계에서 `StationRefreshFailureReason`과 `StationRefreshException`으로 표준화해 data 계층이 timeout/network/payload/unknown을 구분해 올리고, use case/UI는 캐시 유지 여부와 별개로 사용자 메시지를 선택할 수 있습니다.
 - `data:settings`
   DataStore 기반 설정 저장소 구현체입니다.
 - `data:station`
@@ -72,7 +72,7 @@ flowchart LR
 - `core:designsystem`
   `GasStationTheme`와 색상/타이포그래피 토큰, 그리고 현재 화면들이 사용하는 `GasStationTopBar`, `GasStationCard`, `GasStationSectionHeading`, `GasStationStatusBanner`, `GasStationBackground` 같은 UI primitive를 소유합니다.
 - `core:location`
-  `ForegroundLocationProvider`, `LocationPermissionState`, `DemoLocationOverride`, 안드로이드 위치 구현을 포함합니다.
+  `ForegroundLocationProvider`, `LocationPermissionState`, `DemoLocationOverride`, 안드로이드 위치 구현을 포함합니다. 현재 위치 조회는 nullable 좌표 대신 `LocationLookupResult`를 반환해 성공, timeout, unavailable, permission denied, 예외를 명시적으로 구분합니다.
 - `core:network`
   Opinet Retrofit 서비스, `NetworkRuntimeConfig`, 좌표 변환 로직을 제공합니다. 실제 주유소 검색 파이프라인은 로컬 좌표 변환과 Opinet 호출만 사용합니다.
 - `core:database`
@@ -86,11 +86,12 @@ flowchart LR
 
 ## 핵심 데이터 흐름
 
-1. `StationListRoute`가 권한/GPS 변화를 감시하고 액션을 `StationListViewModel`로 보냅니다.
-2. `StationListViewModel`은 `UserPreferences`와 세션 상태를 결합해 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
-3. `DefaultStationRepository`는 Room 스냅샷을 관찰하면서 관심 목록과 가격 히스토리를 합쳐 화면용 읽기 모델을 만듭니다.
-4. 새로고침 시 `RefreshNearbyStationsUseCase`가 실행되고, 성공하면 캐시 스냅샷과 가격 히스토리가 교체됩니다.
-5. watchlist 화면은 저장된 관심 목록과 최신 캐시/히스토리를 다시 조합해 비교 뷰를 만듭니다.
+1. `StationListRoute`가 권한 상태를 감시하고, 화면이 foreground(`Lifecycle.State.STARTED`)에 있는 동안에는 broadcast-backed `gpsAvailabilityFlow()`로 GPS/provider 변화를 계속 관찰해 `StationListViewModel`로 보냅니다. GPS 사용 가능 여부는 더 이상 resume 시점에만 다시 읽지 않습니다.
+2. `StationListViewModel`은 `UserPreferences`와 세션 상태를 결합해 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다. 위치 조회는 `ForegroundLocationProvider.currentLocation()`의 `LocationLookupResult`를 받아 timeout과 generic failure를 별도 분기합니다.
+3. `DefaultStationRepository`는 Room 스냅샷을 관찰하면서 관심 목록과 가격 히스토리를 합쳐 화면용 읽기 모델을 만듭니다. `fetchedAt != null`이면 적어도 한 번 저장된 캐시 스냅샷이 남아 있다는 뜻이고, `fetchedAt`만으로 every empty 결과의 성공 여부를 단정하지는 않습니다.
+4. 새로고침 시 `RefreshNearbyStationsUseCase`가 실행되고, 성공하면 캐시 스냅샷과 가격 히스토리가 교체됩니다. 실패하면 data 계층이 `StationRefreshException(reason)`을 던져 timeout과 generic refresh failure를 보존한 채 상위 계층으로 전달합니다.
+5. 목록 UI는 `StationListUiState.blockingFailure`를 통해 "캐시를 유지할 수 없는 실패"만 전면 오류로 표시합니다. 이미 캐시 스냅샷이 있으면 결과는 계속 보이고 stale/fetchedAt 정보와 snackbar만 바뀌며, 캐시가 전혀 없을 때만 location 실패나 refresh 실패가 blocking 화면으로 승격됩니다.
+6. watchlist 화면은 저장된 관심 목록과 최신 캐시/히스토리를 다시 조합해 비교 뷰를 만듭니다.
 
 ## startup 과 flavor
 
@@ -107,3 +108,4 @@ flowchart LR
 - 브랜드 필터와 정렬 순서는 캐시를 읽은 뒤 클라이언트에서 적용합니다.
 - `StationCachePolicy`의 stale 기준은 5분입니다.
 - `StationEventLogger`는 `app`에서 `LogcatStationEventLogger`로 바인딩되며, 현재는 목록 화면의 watch toggle 이벤트를 로그캣으로 기록합니다.
+- 빈 결과와 실패는 같은 상태가 아닙니다. `fetchedAt != null`은 캐시 스냅샷이 남아 있다는 증거일 뿐이고, 모든 successful empty 결과의 공통 마커는 아닙니다. UI가 전면 실패를 판단하는 기준은 `StationListUiState.blockingFailure`이며, location/refresh 실패로 화면에 남길 캐시조차 없을 때만 이 값이 채워집니다.
