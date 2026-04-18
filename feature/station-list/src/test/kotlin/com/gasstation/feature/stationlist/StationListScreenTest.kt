@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.domain.station.model.FuelType
@@ -256,6 +257,143 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `blocking failure renders retryable failure card instead of empty results copy`() {
+        val actions = mutableListOf<StationListAction>()
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    blockingFailure = StationListFailureReason.LocationTimedOut,
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = actions::add,
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("위치를 확인하는 데 시간이 오래 걸리고 있습니다.").assertExists()
+        composeRule.onNodeWithText("주변 주유소가 없습니다.").assertDoesNotExist()
+        composeRule.onNodeWithText("다시 시도").performClick()
+
+        assertEquals(listOf(StationListAction.RetryClicked), actions)
+    }
+
+    @Test
+    fun `cached results stay visible when blocking failure is null`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("위치를 확인하는 데 시간이 오래 걸리고 있습니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `cached results stay visible when blocking failure exists`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    blockingFailure = StationListFailureReason.RefreshFailed,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("테스트 주유소").assertExists()
+        composeRule.onNodeWithText("주변 주유소를 불러오지 못했습니다.").assertDoesNotExist()
+        composeRule.onNodeWithText("네트워크 또는 서버 상태를 확인한 뒤 다시 시도해주세요.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `location failure shows generic location failure copy`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    blockingFailure = StationListFailureReason.LocationFailed,
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("현재 위치를 확인하지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("위치 권한과 위치 서비스 상태를 확인한 뒤 다시 시도해주세요.").assertExists()
+        composeRule.onNodeWithText("주변 주유소가 없습니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `refresh timeout shows slow server failure copy`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    blockingFailure = StationListFailureReason.RefreshTimedOut,
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("주변 주유소를 불러오지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("서버 응답이 늦어 주변 주유소를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.").assertExists()
+        composeRule.onNodeWithText("주변 주유소가 없습니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `refresh failure shows generic network failure copy`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    blockingFailure = StationListFailureReason.RefreshFailed,
+                    selectedFuelType = FuelType.DIESEL,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("주변 주유소를 불러오지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("네트워크 또는 서버 상태를 확인한 뒤 다시 시도해주세요.").assertExists()
+        composeRule.onNodeWithText("주변 주유소가 없습니다.").assertDoesNotExist()
+    }
+
+    @Test
     fun `top bar watchlist action uses bookmark copy`() {
         composeRule.setContent {
             StationListScreen(
@@ -274,4 +412,20 @@ class StationListScreenTest {
 
         composeRule.onNodeWithContentDescription("북마크").assertExists()
     }
+
+    private fun testStation() = StationListItemUiModel(
+        id = "station-1",
+        name = "테스트 주유소",
+        brandLabel = "GS칼텍스",
+        priceLabel = "1,689원",
+        distanceLabel = "0.3km",
+        priceNumberLabel = "1,689",
+        priceUnitLabel = "원",
+        distanceNumberLabel = "0.3",
+        distanceUnitLabel = "km",
+        priceDeltaLabel = "직전 가격과 동일",
+        isWatched = true,
+        latitude = 37.498095,
+        longitude = 127.02761,
+    )
 }
