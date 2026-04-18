@@ -87,11 +87,16 @@ internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
 
-private enum class StationListBodyState {
-    PermissionRequired,
-    GpsRequired,
-    InitialLoading,
-    Results,
+private sealed interface StationListBodyState {
+    data object PermissionRequired : StationListBodyState
+
+    data object GpsRequired : StationListBodyState
+
+    data object InitialLoading : StationListBodyState
+
+    data class Failure(val reason: StationListFailureReason) : StationListBodyState
+
+    data object Results : StationListBodyState
 }
 
 @Composable
@@ -161,6 +166,12 @@ fun StationListScreen(
 
                     StationListBodyState.InitialLoading -> LoadingState(
                         modifier = Modifier.fillMaxSize(),
+                    )
+
+                    is StationListBodyState.Failure -> FailureState(
+                        reason = bodyState.reason,
+                        modifier = Modifier.fillMaxSize(),
+                        onAction = onAction,
                     )
 
                     StationListBodyState.Results -> StationListResultsPane(
@@ -683,6 +694,24 @@ private fun LoadingState(
 }
 
 @Composable
+private fun FailureState(
+    reason: StationListFailureReason,
+    onAction: (StationListAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val content = reason.toFailureCardContent()
+
+    BrandedStateContainer(modifier = modifier) {
+        StationListActionStateCard(
+            title = content.title,
+            body = content.body,
+            buttonLabel = "다시 시도",
+            onClick = { onAction(StationListAction.RetryClicked) },
+        )
+    }
+}
+
+@Composable
 private fun EmptyState(
     onAction: (StationListAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -916,6 +945,7 @@ private fun StationListUiState.toBodyState(): StationListBodyState = when {
     permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
     !isGpsEnabled -> StationListBodyState.GpsRequired
     isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
+    blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
     else -> StationListBodyState.Results
 }
 
@@ -980,4 +1010,31 @@ private fun BrandFilter.toLabel(): String = when (this) {
     BrandFilter.ETC -> "자가상표"
     BrandFilter.E1G -> "E1"
     BrandFilter.SKG -> "SK가스"
+}
+
+private data class StationListFailureCardContent(
+    val title: String,
+    val body: String,
+)
+
+private fun StationListFailureReason.toFailureCardContent(): StationListFailureCardContent = when (this) {
+    StationListFailureReason.LocationTimedOut -> StationListFailureCardContent(
+        title = "위치를 확인하는 데 시간이 오래 걸리고 있습니다.",
+        body = "GPS 신호나 네트워크 상태를 확인한 뒤 다시 시도해주세요.",
+    )
+
+    StationListFailureReason.LocationFailed -> StationListFailureCardContent(
+        title = "현재 위치를 확인하지 못했습니다.",
+        body = "위치 권한과 위치 서비스 상태를 확인한 뒤 다시 시도해주세요.",
+    )
+
+    StationListFailureReason.RefreshTimedOut -> StationListFailureCardContent(
+        title = "주변 주유소를 불러오지 못했습니다.",
+        body = "서버 응답이 늦어 주변 주유소를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+    )
+
+    StationListFailureReason.RefreshFailed -> StationListFailureCardContent(
+        title = "주변 주유소를 불러오지 못했습니다.",
+        body = "네트워크 또는 서버 상태를 확인한 뒤 다시 시도해주세요.",
+    )
 }
