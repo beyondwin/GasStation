@@ -34,9 +34,12 @@ import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import java.time.Instant
 import java.util.Optional
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -681,6 +684,256 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `refresh failure before cached empty snapshot emission does not leave blocking failure stuck`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                observeResults = MutableSharedFlow(),
+                refreshFailure = IllegalStateException("refresh failed"),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                ),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(
+                    StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+                )
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                    awaitItem(),
+                )
+                assertEquals(null, viewModel.uiState.value.blockingFailure)
+
+                repository.emitObservedResult(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = StationFreshness.Stale,
+                        fetchedAt = Instant.parse("2026-04-18T01:00:00Z"),
+                    ),
+                )
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+            assertEquals(emptyList<StationListItemUiModel>(), viewModel.uiState.value.stations)
+            assertEquals(Instant.parse("2026-04-18T01:00:00Z"), viewModel.uiState.value.lastUpdatedAt)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `refresh failure before no cache snapshot emission still sets blocking failure once query is observed`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                observeResults = MutableSharedFlow(),
+                refreshFailure = StationRefreshException(StationRefreshFailureReason.Timeout),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                ),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(
+                    StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+                )
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListEffect.ShowSnackbar("서버 응답이 늦어 가격을 새로고침하지 못했습니다."),
+                    awaitItem(),
+                )
+                assertEquals(null, viewModel.uiState.value.blockingFailure)
+
+                repository.emitObservedResult(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = StationFreshness.Stale,
+                        fetchedAt = null,
+                    ),
+                )
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            assertEquals(
+                StationListFailureReason.RefreshTimedOut,
+                viewModel.uiState.value.blockingFailure,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `refresh cancellation propagates without snackbar or blocking failure`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                refreshFailure = CancellationException("refresh cancelled"),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                ),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(
+                    StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+                )
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            assertFalse(viewModel.uiState.value.isLoading)
+            assertFalse(viewModel.uiState.value.isRefreshing)
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `stale query refresh failure is discarded after active query changes`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val firstQueryRefresh = CompletableDeferred<Unit>()
+            val secondQueryRefresh = CompletableDeferred<Unit>()
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                observeResults = MutableSharedFlow(),
+                refreshBehavior = { query ->
+                    when (query.coordinates) {
+                        Coordinates(37.498095, 127.027610) -> {
+                            firstQueryRefresh.await()
+                            throw StationRefreshException(StationRefreshFailureReason.Timeout)
+                        }
+
+                        Coordinates(37.499095, 127.027610) -> {
+                            secondQueryRefresh.await()
+                        }
+                    }
+                },
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val locationProvider = SequencedForegroundLocationProvider(
+                results = listOf(
+                    LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                    LocationLookupResult.Success(Coordinates(37.499095, 127.027610)),
+                ),
+            )
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = locationProvider,
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(
+                    StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+                )
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                firstQueryRefresh.complete(Unit)
+                advanceUntilIdle()
+
+                repository.emitObservedResult(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = StationFreshness.Stale,
+                        fetchedAt = null,
+                    ),
+                )
+                secondQueryRefresh.complete(Unit)
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+            assertEquals(Coordinates(37.499095, 127.027610), viewModel.uiState.value.currentCoordinates)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun `remote timeout with cached stations keeps list visible and only emits snackbar`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         try {
@@ -739,7 +992,9 @@ class StationListViewModelTest {
 
 private class FakeStationRepository(
     result: StationSearchResult,
+    private val observeResults: MutableSharedFlow<StationSearchResult>? = null,
     var refreshFailure: Throwable? = null,
+    private val refreshBehavior: (suspend (StationQuery) -> Unit)? = null,
 ) : StationRepository {
     private val state = MutableStateFlow(result)
 
@@ -749,7 +1004,7 @@ private class FakeStationRepository(
 
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         observedQueries += query
-        return state
+        return observeResults ?: state
     }
 
     override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
@@ -757,7 +1012,12 @@ private class FakeStationRepository(
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
+        refreshBehavior?.invoke(query)
         refreshFailure?.let { throw it }
+    }
+
+    suspend fun emitObservedResult(result: StationSearchResult) {
+        observeResults?.emit(result) ?: run { state.value = result }
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) {
@@ -785,6 +1045,15 @@ private class FakeForegroundLocationProvider(
 ) : ForegroundLocationProvider {
     override suspend fun currentLocation(permissionState: LocationPermissionState): LocationLookupResult =
         result
+}
+
+private class SequencedForegroundLocationProvider(
+    private val results: List<LocationLookupResult>,
+) : ForegroundLocationProvider {
+    private var index = 0
+
+    override suspend fun currentLocation(permissionState: LocationPermissionState): LocationLookupResult =
+        results.getOrElse(index++) { results.last() }
 }
 
 private class RecordingStationEventLogger : StationEventLogger {

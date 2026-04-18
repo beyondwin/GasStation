@@ -2,6 +2,7 @@ package com.gasstation.data.station
 
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
@@ -243,11 +244,20 @@ class WatchlistRepositoryTest {
             fuelType: String,
         ): Flow<List<StationCacheEntity>> = flowOf(emptyList())
 
+        override fun observeSnapshot(
+            latitudeBucket: Int,
+            longitudeBucket: Int,
+            radiusMeters: Int,
+            fuelType: String,
+        ): Flow<StationCacheSnapshotEntity?> = flowOf(null)
+
         override fun observeLatestStationsByIds(
             stationIds: List<String>,
         ): Flow<List<StationCacheEntity>> = flowOf(emptyList())
 
         override suspend fun upsertAll(entities: List<StationCacheEntity>) = Unit
+
+        override suspend fun upsertSnapshot(snapshot: StationCacheSnapshotEntity) = Unit
 
         override suspend fun deleteStations(
             latitudeBucket: Int,
@@ -256,7 +266,9 @@ class WatchlistRepositoryTest {
             fuelType: String,
         ) = Unit
 
-        override suspend fun pruneOlderThan(cutoffEpochMillis: Long) = Unit
+        override suspend fun pruneStationsOlderThan(cutoffEpochMillis: Long) = Unit
+
+        override suspend fun pruneSnapshotsOlderThan(cutoffEpochMillis: Long) = Unit
     }
 
     private class RecordingWatchlistStationCacheDao(

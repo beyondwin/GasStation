@@ -2,6 +2,7 @@ package com.gasstation.data.station
 
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
@@ -372,6 +373,25 @@ class DefaultStationRepositoryTest {
         assertEquals(now.minusSeconds(180).toEpochMilli(), cachedStations.single().fetchedAtEpochMillis)
     }
 
+    @Test
+    fun `observeNearbyStations exposes cached empty snapshot after empty refresh`() = runBlocking {
+        val query = stationQuery()
+        val repository = repository(
+            remoteDataSource = FakeStationRemoteDataSource(
+                RemoteStationFetchResult.Success(emptyList()),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        val result = repository.observeNearbyStations(query).first()
+
+        assertTrue(result.hasCachedSnapshot)
+        assertEquals(emptyList<Any>(), result.stations)
+        assertEquals(now, result.fetchedAt)
+        assertEquals(StationFreshness.Fresh, result.freshness)
+    }
+
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
         stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
@@ -456,6 +476,7 @@ class DefaultStationRepositoryTest {
 
     private class RecordingStationCacheDao : StationCacheDao() {
         private val entities = MutableStateFlow<List<StationCacheEntity>>(emptyList())
+        private val snapshots = MutableStateFlow<List<StationCacheSnapshotEntity>>(emptyList())
         val replaceSnapshotCalls = mutableListOf<List<StationCacheEntity>>()
 
         override fun observeStations(
@@ -482,6 +503,20 @@ class DefaultStationRepositoryTest {
                 .map { rows -> rows.maxBy { it.fetchedAtEpochMillis } }
         }
 
+        override fun observeSnapshot(
+            latitudeBucket: Int,
+            longitudeBucket: Int,
+            radiusMeters: Int,
+            fuelType: String,
+        ): Flow<StationCacheSnapshotEntity?> = snapshots.map { current ->
+            current.firstOrNull {
+                it.latitudeBucket == latitudeBucket &&
+                    it.longitudeBucket == longitudeBucket &&
+                    it.radiusMeters == radiusMeters &&
+                    it.fuelType == fuelType
+            }
+        }
+
         override suspend fun upsertAll(entities: List<StationCacheEntity>) {
             this.entities.value = this.entities.value + entities
         }
@@ -500,11 +535,22 @@ class DefaultStationRepositoryTest {
             }
         }
 
+        override suspend fun upsertSnapshot(snapshot: StationCacheSnapshotEntity) {
+            snapshots.value = snapshots.value
+                .filterNot {
+                    it.latitudeBucket == snapshot.latitudeBucket &&
+                        it.longitudeBucket == snapshot.longitudeBucket &&
+                        it.radiusMeters == snapshot.radiusMeters &&
+                        it.fuelType == snapshot.fuelType
+                } + snapshot
+        }
+
         override suspend fun replaceSnapshot(
             latitudeBucket: Int,
             longitudeBucket: Int,
             radiusMeters: Int,
             fuelType: String,
+            fetchedAtEpochMillis: Long,
             entities: List<StationCacheEntity>,
         ) {
             replaceSnapshotCalls += listOf(entities)
@@ -513,14 +559,34 @@ class DefaultStationRepositoryTest {
                 longitudeBucket = longitudeBucket,
                 radiusMeters = radiusMeters,
                 fuelType = fuelType,
+                fetchedAtEpochMillis = fetchedAtEpochMillis,
                 entities = entities,
             )
         }
 
-        override suspend fun pruneOlderThan(cutoffEpochMillis: Long) = Unit
+        override suspend fun pruneStationsOlderThan(cutoffEpochMillis: Long) {
+            entities.value = entities.value.filterNot { it.fetchedAtEpochMillis < cutoffEpochMillis }
+        }
+
+        override suspend fun pruneSnapshotsOlderThan(cutoffEpochMillis: Long) {
+            snapshots.value = snapshots.value.filterNot { it.fetchedAtEpochMillis < cutoffEpochMillis }
+        }
 
         fun seed(vararg entities: StationCacheEntity) {
             this.entities.value = entities.toList()
+            snapshots.value = entities
+                .groupBy { listOf(it.latitudeBucket, it.longitudeBucket, it.radiusMeters, it.fuelType) }
+                .values
+                .map { bucketRows ->
+                    val first = bucketRows.first()
+                    StationCacheSnapshotEntity(
+                        latitudeBucket = first.latitudeBucket,
+                        longitudeBucket = first.longitudeBucket,
+                        radiusMeters = first.radiusMeters,
+                        fuelType = first.fuelType,
+                        fetchedAtEpochMillis = bucketRows.maxOf { it.fetchedAtEpochMillis },
+                    )
+                }
         }
 
         suspend fun snapshotFor(

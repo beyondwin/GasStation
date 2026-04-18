@@ -58,6 +58,7 @@ class StationCacheDaoTest {
             longitudeBucket = cacheKey.longitudeBucket,
             radiusMeters = cacheKey.radiusMeters,
             fuelType = cacheKey.fuelType,
+            fetchedAtEpochMillis = initialStation.fetchedAtEpochMillis,
             entities = listOf(initialStation),
         )
         dao.replaceSnapshot(
@@ -65,6 +66,7 @@ class StationCacheDaoTest {
             longitudeBucket = otherKey.longitudeBucket,
             radiusMeters = otherKey.radiusMeters,
             fuelType = otherKey.fuelType,
+            fetchedAtEpochMillis = unrelatedStation.fetchedAtEpochMillis,
             entities = listOf(unrelatedStation),
         )
 
@@ -94,6 +96,7 @@ class StationCacheDaoTest {
             longitudeBucket = cacheKey.longitudeBucket,
             radiusMeters = cacheKey.radiusMeters,
             fuelType = cacheKey.fuelType,
+            fetchedAtEpochMillis = replacementStation.fetchedAtEpochMillis,
             entities = listOf(replacementStation),
         )
 
@@ -144,6 +147,50 @@ class StationCacheDaoTest {
         val rows = dao.observeLatestStationsByIds(listOf("station-1")).first()
 
         assertEquals(listOf("DIESEL", "GASOLINE"), rows.map { it.fuelType })
+    }
+
+    @Test
+    fun `replaceSnapshot records empty snapshot metadata`() = runBlocking {
+        val cacheKey = CacheKey(
+            latitudeBucket = 16649,
+            longitudeBucket = 50811,
+            radiusMeters = 3_000,
+            fuelType = "GASOLINE",
+        )
+
+        dao.replaceSnapshot(
+            latitudeBucket = cacheKey.latitudeBucket,
+            longitudeBucket = cacheKey.longitudeBucket,
+            radiusMeters = cacheKey.radiusMeters,
+            fuelType = cacheKey.fuelType,
+            fetchedAtEpochMillis = 1_744_947_200_000L,
+            entities = emptyList(),
+        )
+
+        assertEquals(
+            StationCacheSnapshotEntity(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType,
+                fetchedAtEpochMillis = 1_744_947_200_000L,
+            ),
+            dao.observeSnapshot(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType,
+            ).first(),
+        )
+        assertEquals(
+            emptyList<StationCacheEntity>(),
+            dao.observeStations(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType,
+            ).first(),
+        )
     }
 
     private fun station(
