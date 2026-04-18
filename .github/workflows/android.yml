@@ -22,12 +22,17 @@ jobs:
             :core:model:test \
             :domain:station:test \
             :domain:settings:test \
-            :core:location:testDebugUnitTest \
+            :core:database:testDebugUnitTest \
             :core:datastore:testDebugUnitTest \
+            :core:designsystem:testDebugUnitTest \
+            :core:location:testDebugUnitTest \
+            :core:network:test \
             :data:settings:testDebugUnitTest \
             :data:station:testDebugUnitTest \
             :feature:settings:testDebugUnitTest \
             :feature:station-list:testDebugUnitTest \
+            :feature:watchlist:testDebugUnitTest \
+            :app:testDemoDebugUnitTest \
             :app:assembleDebug \
             :app:assembleDemoDebug \
             :app:assembleProdDebug \

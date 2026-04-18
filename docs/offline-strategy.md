@@ -97,5 +97,6 @@ watchlist는 현재 검색 결과에 없는 주유소도 유지해야 하므로 
 
 ## 운영 메모
 
-- `prod` 런타임의 실제 검색은 Opinet API 키만 필수입니다.
-- `tools:demo-seed:generateDemoSeed`는 seed 재생성을 위해 `opinet.apikey`를 사용하고 `kakao.apikey`도 전달하지만, 현재 좌표 변환과 앱 런타임 검색은 외부 Kakao 변환 API에 의존하지 않습니다.
+- `prod` 런타임의 실제 검색은 Opinet API 키만 필요하다.
+- `tools:demo-seed:generateDemoSeed`는 seed 재생성을 위해 `opinet.apikey`만 사용한다.
+- demo는 "오프라인 fallback을 보여주기 위한 샘플 모드"가 아니라, 실제 시연에서 사용하는 고정된 공식 경로다.

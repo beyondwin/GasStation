@@ -1,6 +1,8 @@
 # 아키텍처
 
-GasStation은 책임을 기준으로 멀티모듈을 나눈 Compose 안드로이드 앱입니다. `app`은 조립과 flavor 연결만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공통 모델과 인프라는 `core`에 둡니다. 문서 기준 현재 그래프는 `settings.gradle.kts`와 일치합니다.
+GasStation은 책임을 기준으로 멀티모듈을 나눈 Compose 안드로이드 앱이다. `app`은 composition root와 실행 환경 연결만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공유 인프라와 값 객체는 `core`에 둔다.
+
+이 프로젝트는 현재 `demo`와 `prod` 경로만 지원한다. 과거 앱 버전 호환이나 레거시 유저 데이터 호환을 위한 분기는 유지하지 않고, 현재 시연/실행 경로의 명확성과 검증 가능성을 우선한다.
 
 ```mermaid
 flowchart LR
@@ -41,7 +43,6 @@ flowchart LR
     domSettings --> domStation
     domSettings --> cmodel
     domStation --> cmodel
-    domStation --> ccommon["core:common"]
 
     tools["tools:demo-seed"] --> cnetwork
     tools --> domStation
@@ -68,20 +69,16 @@ flowchart LR
   Room 스냅샷, 가격 히스토리, 관심 주유소, 원격 조회 결과를 조합해 `StationSearchResult`와 `WatchedStationSummary`를 만드는 저장소 구현체입니다.
 - `core:model`
   `Coordinates`, `DistanceMeters`, `MoneyWon` 같은 값 객체를 제공합니다.
-- `core:common`
-  공통 결과 타입과 dispatcher 추상화를 제공합니다.
 - `core:designsystem`
-  `GasStationTheme`와 색상/타이포그래피 토큰, 그리고 현재 화면들이 사용하는 `LegacyTopBar`, `LegacyListRow`, `LegacyChromeCard` 같은 UI primitive를 소유합니다.
+  `GasStationTheme`와 색상/타이포그래피 토큰, 그리고 현재 화면들이 사용하는 `GasStationTopBar`, `GasStationCard`, `GasStationSectionHeading`, `GasStationStatusBanner`, `GasStationBackground` 같은 UI primitive를 소유합니다.
 - `core:location`
   `ForegroundLocationProvider`, `LocationPermissionState`, `DemoLocationOverride`, 안드로이드 위치 구현을 포함합니다.
 - `core:network`
-  Opinet Retrofit 서비스, Kakao 서비스 생성기, `NetworkRuntimeConfig`, 좌표 변환 로직을 제공합니다. 실제 주유소 검색 파이프라인은 로컬 좌표 변환과 Opinet 호출만 사용합니다.
+  Opinet Retrofit 서비스, `NetworkRuntimeConfig`, 좌표 변환 로직을 제공합니다. 실제 주유소 검색 파이프라인은 로컬 좌표 변환과 Opinet 호출만 사용합니다.
 - `core:database`
   `GasStationDatabase`, `station_cache`, `station_price_history`, `watched_station` 테이블과 DAO, migration 테스트를 소유합니다.
 - `core:datastore`
   `UserPreferences` serializer와 DataStore data source를 제공합니다.
-- `core:testing`
-  JUnit, AndroidX JUnit, Espresso를 묶는 테스트 전용 지원 모듈입니다.
 - `tools:demo-seed`
   승인된 강남역 기준 질의 매트릭스를 실제 API로 한 번 수집해 `app/src/demo/assets/demo-station-seed.json`을 다시 생성하는 JVM CLI입니다.
 - `benchmark`
@@ -100,7 +97,7 @@ flowchart LR
 - `demo`
   `DemoSeedStartupHook`이 앱 시작 시 Room을 비우고 demo seed 자산을 다시 적재합니다. 같은 시점에 `SettingsRepository`도 `UserPreferences.default()`로 초기화해 검토자 시작 상태를 항상 고정합니다. 위치는 `DemoLocationOverride`가 강남역 2번 출구 좌표를 강제로 공급합니다.
 - `prod`
-  `ProdSecretsStartupHook`이 `opinet.apikey` 존재만 강제합니다. `BuildConfig`에는 `KAKAO_API_KEY`도 들어가지만 현재 런타임 검색 파이프라인은 Kakao 키에 의존하지 않으므로 필수 시크릿은 아닙니다.
+  `ProdSecretsStartupHook`이 `opinet.apikey` 존재만 강제합니다. 현재 런타임 검색 파이프라인은 Opinet API 키만 사용합니다.
 - `benchmark`
   `missingDimensionStrategy("environment", "demo")`로 `demo` 데이터를 고정해 반복 가능한 측정을 수행합니다.
 
