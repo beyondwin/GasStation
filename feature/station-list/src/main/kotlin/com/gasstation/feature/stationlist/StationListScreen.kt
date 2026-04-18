@@ -57,7 +57,6 @@ import com.gasstation.core.designsystem.component.LegacyStatusTone
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 import com.gasstation.core.location.LocationPermissionState
-import com.gasstation.domain.station.model.BrandFilter
 
 @Composable
 fun StationListScreen(
@@ -220,9 +219,6 @@ private fun FilterSummary(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterPill(text = uiState.selectedRadius.toLabel())
             FilterPill(text = uiState.selectedFuelType.toLabel())
-            if (uiState.selectedBrandFilter != BrandFilter.ALL) {
-                FilterPill(text = uiState.selectedBrandFilter.toLabel())
-            }
         }
     }
 }
