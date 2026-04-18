@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.LayerDrawable
+import android.os.Build
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import androidx.test.core.app.ApplicationProvider
@@ -21,10 +22,18 @@ class SplashThemeResourceTest {
     @Test
     fun `main activity theme exposes branded splash background and icon on android 12 and above`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val activityInfo = context.packageManager.getActivityInfo(
-            ComponentName(context, MainActivity::class.java),
-            PackageManager.ComponentInfoFlags.of(0),
-        )
+        val activityInfo = if (Build.VERSION.SDK_INT >= 33) {
+            context.packageManager.getActivityInfo(
+                ComponentName(context, MainActivity::class.java),
+                PackageManager.ComponentInfoFlags.of(0),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getActivityInfo(
+                ComponentName(context, MainActivity::class.java),
+                0,
+            )
+        }
         val themedContext = ContextThemeWrapper(context, activityInfo.themeResource)
         val splashBackground = TypedValue()
         val splashIcon = TypedValue()
