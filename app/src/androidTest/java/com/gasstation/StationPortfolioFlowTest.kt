@@ -4,7 +4,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -48,14 +48,13 @@ class StationPortfolioFlowTest {
     @Test
     fun demoFlow_can_watch_station_and_open_watchlist() {
         reseedDemoDatabase()
-        rule.activityRule.scenario.recreate()
 
         rule.waitUntil(timeoutMillis = 10_000) {
-            rule.onAllNodesWithContentDescription("관심 주유소 토글")
+            rule.onAllNodesWithContentDescription("저장")
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        rule.onAllNodesWithContentDescription("관심 주유소 토글")
+        rule.onAllNodesWithContentDescription("저장")
             .onFirst()
             .performClick()
 
@@ -64,7 +63,7 @@ class StationPortfolioFlowTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        rule.onNodeWithText("북마크").performClick()
+        rule.onNodeWithContentDescription("북마크").performClick()
 
         rule.waitUntil(timeoutMillis = 10_000) {
             rule.onAllNodesWithTag(
