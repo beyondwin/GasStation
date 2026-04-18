@@ -38,9 +38,9 @@ import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.component.ChromeCard
-import com.gasstation.core.designsystem.component.TopBar
-import com.gasstation.core.designsystem.component.YellowBackground
+import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationTopBar
 
 internal const val SETTINGS_SCREEN_LIST_TAG = "settings-screen-list"
 internal const val SETTINGS_GROUP_TAG_PREFIX = "settings-group-"
@@ -52,11 +52,11 @@ fun SettingsScreen(
     onCloseClick: () -> Unit,
     onSectionClick: (SettingsSection) -> Unit,
 ) {
-    YellowBackground(modifier = Modifier.fillMaxSize()) {
+    GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopBar(
+                GasStationTopBar(
                     title = { Text(text = "찾기 설정") },
                     actions = {
                         SettingsTopBarAction(
@@ -103,7 +103,7 @@ private fun SettingsSectionGroupBlock(
             .testTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ChromeCard {
+        GasStationCard {
             SettingsGroupHeader(group = group)
             sections.forEachIndexed { index, section ->
                 SettingsMenuRow(

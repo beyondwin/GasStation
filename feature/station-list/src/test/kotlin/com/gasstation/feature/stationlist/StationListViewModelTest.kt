@@ -100,7 +100,7 @@ class StationListViewModelTest {
             assertFalse(viewModel.uiState.value.isRefreshing)
             assertTrue(viewModel.uiState.value.isStale)
             assertEquals(1, viewModel.uiState.value.stations.size)
-            assertEquals("30원 하락", viewModel.uiState.value.stations.single().priceDeltaLabel)
+            assertEquals("30원", viewModel.uiState.value.stations.single().priceDeltaLabel)
             assertTrue(viewModel.uiState.value.stations.single().isWatched)
         } finally {
             Dispatchers.resetMain()

@@ -4,12 +4,9 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.service.OpinetService
 import com.gasstation.domain.station.model.FuelType
 import com.gasstation.domain.station.model.SearchRadius
-import javax.inject.Inject
-import javax.inject.Named
 
-class NetworkStationFetcher @Inject constructor(
+class NetworkStationFetcher(
     private val opinetService: OpinetService,
-    @Named("opinetApiKey")
     private val opinetApiKey: String,
 ) {
     suspend fun fetchStations(

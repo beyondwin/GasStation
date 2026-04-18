@@ -1,6 +1,5 @@
 package com.gasstation.domain.station
 
-import com.gasstation.core.common.dispatchers.DispatcherProvider
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.BrandFilter
@@ -14,7 +13,6 @@ import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,14 +22,17 @@ import kotlin.test.assertTrue
 class DomainContractSurfaceTest {
 
     @Test
-    fun `dispatcher provider exposes coroutine dispatcher contracts`() {
-        val returnTypes = DispatcherProvider::class.java.declaredMethods.associate { method ->
-            method.name to method.returnType
-        }
-
-        assertEquals(CoroutineDispatcher::class.java, returnTypes.getValue("getDefault"))
-        assertEquals(CoroutineDispatcher::class.java, returnTypes.getValue("getIo"))
-        assertEquals(CoroutineDispatcher::class.java, returnTypes.getValue("getMain"))
+    fun `domain module no longer depends on core common helper types`() {
+        assertTrue(
+            runCatching {
+                Class.forName("com.gasstation.core.common.dispatchers.DispatcherProvider")
+            }.isFailure,
+        )
+        assertTrue(
+            runCatching {
+                Class.forName("com.gasstation.core.common.result.AppResult")
+            }.isFailure,
+        )
     }
 
     @Test

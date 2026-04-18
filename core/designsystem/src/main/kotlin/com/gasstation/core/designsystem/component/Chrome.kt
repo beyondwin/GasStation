@@ -115,7 +115,7 @@ data class StatusBannerContent(
 }
 
 @Composable
-fun YellowBackground(
+fun GasStationBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -127,7 +127,7 @@ fun YellowBackground(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar(
+fun GasStationTopBar(
     title: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     navigationIcon: @Composable () -> Unit = {},
@@ -153,7 +153,7 @@ fun TopBar(
 }
 
 @Composable
-fun ChromeCard(
+fun GasStationCard(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit,
@@ -184,7 +184,7 @@ fun ChromeCard(
 }
 
 @Composable
-fun SectionHeading(
+fun GasStationSectionHeading(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
@@ -211,11 +211,11 @@ fun SectionHeading(
 }
 
 @Composable
-fun StatusBanner(
+fun GasStationStatusBanner(
     text: String,
     modifier: Modifier = Modifier,
     detail: String? = null,
-    tone: StatusTone = StatusTone.Neutral,
+    tone: GasStationStatusTone = GasStationStatusTone.Neutral,
 ) {
     val content = StatusBannerContent(
         title = text,
@@ -271,7 +271,7 @@ fun StatusBanner(
     }
 }
 
-enum class StatusTone {
+enum class GasStationStatusTone {
     Neutral,
     Info,
     Success,
@@ -285,28 +285,28 @@ private data class StatusColors(
     val accent: Color,
 )
 
-private fun StatusTone.colors(): StatusColors = when (this) {
-    StatusTone.Neutral -> StatusColors(
+private fun GasStationStatusTone.colors(): StatusColors = when (this) {
+    GasStationStatusTone.Neutral -> StatusColors(
         container = ColorWhite,
         content = ColorBlack,
         accent = ColorGray2,
     )
-    StatusTone.Info -> StatusColors(
+    GasStationStatusTone.Info -> StatusColors(
         container = ColorGray4,
         content = ColorBlack,
         accent = ColorSupportInfo,
     )
-    StatusTone.Success -> StatusColors(
+    GasStationStatusTone.Success -> StatusColors(
         container = ColorGray4,
         content = ColorBlack,
         accent = ColorSupportSuccess,
     )
-    StatusTone.Warning -> StatusColors(
+    GasStationStatusTone.Warning -> StatusColors(
         container = ColorWhite,
         content = ColorBlack,
         accent = ColorYellow,
     )
-    StatusTone.Error -> StatusColors(
+    GasStationStatusTone.Error -> StatusColors(
         container = ColorGray4,
         content = ColorBlack,
         accent = ColorSupportError,
