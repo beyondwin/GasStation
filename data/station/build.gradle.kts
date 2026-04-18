@@ -13,7 +13,6 @@ dependencies {
     implementation(project(":core:location"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
-    implementation(project(":domain:settings"))
     implementation(project(":domain:station"))
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)

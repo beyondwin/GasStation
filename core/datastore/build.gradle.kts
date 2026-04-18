@@ -10,6 +10,7 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":domain:settings"))
+    implementation(project(":domain:station"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.core)
     testImplementation(libs.junit)
