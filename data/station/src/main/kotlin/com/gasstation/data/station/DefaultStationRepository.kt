@@ -51,18 +51,41 @@ class DefaultStationRepository @Inject constructor(
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
 
-        return stationCacheDao.observeStations(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType.name,
-        ).flatMapLatest { cachedStations ->
-            if (cachedStations.isEmpty()) {
+        return combine(
+            stationCacheDao.observeSnapshot(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType.name,
+            ),
+            stationCacheDao.observeStations(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType.name,
+            ),
+        ) { snapshot, cachedStations ->
+            snapshot to cachedStations
+        }.flatMapLatest { (snapshot, cachedStations) ->
+            if (snapshot == null) {
                 return@flatMapLatest flowOf(
                     StationSearchResult(
                         stations = emptyList(),
                         freshness = StationFreshness.Stale,
                         fetchedAt = null,
+                        hasCachedSnapshot = false,
+                    ),
+                )
+            }
+
+            val fetchedAt = Instant.ofEpochMilli(snapshot.fetchedAtEpochMillis)
+            if (cachedStations.isEmpty()) {
+                return@flatMapLatest flowOf(
+                    StationSearchResult(
+                        stations = emptyList(),
+                        freshness = cachePolicy.freshnessOf(fetchedAt, clock.instant()),
+                        fetchedAt = fetchedAt,
+                        hasCachedSnapshot = true,
                     ),
                 )
             }
@@ -79,6 +102,7 @@ class DefaultStationRepository @Inject constructor(
                     query = query,
                     watchedStationIds = watchedStationIds.toSet(),
                     historyRowsByStationId = historyRows.groupByStationId(),
+                    fetchedAt = fetchedAt,
                     cachePolicy = cachePolicy,
                     now = clock.instant(),
                 )
@@ -131,6 +155,7 @@ class DefaultStationRepository @Inject constructor(
                     longitudeBucket = cacheKey.longitudeBucket,
                     radiusMeters = cacheKey.radiusMeters,
                     fuelType = cacheKey.fuelType.name,
+                    fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
                     entities = snapshotEntities,
                 )
 
@@ -177,10 +202,10 @@ class DefaultStationRepository @Inject constructor(
         query: StationQuery,
         watchedStationIds: Set<String>,
         historyRowsByStationId: Map<String, List<StationPriceHistoryEntity>>,
+        fetchedAt: Instant,
         cachePolicy: StationCachePolicy,
         now: Instant,
     ): StationSearchResult {
-        val fetchedAt = maxOfOrNull { it.fetchedAtEpochMillis }?.let(Instant::ofEpochMilli)
         val stations = map { cacheRow ->
             val station = cacheRow.toDomainStation(query.coordinates)
             StationListEntry(
@@ -198,8 +223,9 @@ class DefaultStationRepository @Inject constructor(
 
         return StationSearchResult(
             stations = stations,
-            freshness = fetchedAt?.let { cachePolicy.freshnessOf(it, now) } ?: StationFreshness.Stale,
+            freshness = cachePolicy.freshnessOf(fetchedAt, now),
             fetchedAt = fetchedAt,
+            hasCachedSnapshot = true,
         )
     }
 

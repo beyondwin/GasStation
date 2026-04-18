@@ -24,6 +24,7 @@ import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Optional
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
@@ -52,6 +54,8 @@ class StationListViewModel @Inject constructor(
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
     private val sessionState = MutableStateFlow(StationListSessionState())
+    private val activeQueryState = MutableStateFlow(ActiveStationQueryState())
+    private val pendingBlockingFailure = MutableStateFlow<PendingBlockingFailure?>(null)
     private val searchResult = MutableStateFlow(
         StationSearchResult(
             stations = emptyList(),
@@ -74,7 +78,18 @@ class StationListViewModel @Inject constructor(
             session.currentCoordinates?.takeIf {
                 session.isGpsEnabled && session.permissionState != LocationPermissionState.Denied
             }?.let { coordinates -> buildQuery(preferences = prefs, coordinates = coordinates) }
-        }.flatMapLatest { query ->
+        }.distinctUntilChanged()
+            .onEach { query ->
+                val previousQuery = activeQueryState.value.query
+                activeQueryState.value = ActiveStationQueryState(
+                    query = query,
+                    cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
+                )
+                if (previousQuery != query) {
+                    pendingBlockingFailure.value = null
+                }
+            }
+            .flatMapLatest { query ->
             if (query == null) {
                 flowOf(
                     StationSearchResult(
@@ -87,6 +102,19 @@ class StationListViewModel @Inject constructor(
                 observeNearbyStations(query)
             }
         }.onEach { searchResult.value = it }
+            .onEach { result ->
+                val hasCachedSnapshot = result.hasCachedSnapshot
+                activeQueryState.update { current ->
+                    current.copy(
+                        cacheState = if (hasCachedSnapshot) {
+                            CachedSnapshotState.Present
+                        } else {
+                            CachedSnapshotState.Absent
+                        },
+                    )
+                }
+                syncBlockingFailureWithObservedResult(hasCachedSnapshot)
+            }
             .launchIn(viewModelScope)
 
         combine(preferences, sessionState, searchResult) { prefs, session, result ->
@@ -190,12 +218,24 @@ class StationListViewModel @Inject constructor(
                     )
                 }
 
-                runCatching {
-                    refreshNearbyStations(buildQuery(preferences.value, coordinates))
-                }.onSuccess {
-                    sessionState.update { current -> current.copy(blockingFailure = null) }
-                }.onFailure { throwable ->
-                    handleRefreshFailure((throwable as? StationRefreshException)?.reason)
+                val query = buildQuery(preferences.value, coordinates)
+                activeQueryState.update { current ->
+                    if (current.query == query) current else ActiveStationQueryState(
+                        query = query,
+                        cacheState = CachedSnapshotState.Unknown,
+                    )
+                }
+
+                try {
+                    refreshNearbyStations(query)
+                    if (activeQueryState.value.query == query) {
+                        pendingBlockingFailure.value = null
+                        sessionState.update { current -> current.copy(blockingFailure = null) }
+                    }
+                } catch (cancellationException: CancellationException) {
+                    throw cancellationException
+                } catch (throwable: Throwable) {
+                    handleRefreshFailure(query, (throwable as? StationRefreshException)?.reason)
                 }
             } finally {
                 sessionState.update {
@@ -236,10 +276,14 @@ class StationListViewModel @Inject constructor(
     }
 
     private suspend fun handleRefreshFailure(
+        query: StationQuery,
         reason: StationRefreshFailureReason?,
     ) {
+        if (activeQueryState.value.query != query) return
+
         when (reason) {
             StationRefreshFailureReason.Timeout -> onBlockingFailure(
+                query = query,
                 reason = StationListFailureReason.RefreshTimedOut,
                 message = "서버 응답이 늦어 가격을 새로고침하지 못했습니다.",
             )
@@ -248,6 +292,7 @@ class StationListViewModel @Inject constructor(
             StationRefreshFailureReason.InvalidPayload,
             StationRefreshFailureReason.Unknown,
             null -> onBlockingFailure(
+                query = query,
                 reason = StationListFailureReason.RefreshFailed,
                 message = "주유소 목록을 새로고침하지 못했습니다.",
             )
@@ -255,14 +300,41 @@ class StationListViewModel @Inject constructor(
     }
 
     private suspend fun onBlockingFailure(
+        query: StationQuery? = activeQueryState.value.query,
         reason: StationListFailureReason,
         message: String,
     ) {
-        val hasCachedSnapshot = searchResult.value.fetchedAt != null
-        sessionState.update {
-            it.copy(blockingFailure = if (hasCachedSnapshot) null else reason)
+        when (activeQueryState.value.cacheState) {
+            CachedSnapshotState.Present -> {
+                pendingBlockingFailure.value = null
+                sessionState.update { it.copy(blockingFailure = null) }
+            }
+
+            CachedSnapshotState.Absent -> {
+                pendingBlockingFailure.value = null
+                sessionState.update { it.copy(blockingFailure = reason) }
+            }
+
+            CachedSnapshotState.Unknown -> {
+                pendingBlockingFailure.value = query?.let { PendingBlockingFailure(it, reason) }
+            }
         }
         mutableEffects.emit(StationListEffect.ShowSnackbar(message))
+    }
+
+    private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
+        if (hasCachedSnapshot) {
+            pendingBlockingFailure.value = null
+            sessionState.update { it.copy(blockingFailure = null) }
+            return
+        }
+
+        val activeQuery = activeQueryState.value.query ?: return
+        val pendingFailure = pendingBlockingFailure.value
+            ?.takeIf { it.query == activeQuery }
+            ?: return
+        pendingBlockingFailure.value = null
+        sessionState.update { it.copy(blockingFailure = pendingFailure.reason) }
     }
 
     private fun toggleSortOrder() {
@@ -322,3 +394,19 @@ private data class StationListSessionState(
     val isRefreshing: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,
 )
+
+private data class ActiveStationQueryState(
+    val query: StationQuery? = null,
+    val cacheState: CachedSnapshotState = CachedSnapshotState.Absent,
+)
+
+private data class PendingBlockingFailure(
+    val query: StationQuery,
+    val reason: StationListFailureReason,
+)
+
+private enum class CachedSnapshotState {
+    Unknown,
+    Present,
+    Absent,
+}

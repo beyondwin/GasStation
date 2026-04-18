@@ -26,6 +26,7 @@ object DatabaseModule {
     ).addMigrations(
         GasStationDatabase.MIGRATION_1_2,
         GasStationDatabase.MIGRATION_2_3,
+        GasStationDatabase.MIGRATION_3_4,
     )
         .build()
 

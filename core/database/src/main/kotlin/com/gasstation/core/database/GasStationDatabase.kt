@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.database.station.WatchedStationDao
@@ -14,10 +15,11 @@ import com.gasstation.core.database.station.WatchedStationEntity
 @Database(
     entities = [
         StationCacheEntity::class,
+        StationCacheSnapshotEntity::class,
         StationPriceHistoryEntity::class,
         WatchedStationEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class GasStationDatabase : RoomDatabase() {
@@ -92,6 +94,46 @@ abstract class GasStationDatabase : RoomDatabase() {
                     """
                     CREATE INDEX IF NOT EXISTS `index_station_price_history_fetchedAtEpochMillis`
                     ON `station_price_history` (`fetchedAtEpochMillis`)
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `station_cache_snapshot` (
+                        `latitudeBucket` INTEGER NOT NULL,
+                        `longitudeBucket` INTEGER NOT NULL,
+                        `radiusMeters` INTEGER NOT NULL,
+                        `fuelType` TEXT NOT NULL,
+                        `fetchedAtEpochMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`latitudeBucket`, `longitudeBucket`, `radiusMeters`, `fuelType`)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO `station_cache_snapshot` (
+                        `latitudeBucket`,
+                        `longitudeBucket`,
+                        `radiusMeters`,
+                        `fuelType`,
+                        `fetchedAtEpochMillis`
+                    )
+                    SELECT
+                        `latitudeBucket`,
+                        `longitudeBucket`,
+                        `radiusMeters`,
+                        `fuelType`,
+                        MAX(`fetchedAtEpochMillis`)
+                    FROM `station_cache`
+                    GROUP BY
+                        `latitudeBucket`,
+                        `longitudeBucket`,
+                        `radiusMeters`,
+                        `fuelType`
                     """.trimIndent(),
                 )
             }

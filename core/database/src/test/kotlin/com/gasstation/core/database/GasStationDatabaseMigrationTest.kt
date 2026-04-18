@@ -65,7 +65,7 @@ class GasStationDatabaseMigrationTest {
     }
 
     @Test
-    fun `migration 1 to 3 preserves cache data and opens through Room`() = runBlocking {
+    fun `migration 1 to 4 preserves cache data and backfills snapshot metadata`() = runBlocking {
         val db = helper.writableDatabase
         createVersion1Schema(db)
         insertVersion1CacheRow(db)
@@ -79,6 +79,7 @@ class GasStationDatabaseMigrationTest {
             .addMigrations(
                 GasStationDatabase.MIGRATION_1_2,
                 GasStationDatabase.MIGRATION_2_3,
+                GasStationDatabase.MIGRATION_3_4,
             )
             .allowMainThreadQueries()
             .build()
@@ -90,8 +91,15 @@ class GasStationDatabaseMigrationTest {
                 radiusMeters = 3_000,
                 fuelType = "GASOLINE",
             ).first()
+            val snapshot = migratedDatabase.stationCacheDao().observeSnapshot(
+                latitudeBucket = 16649,
+                longitudeBucket = 50811,
+                radiusMeters = 3_000,
+                fuelType = "GASOLINE",
+            ).first()
 
             assertEquals(listOf(version1CacheRow()), cacheRows)
+            assertEquals(version1SnapshotRow(), snapshot)
             assertEquals(
                 emptyList<Any>(),
                 migratedDatabase.stationPriceHistoryDao().observeByStationIdsAndFuelType(
@@ -105,13 +113,14 @@ class GasStationDatabaseMigrationTest {
             )
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "watched_station"))
+            assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_cache_snapshot"))
         } finally {
             migratedDatabase.close()
         }
     }
 
     @Test
-    fun `migration 2 to 3 preserves cache and watched rows while recreating price history`() = runBlocking {
+    fun `migration 2 to 4 preserves cache and watched rows while recreating price history`() = runBlocking {
         val db = helper.writableDatabase
         createVersion2Schema(db)
         insertVersion2CacheRow(db)
@@ -125,6 +134,7 @@ class GasStationDatabaseMigrationTest {
             databaseName,
         )
             .addMigrations(GasStationDatabase.MIGRATION_2_3)
+            .addMigrations(GasStationDatabase.MIGRATION_3_4)
             .allowMainThreadQueries()
             .build()
 
@@ -135,13 +145,74 @@ class GasStationDatabaseMigrationTest {
                 radiusMeters = 3_000,
                 fuelType = "GASOLINE",
             ).first()
+            val snapshot = migratedDatabase.stationCacheDao().observeSnapshot(
+                latitudeBucket = 16649,
+                longitudeBucket = 50811,
+                radiusMeters = 3_000,
+                fuelType = "GASOLINE",
+            ).first()
             val watchedRows = migratedDatabase.watchedStationDao().observeWatchedStations().first()
             val historyRows = migratedDatabase.stationPriceHistoryDao().observeByStationIds(listOf("station-1")).first()
 
             assertEquals(listOf(version1CacheRow()), cacheRows)
+            assertEquals(version1SnapshotRow(), snapshot)
             assertEquals(listOf(version2WatchedRow()), watchedRows)
             assertEquals(emptyList<Any>(), historyRows)
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
+            assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_cache_snapshot"))
+        } finally {
+            migratedDatabase.close()
+        }
+    }
+
+    @Test
+    fun `production builder migrates 3 to 4 and backfills snapshot metadata`() = runBlocking {
+        helper.close()
+        databaseName = GasStationDatabase.DATABASE_NAME
+        databaseFile = context.getDatabasePath(databaseName)
+        if (databaseFile.exists()) {
+            databaseFile.delete()
+        }
+        helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(3) {
+                        override fun onCreate(db: SupportSQLiteDatabase) = Unit
+
+                        override fun onUpgrade(
+                            db: SupportSQLiteDatabase,
+                            oldVersion: Int,
+                            newVersion: Int,
+                        ) = Unit
+                    },
+                )
+                .build(),
+        )
+
+        val db = helper.writableDatabase
+        createVersion3Schema(db)
+        insertVersion2CacheRow(db)
+        helper.close()
+
+        val migratedDatabase = DatabaseModule.provideGasStationDatabase(context)
+
+        try {
+            val cacheRows = migratedDatabase.stationCacheDao().observeStations(
+                latitudeBucket = 16649,
+                longitudeBucket = 50811,
+                radiusMeters = 3_000,
+                fuelType = "GASOLINE",
+            ).first()
+            val snapshot = migratedDatabase.stationCacheDao().observeSnapshot(
+                latitudeBucket = 16649,
+                longitudeBucket = 50811,
+                radiusMeters = 3_000,
+                fuelType = "GASOLINE",
+            ).first()
+
+            assertEquals(listOf(version1CacheRow()), cacheRows)
+            assertEquals(version1SnapshotRow(), snapshot)
         } finally {
             migratedDatabase.close()
         }
@@ -216,6 +287,47 @@ class GasStationDatabaseMigrationTest {
             """.trimIndent(),
         )
         db.execSQL("PRAGMA user_version = 2")
+    }
+
+    private fun createVersion3Schema(db: SupportSQLiteDatabase) {
+        createVersion1Schema(db)
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `station_price_history` (
+                `stationId` TEXT NOT NULL,
+                `fuelType` TEXT NOT NULL,
+                `priceWon` INTEGER NOT NULL,
+                `fetchedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`stationId`, `fuelType`, `fetchedAtEpochMillis`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_station_price_history_stationId_fuelType`
+            ON `station_price_history` (`stationId`, `fuelType`)
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_station_price_history_fetchedAtEpochMillis`
+            ON `station_price_history` (`fetchedAtEpochMillis`)
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `watched_station` (
+                `stationId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `brandCode` TEXT NOT NULL,
+                `latitude` REAL NOT NULL,
+                `longitude` REAL NOT NULL,
+                `watchedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`stationId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("PRAGMA user_version = 3")
     }
 
     private fun insertVersion1CacheRow(db: SupportSQLiteDatabase) {
@@ -304,6 +416,14 @@ class GasStationDatabaseMigrationTest {
         priceWon = 1_699,
         latitude = 37.498095,
         longitude = 127.027610,
+        fetchedAtEpochMillis = 1_744_947_200_000L,
+    )
+
+    private fun version1SnapshotRow() = com.gasstation.core.database.station.StationCacheSnapshotEntity(
+        latitudeBucket = 16649,
+        longitudeBucket = 50811,
+        radiusMeters = 3_000,
+        fuelType = "GASOLINE",
         fetchedAtEpochMillis = 1_744_947_200_000L,
     )
 

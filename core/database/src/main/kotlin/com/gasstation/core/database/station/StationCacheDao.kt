@@ -27,6 +27,22 @@ abstract class StationCacheDao {
 
     @Query(
         """
+        SELECT * FROM station_cache_snapshot
+        WHERE latitudeBucket = :latitudeBucket
+          AND longitudeBucket = :longitudeBucket
+          AND radiusMeters = :radiusMeters
+          AND fuelType = :fuelType
+        """,
+    )
+    abstract fun observeSnapshot(
+        latitudeBucket: Int,
+        longitudeBucket: Int,
+        radiusMeters: Int,
+        fuelType: String,
+    ): Flow<StationCacheSnapshotEntity?>
+
+    @Query(
+        """
         SELECT * FROM station_cache
         WHERE stationId IN (:stationIds)
         ORDER BY stationId ASC,
@@ -43,6 +59,9 @@ abstract class StationCacheDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(entities: List<StationCacheEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertSnapshot(snapshot: StationCacheSnapshotEntity)
 
     @Query(
         """
@@ -66,6 +85,7 @@ abstract class StationCacheDao {
         longitudeBucket: Int,
         radiusMeters: Int,
         fuelType: String,
+        fetchedAtEpochMillis: Long,
         entities: List<StationCacheEntity>,
     ) {
         require(
@@ -76,6 +96,9 @@ abstract class StationCacheDao {
                     entity.fuelType == fuelType
             },
         ) { "All entities must belong to the same cache bucket snapshot" }
+        require(entities.all { it.fetchedAtEpochMillis == fetchedAtEpochMillis }) {
+            "All entities must share the provided snapshot timestamp"
+        }
 
         deleteStations(
             latitudeBucket = latitudeBucket,
@@ -86,6 +109,15 @@ abstract class StationCacheDao {
         if (entities.isNotEmpty()) {
             upsertAll(entities)
         }
+        upsertSnapshot(
+            StationCacheSnapshotEntity(
+                latitudeBucket = latitudeBucket,
+                longitudeBucket = longitudeBucket,
+                radiusMeters = radiusMeters,
+                fuelType = fuelType,
+                fetchedAtEpochMillis = fetchedAtEpochMillis,
+            ),
+        )
     }
 
     @Query(
@@ -94,5 +126,19 @@ abstract class StationCacheDao {
         WHERE fetchedAtEpochMillis < :cutoffEpochMillis
         """,
     )
-    abstract suspend fun pruneOlderThan(cutoffEpochMillis: Long)
+    protected abstract suspend fun pruneStationsOlderThan(cutoffEpochMillis: Long)
+
+    @Query(
+        """
+        DELETE FROM station_cache_snapshot
+        WHERE fetchedAtEpochMillis < :cutoffEpochMillis
+        """,
+    )
+    protected abstract suspend fun pruneSnapshotsOlderThan(cutoffEpochMillis: Long)
+
+    @Transaction
+    open suspend fun pruneOlderThan(cutoffEpochMillis: Long) {
+        pruneStationsOlderThan(cutoffEpochMillis)
+        pruneSnapshotsOlderThan(cutoffEpochMillis)
+    }
 }

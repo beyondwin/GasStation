@@ -6,4 +6,5 @@ data class StationSearchResult(
     val stations: List<StationListEntry>,
     val freshness: StationFreshness,
     val fetchedAt: Instant?,
+    val hasCachedSnapshot: Boolean = fetchedAt != null,
 )
