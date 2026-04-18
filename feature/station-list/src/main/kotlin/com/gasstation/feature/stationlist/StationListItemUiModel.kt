@@ -1,7 +1,8 @@
 package com.gasstation.feature.stationlist
 
 import com.gasstation.domain.station.model.Brand
-import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationListEntry
+import com.gasstation.domain.station.model.StationPriceDelta
 
 data class StationListItemUiModel(
     val id: String,
@@ -9,17 +10,21 @@ data class StationListItemUiModel(
     val brandLabel: String,
     val priceLabel: String,
     val distanceLabel: String,
+    val priceDeltaLabel: String,
+    val isWatched: Boolean,
     val latitude: Double,
     val longitude: Double,
 ) {
-    constructor(station: Station) : this(
-        id = station.id,
-        name = station.name,
-        brandLabel = station.brand.toLabel(),
-        priceLabel = "${station.price.value}원",
-        distanceLabel = "${station.distance.value}m",
-        latitude = station.coordinates.latitude,
-        longitude = station.coordinates.longitude,
+    constructor(entry: StationListEntry) : this(
+        id = entry.station.id,
+        name = entry.station.name,
+        brandLabel = entry.station.brand.toLabel(),
+        priceLabel = "${entry.station.price.value}원",
+        distanceLabel = "${entry.station.distance.value}m",
+        priceDeltaLabel = entry.priceDelta.toLabel(),
+        isWatched = entry.isWatched,
+        latitude = entry.station.coordinates.latitude,
+        longitude = entry.station.coordinates.longitude,
     )
 }
 
@@ -34,4 +39,11 @@ private fun Brand.toLabel(): String = when (this) {
     Brand.ETC -> "기타"
     Brand.E1G -> "E1"
     Brand.SKG -> "SK가스"
+}
+
+private fun StationPriceDelta.toLabel(): String = when (this) {
+    StationPriceDelta.Unavailable -> "가격 변동 정보 없음"
+    StationPriceDelta.Unchanged -> "직전 가격과 동일"
+    is StationPriceDelta.Increased -> "${amountWon}원 상승"
+    is StationPriceDelta.Decreased -> "${amountWon}원 하락"
 }
