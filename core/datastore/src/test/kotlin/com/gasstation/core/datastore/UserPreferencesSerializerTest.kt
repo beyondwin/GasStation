@@ -16,18 +16,9 @@ import java.io.ByteArrayOutputStream
 class UserPreferencesSerializerTest {
 
     @Test
-    fun `readFrom returns default preferences for legacy pipe format`() = runBlocking {
+    fun `readFrom falls back to default when stored data is not key value format`() = runBlocking {
         val decoded = UserPreferencesSerializer.readFrom(
             ByteArrayInputStream("KM_4|DIESEL|GSC".encodeToByteArray()),
-        )
-
-        assertEquals(UserPreferences.default(), decoded)
-    }
-
-    @Test
-    fun `readFrom returns default preferences for legacy pipe format with extra fields`() = runBlocking {
-        val decoded = UserPreferencesSerializer.readFrom(
-            ByteArrayInputStream("KM_5|LPG|SKG|PRICE|NAVER_MAP|future".encodeToByteArray()),
         )
 
         assertEquals(UserPreferences.default(), decoded)

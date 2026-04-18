@@ -35,10 +35,10 @@ import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.component.ChromeCard
-import com.gasstation.core.designsystem.component.SectionHeading
-import com.gasstation.core.designsystem.component.TopBar
-import com.gasstation.core.designsystem.component.YellowBackground
+import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationSectionHeading
+import com.gasstation.core.designsystem.component.GasStationTopBar
 
 internal const val WATCHLIST_CHANGE_VALUE_TAG = "watchlist-change-value"
 internal const val WATCHLIST_DELTA_INDICATOR_TAG = "watchlist-delta-indicator"
@@ -49,11 +49,11 @@ fun WatchlistScreen(
 ) {
     val spacing = GasStationTheme.spacing
 
-    YellowBackground(modifier = Modifier.fillMaxSize()) {
+    GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopBar(
+                GasStationTopBar(
                     title = { Text(text = "북마크") },
                 )
             },
@@ -90,7 +90,7 @@ fun WatchlistScreen(
                         verticalArrangement = Arrangement.spacedBy(spacing.space12),
                     ) {
                         items(uiState.stations, key = WatchlistItemUiModel::id) { station ->
-                            ChromeCard(
+                            GasStationCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .animateContentSize()
@@ -292,8 +292,8 @@ private fun EmptyWatchlist(
             .animateContentSize(),
         verticalArrangement = Arrangement.Center,
     ) {
-        ChromeCard(modifier = Modifier.fillMaxWidth()) {
-            SectionHeading(
+        GasStationCard(modifier = Modifier.fillMaxWidth()) {
+            GasStationSectionHeading(
                 title = "저장한 주유소가 없습니다.",
                 subtitle = "주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.",
             )

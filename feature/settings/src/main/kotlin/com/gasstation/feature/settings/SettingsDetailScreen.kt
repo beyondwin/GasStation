@@ -37,10 +37,10 @@ import com.gasstation.core.designsystem.ColorGray
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.component.ChromeCard
-import com.gasstation.core.designsystem.component.SectionHeading
-import com.gasstation.core.designsystem.component.TopBar
-import com.gasstation.core.designsystem.component.YellowBackground
+import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationSectionHeading
+import com.gasstation.core.designsystem.component.GasStationTopBar
 
 internal const val SETTINGS_SELECTED_CHECK_TAG = "settings-selected-check"
 internal const val SETTINGS_OPTIONS_GROUP_TAG = "settings-options-group"
@@ -52,11 +52,11 @@ fun SettingsDetailScreen(
     onBackClick: () -> Unit,
     onOptionClick: (SettingOptionUiModel) -> Unit,
 ) {
-    YellowBackground(modifier = Modifier.fillMaxSize()) {
+    GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopBar(
+                GasStationTopBar(
                     title = { Text(text = section.title) },
                     navigationIcon = {
                         SettingsDetailTopBarAction(
@@ -77,10 +77,10 @@ fun SettingsDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    ChromeCard(
+                    GasStationCard(
                         modifier = Modifier.testTag(SETTINGS_OPTIONS_GROUP_TAG),
                     ) {
-                        SectionHeading(
+                        GasStationSectionHeading(
                             title = section.group.title,
                             subtitle = section.subtitle,
                         )

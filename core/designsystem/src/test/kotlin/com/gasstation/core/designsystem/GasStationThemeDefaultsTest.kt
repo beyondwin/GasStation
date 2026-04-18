@@ -3,7 +3,9 @@ package com.gasstation.core.designsystem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.gasstation.core.designsystem.component.TopBar
+import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationSectionHeading
+import com.gasstation.core.designsystem.component.GasStationTopBar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -54,10 +56,17 @@ class GasStationThemeDefaultsTest {
 }
 
 @Composable
-private fun currentChromeApisCompile() {
-    TopBar(
+private fun chromeApisCompile() {
+    GasStationTopBar(
         title = {
             Text(text = "가격순")
         },
     )
+
+    GasStationCard {
+        GasStationSectionHeading(
+            title = "현재 조건",
+            subtitle = "가까운 순으로 정렬합니다.",
+        )
+    }
 }
