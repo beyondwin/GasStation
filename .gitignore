@@ -34,3 +34,4 @@ keystore.properties
 
 # profiling and crash dumps
 *.hprof
+.superpowers

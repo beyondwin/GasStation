@@ -3,6 +3,7 @@ package com.gasstation.core.designsystem
 import android.os.Build
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 
 object GasStationThemeDefaults {
@@ -14,6 +15,12 @@ object GasStationThemeDefaults {
         backgroundColor = legacyBlack,
         useDarkIcons = false,
     )
+    val typography: GasStationTypography = DefaultGasStationTypography
+    val spacing: GasStationSpacing = DefaultGasStationSpacing
+    val corner: GasStationCorner = DefaultGasStationCorner
+    val stroke: GasStationStroke = DefaultGasStationStroke
+    val iconSize: GasStationIconSize = DefaultGasStationIconSize
+    val materialTypography: Typography = DefaultMaterialTypography
 
     fun shouldUseDynamicColor(
         dynamicColor: Boolean,
