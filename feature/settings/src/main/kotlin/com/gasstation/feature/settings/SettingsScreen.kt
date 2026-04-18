@@ -35,10 +35,10 @@ import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray
 import com.gasstation.core.designsystem.ColorGray2
+import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.LegacyChromeCard
-import com.gasstation.core.designsystem.component.LegacySectionHeading
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 
@@ -104,10 +104,7 @@ private fun SettingsSectionGroupBlock(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         LegacyChromeCard {
-            LegacySectionHeading(
-                title = group.title,
-                subtitle = group.subtitle,
-            )
+            SettingsGroupHeader(group = group)
             sections.forEachIndexed { index, section ->
                 SettingsMenuRow(
                     section = section,
@@ -119,6 +116,22 @@ private fun SettingsSectionGroupBlock(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsGroupHeader(group: SettingsSectionGroup) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = group.title,
+            style = GasStationTheme.typography.sectionTitle,
+            color = ColorBlack,
+        )
+        Text(
+            text = group.subtitle,
+            style = GasStationTheme.typography.bannerBody,
+            color = ColorGray2,
+        )
     }
 }
 
@@ -149,8 +162,8 @@ private fun SettingsMenuRow(
             )
             Text(
                 text = section.subtitle,
-                style = GasStationTheme.typography.body,
-                color = ColorGray2,
+                style = GasStationTheme.typography.bannerBody,
+                color = ColorGray3,
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
