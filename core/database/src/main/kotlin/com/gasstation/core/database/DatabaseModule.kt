@@ -21,7 +21,7 @@ object DatabaseModule {
         context,
         GasStationDatabase::class.java,
         GasStationDatabase.DATABASE_NAME,
-    ).fallbackToDestructiveMigration()
+    ).fallbackToDestructiveMigration(dropAllTables = true)
         .build()
 
     @Provides
