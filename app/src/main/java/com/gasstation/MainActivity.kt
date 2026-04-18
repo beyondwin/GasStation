@@ -3,9 +3,9 @@ package com.gasstation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.navigation.GasStationNavHost
-import com.gasstation.ui.theme.GasStationTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 

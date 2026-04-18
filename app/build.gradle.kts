@@ -21,6 +21,7 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".demo"
             versionNameSuffix = "-demo"
+            testInstrumentationRunner = "com.gasstation.HiltTestRunner"
             buildConfigField("boolean", "DEMO_MODE", "true")
             buildConfigField("String", "OPINET_API_KEY", "\"\"")
             buildConfigField("String", "KAKAO_API_KEY", "\"\"")
@@ -52,23 +53,18 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:location"))
     implementation(project(":core:model"))
+    implementation(project(":core:network"))
     implementation(project(":domain:station"))
-    implementation(project(":feature:settings"))
-    implementation(project(":feature:station-list"))
     implementation(project(":data:settings"))
     implementation(project(":data:station"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:station-list"))
     implementation(project(":core:designsystem"))
 
-    implementation(libs.androidx.appcompat)
-    implementation(libs.play.services.location)
-    implementation(libs.accompanist.permissions)
-    implementation(libs.androidx.constraintlayout.compose)
-    implementation(libs.androidx.material)
     implementation(libs.timber)
-    implementation(libs.retrofit)
-    implementation(libs.logging.interceptor)
-    implementation(libs.converter.gson)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
+
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.51.1")
 }
