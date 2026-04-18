@@ -11,6 +11,7 @@ import com.gasstation.domain.station.model.StationPriceDelta
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Optional
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.Flow
@@ -223,6 +224,7 @@ class WatchlistRepositoryTest {
         stationPriceHistoryDao = stationPriceHistoryDao,
         watchedStationDao = watchedStationDao,
         remoteDataSource = NoOpStationRemoteDataSource,
+        seedRemoteDataSource = Optional.empty(),
         cachePolicy = StationCachePolicy(),
         clock = clock,
     )

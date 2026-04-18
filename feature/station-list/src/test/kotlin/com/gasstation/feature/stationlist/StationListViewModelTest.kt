@@ -3,6 +3,7 @@ package com.gasstation.feature.stationlist
 import app.cash.turbine.test
 import com.gasstation.core.location.ForegroundLocationProvider
 import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.core.location.DemoLocationOverride
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
@@ -29,6 +30,7 @@ import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import java.time.Instant
+import java.util.Optional
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -78,6 +80,7 @@ class StationListViewModelTest {
                     Coordinates(37.498095, 127.027610),
                 ),
                 stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
             )
 
             viewModel.onAction(
@@ -129,6 +132,7 @@ class StationListViewModelTest {
                     Coordinates(37.498095, 127.027610),
                 ),
                 stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
             )
 
             viewModel.onAction(
@@ -181,6 +185,7 @@ class StationListViewModelTest {
                     Coordinates(37.498095, 127.027610),
                 ),
                 stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
             )
 
             viewModel.onAction(StationListAction.SortToggleRequested)
@@ -188,6 +193,118 @@ class StationListViewModelTest {
 
             assertEquals(SortOrder.PRICE, settingsRepository.current.sortOrder)
             assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `ui state reflects persisted brand filter once preferences load`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsRepository = FakeSettingsRepository(
+                UserPreferences.default().copy(brandFilter = BrandFilter.SOL),
+            )
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    Coordinates(37.498095, 127.027610),
+                ),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
+            )
+
+            advanceUntilIdle()
+
+            assertEquals(BrandFilter.SOL, viewModel.uiState.value.selectedBrandFilter)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `refresh in demo mode uses override coordinates without remote refresh`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val demoCoordinates = Coordinates(37.497927, 127.027583)
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(null),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.of(DemoLocationOverride { demoCoordinates }),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = false))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(emptyList<StationQuery>(), repository.refreshedQueries)
+            assertEquals(demoCoordinates, repository.observedQueries.last().coordinates)
+            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `demo mode treats denied permission as available for static seed`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val demoCoordinates = Coordinates(37.497927, 127.027583)
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(null),
+                stationEventLogger = analytics,
+                demoLocationOverride = Optional.of(DemoLocationOverride { demoCoordinates }),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = false))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(LocationPermissionState.PreciseGranted, viewModel.uiState.value.permissionState)
+            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+            assertEquals(demoCoordinates, repository.observedQueries.last().coordinates)
         } finally {
             Dispatchers.resetMain()
         }
@@ -221,6 +338,7 @@ class StationListViewModelTest {
                     Coordinates(37.498095, 127.027610),
                 ),
                 stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
             )
 
             viewModel.onAction(
@@ -267,6 +385,7 @@ class StationListViewModelTest {
                     Coordinates(37.498095, 127.027610),
                 ),
                 stationEventLogger = analytics,
+                demoLocationOverride = Optional.empty(),
             )
 
             viewModel.effects.test {

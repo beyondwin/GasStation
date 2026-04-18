@@ -14,6 +14,7 @@ import com.gasstation.domain.station.model.StationQuery
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Optional
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.Flow
@@ -117,6 +118,44 @@ class DefaultStationRepositoryTest {
             stationPriceHistoryDao.entriesFor("station-1", fuelType = query.fuelType.name)
                 .none { it.fetchedAtEpochMillis == now.minusSeconds(10 * 60L).toEpochMilli() },
         )
+    }
+
+    @Test
+    fun `refreshNearbyStations prefers seed data source when available`() = runBlocking {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val stationCacheDao = RecordingStationCacheDao()
+        stationCacheDao.seed(
+            stationEntity(
+                cacheKey = cacheKey,
+                stationId = "stale-station",
+                fetchedAt = now.minusSeconds(600),
+            ),
+        )
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Failure),
+            seedRemoteDataSource = Optional.of(
+                FakeSeedStationRemoteDataSource(
+                    RemoteStationFetchResult.Success(
+                        listOf(
+                            RemoteStation(
+                                stationId = "seed-station",
+                                name = "Seed Station",
+                                brandCode = "SKE",
+                                priceWon = 1_777,
+                                coordinates = Coordinates(37.497927, 127.027583),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        val refreshedStations = stationCacheDao.snapshotFor(cacheKey)
+        assertEquals(listOf("seed-station"), refreshedStations.map { it.stationId })
     }
 
     @Test
@@ -332,11 +371,13 @@ class DefaultStationRepositoryTest {
         remoteDataSource: StationRemoteDataSource = FakeStationRemoteDataSource(
             RemoteStationFetchResult.Success(emptyList()),
         ),
+        seedRemoteDataSource: Optional<SeedStationRemoteDataSource> = Optional.empty(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationPriceHistoryDao = stationPriceHistoryDao,
         watchedStationDao = watchedStationDao,
         remoteDataSource = remoteDataSource,
+        seedRemoteDataSource = seedRemoteDataSource,
         cachePolicy = StationCachePolicy(),
         clock = clock,
     )
@@ -396,6 +437,12 @@ class DefaultStationRepositoryTest {
     private class FakeStationRemoteDataSource(
         private val result: RemoteStationFetchResult,
     ) : StationRemoteDataSource {
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
+    }
+
+    private class FakeSeedStationRemoteDataSource(
+        private val result: RemoteStationFetchResult,
+    ) : SeedStationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
     }
 

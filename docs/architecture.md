@@ -63,7 +63,7 @@ flowchart LR
 - `app`은 `App.kt`, `MainActivity.kt`, startup hooks, DI 모듈, `ExternalMapLauncher`, 내비게이션을 포함한 composition root입니다. demo/prod flavor 훅과 `androidTest` 그래프까지 포함해 필요한 최소 직접 의존만 유지하며, 현재 직접 의존은 `core:database`, `core:location`, `core:model`, `core:network`, `core:designsystem`, `domain:station`, `data:settings`, `data:station`, `feature:settings`, `feature:station-list`, `feature:watchlist`입니다.
 - `core:designsystem`은 `GasStationTheme`, 색상, 타이포그래피를 포함한 실제 앱 테마 구현과 디자인 토큰을 소유합니다.
 - `core:location`은 `ForegroundLocationProvider`, `LocationPermissionState`, `AndroidForegroundLocationProvider`, 그리고 core 모듈 내부 Hilt 바인딩을 포함한 위치 계약과 구현을 소유합니다. 앱은 demo 전용 좌표 override 바인딩과 외부 지도 바인딩만 소유합니다.
-- `core:network`는 Retrofit 서비스와 `NetworkRuntimeConfig` 소비를 담당하며 `app`의 `BuildConfig`를 리플렉션으로 읽지 않습니다.
+- `core:network`는 Retrofit 서비스와 `NetworkRuntimeConfig` 소비를 담당하며 `app`의 `BuildConfig`를 리플렉션으로 읽지 않습니다. 주유소 검색 파이프라인의 좌표 변환은 로컬 `KATEC <-> WGS84` 변환으로 처리해 외부 좌표 변환 API 실패에 영향받지 않습니다.
 - `core:datastore`는 설정 저장소를 담당하며 필요한 `domain:station` 직접 의존을 자체적으로 가집니다.
 - `core:database`는 `StationCache`, `StationPriceHistory`, `WatchedStation` 테이블과 migration을 소유합니다.
 - `data:*`는 저장소 구현을 소유합니다.
@@ -72,6 +72,7 @@ flowchart LR
 
 ## 실행 모드
 
-- `demo`는 기본 검토 경로입니다. 결정적인 캐시/히스토리 데이터를 미리 넣고, 앱이 소유한 demo 전용 좌표 override 바인딩으로 고정된 서울 좌표를 반환합니다. 이 연결은 리플렉션이 아니라 테스트로 검증됩니다.
-- `prod`는 동일한 모듈 그래프를 유지하지만 `DemoLocationOverride`를 바인딩하지 않으므로 `core:location`의 `AndroidForegroundLocationProvider`가 실제 위치 API를 사용합니다. 네트워크 키는 `app`의 `AppConfigModule`이 `NetworkRuntimeConfig`로 주입하며, 실제 서비스 호출 전 로컬 Gradle 속성의 `opinet.apikey`, `kakao.apikey`가 필요합니다.
+- `demo`는 기본 검토 경로입니다. 강남역 2번 출구 고정 위치와 `app/src/demo/assets/demo-station-seed.json` 기반 Room seed를 사용하며, 앱 시작 시 생성된 JSON 자산을 로드해 결정적인 캐시/가격 히스토리 데이터를 적재합니다. 이 연결은 리플렉션이 아니라 테스트로 검증됩니다.
+- 데모 시드 생성은 별도 CLI가 실제 API를 한 번 호출해 JSON 자산을 갱신하는 방식으로 수행되며, seed가 생성된 이후 앱 실행 자체는 외부 네트워크에 의존하지 않습니다.
+- `prod`는 동일한 모듈 그래프를 유지하지만 `DemoLocationOverride`를 바인딩하지 않으므로 `core:location`의 `AndroidForegroundLocationProvider`가 실제 위치 API를 사용합니다. 네트워크 키는 `app`의 `AppConfigModule`이 `NetworkRuntimeConfig`로 주입하며, 현재 실제 서비스 호출에 필요한 로컬 Gradle 속성은 `opinet.apikey`입니다.
 - `benchmark`는 `demo` 경로를 따르므로 벤치마크 빌드는 API 키 없이도 가능하며, cold start와 watchlist 진입 경로를 같은 검토자 온보딩 데이터셋으로 측정합니다.
