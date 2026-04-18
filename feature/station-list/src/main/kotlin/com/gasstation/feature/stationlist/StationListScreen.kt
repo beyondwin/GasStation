@@ -43,10 +43,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -763,7 +763,8 @@ private fun StationListResultsPane(
     onAction: (StationListAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val refreshRailInset = if (uiState.isRefreshing) 58.dp else 0.dp
+    val showTopLoadingRail = uiState.isRefreshing || uiState.isLoading
+    val refreshRailInset = if (showTopLoadingRail) 58.dp else 0.dp
 
     Box(modifier = modifier) {
         StationListContent(
@@ -776,7 +777,7 @@ private fun StationListResultsPane(
         )
 
         AnimatedVisibility(
-            visible = uiState.isRefreshing,
+            visible = showTopLoadingRail,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
@@ -791,28 +792,6 @@ private fun StationListResultsPane(
             label = "station-list-refresh-rail",
         ) {
             RefreshingStatusRail()
-        }
-
-        AnimatedVisibility(
-            visible = uiState.isLoading,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(horizontal = GasStationTheme.spacing.space16)
-                .padding(top = GasStationTheme.spacing.space12 + refreshRailInset),
-            enter = fadeIn(animationSpec = tween(durationMillis = 160)) +
-                slideInVertically(
-                    animationSpec = tween(durationMillis = 180),
-                    initialOffsetY = { -it / 2 },
-                ),
-            exit = fadeOut(animationSpec = tween(durationMillis = 140)) +
-                slideOutVertically(
-                    animationSpec = tween(durationMillis = 160),
-                    targetOffsetY = { -it / 3 },
-                ),
-            label = "station-list-loading-overlay",
-        ) {
-            RefreshingOverlayCard()
         }
     }
 }
@@ -867,43 +846,6 @@ private fun RefreshingStatusRail(
                     .clip(RoundedCornerShape(999.dp)),
                 color = ColorYellow,
                 trackColor = ColorYellow.copy(alpha = 0.22f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun RefreshingOverlayCard() {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-
-    GasStationCard(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(
-            horizontal = spacing.space12,
-            vertical = spacing.space12,
-        ),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.space8)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.space8),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = ColorBlack,
-                    strokeWidth = 2.5.dp,
-                )
-                Text(
-                    text = "주변 주유소를 불러오는 중입니다.",
-                    style = typography.body.copy(fontWeight = FontWeight.Bold),
-                    color = ColorBlack,
-                )
-            }
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = ColorBlack,
-                trackColor = ColorGray4,
             )
         }
     }
