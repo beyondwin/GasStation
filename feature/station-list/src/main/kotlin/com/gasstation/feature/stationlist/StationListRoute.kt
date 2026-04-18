@@ -54,8 +54,8 @@ fun StationListRoute(
         }
     }
 
-    LaunchedEffect(permissionState.toPermissionState(), uiState.isGpsEnabled) {
-        if (permissionState.toPermissionState() != LocationPermissionState.Denied && uiState.isGpsEnabled) {
+    LaunchedEffect(uiState.permissionState, uiState.isGpsEnabled) {
+        if (uiState.permissionState != LocationPermissionState.Denied && uiState.isGpsEnabled) {
             viewModel.onAction(StationListAction.RefreshRequested)
         }
     }

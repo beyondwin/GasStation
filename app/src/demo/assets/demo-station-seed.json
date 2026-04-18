@@ -1,0 +1,6929 @@
+{
+  "seedVersion": 1,
+  "generatedAtEpochMillis": 1776501938392,
+  "origin": {
+    "label": "Gangnam Station Exit 2",
+    "latitude": 37.497927,
+    "longitude": 127.027583
+  },
+  "queries": [
+    {
+      "radiusMeters": 3000,
+      "fuelType": "GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2028,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2040,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2006,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2006,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2028,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2049,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2029,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2125,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2348,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1978,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1996,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2013,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2006,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2038,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2368,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2440,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2598,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2021,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1996,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2045,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1998,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2009,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2334,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 1999,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2005,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        }
+      ]
+    },
+    {
+      "radiusMeters": 3000,
+      "fuelType": "DIESEL",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2022,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 1990,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2000,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2000,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2022,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 1988,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2015,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2095,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2257,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1986,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1986,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1995,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2000,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2000,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2022,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2198,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2340,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2430,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1990,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 1990,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1995,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2000,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2244,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2015,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        }
+      ]
+    },
+    {
+      "radiusMeters": 3000,
+      "fuelType": "PREMIUM_GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2415,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2500,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2388,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2447,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2538,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2450,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 2291,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2350,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2695,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 2395,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2598,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 2470,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 2396,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2388,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 2425,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2460,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 2395,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 2395,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2388,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2468,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2598,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2794,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2970,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 2320,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2635,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 2390,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2590,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 2470,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2388,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2584,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2410,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2349,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        }
+      ]
+    },
+    {
+      "radiusMeters": 3000,
+      "fuelType": "KEROSENE",
+      "stations": [
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1800,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1650,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 1715,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 1990,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 1850,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 1550,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 1715,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        }
+      ]
+    },
+    {
+      "radiusMeters": 3000,
+      "fuelType": "LPG",
+      "stations": [
+        {
+          "stationId": "A0009839",
+          "brandCode": "SKE",
+          "name": "(주)진양가스",
+          "priceWon": 1101,
+          "latitude": 37.490411101786314,
+          "longitude": 127.03581273434159
+        }
+      ]
+    },
+    {
+      "radiusMeters": 4000,
+      "fuelType": "GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2028,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2040,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2006,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2006,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2028,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2049,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2029,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2125,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2348,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1978,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1996,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2013,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2006,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2038,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2368,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2440,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2598,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2021,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1996,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2045,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1998,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2009,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2334,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 1999,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2005,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2125,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2388,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009881",
+          "brandCode": "SOL",
+          "name": "양재최고주유소",
+          "priceWon": 1984,
+          "latitude": 37.46715469172747,
+          "longitude": 127.03469799826911
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2049,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2048,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2165,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2398,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2004,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 1998,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        }
+      ]
+    },
+    {
+      "radiusMeters": 4000,
+      "fuelType": "DIESEL",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2022,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 1990,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2000,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2000,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2022,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 1988,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2015,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2095,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2257,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1986,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1986,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1995,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2000,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2000,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2022,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2198,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2340,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2430,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1990,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 1990,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1995,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2000,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2244,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2015,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2095,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2298,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009881",
+          "brandCode": "SOL",
+          "name": "양재최고주유소",
+          "priceWon": 1984,
+          "latitude": 37.46715469172747,
+          "longitude": 127.03469799826911
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2049,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2022,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2095,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2398,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2010,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 2009,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        }
+      ]
+    },
+    {
+      "radiusMeters": 4000,
+      "fuelType": "PREMIUM_GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2415,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2500,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2388,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2447,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2538,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2450,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 2291,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2350,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2695,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 2395,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2598,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 2470,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 2396,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2388,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 2425,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2460,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 2395,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 2395,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2388,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2468,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2598,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2794,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2970,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 2320,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2635,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 2390,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2590,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 2470,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2388,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2584,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2410,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2349,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2665,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2788,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 2385,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2549,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2405,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2655,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2884,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2351,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 2399,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        }
+      ]
+    },
+    {
+      "radiusMeters": 4000,
+      "fuelType": "KEROSENE",
+      "stations": [
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1800,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1650,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 1715,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 1990,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 1850,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 1550,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 1715,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 1960,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 1800,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        }
+      ]
+    },
+    {
+      "radiusMeters": 4000,
+      "fuelType": "LPG",
+      "stations": [
+        {
+          "stationId": "A0009839",
+          "brandCode": "SKE",
+          "name": "(주)진양가스",
+          "priceWon": 1101,
+          "latitude": 37.490411101786314,
+          "longitude": 127.03581273434159
+        },
+        {
+          "stationId": "A0000904",
+          "brandCode": "SKE",
+          "name": "서초충전소",
+          "priceWon": 1099,
+          "latitude": 37.473196394663105,
+          "longitude": 126.99530996401847
+        }
+      ]
+    },
+    {
+      "radiusMeters": 5000,
+      "fuelType": "GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2028,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2040,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2006,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2006,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2028,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2049,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2029,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2125,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2348,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1978,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1996,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2013,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2009,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2006,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2038,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2368,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2440,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2598,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2021,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1996,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2045,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1998,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2009,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2334,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 1999,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2005,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2125,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2388,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009881",
+          "brandCode": "SOL",
+          "name": "양재최고주유소",
+          "priceWon": 1984,
+          "latitude": 37.46715469172747,
+          "longitude": 127.03469799826911
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2049,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2048,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2165,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2398,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2004,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 1998,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        },
+        {
+          "stationId": "A0009916",
+          "brandCode": "SKE",
+          "name": "대신석유(주)대우주유소",
+          "priceWon": 1997,
+          "latitude": 37.46269734335705,
+          "longitude": 127.03772886669601
+        },
+        {
+          "stationId": "A0000894",
+          "brandCode": "SOL",
+          "name": "㈜방배동주유소",
+          "priceWon": 1994,
+          "latitude": 37.478115906141774,
+          "longitude": 126.98777415660429
+        },
+        {
+          "stationId": "A0000426",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사당셀프주유소",
+          "priceWon": 2007,
+          "latitude": 37.483127835267936,
+          "longitude": 126.98168389984431
+        },
+        {
+          "stationId": "A0010172",
+          "brandCode": "GSC",
+          "name": "㈜삼표에너지 아시아주유소",
+          "priceWon": 1994,
+          "latitude": 37.5045953392429,
+          "longitude": 127.07736786414712
+        },
+        {
+          "stationId": "A0011826",
+          "brandCode": "RTX",
+          "name": "㈜에이치앤디이 만남의광장주유소",
+          "priceWon": 1986,
+          "latitude": 37.459611978031084,
+          "longitude": 127.0430437276685
+        },
+        {
+          "stationId": "A0000238",
+          "brandCode": "SKE",
+          "name": "한남지점",
+          "priceWon": 2197,
+          "latitude": 37.534767244112004,
+          "longitude": 127.00609577481812
+        },
+        {
+          "stationId": "A0009918",
+          "brandCode": "SOL",
+          "name": "서초우면산주유소",
+          "priceWon": 1998,
+          "latitude": 37.45755312356488,
+          "longitude": 127.0162898827574
+        },
+        {
+          "stationId": "A0000228",
+          "brandCode": "SKE",
+          "name": "에너비스",
+          "priceWon": 2197,
+          "latitude": 37.53602895178944,
+          "longitude": 127.00612431237732
+        },
+        {
+          "stationId": "A0010167",
+          "brandCode": "GSC",
+          "name": "삼화주유소",
+          "priceWon": 1994,
+          "latitude": 37.50663702160138,
+          "longitude": 127.0810022740731
+        },
+        {
+          "stationId": "A0001157",
+          "brandCode": "HDO",
+          "name": "㈜CW창원",
+          "priceWon": 1995,
+          "latitude": 37.47300610402982,
+          "longitude": 126.9822031797441
+        },
+        {
+          "stationId": "A0008210",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 선암셀프주유소",
+          "priceWon": 1990,
+          "latitude": 37.45603131988075,
+          "longitude": 127.01042580735673
+        },
+        {
+          "stationId": "A0000928",
+          "brandCode": "SKE",
+          "name": "(주)대농석유 남태령주유소",
+          "priceWon": 1995,
+          "latitude": 37.466893679567086,
+          "longitude": 126.98782467170535
+        },
+        {
+          "stationId": "A0009392",
+          "brandCode": "GSC",
+          "name": "(주)옥수하이웨이스테이션",
+          "priceWon": 2381,
+          "latitude": 37.540935680741626,
+          "longitude": 127.01139933997025
+        }
+      ]
+    },
+    {
+      "radiusMeters": 5000,
+      "fuelType": "DIESEL",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2022,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 1990,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2000,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2000,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2022,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 1988,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 1991,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2015,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2095,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 1995,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2257,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 1986,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 1986,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2098,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1996,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1995,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2000,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 1995,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 1995,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2000,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2022,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2198,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2340,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2430,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 1979,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 1990,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 1990,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 1995,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2000,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2244,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2015,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2000,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2095,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2298,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 1995,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009881",
+          "brandCode": "SOL",
+          "name": "양재최고주유소",
+          "priceWon": 1984,
+          "latitude": 37.46715469172747,
+          "longitude": 127.03469799826911
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2049,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2022,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2095,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2398,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2010,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 2009,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        },
+        {
+          "stationId": "A0009916",
+          "brandCode": "SKE",
+          "name": "대신석유(주)대우주유소",
+          "priceWon": 1997,
+          "latitude": 37.46269734335705,
+          "longitude": 127.03772886669601
+        },
+        {
+          "stationId": "A0000894",
+          "brandCode": "SOL",
+          "name": "㈜방배동주유소",
+          "priceWon": 1984,
+          "latitude": 37.478115906141774,
+          "longitude": 126.98777415660429
+        },
+        {
+          "stationId": "A0000426",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사당셀프주유소",
+          "priceWon": 1999,
+          "latitude": 37.483127835267936,
+          "longitude": 126.98168389984431
+        },
+        {
+          "stationId": "A0010172",
+          "brandCode": "GSC",
+          "name": "㈜삼표에너지 아시아주유소",
+          "priceWon": 1983,
+          "latitude": 37.5045953392429,
+          "longitude": 127.07736786414712
+        },
+        {
+          "stationId": "A0011826",
+          "brandCode": "RTX",
+          "name": "㈜에이치앤디이 만남의광장주유소",
+          "priceWon": 1986,
+          "latitude": 37.459611978031084,
+          "longitude": 127.0430437276685
+        },
+        {
+          "stationId": "A0000238",
+          "brandCode": "SKE",
+          "name": "한남지점",
+          "priceWon": 2187,
+          "latitude": 37.534767244112004,
+          "longitude": 127.00609577481812
+        },
+        {
+          "stationId": "A0009918",
+          "brandCode": "SOL",
+          "name": "서초우면산주유소",
+          "priceWon": 1987,
+          "latitude": 37.45755312356488,
+          "longitude": 127.0162898827574
+        },
+        {
+          "stationId": "A0000228",
+          "brandCode": "SKE",
+          "name": "에너비스",
+          "priceWon": 2187,
+          "latitude": 37.53602895178944,
+          "longitude": 127.00612431237732
+        },
+        {
+          "stationId": "A0010167",
+          "brandCode": "GSC",
+          "name": "삼화주유소",
+          "priceWon": 1983,
+          "latitude": 37.50663702160138,
+          "longitude": 127.0810022740731
+        },
+        {
+          "stationId": "A0001157",
+          "brandCode": "HDO",
+          "name": "㈜CW창원",
+          "priceWon": 1995,
+          "latitude": 37.47300610402982,
+          "longitude": 126.9822031797441
+        },
+        {
+          "stationId": "A0008210",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 선암셀프주유소",
+          "priceWon": 1977,
+          "latitude": 37.45603131988075,
+          "longitude": 127.01042580735673
+        },
+        {
+          "stationId": "A0000928",
+          "brandCode": "SKE",
+          "name": "(주)대농석유 남태령주유소",
+          "priceWon": 1995,
+          "latitude": 37.466893679567086,
+          "longitude": 126.98782467170535
+        },
+        {
+          "stationId": "A0009392",
+          "brandCode": "GSC",
+          "name": "(주)옥수하이웨이스테이션",
+          "priceWon": 2291,
+          "latitude": 37.540935680741626,
+          "longitude": 127.01139933997025
+        }
+      ]
+    },
+    {
+      "radiusMeters": 5000,
+      "fuelType": "PREMIUM_GASOLINE",
+      "stations": [
+        {
+          "stationId": "A0009907",
+          "brandCode": "GSC",
+          "name": "에너지플러스허브 삼방주유소",
+          "priceWon": 2415,
+          "latitude": 37.5038592059364,
+          "longitude": 127.02317419164872
+        },
+        {
+          "stationId": "A0010207",
+          "brandCode": "SKE",
+          "name": "SK서광주유소",
+          "priceWon": 2500,
+          "latitude": 37.494342850844376,
+          "longitude": 127.03509278513955
+        },
+        {
+          "stationId": "A0009905",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사평로주유소",
+          "priceWon": 2388,
+          "latitude": 37.50327593007212,
+          "longitude": 127.02150768091882
+        },
+        {
+          "stationId": "A0009913",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 서초제일주유소",
+          "priceWon": 2447,
+          "latitude": 37.490559553508156,
+          "longitude": 127.02260855568565
+        },
+        {
+          "stationId": "A0009974",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜에너지플러스허브GS타워",
+          "priceWon": 2538,
+          "latitude": 37.50270179217919,
+          "longitude": 127.03639187283768
+        },
+        {
+          "stationId": "A0009061",
+          "brandCode": "SOL",
+          "name": "(주)선진도곡주유소",
+          "priceWon": 2450,
+          "latitude": 37.491199740537226,
+          "longitude": 127.03749885029286
+        },
+        {
+          "stationId": "A0009861",
+          "brandCode": "SOL",
+          "name": "오토테크주유소",
+          "priceWon": 2291,
+          "latitude": 37.48667479908557,
+          "longitude": 127.02279401173456
+        },
+        {
+          "stationId": "A0010236",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 강남셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.49241175075716,
+          "longitude": 127.04191650438408
+        },
+        {
+          "stationId": "A0010269",
+          "brandCode": "SOL",
+          "name": "극동유화㈜ 개나리주유소",
+          "priceWon": 2350,
+          "latitude": 37.500922685879075,
+          "longitude": 127.04311957576475
+        },
+        {
+          "stationId": "A0006039",
+          "brandCode": "SKE",
+          "name": "(유)동하석유 힐탑셀프주유소",
+          "priceWon": 2695,
+          "latitude": 37.510737202013864,
+          "longitude": 127.03273294779221
+        },
+        {
+          "stationId": "A0000866",
+          "brandCode": "GSC",
+          "name": "반포그린주유소",
+          "priceWon": 2395,
+          "latitude": 37.503248089822094,
+          "longitude": 127.01086975326696
+        },
+        {
+          "stationId": "A0010232",
+          "brandCode": "SOL",
+          "name": "명품주유소",
+          "priceWon": 2598,
+          "latitude": 37.49409746137876,
+          "longitude": 127.0456260865488
+        },
+        {
+          "stationId": "A0009835",
+          "brandCode": "SKE",
+          "name": "오일프러스 셀프",
+          "priceWon": 2470,
+          "latitude": 37.48583639237537,
+          "longitude": 127.03968545153442
+        },
+        {
+          "stationId": "A0009869",
+          "brandCode": "GSC",
+          "name": "말죽거리주유소",
+          "priceWon": 2396,
+          "latitude": 37.48519480533853,
+          "longitude": 127.04083944373005
+        },
+        {
+          "stationId": "A0009917",
+          "brandCode": "SKE",
+          "name": "대신석유㈜서원주유소",
+          "priceWon": 2388,
+          "latitude": 37.49263818433361,
+          "longitude": 127.00759237474401
+        },
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 2425,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 2460,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0009738",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 도곡셀프주유소",
+          "priceWon": 2388,
+          "latitude": 37.485461311680915,
+          "longitude": 127.04321476202395
+        },
+        {
+          "stationId": "A0009912",
+          "brandCode": "GSC",
+          "name": "(주)한미석유 서초주유소",
+          "priceWon": 2395,
+          "latitude": 37.48613464972351,
+          "longitude": 127.01081362695857
+        },
+        {
+          "stationId": "A0009890",
+          "brandCode": "GSC",
+          "name": "서초꽃마을주유소",
+          "priceWon": 2395,
+          "latitude": 37.486527793706955,
+          "longitude": 127.00992555707809
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 2388,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0000908",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)남서울주유소",
+          "priceWon": 2468,
+          "latitude": 37.51617043272249,
+          "longitude": 127.01895008389643
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 2598,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 2794,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0009707",
+          "brandCode": "HDO",
+          "name": "(주)제이제이네트웍스 제이제이주유소",
+          "priceWon": 2970,
+          "latitude": 37.51766924311855,
+          "longitude": 127.03574658765868
+        },
+        {
+          "stationId": "A0009906",
+          "brandCode": "SOL",
+          "name": "극동유화(주) 전당앞주유소",
+          "priceWon": 2320,
+          "latitude": 37.48038962755173,
+          "longitude": 127.0120365363896
+        },
+        {
+          "stationId": "A0009725",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 신사현대주유소",
+          "priceWon": 2635,
+          "latitude": 37.51952626017845,
+          "longitude": 127.02632942227552
+        },
+        {
+          "stationId": "A0000916",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 강남주유소",
+          "priceWon": 2390,
+          "latitude": 37.50462649678972,
+          "longitude": 127.0017446358805
+        },
+        {
+          "stationId": "A0009705",
+          "brandCode": "SKE",
+          "name": "대교셀프주유소",
+          "priceWon": 2590,
+          "latitude": 37.518881853042316,
+          "longitude": 127.01927817510486
+        },
+        {
+          "stationId": "A0011828",
+          "brandCode": "SKE",
+          "name": "양재주유소",
+          "priceWon": 2470,
+          "latitude": 37.47808450744414,
+          "longitude": 127.03953407552308
+        },
+        {
+          "stationId": "A0000919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 팔레스주유소",
+          "priceWon": 2388,
+          "latitude": 37.50016366657998,
+          "longitude": 126.99920908227521
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 2584,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0000863",
+          "brandCode": "SKE",
+          "name": "신반포주유소",
+          "priceWon": 2410,
+          "latitude": 37.49840993571359,
+          "longitude": 126.99480533184506
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 2349,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0009712",
+          "brandCode": "SKE",
+          "name": "대동석유 압구정주유소",
+          "priceWon": 2665,
+          "latitude": 37.525339815453265,
+          "longitude": 127.0338536658803
+        },
+        {
+          "stationId": "A0009715",
+          "brandCode": "HDO",
+          "name": "㈜새서울석유 새서울주유소",
+          "priceWon": 2788,
+          "latitude": 37.52594000739342,
+          "longitude": 127.0263959065158
+        },
+        {
+          "stationId": "A0011816",
+          "brandCode": "SKE",
+          "name": "태봉셀프주유소",
+          "priceWon": 2385,
+          "latitude": 37.468335563487926,
+          "longitude": 127.02820186073195
+        },
+        {
+          "stationId": "A0009724",
+          "brandCode": "RTO",
+          "name": "한양주유소",
+          "priceWon": 2549,
+          "latitude": 37.52888094551174,
+          "longitude": 127.03407393594749
+        },
+        {
+          "stationId": "A0001185",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스㈜ 은마주유소",
+          "priceWon": 2405,
+          "latitude": 37.50007044925382,
+          "longitude": 127.067284378199
+        },
+        {
+          "stationId": "A0001214",
+          "brandCode": "HDO",
+          "name": "삼성동주유소",
+          "priceWon": 2655,
+          "latitude": 37.50985877325291,
+          "longitude": 127.06511478788461
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 2884,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000890",
+          "brandCode": "GSC",
+          "name": "지에스칼텍스(주)선천주유소",
+          "priceWon": 2351,
+          "latitude": 37.49499511703809,
+          "longitude": 126.9831797433678
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 2399,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        },
+        {
+          "stationId": "A0009916",
+          "brandCode": "SKE",
+          "name": "대신석유(주)대우주유소",
+          "priceWon": 2297,
+          "latitude": 37.46269734335705,
+          "longitude": 127.03772886669601
+        },
+        {
+          "stationId": "A0000894",
+          "brandCode": "SOL",
+          "name": "㈜방배동주유소",
+          "priceWon": 2320,
+          "latitude": 37.478115906141774,
+          "longitude": 126.98777415660429
+        },
+        {
+          "stationId": "A0000426",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 사당셀프주유소",
+          "priceWon": 2399,
+          "latitude": 37.483127835267936,
+          "longitude": 126.98168389984431
+        },
+        {
+          "stationId": "A0010172",
+          "brandCode": "GSC",
+          "name": "㈜삼표에너지 아시아주유소",
+          "priceWon": 2403,
+          "latitude": 37.5045953392429,
+          "longitude": 127.07736786414712
+        },
+        {
+          "stationId": "A0000238",
+          "brandCode": "SKE",
+          "name": "한남지점",
+          "priceWon": 2587,
+          "latitude": 37.534767244112004,
+          "longitude": 127.00609577481812
+        },
+        {
+          "stationId": "A0009918",
+          "brandCode": "SOL",
+          "name": "서초우면산주유소",
+          "priceWon": 2349,
+          "latitude": 37.45755312356488,
+          "longitude": 127.0162898827574
+        },
+        {
+          "stationId": "A0000228",
+          "brandCode": "SKE",
+          "name": "에너비스",
+          "priceWon": 2587,
+          "latitude": 37.53602895178944,
+          "longitude": 127.00612431237732
+        },
+        {
+          "stationId": "A0010167",
+          "brandCode": "GSC",
+          "name": "삼화주유소",
+          "priceWon": 2403,
+          "latitude": 37.50663702160138,
+          "longitude": 127.0810022740731
+        },
+        {
+          "stationId": "A0001157",
+          "brandCode": "HDO",
+          "name": "㈜CW창원",
+          "priceWon": 2415,
+          "latitude": 37.47300610402982,
+          "longitude": 126.9822031797441
+        },
+        {
+          "stationId": "A0008210",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 선암셀프주유소",
+          "priceWon": 2276,
+          "latitude": 37.45603131988075,
+          "longitude": 127.01042580735673
+        },
+        {
+          "stationId": "A0009392",
+          "brandCode": "GSC",
+          "name": "(주)옥수하이웨이스테이션",
+          "priceWon": 2781,
+          "latitude": 37.540935680741626,
+          "longitude": 127.01139933997025
+        }
+      ]
+    },
+    {
+      "radiusMeters": 5000,
+      "fuelType": "KEROSENE",
+      "stations": [
+        {
+          "stationId": "A0009901",
+          "brandCode": "GSC",
+          "name": "대성석유(주)연일주유소",
+          "priceWon": 1800,
+          "latitude": 37.48257930321935,
+          "longitude": 127.01852201969501
+        },
+        {
+          "stationId": "A0000915",
+          "brandCode": "GSC",
+          "name": "대성산업(주)직영 터미널(고속)주유소",
+          "priceWon": 1650,
+          "latitude": 37.50673138408668,
+          "longitude": 127.0088196870799
+        },
+        {
+          "stationId": "A0010229",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 유진주유소",
+          "priceWon": 1715,
+          "latitude": 37.48325059688775,
+          "longitude": 127.04267263037549
+        },
+        {
+          "stationId": "A0009886",
+          "brandCode": "HDO",
+          "name": "(주)선문에너지 중앙주유소",
+          "priceWon": 1990,
+          "latitude": 37.481533602923854,
+          "longitude": 127.0422132427978
+        },
+        {
+          "stationId": "A0009710",
+          "brandCode": "SKE",
+          "name": "SK논현주유소",
+          "priceWon": 1850,
+          "latitude": 37.5186353072114,
+          "longitude": 127.02822914622308
+        },
+        {
+          "stationId": "A0001217",
+          "brandCode": "GSC",
+          "name": "(주)소모 쎈트럴주유소",
+          "priceWon": 1550,
+          "latitude": 37.5014206116053,
+          "longitude": 127.05913923708243
+        },
+        {
+          "stationId": "A0009919",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 양재현대주유소",
+          "priceWon": 1715,
+          "latitude": 37.473582895492136,
+          "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "A0000206",
+          "brandCode": "SKE",
+          "name": "(주)남경주유소",
+          "priceWon": 1960,
+          "latitude": 37.52248232278886,
+          "longitude": 126.99925582547965
+        },
+        {
+          "stationId": "A0000917",
+          "brandCode": "HDO",
+          "name": "방배주유소",
+          "priceWon": 1800,
+          "latitude": 37.4928537518744,
+          "longitude": 126.98317430553207
+        },
+        {
+          "stationId": "A0008210",
+          "brandCode": "HDO",
+          "name": "HD현대오일뱅크㈜직영 선암셀프주유소",
+          "priceWon": 1707,
+          "latitude": 37.45603131988075,
+          "longitude": 127.01042580735673
+        }
+      ]
+    },
+    {
+      "radiusMeters": 5000,
+      "fuelType": "LPG",
+      "stations": [
+        {
+          "stationId": "A0009839",
+          "brandCode": "SKE",
+          "name": "(주)진양가스",
+          "priceWon": 1101,
+          "latitude": 37.490411101786314,
+          "longitude": 127.03581273434159
+        },
+        {
+          "stationId": "A0000904",
+          "brandCode": "SKE",
+          "name": "서초충전소",
+          "priceWon": 1099,
+          "latitude": 37.473196394663105,
+          "longitude": 126.99530996401847
+        },
+        {
+          "stationId": "A0001201",
+          "brandCode": "GSC",
+          "name": "남서울가스(주)",
+          "priceWon": 1103,
+          "latitude": 37.497796410532686,
+          "longitude": 127.0755797084538
+        },
+        {
+          "stationId": "A0011826",
+          "brandCode": "GSC",
+          "name": "㈜에이치앤디이 만남의광장주유소",
+          "priceWon": 1087,
+          "latitude": 37.459611978031084,
+          "longitude": 127.0430437276685
+        },
+        {
+          "stationId": "A0001227",
+          "brandCode": "HDO",
+          "name": "대치에너지",
+          "priceWon": 1103,
+          "latitude": 37.499335242116466,
+          "longitude": 127.07809749204027
+        },
+        {
+          "stationId": "A0000906",
+          "brandCode": "SOL",
+          "name": "수도석유(주)방배충전소",
+          "priceWon": 1101,
+          "latitude": 37.47902009432441,
+          "longitude": 126.98213354641835
+        },
+        {
+          "stationId": "A0001453",
+          "brandCode": "E1G",
+          "name": "과천LPG충전소",
+          "priceWon": 1093,
+          "latitude": 37.455750280210864,
+          "longitude": 127.00997799411857
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "stationId": "A0000206",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2368,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2414,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2398,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000228",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2203,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2199,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2187,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000238",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2180,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2184,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2187,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000426",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1999,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000863",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2017,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2035,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2015,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000866",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1996,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000890",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2037,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000894",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2002,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1982,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000908",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2041,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2022,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000915",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2007,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000916",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1967,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1985,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000917",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2011,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2009,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000919",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2020,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1980,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000928",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1974,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1993,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001157",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2029,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1985,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001185",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2057,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2036,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2022,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001214",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2079,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2086,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2095,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001217",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2257,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2228,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2244,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0006039",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2091,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2091,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2095,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0008210",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1975,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1965,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1977,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009061",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2004,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1989,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1988,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009392",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2258,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2271,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2291,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009705",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009707",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2464,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2418,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2430,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009710",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2331,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2328,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2340,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009712",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2068,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2099,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2095,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009715",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2284,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2283,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2298,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009724",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2076,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2057,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2049,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009725",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2023,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1983,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009738",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2018,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009835",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1976,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009861",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1973,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1991,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009869",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1977,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009881",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009886",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2209,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2203,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2198,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009890",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1960,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2015,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009901",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1968,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1976,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1996,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009905",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1989,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009906",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1946,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1997,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009907",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2020,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2022,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009912",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2001,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1977,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009913",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2026,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009916",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1968,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1988,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1997,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009917",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2088,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2114,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2098,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009918",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2008,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1968,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009919",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2029,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009974",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2049,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2038,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2022,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010167",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1976,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2003,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1983,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010172",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1969,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1983,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010207",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1966,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010229",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2001,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2020,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2000,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010232",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2281,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2254,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2257,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010236",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2008,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2008,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010269",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2030,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2034,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2015,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011816",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1989,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011826",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 2001,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011828",
+      "fuelType": "DIESEL",
+      "entries": [
+        {
+          "priceWon": 1972,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000206",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2429,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2405,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2398,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000228",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2178,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2180,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2197,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000238",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2222,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2212,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2197,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000426",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2032,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2016,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2007,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000863",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2029,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1985,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1999,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000866",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1992,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000890",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2002,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2004,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000894",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2019,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1988,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000908",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2038,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2019,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2038,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000915",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1981,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2032,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2013,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000916",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2024,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1996,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000917",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2015,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2002,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000919",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2004,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2009,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000928",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1978,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001157",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1974,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1991,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001185",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2055,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2054,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2048,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001214",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2142,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2167,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2165,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001217",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2349,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2334,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2334,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0006039",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2104,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2118,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2125,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0008210",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1977,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1983,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009061",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2065,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2040,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2049,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009392",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2404,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2399,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2381,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009705",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2036,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2031,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2045,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009707",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2567,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2610,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2598,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009710",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2470,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2437,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2440,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009712",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2106,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2137,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2125,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009715",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2402,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2402,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009724",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2052,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2061,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2049,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009725",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2013,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2021,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009738",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2027,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2009,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009835",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1953,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1978,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009861",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1982,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1991,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009869",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1996,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009881",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1977,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1984,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009886",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2347,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2378,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2368,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009890",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1974,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2004,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009901",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1965,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2012,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1996,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009905",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2002,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1992,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009906",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1964,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1978,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009907",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2002,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2040,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2028,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009912",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1971,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2007,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009913",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1993,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009916",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2017,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1997,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009917",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2129,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2086,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2098,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009918",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1969,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2014,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009919",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2008,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009974",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2043,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2033,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2028,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010167",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1999,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010172",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2010,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2014,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1994,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010207",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2071,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2054,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2040,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010229",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2016,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2003,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010232",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2369,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2333,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2348,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010236",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2005,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2009,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010269",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2018,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2037,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2029,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011816",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1966,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1989,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1995,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011826",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2020,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1992,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1986,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011828",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1983,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1978,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000206",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1948,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1979,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1960,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000915",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1640,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1644,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1650,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000917",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1812,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1809,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1800,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001217",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1537,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1538,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1550,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0008210",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1702,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1699,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1707,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009710",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1873,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1838,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1850,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009886",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1993,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1990,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009901",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1789,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1797,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1800,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009919",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1715,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1697,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1715,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010229",
+      "fuelType": "KEROSENE",
+      "entries": [
+        {
+          "priceWon": 1734,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1731,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1715,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000904",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1107,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1107,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1099,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000906",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1086,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1101,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1101,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001201",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1085,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1096,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1103,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001227",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1084,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1111,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1103,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001453",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1058,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1093,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1093,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009839",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1115,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1098,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1101,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011826",
+      "fuelType": "LPG",
+      "entries": [
+        {
+          "priceWon": 1072,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1102,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1087,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000206",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2861,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2888,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2884,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000228",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2568,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2577,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2587,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000238",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2569,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2573,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2587,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000426",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2405,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2395,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2399,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000863",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2407,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2424,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2410,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000866",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2364,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2398,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2395,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000890",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2370,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2368,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2351,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000894",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2352,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2321,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2320,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000908",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2499,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2463,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2468,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000915",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2481,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2455,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2460,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000916",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2411,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2391,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2390,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000917",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2390,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2395,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2399,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0000919",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2396,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2399,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001157",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2422,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2403,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2415,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001185",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2416,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2416,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2405,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001214",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2648,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2659,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2655,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0001217",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2605,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2599,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2584,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0006039",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2726,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2675,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2695,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0008210",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2279,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2273,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2276,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009061",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2471,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2445,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2450,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009392",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2765,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2761,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2781,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009705",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2567,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2597,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2590,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009707",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2992,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2970,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2970,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009710",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2789,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2777,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2794,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009712",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2669,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2648,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2665,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009715",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2766,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2791,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2788,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009724",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2558,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2553,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2549,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009725",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2666,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2633,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2635,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009738",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2411,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2372,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009835",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2452,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2490,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2470,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009861",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2300,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2276,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2291,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009869",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2431,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2390,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2396,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009886",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2583,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2599,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2598,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009890",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2363,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2414,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2395,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009901",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2414,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2412,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2425,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009905",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2390,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2400,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009906",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2287,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2310,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2320,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009907",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2412,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2410,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2415,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009912",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2374,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2414,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2395,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009913",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2439,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2465,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2447,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009916",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2263,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2291,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2297,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009917",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2384,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2387,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009918",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2324,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2346,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2349,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009919",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2365,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2341,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2349,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0009974",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2568,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2531,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2538,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010167",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2372,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2403,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2403,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010172",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2390,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2420,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2403,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010207",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2520,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2502,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2500,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010229",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2365,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2401,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010232",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2567,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2609,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2598,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010236",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2370,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2383,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2388,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0010269",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2332,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2334,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2350,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011816",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2370,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2377,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2385,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "A0011828",
+      "fuelType": "PREMIUM_GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2498,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2465,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 2470,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package com.gasstation.feature.stationlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gasstation.core.location.DemoLocationOverride
 import com.gasstation.core.location.ForegroundLocationProvider
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
@@ -18,6 +19,7 @@ import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Optional
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -43,6 +45,7 @@ class StationListViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val foregroundLocationProvider: ForegroundLocationProvider,
     private val stationEventLogger: StationEventLogger,
+    private val demoLocationOverride: Optional<DemoLocationOverride>,
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
     private val sessionState = MutableStateFlow(StationListSessionState())
@@ -92,6 +95,7 @@ class StationListViewModel @Inject constructor(
                 isRefreshing = session.isRefreshing,
                 isStale = result.freshness is StationFreshness.Stale,
                 stations = result.stations.map(::StationListItemUiModel),
+                selectedBrandFilter = prefs.brandFilter,
                 selectedRadius = prefs.searchRadius,
                 selectedFuelType = prefs.fuelType,
                 selectedSortOrder = prefs.sortOrder,
@@ -114,11 +118,11 @@ class StationListViewModel @Inject constructor(
             )
 
             is StationListAction.PermissionChanged -> sessionState.update {
-                it.copy(permissionState = action.permissionState)
+                it.copy(permissionState = effectivePermissionState(action.permissionState))
             }
 
             is StationListAction.GpsAvailabilityChanged -> sessionState.update {
-                it.copy(isGpsEnabled = action.isEnabled)
+                it.copy(isGpsEnabled = action.isEnabled || demoLocationOverride.isPresent)
             }
 
             is StationListAction.StationClicked -> viewModelScope.launch {
@@ -141,7 +145,7 @@ class StationListViewModel @Inject constructor(
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
                 return@launch
             }
-            if (session.permissionState == LocationPermissionState.Denied) {
+            if (effectivePermissionState(session.permissionState) == LocationPermissionState.Denied) {
                 mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
                 return@launch
             }
@@ -151,6 +155,21 @@ class StationListViewModel @Inject constructor(
                     isLoading = it.currentCoordinates == null,
                     isRefreshing = true,
                 )
+            }
+
+            val demoCoordinates = demoLocationOverride
+                .takeIf(Optional<DemoLocationOverride>::isPresent)
+                ?.get()
+                ?.currentLocation(session.permissionState)
+            if (demoCoordinates != null) {
+                sessionState.update {
+                    it.copy(
+                        currentCoordinates = demoCoordinates,
+                        isLoading = false,
+                        isRefreshing = false,
+                    )
+                }
+                return@launch
             }
 
             val coordinates = foregroundLocationProvider.currentLocation(session.permissionState)
@@ -220,6 +239,14 @@ class StationListViewModel @Inject constructor(
         sortOrder = preferences.sortOrder,
         mapProvider = preferences.mapProvider,
     )
+
+    private fun effectivePermissionState(
+        permissionState: LocationPermissionState,
+    ): LocationPermissionState = if (demoLocationOverride.isPresent) {
+        LocationPermissionState.PreciseGranted
+    } else {
+        permissionState
+    }
 }
 
 private data class StationListSessionState(

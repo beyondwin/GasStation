@@ -5,7 +5,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.network.model.OpinetStationDto
-import com.gasstation.core.network.service.KakaoService
+import com.gasstation.core.network.station.LocalKoreanCoordinateTransform
 import com.gasstation.data.station.RemoteStation
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.FuelType
@@ -18,9 +18,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-internal suspend fun OpinetStationDto.toRemoteStation(
-    kakaoService: KakaoService,
-): RemoteStation? {
+internal fun OpinetStationDto.toRemoteStation(): RemoteStation? {
     val stationId = stationId?.takeIf { it.isNotBlank() } ?: return null
     val name = name?.takeIf { it.isNotBlank() } ?: return null
     val brandCode = brandCode?.takeIf { it.isNotBlank() } ?: return null
@@ -36,31 +34,19 @@ internal suspend fun OpinetStationDto.toRemoteStation(
         coordinates = rawCoordinatesToWgs84(
             rawX = rawX,
             rawY = rawY,
-            kakaoService = kakaoService,
         ) ?: return null,
     )
 }
 
-internal suspend fun rawCoordinatesToWgs84(
+internal fun rawCoordinatesToWgs84(
     rawX: Double,
     rawY: Double,
-    kakaoService: KakaoService,
 ): Coordinates? {
     if (rawY in -90.0..90.0 && rawX in -180.0..180.0) {
         return Coordinates(latitude = rawY, longitude = rawX)
     }
 
-    val converted = kakaoService.transCoord(
-        x = rawX,
-        y = rawY,
-        inputCoord = KTM,
-        outputCoord = WGS84,
-    ).documents.firstOrNull() ?: return null
-
-    return Coordinates(
-        latitude = converted.y,
-        longitude = converted.x,
-    )
+    return LocalKoreanCoordinateTransform.ktmToWgs84(x = rawX, y = rawY)
 }
 
 internal fun RemoteStation.toEntity(
@@ -117,6 +103,3 @@ private fun distanceBetween(
     val centralAngle = 2 * atan2(sqrt(haversine), sqrt(1 - haversine))
     return (earthRadiusMeters * centralAngle).roundToInt()
 }
-
-private const val WGS84 = "WGS84"
-private const val KTM = "KTM"

@@ -23,6 +23,7 @@ import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import java.time.Clock
 import java.time.Instant
+import java.util.Optional
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,7 @@ class DefaultStationRepository @Inject constructor(
     private val stationPriceHistoryDao: StationPriceHistoryDao,
     private val watchedStationDao: WatchedStationDao,
     private val remoteDataSource: StationRemoteDataSource,
+    private val seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
     private val cachePolicy: StationCachePolicy,
     private val clock: Clock,
 ) : StationRepository {
@@ -109,7 +111,12 @@ class DefaultStationRepository @Inject constructor(
     override suspend fun refreshNearbyStations(query: StationQuery) {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
         val fetchedAt = clock.instant()
-        when (val remoteStations = remoteDataSource.fetchStations(query)) {
+        val remoteStations = if (seedRemoteDataSource.isPresent) {
+            seedRemoteDataSource.get().fetchStations(query)
+        } else {
+            remoteDataSource.fetchStations(query)
+        }
+        when (remoteStations) {
             is RemoteStationFetchResult.Failure -> {
                 throw StationRefreshException()
             }
