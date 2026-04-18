@@ -17,6 +17,7 @@ data class StationListItemUiModel(
     val distanceNumberLabel: String,
     val distanceUnitLabel: String,
     val priceDeltaLabel: String,
+    val priceDeltaTone: PriceDeltaTone = PriceDeltaTone.Neutral,
     val isWatched: Boolean,
     val latitude: Double,
     val longitude: Double,
@@ -32,10 +33,17 @@ data class StationListItemUiModel(
         distanceNumberLabel = entry.station.distance.toDistanceNumberLabel(),
         distanceUnitLabel = "km",
         priceDeltaLabel = entry.priceDelta.toLabel(),
+        priceDeltaTone = entry.priceDelta.toTone(),
         isWatched = entry.isWatched,
         latitude = entry.station.coordinates.latitude,
         longitude = entry.station.coordinates.longitude,
     )
+}
+
+enum class PriceDeltaTone {
+    Rise,
+    Fall,
+    Neutral,
 }
 
 private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
@@ -65,4 +73,12 @@ private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unchanged -> "직전 가격과 동일"
     is StationPriceDelta.Increased -> "${amountWon}원 상승"
     is StationPriceDelta.Decreased -> "${amountWon}원 하락"
+}
+
+private fun StationPriceDelta.toTone(): PriceDeltaTone = when (this) {
+    is StationPriceDelta.Increased -> PriceDeltaTone.Rise
+    is StationPriceDelta.Decreased -> PriceDeltaTone.Fall
+    StationPriceDelta.Unavailable,
+    StationPriceDelta.Unchanged,
+    -> PriceDeltaTone.Neutral
 }

@@ -55,6 +55,7 @@ import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorSupportError
+import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.LegacyChromeCard
@@ -394,21 +395,29 @@ private fun StationCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FuelChip(text = fuelTypeLabel)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FuelChip(text = fuelTypeLabel)
+                        Text(
+                            text = station.brandLabel,
+                            style = typography.meta,
+                            color = ColorGray2,
+                        )
+                    }
                     Text(
-                        text = station.brandLabel,
-                        style = typography.meta,
-                        color = ColorGray2,
+                        text = station.priceDeltaLabel,
+                        style = typography.body,
+                        color = station.priceDeltaTone.toColor(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    text = station.priceDeltaLabel,
-                    style = typography.body,
-                    color = ColorGray2,
-                )
             }
             WatchToggleButton(
                 watched = station.isWatched,
@@ -679,6 +688,12 @@ private fun StationListActionStateCard(
             )
         }
     }
+}
+
+internal fun PriceDeltaTone.toColor(): Color = when (this) {
+    PriceDeltaTone.Rise -> ColorSupportError
+    PriceDeltaTone.Fall -> ColorSupportInfo
+    PriceDeltaTone.Neutral -> ColorGray2
 }
 
 private fun StationListBannerTone.toLegacyTone(): LegacyStatusTone = when (this) {
