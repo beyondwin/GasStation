@@ -8,7 +8,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:location"))
     implementation(project(":core:network"))

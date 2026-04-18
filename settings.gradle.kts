@@ -22,7 +22,6 @@ include(
     ":core:common",
     ":core:model",
     ":core:designsystem",
-    ":core:testing",
     ":core:location",
     ":core:network",
     ":core:database",

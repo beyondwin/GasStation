@@ -8,7 +8,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:common"))
     implementation(project(":core:datastore"))
     implementation(project(":domain:settings"))
     testImplementation(project(":domain:station"))
