@@ -1,12 +1,21 @@
 # 프로젝트 읽기 가이드
 
-이 문서는 "처음 열었는데 어디서부터 읽어야 하는지"를 빠르게 정리한 안내서입니다. 현재 기준 구조는 `app / feature / domain / data / core / tools / benchmark`입니다.
+처음 보는 사람이 읽기 순서를 가장 빨리 잡기 위한 안내서입니다. 현재 구조는 `app / feature / domain / data / core / tools / benchmark`입니다.
+
+## 이 문서에서 바로 얻는 것
+
+| 질문 | 가장 빠른 답 |
+| --- | --- |
+| 프로젝트 전체 구조를 어디서 보나 | `README.md` -> `docs/architecture.md` |
+| 사용자 플로우 진입점은 어디인가 | `MainActivity.kt`, `GasStationNavHost.kt`, `StationListRoute.kt` |
+| 가장 복잡한 구현은 어디에 있나 | `data/station/DefaultStationRepository.kt` |
+| demo 시연 경로는 어디서 고정되나 | `DemoSeedStartupHook.kt`, `DemoLocationModule.kt` |
 
 ## 먼저 잡아야 할 그림
 
-이 앱은 현재 위치와 사용자 선호를 입력으로 받아 주유소 목록을 만들고, 마지막 성공 결과를 Room에 유지하면서, 관심 주유소 비교와 외부 지도 연동까지 이어지는 Compose 앱입니다.
+이 앱은 현재 위치와 사용자 선호를 입력으로 받아 주유소 목록을 만들고, 마지막 성공 결과를 Room에 유지한 채 관심 주유소 비교와 외부 지도 연동까지 이어지는 Compose 앱입니다.
 
-코드를 읽을 때는 아래 세 가지 질문으로 쪼개면 가장 덜 헷갈립니다.
+처음 읽을 때는 아래 세 질문으로 나누면 가장 덜 헷갈립니다.
 
 1. 화면이 어떤 상태를 보여주나
 2. 그 상태를 만드는 계약이 어디 있나
@@ -29,7 +38,7 @@
 11. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
 12. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 
-이 순서가 좋은 이유는 앱 바깥쪽 조립 계층에서 시작해, 화면 상태를 거쳐, 마지막에 저장소 구현으로 내려가기 때문입니다. 처음부터 DAO나 네트워크 매퍼부터 보면 큰 그림 없이 디테일만 보게 됩니다.
+이 순서는 조립 계층에서 시작해 화면 상태를 거쳐 저장소 구현으로 내려갑니다. 처음부터 DAO나 네트워크 매퍼를 보면 큰 그림 없이 디테일만 보게 됩니다.
 
 ## 기능별 읽기 루트
 
