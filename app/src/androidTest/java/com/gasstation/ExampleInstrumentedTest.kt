@@ -2,7 +2,7 @@ package com.gasstation
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-
+import com.gasstation.BuildConfig
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -19,6 +19,7 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.gasstation", appContext.packageName)
+        val expectedPackage = if (BuildConfig.DEMO_MODE) "com.gasstation.demo" else "com.gasstation"
+        assertEquals(expectedPackage, appContext.packageName)
     }
 }
