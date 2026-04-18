@@ -1,5 +1,12 @@
 package com.gasstation.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavType
@@ -24,7 +31,13 @@ fun GasStationNavHost(
         navController = navController,
         startDestination = GasStationDestination.StationList.route,
     ) {
-        composable(GasStationDestination.StationList.route) {
+        composable(
+            route = GasStationDestination.StationList.route,
+            enterTransition = { forwardEnterTransition() },
+            exitTransition = { forwardExitTransition() },
+            popEnterTransition = { backwardEnterTransition() },
+            popExitTransition = { backwardExitTransition() },
+        ) {
             StationListRoute(
                 onSettingsClick = { navController.navigate(GasStationDestination.Settings.route) },
                 onWatchlistClick = { coordinates ->
@@ -40,7 +53,13 @@ fun GasStationNavHost(
                 },
             )
         }
-        composable(GasStationDestination.Settings.route) {
+        composable(
+            route = GasStationDestination.Settings.route,
+            enterTransition = { forwardEnterTransition() },
+            exitTransition = { forwardExitTransition() },
+            popEnterTransition = { backwardEnterTransition() },
+            popExitTransition = { backwardExitTransition() },
+        ) {
             SettingsRoute(
                 onCloseClick = { navController.popBackStack() },
                 onSectionClick = { section ->
@@ -55,6 +74,10 @@ fun GasStationNavHost(
                     type = NavType.StringType
                 },
             ),
+            enterTransition = { forwardEnterTransition() },
+            exitTransition = { forwardExitTransition() },
+            popEnterTransition = { backwardEnterTransition() },
+            popExitTransition = { backwardExitTransition() },
         ) { backStackEntry ->
             val routeSegment = requireNotNull(
                 backStackEntry.arguments?.getString(GasStationDestination.SettingsDetail.sectionArg),
@@ -70,8 +93,42 @@ fun GasStationNavHost(
                 viewModelStoreOwner = settingsBackStackEntry,
             )
         }
-        composable(GasStationDestination.Watchlist.route) {
+        composable(
+            route = GasStationDestination.Watchlist.route,
+            enterTransition = { forwardEnterTransition() },
+            exitTransition = { forwardExitTransition() },
+            popEnterTransition = { backwardEnterTransition() },
+            popExitTransition = { backwardExitTransition() },
+        ) {
             WatchlistRoute()
         }
     }
 }
+
+private fun forwardEnterTransition(): EnterTransition = fadeIn(
+    animationSpec = tween(durationMillis = 180),
+) + slideInHorizontally(
+    animationSpec = tween(durationMillis = 220),
+    initialOffsetX = { fullWidth -> fullWidth / 10 },
+)
+
+private fun forwardExitTransition(): ExitTransition = fadeOut(
+    animationSpec = tween(durationMillis = 140),
+) + slideOutHorizontally(
+    animationSpec = tween(durationMillis = 180),
+    targetOffsetX = { fullWidth -> -fullWidth / 20 },
+)
+
+private fun backwardEnterTransition(): EnterTransition = fadeIn(
+    animationSpec = tween(durationMillis = 180),
+) + slideInHorizontally(
+    animationSpec = tween(durationMillis = 220),
+    initialOffsetX = { fullWidth -> -fullWidth / 10 },
+)
+
+private fun backwardExitTransition(): ExitTransition = fadeOut(
+    animationSpec = tween(durationMillis = 140),
+) + slideOutHorizontally(
+    animationSpec = tween(durationMillis = 180),
+    targetOffsetX = { fullWidth -> fullWidth / 20 },
+)
