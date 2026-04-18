@@ -163,9 +163,8 @@ fun LegacyTopBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    val corner = GasStationTheme.corner
     TopAppBar(
-        modifier = modifier.clip(RoundedCornerShape(bottomStart = corner.large, bottomEnd = corner.large)),
+        modifier = modifier,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = ColorBlack,
             scrolledContainerColor = ColorBlack,

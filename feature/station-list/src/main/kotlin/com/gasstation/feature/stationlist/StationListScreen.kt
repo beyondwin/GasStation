@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,8 +46,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
@@ -77,6 +80,9 @@ fun StationListScreen(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (() -> Unit)? = null,
 ) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+
     LegacyYellowBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -94,12 +100,19 @@ fun StationListScreen(
                                 modifier = Modifier.semantics {
                                     contentDescription = "관심 비교"
                                 },
+                                contentPadding = PaddingValues(
+                                    horizontal = spacing.space8,
+                                    vertical = 0.dp,
+                                ),
                                 colors = ButtonDefaults.textButtonColors(
                                     contentColor = ColorYellow,
                                 ),
                                 onClick = onWatchlistClick,
                             ) {
-                                Text(text = "관심 비교")
+                                Text(
+                                    text = "관심 비교",
+                                    style = typography.meta.copy(fontWeight = FontWeight.Bold),
+                                )
                             }
                         }
                         IconButton(onClick = { onAction(StationListAction.RefreshRequested) }) {
@@ -151,12 +164,18 @@ private fun SortToggleTitle(
     sortOrder: com.gasstation.domain.station.model.SortOrder,
     onClick: () -> Unit,
 ) {
-    val typography = GasStationTheme.typography
+    val corner = GasStationTheme.corner
+    val stroke = GasStationTheme.stroke
+    val shape = RoundedCornerShape(corner.small)
 
-    Text(
-        text = sortOrder.toTitleLabel(),
-        style = typography.topBarTitle,
+    Row(
         modifier = Modifier
+            .clip(shape)
+            .border(
+                width = stroke.default,
+                color = ColorYellow,
+                shape = shape,
+            )
             .semantics {
                 stateDescription = sortOrder.toStateDescription()
             }
@@ -164,9 +183,47 @@ private fun SortToggleTitle(
                 role = Role.Button,
                 onClickLabel = sortOrder.toNextSortActionLabel(),
                 onClick = onClick,
-            )
-            .padding(vertical = 6.dp),
-    )
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SortToggleSegment(
+            label = "거리순",
+            selected = sortOrder == com.gasstation.domain.station.model.SortOrder.DISTANCE,
+        )
+        Box(
+            modifier = Modifier
+                .height(20.dp)
+                .width(stroke.default)
+                .background(ColorYellow),
+        )
+        SortToggleSegment(
+            label = "가격순",
+            selected = sortOrder == com.gasstation.domain.station.model.SortOrder.PRICE,
+        )
+    }
+}
+
+@Composable
+private fun SortToggleSegment(
+    label: String,
+    selected: Boolean,
+) {
+    val spacing = GasStationTheme.spacing
+    val typography = GasStationTheme.typography
+
+    Surface(
+        color = if (selected) ColorYellow else ColorBlack,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(
+                horizontal = spacing.space12,
+                vertical = spacing.space8,
+            ),
+            style = typography.chip.copy(fontWeight = FontWeight.Bold),
+            color = if (selected) ColorBlack else ColorYellow,
+        )
+    }
 }
 
 @Composable
@@ -240,9 +297,18 @@ private fun FilterSummary(
             title = "현재 조건",
             subtitle = "반경과 유종 기준으로 정렬합니다.",
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.space8)) {
-            FilterPill(text = uiState.selectedRadius.toLabel())
-            FilterPill(text = uiState.selectedFuelType.toLabel())
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+        ) {
+            FilterPill(
+                text = uiState.selectedRadius.toLabel(),
+                modifier = Modifier.weight(1f),
+            )
+            FilterPill(
+                text = uiState.selectedFuelType.toLabel(),
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -250,6 +316,7 @@ private fun FilterSummary(
 @Composable
 private fun FilterPill(
     text: String,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = GasStationTheme.spacing
     val corner = GasStationTheme.corner
@@ -257,12 +324,14 @@ private fun FilterPill(
     val typography = GasStationTheme.typography
 
     Surface(
+        modifier = modifier,
         color = ColorGray4,
         shape = RoundedCornerShape(corner.small),
     ) {
         Text(
             text = text,
             modifier = Modifier
+                .fillMaxWidth()
                 .border(
                     width = stroke.default,
                     color = ColorBlack,
@@ -274,6 +343,7 @@ private fun FilterPill(
                 ),
             style = typography.chip,
             color = ColorBlack,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -625,11 +695,6 @@ private fun StationListBannerTone.toLegacyTone(): LegacyStatusTone = when (this)
     StationListBannerTone.Info -> LegacyStatusTone.Info
     StationListBannerTone.Warning -> LegacyStatusTone.Warning
     StationListBannerTone.Error -> LegacyStatusTone.Error
-}
-
-private fun com.gasstation.domain.station.model.SortOrder.toTitleLabel(): String = when (this) {
-    com.gasstation.domain.station.model.SortOrder.DISTANCE -> "정렬: 거리순"
-    com.gasstation.domain.station.model.SortOrder.PRICE -> "정렬: 가격순"
 }
 
 private fun com.gasstation.domain.station.model.SortOrder.toStateDescription(): String = when (this) {
