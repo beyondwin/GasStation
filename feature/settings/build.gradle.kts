@@ -22,7 +22,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.ui.test.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
