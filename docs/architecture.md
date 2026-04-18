@@ -1,8 +1,24 @@
 # 아키텍처
 
-GasStation은 책임을 기준으로 멀티모듈을 나눈 Compose 안드로이드 앱이다. `app`은 composition root와 실행 환경 연결만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공유 인프라와 값 객체는 `core`에 둔다.
+GasStation은 책임 기준으로 멀티모듈을 나눈 Compose 안드로이드 앱이다. `app`은 composition root와 실행 환경 연결만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공유 인프라와 값 객체는 `core`에 둔다.
 
-이 프로젝트는 현재 `demo`와 `prod` 경로만 지원한다. 과거 앱 버전 호환이나 레거시 유저 데이터 호환을 위한 분기는 유지하지 않고, 현재 시연/실행 경로의 명확성과 검증 가능성을 우선한다.
+이 프로젝트는 현재 `demo`와 `prod` 경로만 지원한다. 과거 버전 호환 분기는 유지하지 않고, 현재 시연/실행 경로의 명확성과 검증 가능성을 우선한다.
+
+## 핵심 구조 요약
+
+| 축 | 역할 |
+| --- | --- |
+| `app` | DI 조립, startup hook, navigation, flavor 연결 |
+| `feature` | 화면 상태와 사용자 액션 처리 |
+| `domain` | 저장소 계약, 유스케이스, 순수 모델 |
+| `data` | Room/Network/DataStore 구현과 읽기 모델 조합 |
+| `core` | 여러 모듈이 공유하는 인프라와 값 객체 |
+
+이 문서에서 먼저 볼 핵심은 세 가지다.
+
+- 화면 상태와 비즈니스 규칙을 `feature`와 `domain/data`로 분리했다.
+- `demo`와 `prod`를 나눠 시연 안정성과 실제 실행 경로를 함께 보장했다.
+- 목록, stale fallback, watchlist 비교를 같은 저장소 읽기 모델 위에서 설명한다.
 
 ```mermaid
 flowchart LR

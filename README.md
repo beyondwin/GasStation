@@ -1,13 +1,53 @@
 # 주유주유소
 
-현재 위치 주변의 주유소를 빠르게 찾고, 마지막 성공 결과를 오프라인으로 유지하며, 관심 주유소 비교까지 이어지는 멀티모듈 Android 레퍼런스 앱입니다.
+위치 권한, 실시간 주유소 조회, 오프라인 fallback, 관심 주유소 비교를 한 흐름으로 묶은 멀티모듈 Compose Android 레퍼런스 앱입니다.
 
-## 왜 이 프로젝트인가
+## 미리보기
 
-- `app / feature / domain / data / core` 책임 분리를 실제 코드와 문서에 맞춰 유지합니다.
-- demo 시연 경로와 prod 실행 경로를 분리해 포트폴리오 검토와 실제 실행 조건을 동시에 설명합니다.
-- Room 기반 snapshot + history 조합으로 stale fallback과 watchlist 비교를 구현합니다.
-- 테스트 전략과 CI 매트릭스를 공식 문서로 관리합니다.
+`prod` 기준 주요 화면입니다.
+
+![주유주유소 prod flow](docs/readme-assets/prod-flow.gif)
+
+<p align="center">
+  <img width="32%" alt="주유주유소 prod station list" src="docs/readme-assets/prod-station-list.png">
+  <img width="32%" alt="주유주유소 prod watchlist" src="docs/readme-assets/prod-watchlist.png">
+  <img width="32%" alt="주유주유소 prod settings" src="docs/readme-assets/prod-settings.png">
+</p>
+
+## 빠른 포인트
+
+| 항목 | 내용 |
+| --- | --- |
+| UI | Compose 기반 목록, 설정, 북마크 비교 흐름 |
+| 구조 | `app / feature / domain / data / core` 멀티모듈 분리 |
+| 데이터 | Opinet 조회 결과 + Room snapshot/history + watchlist |
+| 실행 경로 | 재현 가능한 `demo`, 실제 키 기반 `prod` |
+| 검증 | 단위 테스트, UI 테스트, benchmark 문서화 |
+
+## 이 프로젝트가 보여주는 것
+
+- `app / feature / domain / data / core` 책임 분리를 코드와 문서에 맞춰 유지합니다.
+- `demo`와 `prod`를 분리해 시연 경로와 실제 실행 경로를 함께 설명합니다.
+- Room snapshot + price history 조합으로 stale fallback과 watchlist 비교를 구현합니다.
+- 테스트 전략, benchmark 범위, 검증 기준을 문서로 고정합니다.
+
+## 아키텍처 한눈에
+
+```mermaid
+flowchart LR
+    app["app"] --> feature["feature"]
+    app --> data["data"]
+    app --> domain["domain"]
+    app --> core["core"]
+
+    feature --> domain
+    feature --> core
+    data --> domain
+    data --> core
+    domain --> core
+```
+
+상세 그래프와 책임 설명은 [아키텍처 문서](docs/architecture.md)에 정리했습니다.
 
 ## 핵심 사용자 플로우
 
@@ -15,24 +55,20 @@
 2. 가격 변화와 관심 주유소 저장
 3. 관심 주유소 비교 화면 진입
 
+## 기술 판단 포인트
+
+- `demo`는 고정 위치와 seed 자산으로 시연 안정성을 확보하고, `prod`는 실제 API 키와 기기 상태를 그대로 사용합니다.
+- 조회 결과는 Room snapshot과 price history를 함께 저장해 "마지막 성공 결과 유지"와 "가격 변화 표시"를 동시에 만족시킵니다.
+- 검색 반경과 유종은 캐시 키에 반영하고, 브랜드 필터와 정렬은 읽기 모델에서 적용해 재조회 비용과 UI 반응성을 분리합니다.
+
 ## 실행 모드
 
-### Demo
+| 모드 | 목적 | 빌드 |
+| --- | --- | --- |
+| `demo` | API 키 없이 같은 시연 상태를 재현하는 검토용 경로 | `./gradlew :app:assembleDemoDebug` |
+| `prod` | 실제 API 키와 기기 상태로 동작하는 실행 경로 | `./gradlew :app:assembleProdDebug` |
 
-- `demo` flavor는 API 키 없이 빌드하고 실행할 수 있습니다.
-- 강남역 2번 출구 고정 위치와 승인된 demo seed 자산으로 항상 같은 시연 상태를 재현합니다.
-
-```bash
-./gradlew :app:assembleDemoDebug
-```
-
-### Prod
-
-- `prod` flavor는 `opinet.apikey`가 필요합니다.
-
-```bash
-./gradlew :app:assembleProdDebug
-```
+`demo` flavor는 강남역 2번 출구 고정 위치와 승인된 seed 자산으로 같은 시작 상태를 만듭니다. `prod` flavor는 `opinet.apikey`가 필요합니다.
 
 예시:
 
@@ -41,7 +77,7 @@
 opinet.apikey=your-opinet-key
 ```
 
-시드를 다시 생성하려면 `./gradlew :tools:demo-seed:generateDemoSeed`를 실행합니다. 현재 seed 생성과 앱 런타임 검색은 `opinet.apikey`만 사용합니다.
+시드를 다시 생성하려면 `./gradlew :tools:demo-seed:generateDemoSeed`를 실행합니다. seed 생성과 앱 런타임 검색은 현재 `opinet.apikey`만 사용합니다.
 
 ## 문서
 
@@ -55,9 +91,15 @@ opinet.apikey=your-opinet-key
 
 ## 검증
 
-- 모든 Gradle 검증은 Java 17 기준으로 실행합니다.
-- `./benchmark/run-demo-benchmark.sh`는 Java 17로 `:app:assembleDemoDebug`와 `:benchmark:assemble`만 빠르게 확인하는 assemble 전용 도우미 스크립트입니다.
-- 전체 신뢰 기준은 [검증 매트릭스](docs/verification-matrix.md)에 고정합니다.
+| 범위 | 설명 |
+| --- | --- |
+| Unit | 가격 변화 계산, 캐시 정책, 설정/도메인 상태 전이 검증 |
+| UI | 대표 데모 플로우에서 저장 후 비교 화면 진입 확인 |
+| Benchmark | `demo` 기준 cold start와 주요 경로 assemble/측정 지원 |
+
+- 모든 Gradle 검증은 Java 17 기준입니다.
+- 빠른 assemble 확인은 `./benchmark/run-demo-benchmark.sh`로 수행합니다.
+- 전체 신뢰 기준과 상세 명령은 [검증 매트릭스](docs/verification-matrix.md)에 고정합니다.
 
 ## 완료 기준 점검표
 

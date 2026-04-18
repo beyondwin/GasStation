@@ -1,5 +1,17 @@
 # 검증 매트릭스
 
+이 문서는 "언제 어떤 명령까지 돌리면 되는가"를 바로 보여주는 실행 체크리스트입니다.
+
+## 빠른 요약
+
+| 상황 | 권장 명령 |
+| --- | --- |
+| 로컬에서 빨리 빌드만 확인 | `:app:assembleDemoDebug`, `:benchmark:assemble` |
+| 머지 전 신뢰 점검 | 단위 테스트 + assemble 전체 매트릭스 |
+| 데모 시연 직전 | `:app:connectedDemoDebugAndroidTest` |
+
+- 모든 Gradle 검증은 Java 17 기준입니다.
+
 ## 빠른 로컬 확인
 
 ```bash
