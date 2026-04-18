@@ -5,6 +5,8 @@
 ## 핵심 기능
 
 - 현재 위치 기준 주유소 검색
+- 가격 변동 배지와 관심 주유소 저장
+- 관심 주유소 비교 화면
 - 거리순 / 가격순 정렬 전환
 - 브랜드, 유종, 검색 반경, 연동 지도 설정 저장
 - Room 기반 마지막 성공 결과 유지
@@ -53,8 +55,10 @@ kakao.apikey=your-kakao-key
 - `./benchmark/run-demo-benchmark.sh`는 Java 17로 `:app:assembleDemoDebug`와 `:benchmark:assemble`만 빠르게 확인하는 assemble 전용 도우미 스크립트입니다.
 - 새 세션 기준 전체 검증과 CI 동기화 기준은 아래 전체 매트릭스입니다.
 
+단위 테스트는 가격 변화 계산, watchlist 상태 전이, 캐시 정책과 Room migration을 검증합니다. UI 테스트는 데모 플로우에서 관심 등록 후 비교 화면 진입을 확인하고, macrobenchmark는 cold start와 비교 화면 진입을 대상으로 합니다.
+
 ```bash
-JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home PATH="$JAVA_HOME/bin:$PATH" ./gradlew :core:model:test :domain:station:test :domain:settings:test :core:location:testDebugUnitTest :core:datastore:testDebugUnitTest :data:settings:testDebugUnitTest :data:station:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:station-list:testDebugUnitTest :app:assembleDebug :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble
+JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home PATH="$JAVA_HOME/bin:$PATH" ./gradlew :core:database:testDebugUnitTest :domain:station:test :data:station:testDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :app:assembleDemoDebug :app:connectedDemoDebugAndroidTest :benchmark:assemble
 ```
 
 ## 완료 기준 점검표
@@ -63,3 +67,4 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home PATH="$JAV
 - [x] `prod` flavor 문서에 필요한 로컬 시크릿이 정리되어 있다
 - [x] 아키텍처 다이어그램이 현재 모듈 그래프를 반영한다
 - [x] 오프라인 / 오래된 데이터 동작이 문서화되어 있다
+- [x] 가격 변화, 관심 저장, 비교 화면까지 포함한 대표 시연 흐름이 있다
