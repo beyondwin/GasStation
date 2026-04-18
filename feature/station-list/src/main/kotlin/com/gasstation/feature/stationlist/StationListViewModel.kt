@@ -126,10 +126,13 @@ class StationListViewModel @Inject constructor(
             }
 
             is StationListAction.StationClicked -> viewModelScope.launch {
+                val currentCoordinates = sessionState.value.currentCoordinates
                 mutableEffects.emit(
                     StationListEffect.OpenExternalMap(
                         provider = preferences.value.mapProvider,
                         stationName = action.station.name,
+                        originLatitude = currentCoordinates?.latitude,
+                        originLongitude = currentCoordinates?.longitude,
                         latitude = action.station.latitude,
                         longitude = action.station.longitude,
                     ),

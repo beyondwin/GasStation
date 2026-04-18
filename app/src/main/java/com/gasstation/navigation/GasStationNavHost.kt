@@ -47,6 +47,8 @@ fun GasStationNavHost(
                     externalMapLauncher.open(
                         provider = effect.provider,
                         stationName = effect.stationName,
+                        originLatitude = effect.originLatitude,
+                        originLongitude = effect.originLongitude,
                         latitude = effect.latitude,
                         longitude = effect.longitude,
                     )

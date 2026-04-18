@@ -6,6 +6,8 @@ sealed interface StationListEffect {
     data class OpenExternalMap(
         val provider: MapProvider,
         val stationName: String,
+        val originLatitude: Double?,
+        val originLongitude: Double?,
         val latitude: Double,
         val longitude: Double,
     ) : StationListEffect
