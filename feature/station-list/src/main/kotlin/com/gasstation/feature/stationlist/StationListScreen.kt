@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -297,18 +296,9 @@ private fun FilterSummary(
             title = "현재 조건",
             subtitle = "반경과 유종 기준으로 정렬합니다.",
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.space8),
-        ) {
-            FilterPill(
-                text = uiState.selectedRadius.toLabel(),
-                modifier = Modifier.weight(1f),
-            )
-            FilterPill(
-                text = uiState.selectedFuelType.toLabel(),
-                modifier = Modifier.weight(1f),
-            )
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.space8)) {
+            FilterPill(text = uiState.selectedRadius.toLabel())
+            FilterPill(text = uiState.selectedFuelType.toLabel())
         }
     }
 }
@@ -322,29 +312,30 @@ private fun FilterPill(
     val corner = GasStationTheme.corner
     val stroke = GasStationTheme.stroke
     val typography = GasStationTheme.typography
+    val shape = RoundedCornerShape(corner.small)
 
     Surface(
         modifier = modifier,
         color = ColorGray4,
-        shape = RoundedCornerShape(corner.small),
+        shape = shape,
     ) {
-        Text(
-            text = text,
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
                 .border(
                     width = stroke.default,
                     color = ColorBlack,
-                    shape = RoundedCornerShape(corner.small),
+                    shape = shape,
                 )
-                .padding(
-                    horizontal = spacing.space12,
-                    vertical = spacing.space4,
-                ),
-            style = typography.chip,
-            color = ColorBlack,
-            textAlign = TextAlign.Center,
-        )
+                .height(28.dp)
+                .padding(horizontal = spacing.space12),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                style = typography.chip,
+                color = ColorBlack,
+            )
+        }
     }
 }
 
