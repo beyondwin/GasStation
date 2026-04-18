@@ -3,8 +3,6 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":core:common"))
-    implementation(project(":core:model"))
     implementation(project(":domain:station"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
