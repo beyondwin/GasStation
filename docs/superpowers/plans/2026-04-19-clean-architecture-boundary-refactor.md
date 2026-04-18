@@ -267,7 +267,7 @@ git commit -m "refactor: add domain location contracts"
 - Test: `core/location/src/test/kotlin/com/gasstation/core/location/DefaultLocationRepositoryTest.kt`
 - Test: `core/location/src/test/kotlin/com/gasstation/core/location/LocationAvailabilityFlowTest.kt`
 
-- [ ] **Step 1: Write the failing core-location tests**
+- [x] **Step 1: Write the failing core-location tests**
 
 ```kotlin
 // core/location/src/test/kotlin/com/gasstation/core/location/DefaultLocationRepositoryTest.kt
@@ -393,13 +393,13 @@ class LocationAvailabilityFlowTest {
 }
 ```
 
-- [ ] **Step 2: Run the core-location tests to verify they fail**
+- [x] **Step 2: Run the core-location tests to verify they fail**
 
 Run: `./gradlew :core:location:testDebugUnitTest --tests "com.gasstation.core.location.DefaultLocationRepositoryTest" --tests "com.gasstation.core.location.LocationAvailabilityFlowTest"`
 
 Expected: FAIL because `DefaultLocationRepository` and `locationAvailabilityFlow()` do not exist yet, and `core:location` does not expose the domain location types.
 
-- [ ] **Step 3: Write the minimal implementation and Hilt binding**
+- [x] **Step 3: Write the minimal implementation and Hilt binding**
 
 ```kotlin
 // core/location/build.gradle.kts
@@ -554,13 +554,13 @@ object LocationModule {
 }
 ```
 
-- [ ] **Step 4: Run the core-location tests to verify they pass**
+- [x] **Step 4: Run the core-location tests to verify they pass**
 
 Run: `./gradlew :core:location:testDebugUnitTest --tests "com.gasstation.core.location.DefaultLocationRepositoryTest" --tests "com.gasstation.core.location.LocationAvailabilityFlowTest"`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add core/location

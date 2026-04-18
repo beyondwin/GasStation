@@ -2,6 +2,7 @@ package com.gasstation.core.location
 
 import android.annotation.SuppressLint
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationRepository
 import com.google.android.gms.location.LocationServices
 import dagger.Module
 import dagger.Provides
@@ -35,4 +36,10 @@ object LocationModule {
     fun provideForegroundLocationProvider(
         provider: AndroidForegroundLocationProvider,
     ): ForegroundLocationProvider = provider
+
+    @Provides
+    @Singleton
+    internal fun provideLocationRepository(
+        repository: DefaultLocationRepository,
+    ): LocationRepository = repository
 }
