@@ -26,7 +26,7 @@ object DemoSeedData {
             context.applicationContext,
             GasStationDatabase::class.java,
             GasStationDatabase.DATABASE_NAME,
-        ).fallbackToDestructiveMigration()
+        ).fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
         runBlocking {
