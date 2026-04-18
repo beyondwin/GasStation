@@ -34,4 +34,4 @@ GasStation은 현재 `app / feature / domain / data / core / tools / benchmark` 
 
 - 현재 지원 경로는 `demo`와 `prod`뿐이다.
 - 레거시 유저/레거시 앱 호환을 위한 직렬화나 네트워크 분기는 유지하지 않는다.
-- demo는 실제 포트폴리오 시연 경로이므로 예외가 아니라 공식 제품 경로다.
+- demo는 고정된 재현 경로이므로 예외가 아니라 공식 지원 경로다.
