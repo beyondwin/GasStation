@@ -15,7 +15,6 @@ dependencies {
     implementation(project(":domain:station"))
     implementation(project(":domain:settings"))
     implementation(project(":core:location"))
-    implementation(project(":core:ui"))
     implementation(project(":core:designsystem"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.accompanist.permissions)

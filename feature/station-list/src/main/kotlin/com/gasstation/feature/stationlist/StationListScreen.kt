@@ -3,15 +3,19 @@ package com.gasstation.feature.stationlist
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -24,10 +28,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.location.LocationPermissionState
 import java.time.Instant
@@ -42,6 +49,7 @@ fun StationListScreen(
     onAction: (StationListAction) -> Unit,
     onRequestPermissions: () -> Unit,
     onSettingsClick: () -> Unit,
+    onWatchlistClick: (() -> Unit)? = null,
 ) {
     Scaffold(
         topBar = {
@@ -53,6 +61,16 @@ fun StationListScreen(
                     )
                 },
                 actions = {
+                    if (onWatchlistClick != null) {
+                        TextButton(
+                            modifier = Modifier.semantics {
+                                contentDescription = "관심 비교"
+                            },
+                            onClick = onWatchlistClick,
+                        ) {
+                            Text(text = "관심 비교")
+                        }
+                    }
                     IconButton(onClick = { onAction(StationListAction.RefreshRequested) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "새로고침")
                     }
@@ -147,12 +165,47 @@ private fun StationListContent(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        Text(text = station.name, style = MaterialTheme.typography.titleMedium)
-                        Text(text = station.brandLabel, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = "${station.priceLabel} · ${station.distanceLabel}",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(text = station.name, style = MaterialTheme.typography.titleMedium)
+                                Text(text = station.brandLabel, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = "${station.priceLabel} · ${station.distanceLabel}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                Text(
+                                    text = station.priceDeltaLabel,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            IconButton(
+                                modifier = Modifier.size(40.dp),
+                                onClick = {
+                                    onAction(
+                                        StationListAction.WatchToggled(
+                                            stationId = station.id,
+                                            watched = !station.isWatched,
+                                        ),
+                                    )
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = if (station.isWatched) {
+                                        Icons.Filled.Star
+                                    } else {
+                                        Icons.Outlined.StarOutline
+                                    },
+                                    contentDescription = "관심 주유소 토글",
+                                )
+                            }
+                        }
                     }
                 }
             }

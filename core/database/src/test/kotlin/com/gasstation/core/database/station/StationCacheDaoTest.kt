@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.database.GasStationDatabase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.collectIndexed
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -107,9 +108,49 @@ class StationCacheDaoTest {
         )
     }
 
+    @Test
+    fun `observeLatestStationsByIds returns a deterministic first row when timestamps tie`() = runBlocking {
+        val fetchedAt = 1_744_947_200_000L
+        val firstBucket = CacheKey(
+            latitudeBucket = 16649,
+            longitudeBucket = 50811,
+            radiusMeters = 3_000,
+            fuelType = "DIESEL",
+        )
+        val secondBucket = CacheKey(
+            latitudeBucket = 16650,
+            longitudeBucket = 50812,
+            radiusMeters = 3_000,
+            fuelType = "GASOLINE",
+        )
+
+        dao.upsertAll(
+            listOf(
+                station(
+                    cacheKey = secondBucket,
+                    stationId = "station-1",
+                    priceWon = 1_680,
+                    fetchedAtEpochMillis = fetchedAt,
+                ),
+                station(
+                    cacheKey = firstBucket,
+                    stationId = "station-1",
+                    priceWon = 1_620,
+                    fetchedAtEpochMillis = fetchedAt,
+                ),
+            ),
+        )
+
+        val rows = dao.observeLatestStationsByIds(listOf("station-1")).first()
+
+        assertEquals(listOf("DIESEL", "GASOLINE"), rows.map { it.fuelType })
+    }
+
     private fun station(
         cacheKey: CacheKey,
         stationId: String,
+        priceWon: Int = 1_699,
+        fetchedAtEpochMillis: Long = 1_744_947_200_000,
     ) = StationCacheEntity(
         latitudeBucket = cacheKey.latitudeBucket,
         longitudeBucket = cacheKey.longitudeBucket,
@@ -118,10 +159,10 @@ class StationCacheDaoTest {
         stationId = stationId,
         brandCode = "GSC",
         name = "Station $stationId",
-        priceWon = 1_699,
+        priceWon = priceWon,
         latitude = 37.498095,
         longitude = 127.027610,
-        fetchedAtEpochMillis = 1_744_947_200_000,
+        fetchedAtEpochMillis = fetchedAtEpochMillis,
     )
 
     private data class CacheKey(

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gasstation.feature.watchlist.WatchlistRoute
 import com.gasstation.feature.settings.SettingsRoute
 import com.gasstation.feature.stationlist.StationListRoute
 import com.gasstation.map.ExternalMapLauncher
@@ -21,6 +22,9 @@ fun GasStationNavHost(
         composable(GasStationDestination.StationList.route) {
             StationListRoute(
                 onSettingsClick = { navController.navigate(GasStationDestination.Settings.route) },
+                onWatchlistClick = { coordinates ->
+                    navController.navigate(GasStationDestination.Watchlist.createRoute(coordinates))
+                },
                 onOpenExternalMap = { effect ->
                     externalMapLauncher.open(
                         provider = effect.provider,
@@ -33,6 +37,9 @@ fun GasStationNavHost(
         }
         composable(GasStationDestination.Settings.route) {
             SettingsRoute()
+        }
+        composable(GasStationDestination.Watchlist.route) {
+            WatchlistRoute()
         }
     }
 }
