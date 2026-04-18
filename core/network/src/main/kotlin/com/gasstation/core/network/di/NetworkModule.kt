@@ -1,6 +1,7 @@
 package com.gasstation.core.network.di
 
 import com.gasstation.core.network.service.OpinetService
+import java.time.Duration
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -21,5 +22,9 @@ object NetworkModule {
         .build()
         .create(OpinetService::class.java)
 
-    private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder().build()
+    private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .callTimeout(Duration.ofSeconds(8))
+        .connectTimeout(Duration.ofSeconds(4))
+        .readTimeout(Duration.ofSeconds(8))
+        .build()
 }
