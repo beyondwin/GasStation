@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,11 +25,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
@@ -38,23 +36,24 @@ import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 
 @Composable
-fun SettingsScreen(
-    uiState: SettingsUiState,
-    onCloseClick: () -> Unit,
-    onSectionClick: (SettingsSection) -> Unit,
+fun SettingsDetailScreen(
+    section: SettingsSection,
+    options: List<SettingOptionUiModel>,
+    onBackClick: () -> Unit,
+    onOptionClick: (SettingOptionUiModel) -> Unit,
 ) {
     LegacyYellowBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 LegacyTopBar(
-                    title = { Text(text = "찾기 설정") },
-                    actions = {
-                        SettingsTopBarAction(
-                            contentDescription = "닫기",
-                            onClick = onCloseClick,
+                    title = { Text(text = section.title) },
+                    navigationIcon = {
+                        SettingsDetailTopBarAction(
+                            contentDescription = "뒤로가기",
+                            onClick = onBackClick,
                         ) {
-                            LegacyCloseIcon()
+                            LegacyBackIcon()
                         }
                     },
                 )
@@ -76,13 +75,13 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             color = ColorWhite,
                         ) {
-                            SettingsSection.entries.forEachIndexed { index, section ->
-                                SettingsMenuRow(
-                                    title = section.title,
-                                    summary = uiState.selectedLabelFor(section),
-                                    onClick = { onSectionClick(section) },
+                            options.forEachIndexed { index, option ->
+                                SettingsDetailRow(
+                                    label = option.label,
+                                    isSelected = option.isSelected,
+                                    onClick = { onOptionClick(option) },
                                 )
-                                if (index != SettingsSection.entries.lastIndex) {
+                                if (index != options.lastIndex) {
                                     HorizontalDivider(color = ColorGray4)
                                 }
                             }
@@ -95,35 +94,36 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsMenuRow(
-    title: String,
-    summary: String,
+private fun SettingsDetailRow(
+    label: String,
+    isSelected: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics {
+                selected = isSelected
+                role = Role.RadioButton
+            }
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = title,
+            text = label,
             modifier = Modifier.weight(1f),
             color = ColorBlack,
         )
-        Spacer(modifier = Modifier.size(12.dp))
-        Text(
-            text = summary,
-            color = ColorGray2,
-        )
-        Spacer(modifier = Modifier.size(12.dp))
-        LegacyChevronIcon()
+        if (isSelected) {
+            Spacer(modifier = Modifier.size(12.dp))
+            SelectedCheckIcon()
+        }
     }
 }
 
 @Composable
-private fun SettingsTopBarAction(
+private fun SettingsDetailTopBarAction(
     contentDescription: String,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
@@ -145,20 +145,20 @@ private fun SettingsTopBarAction(
 }
 
 @Composable
-private fun LegacyCloseIcon() {
-    Canvas(modifier = Modifier.size(18.dp)) {
+private fun LegacyBackIcon() {
+    Canvas(modifier = Modifier.size(width = 18.dp, height = 18.dp)) {
         val strokeWidth = size.minDimension * 0.16f
         drawLine(
             color = ColorYellow,
-            start = center.copy(x = size.width * 0.2f, y = size.height * 0.2f),
-            end = center.copy(x = size.width * 0.8f, y = size.height * 0.8f),
+            start = center.copy(x = size.width * 0.75f, y = size.height * 0.15f),
+            end = center.copy(x = size.width * 0.25f, y = size.height * 0.5f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = ColorYellow,
-            start = center.copy(x = size.width * 0.8f, y = size.height * 0.2f),
-            end = center.copy(x = size.width * 0.2f, y = size.height * 0.8f),
+            start = center.copy(x = size.width * 0.25f, y = size.height * 0.5f),
+            end = center.copy(x = size.width * 0.75f, y = size.height * 0.85f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
@@ -166,20 +166,20 @@ private fun LegacyCloseIcon() {
 }
 
 @Composable
-private fun LegacyChevronIcon() {
-    Canvas(modifier = Modifier.size(width = 10.dp, height = 16.dp)) {
-        val strokeWidth = size.minDimension * 0.22f
+private fun SelectedCheckIcon() {
+    Canvas(modifier = Modifier.size(18.dp)) {
+        val strokeWidth = size.minDimension * 0.18f
         drawLine(
-            color = ColorGray2,
-            start = center.copy(x = size.width * 0.2f, y = size.height * 0.15f),
-            end = center.copy(x = size.width * 0.8f, y = size.height * 0.5f),
+            color = ColorYellow,
+            start = center.copy(x = size.width * 0.18f, y = size.height * 0.55f),
+            end = center.copy(x = size.width * 0.42f, y = size.height * 0.78f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = ColorGray2,
-            start = center.copy(x = size.width * 0.8f, y = size.height * 0.5f),
-            end = center.copy(x = size.width * 0.2f, y = size.height * 0.85f),
+            color = ColorYellow,
+            start = center.copy(x = size.width * 0.42f, y = size.height * 0.78f),
+            end = center.copy(x = size.width * 0.82f, y = size.height * 0.24f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )

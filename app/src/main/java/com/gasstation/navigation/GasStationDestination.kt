@@ -1,6 +1,7 @@
 package com.gasstation.navigation
 
 import com.gasstation.core.model.Coordinates
+import com.gasstation.feature.settings.SettingsSection
 
 sealed interface GasStationDestination {
     val route: String
@@ -11,6 +12,14 @@ sealed interface GasStationDestination {
 
     data object Settings : GasStationDestination {
         override val route: String = "settings"
+    }
+
+    data object SettingsDetail : GasStationDestination {
+        const val sectionArg: String = "section"
+
+        override val route: String = "settings/{$sectionArg}"
+
+        fun createRoute(section: SettingsSection): String = "settings/${section.routeSegment}"
     }
 
     data object Watchlist : GasStationDestination {
