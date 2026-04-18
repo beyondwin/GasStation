@@ -33,5 +33,6 @@ include(
     ":data:station",
     ":feature:settings",
     ":feature:station-list",
+    ":feature:watchlist",
     ":benchmark",
 )

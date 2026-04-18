@@ -85,6 +85,7 @@ class StationListViewModel @Inject constructor(
 
         combine(preferences, sessionState, searchResult) { prefs, session, result ->
             StationListUiState(
+                currentCoordinates = session.currentCoordinates,
                 permissionState = session.permissionState,
                 isGpsEnabled = session.isGpsEnabled,
                 isLoading = session.isLoading,
