@@ -16,7 +16,7 @@ enum class SettingsSection(
         routeSegment = "fuel-type",
         overline = "탐색 설정",
         title = "오일 타입",
-        subtitle = "목록과 관심 비교에서 우선 확인할 유종을 고릅니다.",
+        subtitle = "목록과 북마크에서 우선 확인할 유종을 고릅니다.",
     ),
     BrandFilter(
         routeSegment = "brand-filter",

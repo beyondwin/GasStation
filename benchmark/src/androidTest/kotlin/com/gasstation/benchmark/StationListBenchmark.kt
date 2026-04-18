@@ -29,7 +29,7 @@ class StationListBenchmark {
         grantLocationPermissions()
         pressHome()
         startActivityAndWait()
-        waitForAndClick(description = "관심 비교")
+        waitForAndClick(description = "북마크")
     }
 }
 

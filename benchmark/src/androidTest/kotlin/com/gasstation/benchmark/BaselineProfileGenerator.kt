@@ -21,7 +21,7 @@ class BaselineProfileGenerator {
         pressHome()
         startActivityAndWait()
         waitForAndClick(description = "새로고침")
-        waitForAndClick(description = "관심 비교")
+        waitForAndClick(description = "북마크")
     }
 }
 

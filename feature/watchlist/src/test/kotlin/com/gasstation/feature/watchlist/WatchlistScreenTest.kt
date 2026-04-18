@@ -3,6 +3,7 @@ package com.gasstation.feature.watchlist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -78,6 +79,23 @@ class WatchlistScreenTest {
             distanceMetricNodes[1].boundsInRoot.left.toDouble(),
             0.5,
         )
+    }
+
+    @Test
+    fun `watchlist uses bookmark copy across title and empty state`() {
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = emptyList(),
+                ),
+            )
+        }
+
+        composeRule.onNodeWithText("북마크").assertExists()
+        composeRule.onNodeWithText("저장한 주유소가 없습니다.").assertExists()
+        composeRule.onNodeWithText("주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.").assertExists()
+        composeRule.onNodeWithText("목록 화면에서 북마크를 눌러 바로 추가하세요.").assertExists()
+        composeRule.onNodeWithText("저장한 주유소의 가격과 거리를 한 번에 비교합니다.").assertExists()
     }
 
     private fun watchlistStation(

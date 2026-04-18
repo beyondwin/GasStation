@@ -1,5 +1,8 @@
 package com.gasstation.feature.watchlist
 
+import com.gasstation.core.designsystem.ColorGray2
+import com.gasstation.core.designsystem.ColorSupportError
+import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.StationPriceDelta
@@ -8,6 +11,7 @@ import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.graphics.Color
 
 data class WatchlistItemUiModel(
     val id: String,
@@ -20,6 +24,7 @@ data class WatchlistItemUiModel(
     val distanceNumberLabel: String,
     val distanceUnitLabel: String,
     val priceDeltaLabel: String,
+    val priceDeltaTone: WatchlistPriceDeltaTone = WatchlistPriceDeltaTone.Neutral,
     val lastSeenLabel: String,
     val latitude: Double,
     val longitude: Double,
@@ -42,10 +47,17 @@ data class WatchlistItemUiModel(
         distanceNumberLabel = summary.station.distance.toDistanceNumberLabel(),
         distanceUnitLabel = "km",
         priceDeltaLabel = summary.priceDelta.toLabel(),
+        priceDeltaTone = summary.priceDelta.toTone(),
         lastSeenLabel = summary.lastSeenAt.toLabel(),
         latitude = summary.station.coordinates.latitude,
         longitude = summary.station.coordinates.longitude,
     )
+}
+
+enum class WatchlistPriceDeltaTone {
+    Rise,
+    Fall,
+    Neutral,
 }
 
 private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
@@ -75,6 +87,20 @@ private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unchanged -> "직전 가격과 동일"
     is StationPriceDelta.Increased -> "${amountWon}원 상승"
     is StationPriceDelta.Decreased -> "${amountWon}원 하락"
+}
+
+internal fun StationPriceDelta.toTone(): WatchlistPriceDeltaTone = when (this) {
+    is StationPriceDelta.Increased -> WatchlistPriceDeltaTone.Rise
+    is StationPriceDelta.Decreased -> WatchlistPriceDeltaTone.Fall
+    StationPriceDelta.Unavailable,
+    StationPriceDelta.Unchanged,
+    -> WatchlistPriceDeltaTone.Neutral
+}
+
+internal fun WatchlistPriceDeltaTone.toColor(): Color = when (this) {
+    WatchlistPriceDeltaTone.Rise -> ColorSupportError
+    WatchlistPriceDeltaTone.Fall -> ColorSupportInfo
+    WatchlistPriceDeltaTone.Neutral -> ColorGray2
 }
 
 private fun Instant?.toLabel(): String {
