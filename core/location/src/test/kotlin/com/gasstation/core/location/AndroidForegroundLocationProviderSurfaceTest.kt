@@ -5,7 +5,6 @@ import com.gasstation.core.model.Coordinates
 import java.util.Optional
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AndroidForegroundLocationProviderSurfaceTest {
@@ -18,15 +17,16 @@ class AndroidForegroundLocationProviderSurfaceTest {
     }
 
     @Test
-    fun `demo override wins before denied permission returns null`() = runBlocking {
+    fun `demo override wins before denied permission result`() = runBlocking {
         val expected = Coordinates(latitude = 37.498095, longitude = 127.02761)
         val provider = AndroidForegroundLocationProvider(
             context = ContextWrapper(null),
             demoLocationOverride = Optional.of(DemoLocationOverride { expected }),
+            currentLocationClient = unusedCurrentLocationClient(),
         )
 
         assertEquals(
-            expected,
+            LocationLookupResult.Success(expected),
             provider.currentLocation(LocationPermissionState.Denied),
         )
     }
@@ -36,18 +36,36 @@ class AndroidForegroundLocationProviderSurfaceTest {
         val provider = AndroidForegroundLocationProvider(
             context = ContextWrapper(null),
             demoLocationOverride = Optional.of(DemoLocationOverride { null }),
+            currentLocationClient = unusedCurrentLocationClient(),
         )
 
-        assertNull(provider.currentLocation(LocationPermissionState.PreciseGranted))
+        assertEquals(
+            LocationLookupResult.Unavailable,
+            provider.currentLocation(LocationPermissionState.PreciseGranted),
+        )
     }
 
     @Test
-    fun `denied permission without override returns null`() = runBlocking {
+    fun `denied permission without override returns permission denied`() = runBlocking {
         val provider = AndroidForegroundLocationProvider(
             context = ContextWrapper(null),
             demoLocationOverride = Optional.empty<DemoLocationOverride>(),
+            currentLocationClient = unusedCurrentLocationClient(),
         )
 
-        assertNull(provider.currentLocation(LocationPermissionState.Denied))
+        assertEquals(
+            LocationLookupResult.PermissionDenied,
+            provider.currentLocation(LocationPermissionState.Denied),
+        )
+    }
+
+    private fun unusedCurrentLocationClient(): CurrentLocationClient = CurrentLocationClient {
+            _,
+            _,
+            _,
+            _,
+            _,
+        ->
+        throw AssertionError("CurrentLocationClient should not be used in this test")
     }
 }

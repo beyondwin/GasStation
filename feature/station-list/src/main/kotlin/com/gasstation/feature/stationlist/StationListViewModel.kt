@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.location.DemoLocationOverride
 import com.gasstation.core.location.ForegroundLocationProvider
+import com.gasstation.core.location.LocationLookupResult
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.settings.SettingsRepository
@@ -175,7 +176,12 @@ class StationListViewModel @Inject constructor(
                 return@launch
             }
 
-            val coordinates = foregroundLocationProvider.currentLocation(session.permissionState)
+            val coordinates = when (
+                val locationResult = foregroundLocationProvider.currentLocation(session.permissionState)
+            ) {
+                is LocationLookupResult.Success -> locationResult.coordinates
+                else -> null
+            }
             if (coordinates == null) {
                 sessionState.update { it.copy(isLoading = false, isRefreshing = false) }
                 mutableEffects.emit(StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."))

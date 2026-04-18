@@ -12,4 +12,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.location)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

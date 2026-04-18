@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.gasstation.core.location.ForegroundLocationProvider
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.location.DemoLocationOverride
+import com.gasstation.core.location.LocationLookupResult
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
@@ -457,7 +458,8 @@ private class FakeSettingsRepository(
 private class FakeForegroundLocationProvider(
     private val coordinates: Coordinates?,
 ) : ForegroundLocationProvider {
-    override suspend fun currentLocation(permissionState: LocationPermissionState): Coordinates? = coordinates
+    override suspend fun currentLocation(permissionState: LocationPermissionState): LocationLookupResult =
+        coordinates?.let(LocationLookupResult::Success) ?: LocationLookupResult.Unavailable
 }
 
 private class RecordingStationEventLogger : StationEventLogger {

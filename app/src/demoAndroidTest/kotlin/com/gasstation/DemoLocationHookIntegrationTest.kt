@@ -3,6 +3,7 @@ package com.gasstation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gasstation.core.location.DemoLocationOverride
 import com.gasstation.core.location.ForegroundLocationProvider
+import com.gasstation.core.location.LocationLookupResult
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -34,11 +35,15 @@ class DemoLocationHookIntegrationTest {
 
         assertTrue(demoLocationOverride.isPresent)
         assertEquals(
-            Coordinates(latitude = 37.497927, longitude = 127.027583),
+            LocationLookupResult.Success(
+                Coordinates(latitude = 37.497927, longitude = 127.027583),
+            ),
             foregroundLocationProvider.currentLocation(LocationPermissionState.PreciseGranted),
         )
         assertEquals(
-            Coordinates(latitude = 37.497927, longitude = 127.027583),
+            LocationLookupResult.Success(
+                Coordinates(latitude = 37.497927, longitude = 127.027583),
+            ),
             foregroundLocationProvider.currentLocation(LocationPermissionState.Denied),
         )
         assertEquals(
