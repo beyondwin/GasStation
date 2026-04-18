@@ -8,12 +8,15 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
+import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,9 +38,11 @@ import kotlinx.coroutines.launch
 class StationListViewModel @Inject constructor(
     private val observeNearbyStations: ObserveNearbyStationsUseCase,
     private val refreshNearbyStations: RefreshNearbyStationsUseCase,
+    private val updateWatchState: UpdateWatchStateUseCase,
     observeUserPreferences: ObserveUserPreferencesUseCase,
     private val settingsRepository: SettingsRepository,
     private val foregroundLocationProvider: ForegroundLocationProvider,
+    private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
     private val sessionState = MutableStateFlow(StationListSessionState())
@@ -101,6 +106,11 @@ class StationListViewModel @Inject constructor(
             StationListAction.RetryClicked -> refresh()
 
             StationListAction.SortToggleRequested -> toggleSortOrder()
+
+            is StationListAction.WatchToggled -> toggleWatchState(
+                stationId = action.stationId,
+                watched = action.watched,
+            )
 
             is StationListAction.PermissionChanged -> sessionState.update {
                 it.copy(permissionState = action.permissionState)
@@ -179,6 +189,22 @@ class StationListViewModel @Inject constructor(
             settingsRepository.updateUserPreferences { current ->
                 current.copy(sortOrder = toggled)
             }
+        }
+    }
+
+    private fun toggleWatchState(
+        stationId: String,
+        watched: Boolean,
+    ) {
+        viewModelScope.launch {
+            val entry = searchResult.value.stations.firstOrNull { it.station.id == stationId } ?: return@launch
+            updateWatchState(entry.station, watched)
+            stationEventLogger.log(
+                StationEvent.WatchToggled(
+                    stationId = stationId,
+                    watched = watched,
+                ),
+            )
         }
     }
 

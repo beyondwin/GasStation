@@ -9,6 +9,7 @@ import com.gasstation.core.model.MoneyWon
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.BrandFilter
@@ -17,11 +18,17 @@ import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.model.StationListEntry
+import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
+import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
+import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
+import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -48,9 +55,11 @@ class StationListViewModelTest {
             val repository = FakeStationRepository(
                 result = StationSearchResult(
                     stations = listOf(
-                        station(
+                        stationEntry(
                             id = "station-1",
                             name = "강남주유소",
+                            priceDelta = StationPriceDelta.Decreased(amountWon = 30),
+                            isWatched = true,
                         ),
                     ),
                     freshness = StationFreshness.Stale,
@@ -58,14 +67,17 @@ class StationListViewModelTest {
                 ),
             )
             val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
             val viewModel = StationListViewModel(
                 observeNearbyStations = ObserveNearbyStationsUseCase(repository),
                 refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
                 observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
                 settingsRepository = settingsRepository,
                 foregroundLocationProvider = FakeForegroundLocationProvider(
                     Coordinates(37.498095, 127.027610),
                 ),
+                stationEventLogger = analytics,
             )
 
             viewModel.onAction(
@@ -85,6 +97,8 @@ class StationListViewModelTest {
             assertFalse(viewModel.uiState.value.isRefreshing)
             assertTrue(viewModel.uiState.value.isStale)
             assertEquals(1, viewModel.uiState.value.stations.size)
+            assertEquals("30원 하락", viewModel.uiState.value.stations.single().priceDeltaLabel)
+            assertTrue(viewModel.uiState.value.stations.single().isWatched)
         } finally {
             Dispatchers.resetMain()
         }
@@ -96,7 +110,7 @@ class StationListViewModelTest {
         try {
             val repository = FakeStationRepository(
                 result = StationSearchResult(
-                    stations = listOf(station()),
+                    stations = listOf(stationEntry()),
                     freshness = StationFreshness.Fresh,
                     fetchedAt = null,
                 ),
@@ -104,14 +118,17 @@ class StationListViewModelTest {
             val settingsRepository = FakeSettingsRepository(
                 UserPreferences.default().copy(mapProvider = MapProvider.NAVER_MAP),
             )
+            val analytics = RecordingStationEventLogger()
             val viewModel = StationListViewModel(
                 observeNearbyStations = ObserveNearbyStationsUseCase(repository),
                 refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
                 observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
                 settingsRepository = settingsRepository,
                 foregroundLocationProvider = FakeForegroundLocationProvider(
                     Coordinates(37.498095, 127.027610),
                 ),
+                stationEventLogger = analytics,
             )
 
             viewModel.onAction(
@@ -123,7 +140,7 @@ class StationListViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onAction(
-                    StationListAction.StationClicked(StationListItemUiModel(station())),
+                    StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
                 )
 
                 assertEquals(
@@ -153,14 +170,17 @@ class StationListViewModelTest {
                 ),
             )
             val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
             val viewModel = StationListViewModel(
                 observeNearbyStations = ObserveNearbyStationsUseCase(repository),
                 refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
                 observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
                 settingsRepository = settingsRepository,
                 foregroundLocationProvider = FakeForegroundLocationProvider(
                     Coordinates(37.498095, 127.027610),
                 ),
+                stationEventLogger = analytics,
             )
 
             viewModel.onAction(StationListAction.SortToggleRequested)
@@ -168,6 +188,56 @@ class StationListViewModelTest {
 
             assertEquals(SortOrder.PRICE, settingsRepository.current.sortOrder)
             assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `watch tap updates repository and emits analytics`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(
+                        stationEntry(
+                            id = "station-1",
+                            isWatched = false,
+                        ),
+                    ),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = StationListViewModel(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
+                observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
+                settingsRepository = settingsRepository,
+                foregroundLocationProvider = FakeForegroundLocationProvider(
+                    Coordinates(37.498095, 127.027610),
+                ),
+                stationEventLogger = analytics,
+            )
+
+            viewModel.onAction(
+                StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted),
+            )
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled = true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            viewModel.onAction(StationListAction.WatchToggled("station-1", true))
+            advanceUntilIdle()
+
+            assertEquals(listOf("station-1" to true), repository.watchUpdates)
+            assertEquals(
+                listOf(StationEvent.WatchToggled(stationId = "station-1", watched = true)),
+                analytics.events,
+            )
         } finally {
             Dispatchers.resetMain()
         }
@@ -186,14 +256,17 @@ class StationListViewModelTest {
                 refreshFailure = IllegalStateException("refresh failed"),
             )
             val settingsRepository = FakeSettingsRepository(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
             val viewModel = StationListViewModel(
                 observeNearbyStations = ObserveNearbyStationsUseCase(repository),
                 refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+                updateWatchState = UpdateWatchStateUseCase(repository),
                 observeUserPreferences = ObserveUserPreferencesUseCase(settingsRepository),
                 settingsRepository = settingsRepository,
                 foregroundLocationProvider = FakeForegroundLocationProvider(
                     Coordinates(37.498095, 127.027610),
                 ),
+                stationEventLogger = analytics,
             )
 
             viewModel.effects.test {
@@ -225,15 +298,23 @@ private class FakeStationRepository(
 
     val refreshedQueries = mutableListOf<StationQuery>()
     val observedQueries = mutableListOf<StationQuery>()
+    val watchUpdates = mutableListOf<Pair<String, Boolean>>()
 
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         observedQueries += query
         return state
     }
 
+    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
+        MutableStateFlow(emptyList())
+
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
         refreshFailure?.let { throw it }
+    }
+
+    override suspend fun updateWatchState(station: Station, watched: Boolean) {
+        watchUpdates += station.id to watched
     }
 }
 
@@ -258,14 +339,29 @@ private class FakeForegroundLocationProvider(
     override suspend fun currentLocation(permissionState: LocationPermissionState): Coordinates? = coordinates
 }
 
-private fun station(
+private class RecordingStationEventLogger : StationEventLogger {
+    val events = mutableListOf<StationEvent>()
+
+    override fun log(event: StationEvent) {
+        events += event
+    }
+}
+
+private fun stationEntry(
     id: String = "station-1",
     name: String = "강남주유소",
-): Station = Station(
-    id = id,
-    name = name,
-    brand = Brand.GSC,
-    price = MoneyWon(1_689),
-    distance = DistanceMeters(800),
-    coordinates = Coordinates(37.499095, 127.027610),
+    priceDelta: StationPriceDelta = StationPriceDelta.Unavailable,
+    isWatched: Boolean = false,
+): StationListEntry = StationListEntry(
+    station = Station(
+        id = id,
+        name = name,
+        brand = Brand.GSC,
+        price = MoneyWon(1_689),
+        distance = DistanceMeters(800),
+        coordinates = Coordinates(37.499095, 127.027610),
+    ),
+    priceDelta = priceDelta,
+    isWatched = isWatched,
+    lastSeenAt = Instant.parse("2026-04-18T00:00:00Z"),
 )
