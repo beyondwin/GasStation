@@ -57,6 +57,7 @@ import com.gasstation.core.designsystem.component.LegacyStatusTone
 import com.gasstation.core.designsystem.component.LegacyTopBar
 import com.gasstation.core.designsystem.component.LegacyYellowBackground
 import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.domain.station.model.BrandFilter
 
 @Composable
 fun StationListScreen(
