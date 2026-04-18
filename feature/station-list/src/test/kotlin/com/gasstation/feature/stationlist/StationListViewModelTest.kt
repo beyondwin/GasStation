@@ -151,6 +151,8 @@ class StationListViewModelTest {
                     StationListEffect.OpenExternalMap(
                         provider = MapProvider.NAVER_MAP,
                         stationName = "강남주유소",
+                        originLatitude = 37.498095,
+                        originLongitude = 127.027610,
                         latitude = 37.499095,
                         longitude = 127.027610,
                     ),
