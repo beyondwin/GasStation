@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
     lateinit var externalMapLauncher: ExternalMapLauncher
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_GasStation)
         super.onCreate(savedInstanceState)
         setContent {
             GasStationTheme {

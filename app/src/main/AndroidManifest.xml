@@ -28,7 +28,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.GasStation">
+            android:theme="@style/Theme.GasStation.Launcher">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
