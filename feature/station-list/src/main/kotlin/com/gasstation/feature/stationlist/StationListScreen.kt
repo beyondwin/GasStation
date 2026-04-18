@@ -561,7 +561,7 @@ private fun WatchToggleButton(
         Icon(
             imageVector = if (watched) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
             contentDescription = "저장",
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(26.dp),
             tint = iconTint.value,
         )
     }
