@@ -18,23 +18,41 @@ interface StationPriceHistoryDao {
         """
         SELECT * FROM station_price_history
         WHERE stationId IN (:stationIds)
-        ORDER BY stationId ASC, fetchedAtEpochMillis DESC
+        ORDER BY stationId ASC, fuelType ASC, fetchedAtEpochMillis DESC
         """,
     )
     fun observeByStationIds(stationIds: List<String>): Flow<List<StationPriceHistoryEntity>>
 
     @Query(
         """
+        SELECT * FROM station_price_history
+        WHERE stationId IN (:stationIds)
+          AND fuelType = :fuelType
+        ORDER BY stationId ASC, fuelType ASC, fetchedAtEpochMillis DESC
+        """,
+    )
+    fun observeByStationIdsAndFuelType(
+        stationIds: List<String>,
+        fuelType: String,
+    ): Flow<List<StationPriceHistoryEntity>>
+
+    @Query(
+        """
         DELETE FROM station_price_history
         WHERE stationId = :stationId
+          AND fuelType = :fuelType
           AND fetchedAtEpochMillis NOT IN (
               SELECT fetchedAtEpochMillis
               FROM station_price_history
               WHERE stationId = :stationId
+                AND fuelType = :fuelType
               ORDER BY fetchedAtEpochMillis DESC
               LIMIT 10
           )
         """,
     )
-    suspend fun keepLatestTenByStation(stationId: String)
+    suspend fun keepLatestTenByStationAndFuelType(
+        stationId: String,
+        fuelType: String,
+    )
 }

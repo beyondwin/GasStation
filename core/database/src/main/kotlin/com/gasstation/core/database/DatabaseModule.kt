@@ -23,7 +23,10 @@ object DatabaseModule {
         context,
         GasStationDatabase::class.java,
         GasStationDatabase.DATABASE_NAME,
-    ).addMigrations(GasStationDatabase.MIGRATION_1_2)
+    ).addMigrations(
+        GasStationDatabase.MIGRATION_1_2,
+        GasStationDatabase.MIGRATION_2_3,
+    )
         .build()
 
     @Provides

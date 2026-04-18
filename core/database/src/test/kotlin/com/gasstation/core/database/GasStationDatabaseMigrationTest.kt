@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.database.station.WatchedStationEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -64,7 +65,7 @@ class GasStationDatabaseMigrationTest {
     }
 
     @Test
-    fun `migration 1 to 2 preserves cache data and opens through Room`() = runBlocking {
+    fun `migration 1 to 3 preserves cache data and opens through Room`() = runBlocking {
         val db = helper.writableDatabase
         createVersion1Schema(db)
         insertVersion1CacheRow(db)
@@ -75,7 +76,10 @@ class GasStationDatabaseMigrationTest {
             GasStationDatabase::class.java,
             databaseName,
         )
-            .addMigrations(GasStationDatabase.MIGRATION_1_2)
+            .addMigrations(
+                GasStationDatabase.MIGRATION_1_2,
+                GasStationDatabase.MIGRATION_2_3,
+            )
             .allowMainThreadQueries()
             .build()
 
@@ -90,7 +94,10 @@ class GasStationDatabaseMigrationTest {
             assertEquals(listOf(version1CacheRow()), cacheRows)
             assertEquals(
                 emptyList<Any>(),
-                migratedDatabase.stationPriceHistoryDao().observeByStationIds(listOf("station-1")).first(),
+                migratedDatabase.stationPriceHistoryDao().observeByStationIdsAndFuelType(
+                    stationIds = listOf("station-1"),
+                    fuelType = "GASOLINE",
+                ).first(),
             )
             assertEquals(
                 emptyList<String>(),
@@ -98,6 +105,43 @@ class GasStationDatabaseMigrationTest {
             )
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "watched_station"))
+        } finally {
+            migratedDatabase.close()
+        }
+    }
+
+    @Test
+    fun `migration 2 to 3 preserves cache and watched rows while recreating price history`() = runBlocking {
+        val db = helper.writableDatabase
+        createVersion2Schema(db)
+        insertVersion2CacheRow(db)
+        insertVersion2WatchedRow(db)
+        insertVersion2HistoryRow(db)
+        helper.close()
+
+        val migratedDatabase = Room.databaseBuilder(
+            context,
+            GasStationDatabase::class.java,
+            databaseName,
+        )
+            .addMigrations(GasStationDatabase.MIGRATION_2_3)
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val cacheRows = migratedDatabase.stationCacheDao().observeStations(
+                latitudeBucket = 16649,
+                longitudeBucket = 50811,
+                radiusMeters = 3_000,
+                fuelType = "GASOLINE",
+            ).first()
+            val watchedRows = migratedDatabase.watchedStationDao().observeWatchedStations().first()
+            val historyRows = migratedDatabase.stationPriceHistoryDao().observeByStationIds(listOf("station-1")).first()
+
+            assertEquals(listOf(version1CacheRow()), cacheRows)
+            assertEquals(listOf(version2WatchedRow()), watchedRows)
+            assertEquals(emptyList<Any>(), historyRows)
+            assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
         } finally {
             migratedDatabase.close()
         }
@@ -134,6 +178,46 @@ class GasStationDatabaseMigrationTest {
         )
     }
 
+    private fun createVersion2Schema(db: SupportSQLiteDatabase) {
+        createVersion1Schema(db)
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `station_price_history` (
+                `stationId` TEXT NOT NULL,
+                `priceWon` INTEGER NOT NULL,
+                `fetchedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`stationId`, `fetchedAtEpochMillis`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_station_price_history_stationId`
+            ON `station_price_history` (`stationId`)
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_station_price_history_fetchedAtEpochMillis`
+            ON `station_price_history` (`fetchedAtEpochMillis`)
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `watched_station` (
+                `stationId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `brandCode` TEXT NOT NULL,
+                `latitude` REAL NOT NULL,
+                `longitude` REAL NOT NULL,
+                `watchedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`stationId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("PRAGMA user_version = 2")
+    }
+
     private fun insertVersion1CacheRow(db: SupportSQLiteDatabase) {
         val row = version1CacheRow()
         db.execSQL(
@@ -168,6 +252,47 @@ class GasStationDatabaseMigrationTest {
         )
     }
 
+    private fun insertVersion2HistoryRow(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            INSERT INTO `station_price_history` (
+                `stationId`,
+                `priceWon`,
+                `fetchedAtEpochMillis`
+            ) VALUES (?, ?, ?)
+            """.trimIndent(),
+            arrayOf<Any>("station-1", 1699, 1_744_947_200_000L),
+        )
+    }
+
+    private fun insertVersion2WatchedRow(db: SupportSQLiteDatabase) {
+        val row = version2WatchedRow()
+        db.execSQL(
+            """
+            INSERT INTO `watched_station` (
+                `stationId`,
+                `name`,
+                `brandCode`,
+                `latitude`,
+                `longitude`,
+                `watchedAtEpochMillis`
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            arrayOf<Any>(
+                row.stationId,
+                row.name,
+                row.brandCode,
+                row.latitude,
+                row.longitude,
+                row.watchedAtEpochMillis,
+            ),
+        )
+    }
+
+    private fun insertVersion2CacheRow(db: SupportSQLiteDatabase) {
+        insertVersion1CacheRow(db)
+    }
+
     private fun version1CacheRow(): StationCacheEntity = StationCacheEntity(
         latitudeBucket = 16649,
         longitudeBucket = 50811,
@@ -180,6 +305,15 @@ class GasStationDatabaseMigrationTest {
         latitude = 37.498095,
         longitude = 127.027610,
         fetchedAtEpochMillis = 1_744_947_200_000L,
+    )
+
+    private fun version2WatchedRow(): WatchedStationEntity = WatchedStationEntity(
+        stationId = "station-1",
+        name = "Migrated Watched Station",
+        brandCode = "GSC",
+        latitude = 37.498095,
+        longitude = 127.027610,
+        watchedAtEpochMillis = 1_744_947_260_000L,
     )
 
     private fun tableExists(

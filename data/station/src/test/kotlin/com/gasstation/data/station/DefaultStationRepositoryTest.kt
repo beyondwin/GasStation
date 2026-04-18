@@ -9,6 +9,7 @@ import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
 import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import java.time.Clock
 import java.time.Instant
@@ -20,8 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import org.junit.Test
 import org.junit.Assert.assertThrows
+import org.junit.Test
 import kotlin.math.roundToInt
 
 class DefaultStationRepositoryTest {
@@ -46,23 +47,21 @@ class DefaultStationRepositoryTest {
                 fetchedAt = now.minusSeconds(600),
             ),
         )
-        val repository = DefaultStationRepository(
+        val repository = repository(
             stationCacheDao = stationCacheDao,
             remoteDataSource = FakeStationRemoteDataSource(
                 result = RemoteStationFetchResult.Success(
                     listOf(
-                    RemoteStation(
-                        stationId = "station-1",
-                        name = "Gangnam First",
-                        brandCode = "GSC",
-                        priceWon = 1_689,
-                        coordinates = Coordinates(37.499095, 127.027610),
-                    ),
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First",
+                            brandCode = "GSC",
+                            priceWon = 1_689,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
                     ),
                 ),
             ),
-            cachePolicy = StationCachePolicy(),
-            clock = clock,
         )
 
         repository.refreshNearbyStations(query)
@@ -74,6 +73,50 @@ class DefaultStationRepositoryTest {
         assertEquals(listOf("station-1"), refreshedStations.map { it.stationId })
         assertEquals(listOf("other-bucket"), unrelatedStations.map { it.stationId })
         assertEquals(now.toEpochMilli(), refreshedStations.single().fetchedAtEpochMillis)
+    }
+
+    @Test
+    fun `refreshNearbyStations persists price history rows and trims old entries`() = runBlocking {
+        val query = stationQuery()
+        val stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+            history = (1..10).map { offset ->
+                history(
+                    stationId = "station-1",
+                    priceWon = 1_700 + offset,
+                    fetchedAt = now.minusSeconds(offset.toLong() * 60),
+                )
+            },
+        )
+        val repository = repository(
+            stationPriceHistoryDao = stationPriceHistoryDao,
+            remoteDataSource = FakeStationRemoteDataSource(
+                result = RemoteStationFetchResult.Success(
+                    listOf(
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First",
+                            brandCode = "GSC",
+                            priceWon = 1_680,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        assertEquals(1, stationPriceHistoryDao.insertAllCalls.size)
+        assertEquals(listOf("station-1" to query.fuelType.name), stationPriceHistoryDao.keepLatestTenCalls)
+        assertEquals(10, stationPriceHistoryDao.entriesFor("station-1", fuelType = query.fuelType.name).size)
+        assertEquals(
+            now.toEpochMilli(),
+            stationPriceHistoryDao.entriesFor("station-1", fuelType = query.fuelType.name).first().fetchedAtEpochMillis,
+        )
+        assertTrue(
+            stationPriceHistoryDao.entriesFor("station-1", fuelType = query.fuelType.name)
+                .none { it.fetchedAtEpochMillis == now.minusSeconds(10 * 60L).toEpochMilli() },
+        )
     }
 
     @Test
@@ -107,18 +150,93 @@ class DefaultStationRepositoryTest {
                 latitude = 37.498195,
             ),
         )
-        val repository = DefaultStationRepository(
-            stationCacheDao = stationCacheDao,
-            remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Success(emptyList())),
-            cachePolicy = StationCachePolicy(),
-            clock = clock,
-        )
+        val repository = repository(stationCacheDao = stationCacheDao)
 
         val result = repository.observeNearbyStations(query).first()
 
-        assertEquals(listOf("cheap-gsc", "expensive-gsc"), result.stations.map { it.id })
+        assertEquals(listOf("cheap-gsc", "expensive-gsc"), result.stations.map { it.station.id })
         assertEquals(StationFreshness.Fresh, result.freshness)
         assertEquals(now, result.fetchedAt)
+    }
+
+    @Test
+    fun `observeNearbyStations enriches snapshot with price delta and watched metadata`() = runBlocking {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val stationCacheDao = RecordingStationCacheDao()
+        stationCacheDao.seed(
+            stationEntity(
+                cacheKey = cacheKey,
+                stationId = "station-1",
+                priceWon = 1_680,
+                fetchedAt = now,
+            ),
+        )
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-1",
+                        priceWon = 1_710,
+                        fetchedAt = now.minusSeconds(300),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-1",
+                        watchedAt = now.minusSeconds(60),
+                    ),
+                ),
+            ),
+        )
+
+        val result = repository.observeNearbyStations(query).first()
+        val entry = result.stations.single()
+
+        assertEquals(StationPriceDelta.Decreased(30), entry.priceDelta)
+        assertEquals(true, entry.isWatched)
+        assertEquals(now, entry.lastSeenAt)
+    }
+
+    @Test
+    fun `observeNearbyStations uses history from the current query fuel type only`() = runBlocking {
+        val query = stationQuery(fuelType = FuelType.GASOLINE)
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val stationCacheDao = RecordingStationCacheDao()
+        stationCacheDao.seed(
+            stationEntity(
+                cacheKey = cacheKey,
+                stationId = "station-1",
+                priceWon = 1_680,
+                fetchedAt = now,
+            ),
+        )
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-1",
+                        fuelType = "DIESEL",
+                        priceWon = 1_520,
+                        fetchedAt = now.minusSeconds(120),
+                    ),
+                    history(
+                        stationId = "station-1",
+                        fuelType = "GASOLINE",
+                        priceWon = 1_710,
+                        fetchedAt = now.minusSeconds(300),
+                    ),
+                ),
+            ),
+        )
+
+        val entry = repository.observeNearbyStations(query).first().stations.single()
+
+        assertEquals(StationPriceDelta.Decreased(30), entry.priceDelta)
     }
 
     @Test
@@ -155,18 +273,13 @@ class DefaultStationRepositoryTest {
                 latitude = baseQuery.coordinates.latitude + 0.0001,
             ),
         )
-        val repository = DefaultStationRepository(
-            stationCacheDao = stationCacheDao,
-            remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Success(emptyList())),
-            cachePolicy = StationCachePolicy(),
-            clock = clock,
-        )
+        val repository = repository(stationCacheDao = stationCacheDao)
 
         val baseResult = repository.observeNearbyStations(baseQuery).first()
         val shiftedResult = repository.observeNearbyStations(shiftedQuery).first()
 
-        assertEquals(listOf("other-brand", "mid", "cheap"), baseResult.stations.map { it.id })
-        assertEquals(listOf("cheap", "mid", "other-brand"), shiftedResult.stations.map { it.id })
+        assertEquals(listOf("other-brand", "mid", "cheap"), baseResult.stations.map { it.station.id })
+        assertEquals(listOf("cheap", "mid", "other-brand"), shiftedResult.stations.map { it.station.id })
         assertEquals(
             expectedDistanceMeters(
                 origin = shiftedQuery.coordinates,
@@ -175,9 +288,9 @@ class DefaultStationRepositoryTest {
                     longitude = shiftedQuery.coordinates.longitude,
                 ),
             ),
-            shiftedResult.stations.first().distance.value,
+            shiftedResult.stations.first().station.distance.value,
         )
-        assertTrue(shiftedResult.stations.first().distance.value < baseResult.stations.last().distance.value)
+        assertTrue(shiftedResult.stations.first().station.distance.value < baseResult.stations.last().station.distance.value)
     }
 
     @Test
@@ -194,11 +307,9 @@ class DefaultStationRepositoryTest {
                 fetchedAt = now.minusSeconds(180),
             ),
         )
-        val repository = DefaultStationRepository(
+        val repository = repository(
             stationCacheDao = stationCacheDao,
             remoteDataSource = FakeStationRemoteDataSource(RemoteStationFetchResult.Failure),
-            cachePolicy = StationCachePolicy(),
-            clock = clock,
         )
 
         assertThrows(StationRefreshException::class.java) {
@@ -214,13 +325,30 @@ class DefaultStationRepositoryTest {
         assertEquals(now.minusSeconds(180).toEpochMilli(), cachedStations.single().fetchedAtEpochMillis)
     }
 
+    private fun repository(
+        stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
+        stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
+        watchedStationDao: RecordingWatchedStationDao = RecordingWatchedStationDao(),
+        remoteDataSource: StationRemoteDataSource = FakeStationRemoteDataSource(
+            RemoteStationFetchResult.Success(emptyList()),
+        ),
+    ) = DefaultStationRepository(
+        stationCacheDao = stationCacheDao,
+        stationPriceHistoryDao = stationPriceHistoryDao,
+        watchedStationDao = watchedStationDao,
+        remoteDataSource = remoteDataSource,
+        cachePolicy = StationCachePolicy(),
+        clock = clock,
+    )
+
     private fun stationQuery(
         brandFilter: BrandFilter = BrandFilter.ALL,
+        fuelType: FuelType = FuelType.GASOLINE,
         sortOrder: SortOrder = SortOrder.DISTANCE,
     ) = StationQuery(
         coordinates = Coordinates(37.498095, 127.027610),
         radius = SearchRadius.KM_3,
-        fuelType = FuelType.GASOLINE,
+        fuelType = fuelType,
         brandFilter = brandFilter,
         sortOrder = sortOrder,
         mapProvider = MapProvider.TMAP,
@@ -287,6 +415,16 @@ class DefaultStationRepositoryTest {
                     it.radiusMeters == radiusMeters &&
                     it.fuelType == fuelType
             }
+        }
+
+        override fun observeLatestStationsByIds(
+            stationIds: List<String>,
+        ): Flow<List<StationCacheEntity>> = entities.map { current ->
+            current
+                .filter { it.stationId in stationIds }
+                .groupBy { it.stationId }
+                .values
+                .map { rows -> rows.maxBy { it.fetchedAtEpochMillis } }
         }
 
         override suspend fun upsertAll(entities: List<StationCacheEntity>) {
