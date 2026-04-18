@@ -734,22 +734,43 @@ private fun StationListResultsPane(
     onAction: (StationListAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val refreshRailInset = if (uiState.isRefreshing) 58.dp else 0.dp
+
     Box(modifier = modifier) {
         StationListContent(
             uiState = uiState,
             onAction = onAction,
             modifier = Modifier
                 .fillMaxSize()
+                .padding(top = refreshRailInset)
                 .alpha(if (uiState.isLoading) 0.82f else 1f),
         )
 
         AnimatedVisibility(
-            visible = uiState.isLoading || uiState.isRefreshing,
+            visible = uiState.isRefreshing,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .padding(horizontal = GasStationTheme.spacing.space16)
                 .padding(top = GasStationTheme.spacing.space12),
+            enter = fadeIn(animationSpec = tween(durationMillis = 150)) +
+                slideInVertically(
+                    animationSpec = tween(durationMillis = 180),
+                    initialOffsetY = { -it / 2 },
+                ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+            label = "station-list-refresh-rail",
+        ) {
+            RefreshingStatusRail()
+        }
+
+        AnimatedVisibility(
+            visible = uiState.isLoading,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = GasStationTheme.spacing.space16)
+                .padding(top = GasStationTheme.spacing.space12 + refreshRailInset),
             enter = fadeIn(animationSpec = tween(durationMillis = 160)) +
                 slideInVertically(
                     animationSpec = tween(durationMillis = 180),
@@ -763,6 +784,61 @@ private fun StationListResultsPane(
             label = "station-list-loading-overlay",
         ) {
             RefreshingOverlayCard()
+        }
+    }
+}
+
+@Composable
+private fun RefreshingStatusRail(
+    modifier: Modifier = Modifier,
+) {
+    val spacing = GasStationTheme.spacing
+    val corner = GasStationTheme.corner
+    val typography = GasStationTheme.typography
+
+    Surface(
+        modifier = modifier,
+        color = ColorBlack,
+        shape = RoundedCornerShape(corner.small),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = spacing.space12,
+                    vertical = spacing.space8,
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing.space8),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(ColorYellow),
+                )
+                Text(
+                    text = "가격 갱신 중",
+                    style = typography.chip.copy(fontWeight = FontWeight.Bold),
+                    color = ColorYellow,
+                )
+            }
+            Text(
+                text = "현재 조건 기준 최신 가격을 확인하고 있습니다.",
+                style = typography.meta,
+                color = ColorYellow.copy(alpha = 0.78f),
+            )
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp)),
+                color = ColorYellow,
+                trackColor = ColorYellow.copy(alpha = 0.22f),
+            )
         }
     }
 }

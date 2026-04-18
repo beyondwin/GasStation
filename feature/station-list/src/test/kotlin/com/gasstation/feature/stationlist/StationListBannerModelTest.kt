@@ -9,7 +9,7 @@ import org.junit.Test
 class StationListBannerModelTest {
 
     @Test
-    fun `from orders approximate stale and refreshing banners with formatted timestamp`() {
+    fun `from orders approximate and stale banners with formatted timestamp`() {
         val originalTimeZone = TimeZone.getDefault()
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         try {
@@ -30,10 +30,6 @@ class StationListBannerModelTest {
                         title = "오래된 결과를 표시 중입니다.",
                         detail = "마지막 갱신 04.18 00:30",
                         tone = StationListBannerTone.Warning,
-                    ),
-                    StationListBannerModel(
-                        title = "새로고침 중입니다.",
-                        tone = StationListBannerTone.Neutral,
                     ),
                 ),
                 StationListBannerModel.from(uiState),
