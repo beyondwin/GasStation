@@ -2,7 +2,9 @@ package com.gasstation.startup
 
 import android.app.Application
 import androidx.room.Room
+import androidx.room.withTransaction
 import com.gasstation.core.database.GasStationDatabase
+import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.demo.seed.DemoSeedAssetLoader
 import com.gasstation.demo.seed.DemoSeedDocument
 import com.gasstation.demo.seed.DemoSeedOrigin
@@ -51,74 +53,63 @@ class DemoSeedStartupHook @Inject constructor(
         document: DemoSeedDocument,
     ) {
         document.requireSharedOrigin()
-        val writableDatabase = database.openHelper.writableDatabase
-        val cacheInsert = writableDatabase.compileStatement(
-            """
-            INSERT OR REPLACE INTO station_cache (
-                latitudeBucket,
-                longitudeBucket,
-                radiusMeters,
-                fuelType,
-                stationId,
-                brandCode,
-                name,
-                priceWon,
-                latitude,
-                longitude,
-                fetchedAtEpochMillis
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent(),
-        )
-        val historyInsert = writableDatabase.compileStatement(
-            """
-            INSERT OR REPLACE INTO station_price_history (
-                stationId,
-                fuelType,
-                priceWon,
-                fetchedAtEpochMillis
-            ) VALUES (?, ?, ?, ?)
-            """.trimIndent(),
-        )
+        runBlocking {
+            database.withTransaction {
+                val writableDatabase = database.openHelper.writableDatabase
+                val historyInsert = writableDatabase.compileStatement(
+                    """
+                    INSERT OR REPLACE INTO station_price_history (
+                        stationId,
+                        fuelType,
+                        priceWon,
+                        fetchedAtEpochMillis
+                    ) VALUES (?, ?, ?, ?)
+                    """.trimIndent(),
+                )
 
-        writableDatabase.beginTransaction()
-        try {
-            writableDatabase.execSQL("DELETE FROM station_cache")
-            writableDatabase.execSQL("DELETE FROM station_price_history")
-            writableDatabase.execSQL("DELETE FROM watched_station")
+                writableDatabase.execSQL("DELETE FROM station_cache")
+                writableDatabase.execSQL("DELETE FROM station_cache_snapshot")
+                writableDatabase.execSQL("DELETE FROM station_price_history")
+                writableDatabase.execSQL("DELETE FROM watched_station")
 
-            document.queries.forEach { query ->
-                val cacheKey = query.toCacheKey()
-                query.stations.forEach { station ->
-                    cacheInsert.clearBindings()
-                    cacheInsert.bindLong(1, cacheKey.latitudeBucket.toLong())
-                    cacheInsert.bindLong(2, cacheKey.longitudeBucket.toLong())
-                    cacheInsert.bindLong(3, cacheKey.radiusMeters.toLong())
-                    cacheInsert.bindString(4, query.fuelType)
-                    cacheInsert.bindString(5, station.stationId)
-                    cacheInsert.bindString(6, station.brandCode)
-                    cacheInsert.bindString(7, station.name)
-                    cacheInsert.bindLong(8, station.priceWon.toLong())
-                    cacheInsert.bindDouble(9, station.latitude)
-                    cacheInsert.bindDouble(10, station.longitude)
-                    cacheInsert.bindLong(11, document.generatedAtEpochMillis)
-                    cacheInsert.executeInsert()
+                document.queries.forEach { query ->
+                    val cacheKey = query.toCacheKey()
+                    val snapshotEntities = query.stations.map { station ->
+                        StationCacheEntity(
+                            latitudeBucket = cacheKey.latitudeBucket,
+                            longitudeBucket = cacheKey.longitudeBucket,
+                            radiusMeters = cacheKey.radiusMeters,
+                            fuelType = query.fuelType,
+                            stationId = station.stationId,
+                            brandCode = station.brandCode,
+                            name = station.name,
+                            priceWon = station.priceWon,
+                            latitude = station.latitude,
+                            longitude = station.longitude,
+                            fetchedAtEpochMillis = document.generatedAtEpochMillis,
+                        )
+                    }
+                    database.stationCacheDao().replaceSnapshot(
+                        latitudeBucket = cacheKey.latitudeBucket,
+                        longitudeBucket = cacheKey.longitudeBucket,
+                        radiusMeters = cacheKey.radiusMeters,
+                        fuelType = query.fuelType,
+                        fetchedAtEpochMillis = document.generatedAtEpochMillis,
+                        entities = snapshotEntities,
+                    )
+                }
+
+                document.history.forEach { history ->
+                    history.entries.forEach { entry ->
+                        historyInsert.clearBindings()
+                        historyInsert.bindString(1, history.stationId)
+                        historyInsert.bindString(2, history.fuelType)
+                        historyInsert.bindLong(3, entry.priceWon.toLong())
+                        historyInsert.bindLong(4, entry.fetchedAtEpochMillis)
+                        historyInsert.executeInsert()
+                    }
                 }
             }
-
-            document.history.forEach { history ->
-                history.entries.forEach { entry ->
-                    historyInsert.clearBindings()
-                    historyInsert.bindString(1, history.stationId)
-                    historyInsert.bindString(2, history.fuelType)
-                    historyInsert.bindLong(3, entry.priceWon.toLong())
-                    historyInsert.bindLong(4, entry.fetchedAtEpochMillis)
-                    historyInsert.executeInsert()
-                }
-            }
-
-            writableDatabase.setTransactionSuccessful()
-        } finally {
-            writableDatabase.endTransaction()
         }
     }
 

@@ -87,6 +87,21 @@ class DemoSeedStartupHookTest {
                         """.trimIndent(),
                     ),
                 )
+                assertEquals(
+                    document.queries.size,
+                    database.openHelper.readableDatabase.singleInt(
+                        "SELECT COUNT(*) FROM station_cache_snapshot",
+                    ),
+                )
+                assertEquals(
+                    document.queries.size,
+                    database.openHelper.readableDatabase.singleInt(
+                        """
+                        SELECT COUNT(*) FROM station_cache_snapshot
+                        WHERE fetchedAtEpochMillis = ${document.generatedAtEpochMillis}
+                        """.trimIndent(),
+                    ),
+                )
                 assertTrue(
                     database.openHelper.readableDatabase.singleInt(
                         "SELECT COUNT(*) FROM station_cache",
