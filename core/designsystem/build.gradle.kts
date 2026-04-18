@@ -4,9 +4,6 @@ plugins {
 
 android {
     namespace = "com.gasstation.core.designsystem"
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {

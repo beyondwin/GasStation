@@ -5,9 +5,6 @@ plugins {
 
 android {
     namespace = "com.gasstation.feature.watchlist"
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {
