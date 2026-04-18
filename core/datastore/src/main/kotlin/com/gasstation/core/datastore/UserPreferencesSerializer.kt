@@ -11,7 +11,6 @@ import java.io.InputStream
 import java.io.OutputStream
 
 object UserPreferencesSerializer : Serializer<UserPreferences> {
-    private const val LEGACY_DELIMITER = "|"
     private const val ENTRY_DELIMITER = "\n"
     private const val KEY_VALUE_DELIMITER = "="
     private const val VERSION = "2"
@@ -30,11 +29,7 @@ object UserPreferencesSerializer : Serializer<UserPreferences> {
             return defaultValue
         }
 
-        return if (encoded.contains(KEY_VALUE_DELIMITER)) {
-            decodeKeyValueFormat(encoded)
-        } else {
-            decodeLegacyPipeFormat(encoded)
-        }
+        return decodeKeyValueFormat(encoded)
     }
 
     override suspend fun writeTo(t: UserPreferences, output: OutputStream) {
@@ -71,18 +66,6 @@ object UserPreferencesSerializer : Serializer<UserPreferences> {
             brandFilter = decodeEnumOrDefault(values[KEY_BRAND_FILTER], defaultValue.brandFilter),
             sortOrder = decodeEnumOrDefault(values[KEY_SORT_ORDER], defaultValue.sortOrder),
             mapProvider = decodeEnumOrDefault(values[KEY_MAP_PROVIDER], defaultValue.mapProvider),
-        )
-    }
-
-    private fun decodeLegacyPipeFormat(encoded: String): UserPreferences {
-        val fields = encoded.split(LEGACY_DELIMITER)
-
-        return UserPreferences(
-            searchRadius = decodeEnumOrDefault(fields.getOrNull(0), defaultValue.searchRadius),
-            fuelType = decodeEnumOrDefault(fields.getOrNull(1), defaultValue.fuelType),
-            brandFilter = decodeEnumOrDefault(fields.getOrNull(2), defaultValue.brandFilter),
-            sortOrder = decodeEnumOrDefault(fields.getOrNull(3), defaultValue.sortOrder),
-            mapProvider = decodeEnumOrDefault(fields.getOrNull(4), defaultValue.mapProvider),
         )
     }
 
