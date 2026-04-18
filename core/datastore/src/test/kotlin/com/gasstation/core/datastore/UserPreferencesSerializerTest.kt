@@ -16,37 +16,21 @@ import java.io.ByteArrayOutputStream
 class UserPreferencesSerializerTest {
 
     @Test
-    fun `readFrom tolerates missing fields in legacy pipe format`() = runBlocking {
+    fun `readFrom returns default preferences for legacy pipe format`() = runBlocking {
         val decoded = UserPreferencesSerializer.readFrom(
             ByteArrayInputStream("KM_4|DIESEL|GSC".encodeToByteArray()),
         )
 
-        assertEquals(
-            UserPreferences.default().copy(
-                searchRadius = SearchRadius.KM_4,
-                fuelType = FuelType.DIESEL,
-                brandFilter = BrandFilter.GSC,
-            ),
-            decoded,
-        )
+        assertEquals(UserPreferences.default(), decoded)
     }
 
     @Test
-    fun `readFrom ignores extra fields in legacy pipe format`() = runBlocking {
+    fun `readFrom returns default preferences for legacy pipe format with extra fields`() = runBlocking {
         val decoded = UserPreferencesSerializer.readFrom(
             ByteArrayInputStream("KM_5|LPG|SKG|PRICE|NAVER_MAP|future".encodeToByteArray()),
         )
 
-        assertEquals(
-            UserPreferences.default().copy(
-                searchRadius = SearchRadius.KM_5,
-                fuelType = FuelType.LPG,
-                brandFilter = BrandFilter.SKG,
-                sortOrder = SortOrder.PRICE,
-                mapProvider = MapProvider.NAVER_MAP,
-            ),
-            decoded,
-        )
+        assertEquals(UserPreferences.default(), decoded)
     }
 
     @Test
