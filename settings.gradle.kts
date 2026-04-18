@@ -25,6 +25,7 @@ include(
     ":core:network",
     ":core:database",
     ":core:datastore",
+    ":domain:location",
     ":domain:settings",
     ":domain:station",
     ":data:settings",
