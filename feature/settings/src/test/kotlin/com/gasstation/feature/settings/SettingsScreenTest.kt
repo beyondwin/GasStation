@@ -201,7 +201,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `selected detail option relies on a larger check icon instead of current selection text`() {
+    fun `settings detail screen keeps parent group hierarchy inside a single card`() {
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.SearchRadius,
@@ -219,7 +219,30 @@ class SettingsScreenTest {
             )
         }
 
-        composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(2)
+        composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(1)
+        composeRule.onNodeWithText("탐색 설정").assertExists()
+        composeRule.onNodeWithText("주변 주유소를 불러올 반경을 정합니다.").assertExists()
+        composeRule.onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG).assertExists()
+    }
+
+    @Test
+    fun `selected detail option relies on a larger check icon instead of current selection text`() {
+        composeRule.setContent {
+            SettingsDetailScreen(
+                section = SettingsSection.SearchRadius,
+                options = listOf(
+                    SettingOptionUiModel(
+                        label = "3km",
+                        subtitle = "가장 촘촘하게 주변 가격을 비교합니다.",
+                        meta = "현재 선택",
+                        action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
+                        isSelected = true,
+                    ),
+                ),
+                onBackClick = {},
+                onOptionClick = {},
+            )
+        }
 
         val subtitleBounds = composeRule
             .onNodeWithText("가장 촘촘하게 주변 가격을 비교합니다.", useUnmergedTree = true)
