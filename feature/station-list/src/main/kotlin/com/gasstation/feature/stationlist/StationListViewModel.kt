@@ -87,6 +87,7 @@ class StationListViewModel @Inject constructor(
                 )
                 if (previousQuery != query) {
                     pendingBlockingFailure.value = null
+                    sessionState.update { it.copy(blockingFailure = null) }
                 }
             }
             .flatMapLatest { query ->
