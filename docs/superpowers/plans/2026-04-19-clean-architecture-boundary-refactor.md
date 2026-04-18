@@ -801,7 +801,7 @@ git commit -m "refactor: route settings viewmodel writes through use cases"
 - Modify: `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`
 - Modify: `app/src/testDemo/java/com/gasstation/startup/DemoSeedStartupHookTest.kt`
 
-- [ ] **Step 1: Rewrite the failing station-list and query tests**
+- [x] **Step 1: Rewrite the failing station-list and query tests**
 
 ```kotlin
 // domain/station/src/test/kotlin/com/gasstation/domain/station/StationQueryCacheKeyTest.kt
@@ -866,13 +866,13 @@ composeRule.waitForIdle()
 assertEquals(true, viewModel.uiState.value.isGpsEnabled)
 ```
 
-- [ ] **Step 2: Run the focused station-list tests to verify they fail**
+- [x] **Step 2: Run the focused station-list tests to verify they fail**
 
 Run: `./gradlew :domain:station:test --tests "com.gasstation.domain.station.StationQueryCacheKeyTest" :feature:station-list:testDebugUnitTest --tests "com.gasstation.feature.stationlist.StationListViewModelTest" --tests "com.gasstation.feature.stationlist.GpsAvailabilityMonitorTest"`
 
 Expected: FAIL because `StationQuery` still requires `mapProvider`, `feature:station-list` still imports `core:location`, and the ViewModel constructor does not match the new use case set.
 
-- [ ] **Step 3: Implement the query simplification and station-list refactor**
+- [x] **Step 3: Implement the query simplification and station-list refactor**
 
 ```kotlin
 // domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt
@@ -975,7 +975,7 @@ LaunchedEffect(lifecycleOwner, viewModel) {
 }
 ```
 
-- [ ] **Step 4: Update the remaining `StationQuery` call sites and rerun focused tests**
+- [x] **Step 4: Update the remaining `StationQuery` call sites and rerun focused tests**
 
 ```kotlin
 // app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt
@@ -1007,7 +1007,7 @@ Run: `./gradlew :domain:station:test --tests "com.gasstation.domain.station.Stat
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add domain/station feature/station-list data/station app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt app/src/testDemo/java/com/gasstation/startup/DemoSeedStartupHookTest.kt

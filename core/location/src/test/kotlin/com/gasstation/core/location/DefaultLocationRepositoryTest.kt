@@ -4,6 +4,8 @@ import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
+import java.util.Optional
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -25,6 +27,7 @@ class DefaultLocationRepositoryTest {
             val repository = DefaultLocationRepository(
                 context = ContextWrapper(null),
                 foregroundLocationProvider = provider,
+                demoLocationOverride = Optional.empty(),
             )
 
             val result = repository.getCurrentLocation(domainPermission)
@@ -44,6 +47,7 @@ class DefaultLocationRepositoryTest {
             foregroundLocationProvider = FakeForegroundLocationProvider(
                 result = LocationLookupResult.PermissionDenied,
             ),
+            demoLocationOverride = Optional.empty(),
         )
 
         assertEquals(
@@ -63,6 +67,7 @@ class DefaultLocationRepositoryTest {
             val mappingRepository = DefaultLocationRepository(
                 context = ContextWrapper(null),
                 foregroundLocationProvider = fakeProvider,
+                demoLocationOverride = Optional.empty(),
             )
 
             val actual = mappingRepository.getCurrentLocation(
@@ -78,6 +83,19 @@ class DefaultLocationRepositoryTest {
                 else -> assertEquals(expectedDomainResult, actual)
             }
         }
+    }
+
+    @Test
+    fun `observe availability stays true when demo override is present`() = runTest {
+        val repository = DefaultLocationRepository(
+            context = ContextWrapper(null),
+            foregroundLocationProvider = FakeForegroundLocationProvider(
+                result = LocationLookupResult.Unavailable,
+            ),
+            demoLocationOverride = Optional.of(DemoLocationOverride { null }),
+        )
+
+        assertEquals(true, repository.observeAvailability().first())
     }
 }
 

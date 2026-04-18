@@ -6,14 +6,21 @@ import com.gasstation.domain.location.LocationLookupResult as DomainLocationLook
 import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
 import com.gasstation.domain.location.LocationRepository as DomainLocationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Optional
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 internal class DefaultLocationRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val foregroundLocationProvider: ForegroundLocationProvider,
+    private val demoLocationOverride: Optional<DemoLocationOverride>,
 ) : DomainLocationRepository {
-    override fun observeAvailability(): Flow<Boolean> = context.locationAvailabilityFlow()
+    override fun observeAvailability(): Flow<Boolean> = if (demoLocationOverride.isPresent) {
+        flowOf(true)
+    } else {
+        context.locationAvailabilityFlow()
+    }
 
     @SuppressLint("MissingPermission")
     override suspend fun getCurrentLocation(

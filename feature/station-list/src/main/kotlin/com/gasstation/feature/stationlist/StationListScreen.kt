@@ -83,7 +83,7 @@ import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
-import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.station.model.BrandFilter
 
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
@@ -907,9 +907,10 @@ private fun StationListActionStateCard(
 }
 
 private fun StationListUiState.toBodyState(): StationListBodyState = when {
-    permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
-    !isGpsEnabled -> StationListBodyState.GpsRequired
     isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
+    permissionState == LocationPermissionState.Denied &&
+        !(hasDeniedLocationAccess && currentCoordinates != null) -> StationListBodyState.PermissionRequired
+    !isGpsEnabled -> StationListBodyState.GpsRequired
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
     else -> StationListBodyState.Results
 }

@@ -420,7 +420,6 @@ class DefaultStationRepositoryTest {
         fuelType = fuelType,
         brandFilter = brandFilter,
         sortOrder = sortOrder,
-        mapProvider = MapProvider.TMAP,
     )
 
     private fun stationEntity(

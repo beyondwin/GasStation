@@ -1,8 +1,9 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.core.location.LocationPermissionState
+import com.gasstation.domain.location.LocationPermissionState
 
 sealed interface StationListAction {
+    data object AutoRefreshRequested : StationListAction
     data object RefreshRequested : StationListAction
     data object RetryClicked : StationListAction
     data object SortToggleRequested : StationListAction
