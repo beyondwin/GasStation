@@ -34,5 +34,6 @@ include(
     ":feature:settings",
     ":feature:station-list",
     ":feature:watchlist",
+    ":tools:demo-seed",
     ":benchmark",
 )

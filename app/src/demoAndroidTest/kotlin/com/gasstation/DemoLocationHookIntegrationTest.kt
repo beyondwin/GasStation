@@ -10,7 +10,6 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import java.util.Optional
 import javax.inject.Inject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -35,10 +34,11 @@ class DemoLocationHookIntegrationTest {
 
         assertTrue(demoLocationOverride.isPresent)
         assertEquals(
-            Coordinates(latitude = 37.498095, longitude = 127.02761),
+            Coordinates(latitude = 37.497927, longitude = 127.027583),
             foregroundLocationProvider.currentLocation(LocationPermissionState.PreciseGranted),
         )
-        assertNull(
+        assertEquals(
+            Coordinates(latitude = 37.497927, longitude = 127.027583),
             foregroundLocationProvider.currentLocation(LocationPermissionState.Denied),
         )
         assertEquals(

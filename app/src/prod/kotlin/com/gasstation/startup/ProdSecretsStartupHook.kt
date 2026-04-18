@@ -9,7 +9,6 @@ class ProdSecretsStartupHook @Inject constructor() : AppStartupHook {
     override fun run(application: Application) {
         val missingSecrets = buildList {
             if (BuildConfig.OPINET_API_KEY.isBlank()) add("opinet.apikey")
-            if (BuildConfig.KAKAO_API_KEY.isBlank()) add("kakao.apikey")
         }
 
         check(missingSecrets.isEmpty()) {
