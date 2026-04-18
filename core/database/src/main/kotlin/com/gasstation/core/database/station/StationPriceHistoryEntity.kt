@@ -5,14 +5,15 @@ import androidx.room.Index
 
 @Entity(
     tableName = "station_price_history",
-    primaryKeys = ["stationId", "fetchedAtEpochMillis"],
+    primaryKeys = ["stationId", "fuelType", "fetchedAtEpochMillis"],
     indices = [
-        Index(value = ["stationId"]),
+        Index(value = ["stationId", "fuelType"]),
         Index(value = ["fetchedAtEpochMillis"]),
     ],
 )
 data class StationPriceHistoryEntity(
     val stationId: String,
+    val fuelType: String,
     val priceWon: Int,
     val fetchedAtEpochMillis: Long,
 )

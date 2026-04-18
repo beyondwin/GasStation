@@ -25,6 +25,22 @@ abstract class StationCacheDao {
         fuelType: String,
     ): Flow<List<StationCacheEntity>>
 
+    @Query(
+        """
+        SELECT * FROM station_cache
+        WHERE stationId IN (:stationIds)
+        ORDER BY stationId ASC,
+                 fetchedAtEpochMillis DESC,
+                 fuelType ASC,
+                 radiusMeters ASC,
+                 latitudeBucket ASC,
+                 longitudeBucket ASC
+        """,
+    )
+    abstract fun observeLatestStationsByIds(
+        stationIds: List<String>,
+    ): Flow<List<StationCacheEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(entities: List<StationCacheEntity>)
 

@@ -17,7 +17,7 @@ import com.gasstation.core.database.station.WatchedStationEntity
         StationPriceHistoryEntity::class,
         WatchedStationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class GasStationDatabase : RoomDatabase() {
@@ -63,6 +63,35 @@ abstract class GasStationDatabase : RoomDatabase() {
                         `watchedAtEpochMillis` INTEGER NOT NULL,
                         PRIMARY KEY(`stationId`)
                     )
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `station_price_history`")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `station_price_history` (
+                        `stationId` TEXT NOT NULL,
+                        `fuelType` TEXT NOT NULL,
+                        `priceWon` INTEGER NOT NULL,
+                        `fetchedAtEpochMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`stationId`, `fuelType`, `fetchedAtEpochMillis`)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_station_price_history_stationId_fuelType`
+                    ON `station_price_history` (`stationId`, `fuelType`)
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_station_price_history_fetchedAtEpochMillis`
+                    ON `station_price_history` (`fetchedAtEpochMillis`)
                     """.trimIndent(),
                 )
             }
