@@ -706,7 +706,7 @@ git commit -m "refactor: add explicit settings update use cases"
 - Modify: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt`
 - Modify: `feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsViewModelTest.kt`
 
-- [ ] **Step 1: Rewrite the ViewModel test first**
+- [x] **Step 1: Rewrite the ViewModel test first**
 
 ```kotlin
 // feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsViewModelTest.kt
@@ -727,13 +727,13 @@ assertEquals(MapProvider.NAVER_MAP, repository.current.mapProvider)
 assertEquals(MapProvider.NAVER_MAP, viewModel.uiState.value.mapProvider)
 ```
 
-- [ ] **Step 2: Run the feature settings test to verify it fails**
+- [x] **Step 2: Run the feature settings test to verify it fails**
 
 Run: `./gradlew :feature:settings:testDebugUnitTest --tests "com.gasstation.feature.settings.SettingsViewModelTest"`
 
 Expected: FAIL because `SettingsViewModel` still expects `SettingsRepository`.
 
-- [ ] **Step 3: Refactor the ViewModel constructor and action handling**
+- [x] **Step 3: Refactor the ViewModel constructor and action handling**
 
 ```kotlin
 @HiltViewModel
@@ -769,13 +769,13 @@ class SettingsViewModel @Inject constructor(
 }
 ```
 
-- [ ] **Step 4: Run the feature settings test to verify it passes**
+- [x] **Step 4: Run the feature settings test to verify it passes**
 
 Run: `./gradlew :feature:settings:testDebugUnitTest --tests "com.gasstation.feature.settings.SettingsViewModelTest"`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsViewModel.kt feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsViewModelTest.kt

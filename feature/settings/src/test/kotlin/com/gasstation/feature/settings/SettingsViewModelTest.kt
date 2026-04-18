@@ -3,7 +3,13 @@ package com.gasstation.feature.settings
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
+import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
+import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
+import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
+import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import com.gasstation.domain.station.model.BrandFilter
+import com.gasstation.domain.station.model.FuelType
 import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
 import com.gasstation.domain.station.model.SortOrder
@@ -31,7 +37,11 @@ class SettingsViewModelTest {
             val repository = FakeSettingsRepository(UserPreferences.default())
             val viewModel = SettingsViewModel(
                 observeUserPreferences = ObserveUserPreferencesUseCase(repository),
-                settingsRepository = repository,
+                updatePreferredSortOrder = UpdatePreferredSortOrderUseCase(repository),
+                updateFuelType = UpdateFuelTypeUseCase(repository),
+                updateSearchRadius = UpdateSearchRadiusUseCase(repository),
+                updateBrandFilter = UpdateBrandFilterUseCase(repository),
+                updateMapProvider = UpdateMapProviderUseCase(repository),
             )
 
             viewModel.onAction(SettingsAction.SortOrderSelected(SortOrder.PRICE))
@@ -51,7 +61,11 @@ class SettingsViewModelTest {
             val repository = FakeSettingsRepository(UserPreferences.default())
             val viewModel = SettingsViewModel(
                 observeUserPreferences = ObserveUserPreferencesUseCase(repository),
-                settingsRepository = repository,
+                updatePreferredSortOrder = UpdatePreferredSortOrderUseCase(repository),
+                updateFuelType = UpdateFuelTypeUseCase(repository),
+                updateSearchRadius = UpdateSearchRadiusUseCase(repository),
+                updateBrandFilter = UpdateBrandFilterUseCase(repository),
+                updateMapProvider = UpdateMapProviderUseCase(repository),
             )
 
             viewModel.onAction(SettingsAction.BrandFilterSelected(BrandFilter.ETC))
@@ -65,13 +79,41 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `changing fuel type persists selection`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeSettingsRepository(UserPreferences.default())
+            val viewModel = SettingsViewModel(
+                observeUserPreferences = ObserveUserPreferencesUseCase(repository),
+                updatePreferredSortOrder = UpdatePreferredSortOrderUseCase(repository),
+                updateFuelType = UpdateFuelTypeUseCase(repository),
+                updateSearchRadius = UpdateSearchRadiusUseCase(repository),
+                updateBrandFilter = UpdateBrandFilterUseCase(repository),
+                updateMapProvider = UpdateMapProviderUseCase(repository),
+            )
+
+            viewModel.onAction(SettingsAction.FuelTypeSelected(FuelType.DIESEL))
+            advanceUntilIdle()
+
+            assertEquals(FuelType.DIESEL, viewModel.uiState.value.fuelType)
+            assertEquals(FuelType.DIESEL, repository.current.fuelType)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun `changing radius and map provider persists both selections`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         try {
             val repository = FakeSettingsRepository(UserPreferences.default())
             val viewModel = SettingsViewModel(
                 observeUserPreferences = ObserveUserPreferencesUseCase(repository),
-                settingsRepository = repository,
+                updatePreferredSortOrder = UpdatePreferredSortOrderUseCase(repository),
+                updateFuelType = UpdateFuelTypeUseCase(repository),
+                updateSearchRadius = UpdateSearchRadiusUseCase(repository),
+                updateBrandFilter = UpdateBrandFilterUseCase(repository),
+                updateMapProvider = UpdateMapProviderUseCase(repository),
             )
 
             viewModel.onAction(SettingsAction.SearchRadiusSelected(SearchRadius.KM_5))

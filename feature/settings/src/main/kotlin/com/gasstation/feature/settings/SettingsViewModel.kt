@@ -2,9 +2,13 @@ package com.gasstation.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
+import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
+import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
+import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
+import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +22,11 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     observeUserPreferences: ObserveUserPreferencesUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
+    private val updateFuelType: UpdateFuelTypeUseCase,
+    private val updateSearchRadius: UpdateSearchRadiusUseCase,
+    private val updateBrandFilter: UpdateBrandFilterUseCase,
+    private val updateMapProvider: UpdateMapProviderUseCase,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow(SettingsUiState.from(UserPreferences.default()))
     val uiState: StateFlow<SettingsUiState> = mutableUiState.asStateFlow()
@@ -32,14 +40,12 @@ class SettingsViewModel @Inject constructor(
 
     fun onAction(action: SettingsAction) {
         viewModelScope.launch {
-            settingsRepository.updateUserPreferences { current ->
-                when (action) {
-                    is SettingsAction.SortOrderSelected -> current.copy(sortOrder = action.sortOrder)
-                    is SettingsAction.FuelTypeSelected -> current.copy(fuelType = action.fuelType)
-                    is SettingsAction.SearchRadiusSelected -> current.copy(searchRadius = action.radius)
-                    is SettingsAction.BrandFilterSelected -> current.copy(brandFilter = action.brandFilter)
-                    is SettingsAction.MapProviderSelected -> current.copy(mapProvider = action.mapProvider)
-                }
+            when (action) {
+                is SettingsAction.SortOrderSelected -> updatePreferredSortOrder(action.sortOrder)
+                is SettingsAction.FuelTypeSelected -> updateFuelType(action.fuelType)
+                is SettingsAction.SearchRadiusSelected -> updateSearchRadius(action.radius)
+                is SettingsAction.BrandFilterSelected -> updateBrandFilter(action.brandFilter)
+                is SettingsAction.MapProviderSelected -> updateMapProvider(action.mapProvider)
             }
         }
     }
