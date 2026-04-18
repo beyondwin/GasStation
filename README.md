@@ -1,16 +1,14 @@
 # 주유주유소
 
-위치 권한, 실시간 주유소 조회, 오프라인 fallback, 관심 주유소 비교를 한 흐름으로 묶은 멀티모듈 Compose Android 레퍼런스 앱입니다.
+위치 권한, 실시간 주유소 조회, 오프라인 fallback, 관심 주유소 비교를 한 흐름으로 묶은 멀티모듈 Compose Android 프로젝트입니다.
 
 ## 미리보기
 
 `prod` 기준 주요 화면입니다.
 
-![주유주유소 prod flow](docs/readme-assets/prod-flow.gif)
-
 <p align="center">
+  <img width="32%" alt="주유주유소 prod flow" src="docs/readme-assets/prod-flow.gif">
   <img width="32%" alt="주유주유소 prod station list" src="docs/readme-assets/prod-station-list.png">
-  <img width="32%" alt="주유주유소 prod watchlist" src="docs/readme-assets/prod-watchlist.png">
   <img width="32%" alt="주유주유소 prod settings" src="docs/readme-assets/prod-settings.png">
 </p>
 
@@ -27,7 +25,7 @@
 ## 이 프로젝트가 보여주는 것
 
 - `app / feature / domain / data / core` 책임 분리를 코드와 문서에 맞춰 유지합니다.
-- `demo`와 `prod`를 분리해 시연 경로와 실제 실행 경로를 함께 설명합니다.
+- `demo`와 `prod`를 분리해 재현 가능한 실행 경로와 실제 실행 경로를 함께 설명합니다.
 - Room snapshot + price history 조합으로 stale fallback과 watchlist 비교를 구현합니다.
 - 테스트 전략, benchmark 범위, 검증 기준을 문서로 고정합니다.
 
@@ -57,7 +55,7 @@ flowchart LR
 
 ## 기술 판단 포인트
 
-- `demo`는 고정 위치와 seed 자산으로 시연 안정성을 확보하고, `prod`는 실제 API 키와 기기 상태를 그대로 사용합니다.
+- `demo`는 고정 위치와 seed 자산으로 재현 가능한 시작 상태를 제공하고, `prod`는 실제 API 키와 기기 상태를 그대로 사용합니다.
 - 조회 결과는 Room snapshot과 price history를 함께 저장해 "마지막 성공 결과 유지"와 "가격 변화 표시"를 동시에 만족시킵니다.
 - 검색 반경과 유종은 캐시 키에 반영하고, 브랜드 필터와 정렬은 읽기 모델에서 적용해 재조회 비용과 UI 반응성을 분리합니다.
 
@@ -65,7 +63,7 @@ flowchart LR
 
 | 모드 | 목적 | 빌드 |
 | --- | --- | --- |
-| `demo` | API 키 없이 같은 시연 상태를 재현하는 검토용 경로 | `./gradlew :app:assembleDemoDebug` |
+| `demo` | API 키 없이 같은 시작 상태를 재현하는 고정 실행 경로 | `./gradlew :app:assembleDemoDebug` |
 | `prod` | 실제 API 키와 기기 상태로 동작하는 실행 경로 | `./gradlew :app:assembleProdDebug` |
 
 `demo` flavor는 강남역 2번 출구 고정 위치와 승인된 seed 자산으로 같은 시작 상태를 만듭니다. `prod` flavor는 `opinet.apikey`가 필요합니다.
@@ -107,4 +105,4 @@ opinet.apikey=your-opinet-key
 - [x] `prod` flavor 문서에 필요한 로컬 시크릿이 정리되어 있다
 - [x] 아키텍처 다이어그램이 현재 모듈 그래프를 반영한다
 - [x] 오프라인 / 오래된 데이터 동작이 문서화되어 있다
-- [x] 가격 변화, 관심 저장, 비교 화면까지 포함한 대표 시연 흐름이 있다
+- [x] 가격 변화, 관심 저장, 비교 화면까지 포함한 대표 사용자 흐름이 있다

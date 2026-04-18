@@ -8,7 +8,7 @@
 | --- | --- |
 | 로컬에서 빨리 빌드만 확인 | `:app:assembleDemoDebug`, `:benchmark:assemble` |
 | 머지 전 신뢰 점검 | 단위 테스트 + assemble 전체 매트릭스 |
-| 데모 시연 직전 | `:app:connectedDemoDebugAndroidTest` |
+| 기기 UI 확인 | `:app:connectedDemoDebugAndroidTest` |
 
 - 모든 Gradle 검증은 Java 17 기준입니다.
 
@@ -42,7 +42,7 @@
   :benchmark:assemble
 ```
 
-## 데모 시연 전 점검
+## 기기 UI 확인
 
 ```bash
 ./gradlew :app:connectedDemoDebugAndroidTest
