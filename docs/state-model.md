@@ -1,10 +1,17 @@
 # 상태 모델
 
-이 레퍼런스 앱은 영속 설정 상태와 일시적인 세션 상태를 분리해서 유지합니다.
+GasStation은 상태를 네 층으로 나눠 생각하면 이해하기 쉽습니다.
 
-## 영속 선호 설정 상태
+1. 영속 선호 상태
+2. 목록 화면 세션 상태
+3. 저장소가 만드는 읽기 모델
+4. 단발성 UI 효과
 
-`data:settings`는 `SettingsRepository`를 통해 장기 사용자 선택 값을 DataStore에 기록합니다.
+## 영속 선호 상태
+
+영속 상태의 기준 원천은 `core:datastore`가 저장하는 `UserPreferences` 하나입니다. `data:settings`가 `SettingsRepository` 구현을 제공하고, 설정 화면과 목록 조회 파이프라인이 같은 값을 읽습니다.
+
+영속값은 다음 다섯 가지입니다.
 
 - 검색 반경
 - 유종
@@ -12,35 +19,91 @@
 - 정렬 순서
 - 외부 지도 제공자
 
-`core:datastore`는 앱의 장기 사용자 선호값을 `UserPreferences` 단일 모델로 저장합니다. 신규 설치 기준으로 영속 설정의 기준 원천은 DataStore 하나입니다.
+이 값은 프로세스가 죽어도 유지됩니다. 다만 `demo` flavor는 `DemoSeedStartupHook`이 앱 시작 때 `UserPreferences.default()`로 다시 덮어써 검토 시작 상태를 고정합니다.
 
-이 값들은 프로세스가 종료되어도 유지되며, 설정 화면과 주유소 조회 파이프라인 모두의 입력으로 사용됩니다.
+## 목록 화면 세션 상태
 
-## 세션 상태
+`feature:station-list`는 영속 선호와 별개로 런타임 전용 `StationListSessionState`를 유지합니다.
 
-`feature:station-list`는 세션 전용 상태를 `StationListSessionState`에 두고, 선호 설정, 세션 입력, 캐시된 검색 결과를 조합해 `StationListUiState`를 만듭니다. `feature:watchlist`는 별도 `WatchlistUiState`로 관심 비교 읽기 모델만 노출합니다.
-
-- 현재 좌표
-- 권한 상태
+- 위치 권한 상태
 - GPS 사용 가능 여부
-- 로딩 / 새로고침 플래그
-- 스낵바와 외부 지도 효과
-- 캐시 결과의 신선도에서 파생된 오래된 상태 / 최신 상태 렌더링
-- 비교 화면 진입에 사용하는 마지막 해석 좌표
+- 현재 좌표
+- 초기 로딩 여부
+- 새로고침 진행 여부
 
-이 상태는 프로세스마다 다시 생성되며 의도적으로 DataStore에 기록하지 않습니다. 이렇게 해야 실행 중 조건이 영속 설정에 섞이지 않고, 설계 검토에서 정한 책임 분리가 유지됩니다. 즉 선호값은 오래 유지되는 입력이고, 권한, 위치, 오래된 상태, UI 효과는 세션 관심사입니다.
+이 세션 상태는 `StationListViewModel` 내부에만 있고 저장되지 않습니다. `demo`에서는 `DemoLocationOverride`가 들어오면 권한 상태를 사실상 허용으로 취급하고, 실제 GPS 대신 고정 좌표를 공급합니다.
+
+## 목록 읽기 모델
+
+목록 화면이 실제로 그리는 값은 `StationListSessionState`만으로 만들어지지 않습니다. `StationListViewModel`은 아래 세 입력을 결합해 `StationListUiState`를 만듭니다.
+
+- `UserPreferences`
+- `StationListSessionState`
+- `StationSearchResult`
+
+`StationSearchResult`는 저장소에서 오는 읽기 모델로, 아래 정보를 포함합니다.
+
+- `stations`
+- `freshness`
+- `fetchedAt`
+
+최종 `StationListUiState`는 여기에 다음 파생값을 더합니다.
+
+- `isStale`
+- 화면 카드용 `StationListItemUiModel`
+- 현재 선택된 필터/반경/유종/정렬
+- 마지막 업데이트 시각
+
+즉, 목록 화면은 "영속 선호 + 런타임 환경 + 캐시된 검색 결과"를 동시에 보는 구조입니다.
+
+## watchlist 상태
+
+`feature:watchlist`는 별도 세션 리듀서를 두지 않습니다. 목록 화면에서 nav argument로 넘긴 기준 좌표를 `SavedStateHandle`에서 읽고, `ObserveWatchlistUseCase`를 바로 구독해 `WatchlistUiState`를 만듭니다.
+
+watchlist 화면이 가진 상태 관심사는 단순합니다.
+
+- 어떤 좌표를 기준으로 거리를 계산할지
+- 관심 주유소 요약 목록이 현재 무엇인지
+
+이 덕분에 watchlist는 위치 권한, GPS, 새로고침 플래그를 다시 들고 있지 않습니다.
+
+## 설정 화면 상태
+
+`feature:settings`는 `UserPreferences`를 그대로 화면 상태로 투영한 `SettingsUiState`를 사용합니다. 메인 설정 목록과 상세 선택 화면은 route가 다르지만 같은 `SettingsViewModel`을 공유합니다.
+
+요약하면 설정 화면은 세션 상태를 거의 만들지 않고, 영속 상태를 직접 편집하는 얇은 UI 계층입니다.
 
 ## 읽기 모델 상태
 
-`data:station`은 스냅샷, 가격 히스토리, 관심 주유소 테이블을 조합해서 화면 전용 읽기 모델을 만듭니다.
+`data:station`은 Room 스냅샷, 가격 히스토리, 관심 목록을 결합해 두 종류의 읽기 모델을 만듭니다.
 
-- 리스트 읽기 모델: `StationListEntry`
-  `priceDelta`, `isWatched`, `lastSeenAt`를 포함합니다.
+- 목록 읽기 모델: `StationListEntry`
 - 비교 읽기 모델: `WatchedStationSummary`
-  현재 가격, 거리, 최근 가격 변화, 마지막 확인 시각을 묶습니다.
 
-가격 변화는 히스토리가 충분하지 않으면 `비교 데이터 없음`으로 남기고, stale 스냅샷이어도 마지막 성공 결과 기반 읽기 모델을 계속 제공합니다.
+이 읽기 모델에는 아래 같은 파생 정보가 포함됩니다.
 
-## 데모 온보딩 경로
+- 현재 가격
+- 현재 기준 좌표 대비 거리
+- 관심 여부
+- 가격 변화 배지 계산 결과
+- 마지막으로 확인한 시각
+- stale 여부에 따른 최신/오래된 스냅샷 의미
 
-`demo`는 `prod`와 동일한 reducer 및 오래된 데이터 / 오프라인 의미 체계를 유지하지만, 결정적인 시드 캐시/히스토리 데이터와 가짜 좌표 공급자에서 시작합니다. 검토자는 실제 API 자격 증명 없이도 가격 변화 배지, 관심 저장, 비교 화면 상태 전이를 검증할 수 있고, `prod`는 같은 도메인 및 데이터 계약을 실제 시크릿과 함께 그대로 사용합니다.
+핵심은 이 파생 계산이 ViewModel이 아니라 저장소 구현에 있다는 점입니다.
+
+## 단발성 UI 효과
+
+영속 상태에도 세션 상태에도 넣지 않는 값이 있습니다. `StationListViewModel`은 `SharedFlow` 기반 효과로 아래 이벤트를 내보냅니다.
+
+- 위치 설정 화면 열기
+- 스낵바 메시지 표시
+- 외부 지도 앱 열기
+
+이 값은 화면 재구성 후 복원 대상이 아니라 즉시 소비 대상입니다.
+
+## 상태 경계 한 줄 요약
+
+- 오래 유지되는 사용자 선택: `UserPreferences`
+- 실행 중 환경과 로딩 플래그: `StationListSessionState`
+- 화면에 그릴 데이터 조합: `StationSearchResult`, `WatchedStationSummary`
+- 한 번만 소비할 UI 반응: `StationListEffect`
