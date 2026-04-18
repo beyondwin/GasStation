@@ -1,29 +1,26 @@
 package com.gasstation.feature.stationlist
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
-import android.location.LocationManager
 import android.provider.Settings
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.currentStateAsState
+import androidx.lifecycle.repeatOnLifecycle
 import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -35,11 +32,10 @@ fun StationListRoute(
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val permissionState = rememberLocationPermissionsState()
-    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    var isGpsEnabled by remember { mutableStateOf(context.isGpsEnabled()) }
 
     LaunchedEffect(permissionState.allPermissionsGranted, permissionState.permissions) {
         viewModel.onAction(
@@ -47,10 +43,11 @@ fun StationListRoute(
         )
     }
 
-    LaunchedEffect(lifecycleState) {
-        if (lifecycleState == Lifecycle.State.RESUMED) {
-            isGpsEnabled = context.isGpsEnabled()
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(isGpsEnabled))
+    LaunchedEffect(context, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            context.gpsAvailabilityFlow().collect { isEnabled ->
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
+            }
         }
     }
 
@@ -114,10 +111,4 @@ private fun MultiplePermissionsState.toPermissionState(): LocationPermissionStat
         coarseGranted -> LocationPermissionState.ApproximateGranted
         else -> LocationPermissionState.Denied
     }
-}
-
-private fun Context.isGpsEnabled(): Boolean {
-    val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-        locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 }
