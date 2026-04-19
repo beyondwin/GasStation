@@ -59,6 +59,7 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             meta = option.selectedMeta(brandFilter == option),
             action = SettingsAction.BrandFilterSelected(option),
             isSelected = brandFilter == option,
+            brandIconBrand = option.brand,
         )
     }
     SettingsSection.SortOrder -> SortOrder.entries.map { option ->

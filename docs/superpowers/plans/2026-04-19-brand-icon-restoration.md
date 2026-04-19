@@ -513,7 +513,7 @@ git commit -m "feat: show brand icons in watchlist"
 - Modify: `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsDetailScreen.kt`
 - Modify: `feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsScreenTest.kt`
 
-- [ ] **Step 1: Write the failing settings UI test**
+- [x] **Step 1: Write the failing settings UI test**
 
 In `feature/settings/src/test/kotlin/com/gasstation/feature/settings/SettingsScreenTest.kt`, add these imports:
 
@@ -560,7 +560,7 @@ fun `brand filter detail renders icons for concrete brands only`() {
 }
 ```
 
-- [ ] **Step 2: Run settings screen test to verify it fails**
+- [x] **Step 2: Run settings screen test to verify it fails**
 
 Run:
 
@@ -570,7 +570,7 @@ Run:
 
 Expected: FAIL because `SettingOptionUiModel.brandIconBrand` is not defined or the settings row does not render the icon.
 
-- [ ] **Step 3: Add optional brand metadata to setting options**
+- [x] **Step 3: Add optional brand metadata to setting options**
 
 Modify `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingOptionUiModel.kt`:
 
@@ -589,7 +589,7 @@ data class SettingOptionUiModel(
 )
 ```
 
-- [ ] **Step 4: Populate brand metadata for concrete brand filters**
+- [x] **Step 4: Populate brand metadata for concrete brand filters**
 
 In `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsUiState.kt`, update the `SettingsSection.BrandFilter` branch:
 
@@ -606,7 +606,7 @@ SettingsSection.BrandFilter -> BrandFilter.entries.map { option ->
 }
 ```
 
-- [ ] **Step 5: Render optional brand icons in settings detail rows**
+- [x] **Step 5: Render optional brand icons in settings detail rows**
 
 In `feature/settings/src/main/kotlin/com/gasstation/feature/settings/SettingsDetailScreen.kt`, add:
 
@@ -626,7 +626,7 @@ option.brandIconBrand?.let { brand ->
 }
 ```
 
-- [ ] **Step 6: Run settings targeted tests**
+- [x] **Step 6: Run settings targeted tests**
 
 Run:
 
@@ -636,7 +636,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit settings brand filter icons**
+- [x] **Step 7: Commit settings brand filter icons**
 
 Run:
 
