@@ -840,7 +840,7 @@ git commit -m "feat: expose station list address context"
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Write failing Compose tests**
+- [x] **Step 1: Write failing Compose tests**
 
 Add this constant near the existing station list test tags in `StationListScreen.kt`:
 
@@ -899,7 +899,7 @@ fun `query context shows condition when current address is unavailable`() {
 }
 ```
 
-- [ ] **Step 2: Run Compose tests and verify they fail**
+- [x] **Step 2: Run Compose tests and verify they fail**
 
 Run:
 
@@ -909,7 +909,7 @@ Run:
 
 Expected: tests fail because the query context tag and new UI do not exist.
 
-- [ ] **Step 3: Replace `FilterSummary` usage**
+- [x] **Step 3: Replace `FilterSummary` usage**
 
 In `StationListContent`, replace:
 
@@ -929,7 +929,7 @@ QueryContextSummary(
 )
 ```
 
-- [ ] **Step 4: Replace the card summary composable**
+- [x] **Step 4: Replace the card summary composable**
 
 Delete `FilterSummary` and `FilterPill`, then add:
 
@@ -976,7 +976,7 @@ private fun StationListUiState.toQueryConditionLabel(): String =
     "${selectedRadius.toLabel()} · ${selectedFuelType.toLabel()} 기준"
 ```
 
-- [ ] **Step 5: Run Compose tests and verify they pass**
+- [x] **Step 5: Run Compose tests and verify they pass**
 
 Run:
 
@@ -986,7 +986,7 @@ Run:
 
 Expected: all tests in `StationListScreenTest` pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt \
@@ -1001,7 +1001,7 @@ git commit -m "feat: show station list query context summary"
 **Files:**
 - Verify only. No source edits unless a test failure reveals a defect introduced by Tasks 1-4.
 
-- [ ] **Step 1: Run focused module tests**
+- [x] **Step 1: Run focused module tests**
 
 Run:
 
@@ -1011,7 +1011,7 @@ Run:
 
 Expected: all three module test tasks pass.
 
-- [ ] **Step 2: Run app-level unit tests for Hilt graph coverage**
+- [x] **Step 2: Run app-level unit tests for Hilt graph coverage**
 
 Run:
 
@@ -1021,7 +1021,7 @@ Run:
 
 Expected: app demo debug unit tests pass, including startup/Hilt graph tests.
 
-- [ ] **Step 3: Run static diff check**
+- [x] **Step 3: Run static diff check**
 
 Run:
 
@@ -1031,7 +1031,7 @@ git diff --check
 
 Expected: no whitespace errors.
 
-- [ ] **Step 4: Review final diff**
+- [x] **Step 4: Review final diff**
 
 Run:
 

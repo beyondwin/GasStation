@@ -91,6 +91,7 @@ internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
+internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
 
 private sealed interface StationListBodyState {
     data object PermissionRequired : StationListBodyState
@@ -286,7 +287,7 @@ private fun StationListContent(
             )
         }
         item {
-            FilterSummary(
+            QueryContextSummary(
                 uiState = uiState,
                 modifier = Modifier.animateContentSize(),
             )
@@ -320,63 +321,43 @@ private fun StationListContent(
 }
 
 @Composable
-private fun FilterSummary(
+private fun QueryContextSummary(
     uiState: StationListUiState,
     modifier: Modifier = Modifier,
 ) {
     val spacing = GasStationTheme.spacing
-
-    GasStationCard(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(
-            horizontal = spacing.space16,
-            vertical = spacing.space16,
-        ),
-    ) {
-        GasStationSectionHeading(
-            title = "현재 조건",
-            subtitle = "반경과 유종 기준으로 정렬합니다.",
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.space8)) {
-            FilterPill(text = uiState.selectedRadius.toLabel())
-            FilterPill(text = uiState.selectedFuelType.toLabel())
-        }
-    }
-}
-
-@Composable
-private fun FilterPill(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    val spacing = GasStationTheme.spacing
-    val corner = GasStationTheme.corner
-    val stroke = GasStationTheme.stroke
     val typography = GasStationTheme.typography
-    val shape = RoundedCornerShape(corner.small)
+    val addressLabel = uiState.currentAddressLabel
+        ?.trim()
+        ?.takeIf(String::isNotEmpty)
+    val conditionLabel = "${uiState.selectedRadius.toLabel()} · ${uiState.selectedFuelType.toLabel()} 기준"
 
-    Surface(
-        modifier = modifier,
-        color = ColorGray4,
-        shape = shape,
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(STATION_LIST_QUERY_CONTEXT_TAG)
+            .padding(
+                horizontal = spacing.space4,
+                vertical = spacing.space4,
+            ),
+        verticalArrangement = Arrangement.spacedBy(spacing.space4),
     ) {
-        Box(
-            modifier = Modifier
-                .border(
-                    width = stroke.default,
-                    color = ColorBlack,
-                    shape = shape,
-                )
-                .height(28.dp)
-                .padding(horizontal = spacing.space12),
-            contentAlignment = Alignment.Center,
-        ) {
+        if (addressLabel != null) {
             Text(
-                text = text,
-                style = typography.chip,
+                text = addressLabel,
+                style = typography.body.copy(fontWeight = FontWeight.Bold),
                 color = ColorBlack,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
+        Text(
+            text = conditionLabel,
+            style = typography.meta,
+            color = ColorGray2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -694,7 +675,7 @@ private fun LoadingState(
                         color = ColorBlack,
                     )
                     Text(
-                        text = "현재 조건을 유지한 채 최신 가격을 확인하고 있습니다.",
+                        text = "조회 기준을 유지한 채 최신 가격을 확인하고 있습니다.",
                         style = typography.body,
                         color = ColorGray2,
                     )
@@ -865,7 +846,7 @@ private fun RefreshingStatusRail(
                 )
             }
             Text(
-                text = "현재 조건 기준 최신 가격을 확인하고 있습니다.",
+                text = "조회 기준으로 최신 가격을 확인하고 있습니다.",
                 style = typography.meta,
                 color = ColorYellow.copy(alpha = 0.78f),
             )
