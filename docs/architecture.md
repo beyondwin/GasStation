@@ -50,6 +50,11 @@ flowchart LR
     dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
 
+    cstore --> domSettings
+    cstore --> domStation
+    cnetwork --> cmodel
+    cnetwork --> domStation
+
     clocation --> domLocation
     clocation --> cmodel
     domSettings --> domStation
@@ -59,6 +64,7 @@ flowchart LR
 
     tools["tools:demo-seed"] --> cnetwork
     tools --> domStation
+    tools --> cmodel
     benchmark["benchmark"] --> app
 ```
 
@@ -78,11 +84,15 @@ flowchart LR
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
 | `core:designsystem` | `GasStationTheme`, 카드/배너/탑바 등 공유 UI primitive |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
-| `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher |
+| `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
-| `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer |
+| `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer. 선호값 타입이 `domain:station`의 유종/브랜드/정렬/지도 enum을 포함하므로 해당 도메인 모델을 그대로 직렬화 |
 | `tools:demo-seed` | Opinet 결과를 기준으로 demo seed JSON을 다시 생성하는 JVM CLI |
 | `benchmark` | `demo` 경로를 대상으로 cold start, watchlist 이동, baseline profile 측정 |
+
+## 의존성 해석 기준
+
+문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. 기능 계층만 보면 `core:datastore -> domain:station`, `core:network -> domain:station` edge가 낯설 수 있는데, 이는 설정/검색 입력이 `domain:station`의 enum을 공통 언어로 쓰기 때문입니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
 
 ## 런타임 흐름
 

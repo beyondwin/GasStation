@@ -51,15 +51,24 @@ flowchart LR
     fsettings --> domStation
     fwatch --> domStation
 
+    dstation --> domStation
     dstation --> cdb["core:database"]
     dstation --> cnet["core:network"]
     dstation --> cmodel["core:model"]
     dsettings --> cstore["core:datastore"]
+    cstore --> domSettings
+    cstore --> domStation
+    cnet --> cmodel
+    cnet --> domStation
     clocation --> domLocation
+    domSettings --> domStation
+    domSettings --> cmodel
     domLocation --> cmodel
+    domStation --> cmodel
 
     tools["tools:demo-seed"] --> cnet
     tools --> domStation
+    tools --> cmodel
     benchmark["benchmark"] --> app
 ```
 
