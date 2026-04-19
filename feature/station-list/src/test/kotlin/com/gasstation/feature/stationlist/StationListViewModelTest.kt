@@ -2,7 +2,9 @@ package com.gasstation.feature.stationlist
 
 import app.cash.turbine.test
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.GetCurrentAddressUseCase
 import com.gasstation.domain.location.GetCurrentLocationUseCase
+import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.LocationRepository
@@ -86,6 +88,126 @@ class StationListViewModelTest {
             assertFalse(viewModel.uiState.value.isRefreshing)
             assertTrue(viewModel.uiState.value.isStale)
             assertEquals(1, viewModel.uiState.value.stations.size)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `refresh success exposes current address label when address lookup succeeds`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(stationEntry()),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val coordinates = Coordinates(37.498095, 127.027610)
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+                locationRepository = FakeLocationRepository(
+                    result = LocationLookupResult.Success(coordinates),
+                    addressResult = LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
+                ),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+            assertEquals(coordinates, viewModel.uiState.value.currentCoordinates)
+            assertEquals(1, viewModel.uiState.value.stations.size)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `address lookup failure does not block station results`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(stationEntry()),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+                locationRepository = FakeLocationRepository(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                    addressResult = LocationAddressLookupResult.Error(IllegalStateException("geocoder unavailable")),
+                ),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(null, viewModel.uiState.value.currentAddressLabel)
+            assertEquals(1, viewModel.uiState.value.stations.size)
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `new coordinates clear stale address before replacement address arrives`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(stationEntry()),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val firstCoordinates = Coordinates(37.498095, 127.027610)
+            val secondCoordinates = Coordinates(37.497927, 127.027583)
+            val addressRequests = mutableListOf<Coordinates>()
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+                locationRepository = FakeLocationRepository(
+                    resultForPermission = {
+                        if (repository.refreshedQueries.isEmpty()) {
+                            LocationLookupResult.Success(firstCoordinates)
+                        } else {
+                            LocationLookupResult.Success(secondCoordinates)
+                        }
+                    },
+                    addressResultForCoordinates = { coordinates ->
+                        addressRequests += coordinates
+                        if (coordinates == firstCoordinates) {
+                            LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32")
+                        } else {
+                            LocationAddressLookupResult.Unavailable
+                        }
+                    },
+                ),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+            assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(secondCoordinates, viewModel.uiState.value.currentCoordinates)
+            assertEquals(null, viewModel.uiState.value.currentAddressLabel)
+            assertEquals(listOf(firstCoordinates, secondCoordinates), addressRequests)
         } finally {
             Dispatchers.resetMain()
         }
@@ -235,6 +357,10 @@ class StationListViewModelTest {
                         completeLocationLookup.await()
                         return LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
                     }
+
+                    override suspend fun getCurrentAddress(
+                        coordinates: Coordinates,
+                    ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
                 },
             )
 
@@ -733,6 +859,7 @@ private fun stationListViewModel(
     updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
     observeLocationAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
     getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
+    getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
     stationEventLogger = analytics,
 )
 
@@ -784,13 +911,19 @@ private class FakeLocationRepository(
     private val result: LocationLookupResult = LocationLookupResult.Success(
         Coordinates(37.498095, 127.027610),
     ),
+    private val addressResult: LocationAddressLookupResult = LocationAddressLookupResult.Unavailable,
     private val resultForPermission: ((LocationPermissionState) -> LocationLookupResult)? = null,
+    private val addressResultForCoordinates: ((Coordinates) -> LocationAddressLookupResult)? = null,
 ) : LocationRepository {
     override fun observeAvailability(): Flow<Boolean> = availability
 
     override suspend fun getCurrentLocation(
         permissionState: LocationPermissionState,
     ): LocationLookupResult = resultForPermission?.invoke(permissionState) ?: result
+
+    override suspend fun getCurrentAddress(
+        coordinates: Coordinates,
+    ): LocationAddressLookupResult = addressResultForCoordinates?.invoke(coordinates) ?: addressResult
 }
 
 private class RecordingStationEventLogger : StationEventLogger {

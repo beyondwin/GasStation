@@ -518,7 +518,7 @@ git commit -m "feat: resolve current address from location"
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
-- [ ] **Step 1: Write failing ViewModel address tests**
+- [x] **Step 1: Write failing ViewModel address tests**
 
 Add imports to `StationListViewModelTest`:
 
@@ -651,7 +651,7 @@ fun `new coordinates clear stale address before replacement address arrives`() =
 }
 ```
 
-- [ ] **Step 2: Update the ViewModel test factory and fake**
+- [x] **Step 2: Update the ViewModel test factory and fake**
 
 Change `stationListViewModel(...)` in the test file to pass the new use case:
 
@@ -706,7 +706,7 @@ override suspend fun getCurrentAddress(
 ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
 ```
 
-- [ ] **Step 3: Run station list ViewModel tests and verify they fail**
+- [x] **Step 3: Run station list ViewModel tests and verify they fail**
 
 Run:
 
@@ -716,7 +716,7 @@ Run:
 
 Expected: compilation fails because `currentAddressLabel`, the new ViewModel constructor parameter, and address-state logic do not exist.
 
-- [ ] **Step 4: Add address label to UI state**
+- [x] **Step 4: Add address label to UI state**
 
 Modify `StationListUiState.kt`:
 
@@ -742,7 +742,7 @@ data class StationListUiState(
 )
 ```
 
-- [ ] **Step 5: Add address state to the ViewModel session**
+- [x] **Step 5: Add address state to the ViewModel session**
 
 In `StationListViewModel.kt`, add imports:
 
@@ -769,7 +769,7 @@ Add the field to `StationListSessionState`:
 val currentAddressLabel: String? = null,
 ```
 
-- [ ] **Step 6: Clear stale addresses and launch address lookup**
+- [x] **Step 6: Clear stale addresses and launch address lookup**
 
 In `refresh`, replace the successful coordinate session update block with:
 
@@ -813,7 +813,7 @@ private fun refreshAddressLabel(coordinates: Coordinates) {
 }
 ```
 
-- [ ] **Step 7: Run station list ViewModel tests and verify they pass**
+- [x] **Step 7: Run station list ViewModel tests and verify they pass**
 
 Run:
 
@@ -823,7 +823,7 @@ Run:
 
 Expected: all tests in `StationListViewModelTest` pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt \
