@@ -35,13 +35,32 @@ class LocationUseCasesTest {
         )
         assertEquals(permissionState, repository.lastRequestedPermissionState)
     }
+
+    @Test
+    fun `get current address use case delegates to repository result`() = runTest {
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val expected = LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32")
+        val repository = FakeLocationRepository(
+            availability = MutableStateFlow(false),
+            result = LocationLookupResult.Success(coordinates),
+            addressResult = expected,
+        )
+
+        assertEquals(
+            expected,
+            GetCurrentAddressUseCase(repository)(coordinates),
+        )
+        assertEquals(coordinates, repository.lastRequestedAddressCoordinates)
+    }
 }
 
 private class FakeLocationRepository(
     private val availability: MutableStateFlow<Boolean>,
     private val result: LocationLookupResult,
+    private val addressResult: LocationAddressLookupResult = LocationAddressLookupResult.Unavailable,
 ) : LocationRepository {
     var lastRequestedPermissionState: LocationPermissionState? = null
+    var lastRequestedAddressCoordinates: Coordinates? = null
 
     override fun observeAvailability(): Flow<Boolean> = availability
 
@@ -50,5 +69,12 @@ private class FakeLocationRepository(
     ): LocationLookupResult {
         lastRequestedPermissionState = permissionState
         return result
+    }
+
+    override suspend fun getCurrentAddress(
+        coordinates: Coordinates,
+    ): LocationAddressLookupResult {
+        lastRequestedAddressCoordinates = coordinates
+        return addressResult
     }
 }
