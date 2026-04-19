@@ -9,6 +9,7 @@ import java.text.DecimalFormat
 data class StationListItemUiModel(
     val id: String,
     val name: String,
+    val brand: Brand = Brand.ETC,
     val brandLabel: String,
     val priceLabel: String,
     val distanceLabel: String,
@@ -25,6 +26,7 @@ data class StationListItemUiModel(
     constructor(entry: StationListEntry) : this(
         id = entry.station.id,
         name = entry.station.name,
+        brand = entry.station.brand,
         brandLabel = entry.station.brand.toLabel(),
         priceLabel = entry.station.price.value.toPriceLabel(),
         distanceLabel = entry.station.distance.toDistanceLabel(),

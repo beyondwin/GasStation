@@ -204,7 +204,7 @@ git commit -m "feat: restore station brand icons"
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Write the failing station-list UI test**
+- [x] **Step 1: Write the failing station-list UI test**
 
 In `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`, add `import com.gasstation.domain.station.model.Brand` if missing, then add this test:
 
@@ -248,7 +248,7 @@ fun `station card renders brand icon beside brand label`() {
 }
 ```
 
-- [ ] **Step 2: Run station-list screen test to verify it fails**
+- [x] **Step 2: Run station-list screen test to verify it fails**
 
 Run:
 
@@ -258,7 +258,7 @@ Run:
 
 Expected: FAIL because `StationListItemUiModel` does not yet expose `brand` or the icon is not rendered.
 
-- [ ] **Step 3: Carry `Brand` through station-list UI model**
+- [x] **Step 3: Carry `Brand` through station-list UI model**
 
 Modify `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListItemUiModel.kt`:
 
@@ -300,7 +300,7 @@ data class StationListItemUiModel(
 }
 ```
 
-- [ ] **Step 4: Render the brand icon in the station card metadata row**
+- [x] **Step 4: Render the brand icon in the station card metadata row**
 
 In `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`, add:
 
@@ -325,7 +325,7 @@ Text(
 )
 ```
 
-- [ ] **Step 5: Run station-list targeted tests**
+- [x] **Step 5: Run station-list targeted tests**
 
 Run:
 
@@ -335,7 +335,7 @@ Run:
 
 Expected: PASS. If the existing row alignment test is affected by the icon width, keep the price delta on the right by preserving `Modifier.weight(1f)` on the left metadata row.
 
-- [ ] **Step 6: Commit station-list icon rendering**
+- [x] **Step 6: Commit station-list icon rendering**
 
 Run:
 
