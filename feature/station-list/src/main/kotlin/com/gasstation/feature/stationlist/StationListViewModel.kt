@@ -96,20 +96,23 @@ class StationListViewModel @Inject constructor(
                     pendingBlockingFailure.value = null
                     sessionState.update { it.copy(blockingFailure = null) }
                 }
+                if (previousQuery.shouldRefreshForCriteriaChange(query) && query != null) {
+                    refreshActiveQuery(query)
+                }
             }
             .flatMapLatest { query ->
-            if (query == null) {
-                flowOf(
-                    StationSearchResult(
-                        stations = emptyList(),
-                        freshness = StationFreshness.Stale,
-                        fetchedAt = null,
-                    ),
-                )
-            } else {
-                observeNearbyStations(query)
-            }
-        }.onEach { searchResult.value = it }
+                if (query == null) {
+                    flowOf(
+                        StationSearchResult(
+                            stations = emptyList(),
+                            freshness = StationFreshness.Stale,
+                            fetchedAt = null,
+                        ),
+                    )
+                } else {
+                    observeNearbyStations(query)
+                }
+            }.onEach { searchResult.value = it }
             .onEach { result ->
                 val hasCachedSnapshot = result.hasCachedSnapshot
                 activeQueryState.update { current ->
@@ -371,6 +374,36 @@ class StationListViewModel @Inject constructor(
         mutableEffects.emit(StationListEffect.ShowSnackbar(message))
     }
 
+    private fun refreshActiveQuery(query: StationQuery) {
+        viewModelScope.launch {
+            sessionState.update {
+                it.copy(
+                    isLoading = true,
+                    isRefreshing = true,
+                )
+            }
+
+            try {
+                refreshNearbyStations(query)
+                if (activeQueryState.value.query == query) {
+                    pendingBlockingFailure.value = null
+                    sessionState.update { current -> current.copy(blockingFailure = null) }
+                }
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
+            } catch (throwable: Throwable) {
+                handleRefreshFailure(query, (throwable as? StationRefreshException)?.reason)
+            } finally {
+                sessionState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                    )
+                }
+            }
+        }
+    }
+
     private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
         if (hasCachedSnapshot) {
             pendingBlockingFailure.value = null
@@ -478,3 +511,12 @@ private enum class CachedSnapshotState {
     Present,
     Absent,
 }
+
+private fun StationQuery?.shouldRefreshForCriteriaChange(next: StationQuery?): Boolean =
+    this != null &&
+        next != null &&
+        coordinates == next.coordinates &&
+        (radius != next.radius ||
+            fuelType != next.fuelType ||
+            brandFilter != next.brandFilter ||
+            sortOrder != next.sortOrder)

@@ -94,6 +94,84 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `changing any station search criterion with a current location refreshes the new query`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(stationEntry()),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+            val coordinates = Coordinates(37.498095, 127.027610)
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = settingsFixture,
+                locationRepository = FakeLocationRepository(
+                    result = LocationLookupResult.Success(coordinates),
+                ),
+            )
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            settingsFixture.updatePreferences { current ->
+                current.copy(searchRadius = SearchRadius.KM_5)
+            }
+            advanceUntilIdle()
+            settingsFixture.updatePreferences { current ->
+                current.copy(fuelType = FuelType.DIESEL)
+            }
+            advanceUntilIdle()
+            settingsFixture.updatePreferences { current ->
+                current.copy(brandFilter = BrandFilter.GSC)
+            }
+            advanceUntilIdle()
+            settingsFixture.updatePreferences { current ->
+                current.copy(sortOrder = SortOrder.PRICE)
+            }
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    UserPreferences.default(),
+                    UserPreferences.default().copy(searchRadius = SearchRadius.KM_5),
+                    UserPreferences.default().copy(
+                        searchRadius = SearchRadius.KM_5,
+                        fuelType = FuelType.DIESEL,
+                    ),
+                    UserPreferences.default().copy(
+                        searchRadius = SearchRadius.KM_5,
+                        fuelType = FuelType.DIESEL,
+                        brandFilter = BrandFilter.GSC,
+                    ),
+                    UserPreferences.default().copy(
+                        searchRadius = SearchRadius.KM_5,
+                        fuelType = FuelType.DIESEL,
+                        brandFilter = BrandFilter.GSC,
+                        sortOrder = SortOrder.PRICE,
+                    ),
+                ),
+                repository.refreshedQueries.map { query ->
+                    UserPreferences.default().copy(
+                        searchRadius = query.radius,
+                        fuelType = query.fuelType,
+                        brandFilter = query.brandFilter,
+                        sortOrder = query.sortOrder,
+                    )
+                },
+            )
+            assertTrue(repository.refreshedQueries.all { query -> query.coordinates == coordinates })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun `refresh success exposes current address label when address lookup succeeds`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         try {

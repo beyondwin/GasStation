@@ -15,6 +15,10 @@ internal class SettingsUseCaseTestFixture(
         state.value = transform(state.value)
     }
 
+    fun updatePreferences(transform: (UserPreferences) -> UserPreferences) {
+        state.value = transform(state.value)
+    }
+
     val currentPreferences: UserPreferences
         get() = state.value
 }
