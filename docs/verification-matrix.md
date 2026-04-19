@@ -14,6 +14,9 @@
 
 ```bash
 ./gradlew \
+  :domain:location:test \
+  :domain:settings:test \
+  :domain:station:test \
   :app:assembleDemoDebug \
   :app:testDemoDebugUnitTest \
   :benchmark:assemble
@@ -39,6 +42,7 @@
 
 ```bash
 ./gradlew \
+  :domain:location:test \
   :core:model:test \
   :domain:station:test \
   :domain:settings:test \
