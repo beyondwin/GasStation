@@ -3,9 +3,11 @@ package com.gasstation.feature.watchlist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import com.gasstation.domain.station.model.Brand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -19,6 +21,37 @@ class WatchlistScreenTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `watchlist card renders brand icon beside brand label`() {
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = listOf(
+                        WatchlistItemUiModel(
+                            id = "station-1",
+                            name = "테스트 주유소",
+                            brand = Brand.GSC,
+                            brandLabel = "GS칼텍스",
+                            priceLabel = "1,689원",
+                            priceNumberLabel = "1,689",
+                            priceUnitLabel = "원",
+                            distanceLabel = "0.3km",
+                            distanceNumberLabel = "0.3",
+                            distanceUnitLabel = "km",
+                            priceDeltaLabel = "-",
+                            lastSeenLabel = "4월 18일 12:00",
+                            latitude = 37.498095,
+                            longitude = 127.02761,
+                        ),
+                    ),
+                ),
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
+        composeRule.onNodeWithText("GS칼텍스").assertExists()
+    }
+
+    @Test
     fun `watchlist cards expose stable semantics hook`() {
         composeRule.setContent {
             WatchlistScreen(
@@ -27,6 +60,7 @@ class WatchlistScreenTest {
                         WatchlistItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1689원",
                             priceNumberLabel = "1689",
@@ -132,6 +166,7 @@ class WatchlistScreenTest {
                         WatchlistItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "2,022원",
                             priceNumberLabel = "2,022",
@@ -170,6 +205,7 @@ class WatchlistScreenTest {
     ) = WatchlistItemUiModel(
         id = id,
         name = name,
+        brand = Brand.GSC,
         brandLabel = "GS칼텍스",
         priceLabel = "${priceNumberLabel}원",
         priceNumberLabel = priceNumberLabel,
