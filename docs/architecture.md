@@ -10,6 +10,7 @@
 | 스냅샷 | 특정 캐시 버킷에 대해 마지막으로 저장한 주유소 목록 |
 | 스냅샷 마커 | `station_cache_snapshot` 한 행. 빈 결과도 "성공한 조회"로 구분하기 위해 따로 유지 |
 | stale | 저장된 결과는 있지만 `StationCachePolicy` 기준 5분을 넘긴 상태 |
+| 주소 라벨 | 현재 좌표를 지오코더로 변환한 표시용 주소. 목록에서는 `서울특별시 강남구 역삼동`처럼 행정동까지만 보여줌 |
 
 ## 모듈 그래프
 
@@ -83,7 +84,7 @@ flowchart LR
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
 | `core:designsystem` | `GasStationTheme`, 카드/배너/탑바 등 공유 UI primitive |
-| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
+| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer. 선호값 타입이 `domain:station`의 유종/브랜드/정렬/지도 enum을 포함하므로 해당 도메인 모델을 그대로 직렬화 |
@@ -101,9 +102,10 @@ flowchart LR
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
 2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다.
 3. ViewModel은 `ObserveLocationAvailabilityUseCase`와 `ObserveUserPreferencesUseCase`를 구독해 세션 상태와 `UserPreferences`를 관찰하고, 새로고침 시점에만 `GetCurrentLocationUseCase`를 호출합니다.
-4. ViewModel은 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
-5. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
-6. UI는 `StationListUiState`를 통해 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다.
+4. 위치 조회가 성공하면 `GetCurrentAddressUseCase`로 주소 라벨도 조회합니다. `core:location`은 행정동 단위 주소를 우선 만들고, 화면은 지오코더가 섞어 보낸 국가 코드나 건물 동 표기를 다시 방어합니다.
+5. ViewModel은 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
+6. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
+7. UI는 `StationListUiState`를 통해 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 카드의 브랜드 영역은 유종 chip과 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
 
 ### 2. 새로고침과 실패 처리
 
@@ -150,5 +152,6 @@ flowchart LR
   브랜드 필터와 정렬은 읽기 모델에서 적용해 캐시 재사용률을 높입니다.
 - 위치 좌표는 앱 안에서 WGS84 -> KATEC으로 변환한 뒤 Opinet에 넘깁니다.
   별도 좌표 변환 API를 호출하지 않습니다.
+- 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
 - `UserPreferences`는 Proto가 아니라 커스텀 key-value serializer를 쓰는 DataStore로 저장합니다.
 - `StationEvent` 계약은 `SearchRefreshed`, `WatchToggled`, `CompareViewed`, `ExternalMapOpened`를 정의하지만, 현재 앱에서 실제 로그를 남기는 경로는 watch toggle뿐입니다.

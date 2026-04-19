@@ -15,7 +15,7 @@
 | 모듈 | 소유 범위 | 직접 의존 | 이 모듈에 두지 말 것 |
 | --- | --- | --- | --- |
 | `app` | Hilt 조립, startup hook, navigation, flavor 연결 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
-| `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
+| `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, 주소 라벨 보정, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `domain:settings`, `domain:station`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
@@ -25,7 +25,7 @@
 | `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현 |
 | `core:model` | 값 객체와 불변식 | 없음 | 앱 정책 |
 | `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바 | Compose/Material3 | feature 전용 비즈니스 문구 |
-| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 화면 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
+| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
 | `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model`, `domain:station` | 캐시/Room 조합 |
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
 | `core:datastore` | DataStore data source, serializer | `domain:settings`, `domain:station` | 화면 상태, 설정 정책 |
@@ -44,6 +44,8 @@
   `domain/location/*` -> `core/location/*` -> 필요 시 `feature/station-list/*`
 - 위치 결과를 목록 검색에 연결:
   `feature/station-list/*`에서 `domain:location` 결과로 `StationQuery`를 만들고, `data:station`에는 위치 provider나 `core:location` 타입을 넣지 않음
+- 현재 주소 표시 변경:
+  지오코더 결과를 행정동 단위로 정규화하는 규칙은 `core/location/*`, 목록 상단에 어떻게 보일지는 `feature/station-list/*`
 - 캐시/stale 정책 변경:
   `data/station/StationCachePolicy.kt`와 `core/database/*`
 - watchlist 비교 규칙 변경:

@@ -330,6 +330,7 @@ private fun QueryContextSummary(
     val addressLabel = uiState.currentAddressLabel
         ?.trim()
         ?.takeIf(String::isNotEmpty)
+        ?.toDongLevelAddressLabel()
     val conditionLabel = "${uiState.selectedRadius.toLabel()} · ${uiState.selectedFuelType.toLabel()} 기준"
 
     Column(
@@ -433,13 +434,6 @@ private fun StationCard(
                         GasStationBrandIcon(
                             brand = station.brand,
                             contentDescription = "${station.brandLabel} 브랜드",
-                        )
-                        Text(
-                            text = station.brandLabel,
-                            style = typography.meta,
-                            color = ColorGray2,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     PriceDeltaIndicator(
@@ -902,6 +896,79 @@ private fun StationListUiState.toBodyState(): StationListBodyState = when {
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
     else -> StationListBodyState.Results
 }
+
+private fun String.toDongLevelAddressLabel(): String {
+    return toAddressTokens().toAdministrativeDongLabel() ?: this
+}
+
+private fun String.isAdministrativeDongPart(): Boolean {
+    val normalized = trim('(', ')', '[', ']', ',', '.')
+    return normalized.endsWith("동") && normalized.dropLast(1).any { it in '가'..'힣' }
+}
+
+private fun String.toAddressTokens(): List<String> =
+    split(Regex("\\s+"))
+        .asSequence()
+        .map { it.trim('(', ')', '[', ']', ',', '.') }
+        .filter(String::isNotBlank)
+        .filterNot { it == "대한민국" || it.equals("KR", ignoreCase = true) }
+        .toList()
+        .joinSplitAdministrativeTokens()
+
+private fun List<String>.joinSplitAdministrativeTokens(): List<String> {
+    val result = mutableListOf<String>()
+    var index = 0
+    while (index < size) {
+        val current = this[index]
+        val next = getOrNull(index + 1)
+        if (next in setOf("특별시", "광역시", "특별자치시", "특별자치도")) {
+            result += current + next
+            index += 2
+        } else {
+            result += current
+            index += 1
+        }
+    }
+    return result
+}
+
+private fun List<String>.toAdministrativeDongLabel(): String? {
+    val dongIndex = indexOfLast(String::isAdministrativeDongPart)
+    if (dongIndex < 0) return null
+
+    val districtIndex = findLastAdminIndexBefore(dongIndex, suffixes = listOf("구", "군"))
+    val regionIndex = if (districtIndex >= 0) {
+        findLastAdminIndexBefore(districtIndex, suffixes = listOf("시", "도"))
+            .takeIf { it >= 0 } ?: findFallbackRegionIndexBefore(districtIndex)
+    } else {
+        findLastAdminIndexBefore(dongIndex, suffixes = listOf("시", "도"))
+    }
+
+    return listOf(regionIndex, districtIndex, dongIndex)
+        .filter { it >= 0 }
+        .distinct()
+        .map(::get)
+        .joinToString(separator = " ")
+        .takeIf(String::isNotBlank)
+}
+
+private fun List<String>.findLastAdminIndexBefore(
+    endExclusive: Int,
+    suffixes: List<String>,
+): Int = asSequence()
+    .take(endExclusive)
+    .withIndex()
+    .filter { (_, token) -> suffixes.any(token::endsWith) && token.dropLast(1).any { it in '가'..'힣' } }
+    .lastOrNull()
+    ?.index ?: -1
+
+private fun List<String>.findFallbackRegionIndexBefore(endExclusive: Int): Int =
+    asSequence()
+        .take(endExclusive)
+        .withIndex()
+        .filter { (_, token) -> token in setOf("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종") }
+        .lastOrNull()
+        ?.index ?: -1
 
 private fun subtleContentTransform(): ContentTransform = fadeIn(
     animationSpec = tween(durationMillis = 180),
