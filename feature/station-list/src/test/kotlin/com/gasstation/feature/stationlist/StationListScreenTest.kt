@@ -24,6 +24,55 @@ class StationListScreenTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `query context shows current address and condition without old card copy`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    currentAddressLabel = "서울 영등포구 당산동 194-32",
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
+        composeRule.onNodeWithText("서울 영등포구 당산동 194-32").assertExists()
+        composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
+        composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
+        composeRule.onNodeWithText("반경과 유종 기준으로 정렬합니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `query context shows condition when current address is unavailable`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    currentAddressLabel = null,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
+        composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
+        composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
+        composeRule.onNodeWithText("반경과 유종 기준으로 정렬합니다.").assertDoesNotExist()
+    }
+
+    @Test
     fun `station card surfaces price above station name on the reference screen`() {
         composeRule.setContent {
             StationListScreen(
@@ -293,7 +342,7 @@ class StationListScreenTest {
 
         composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("가격 갱신 중").assertExists()
-        composeRule.onNodeWithText("현재 조건 기준 최신 가격을 확인하고 있습니다.").assertExists()
+        composeRule.onNodeWithText("조회 기준으로 최신 가격을 확인하고 있습니다.").assertExists()
         composeRule.onNodeWithText("새로고침 중입니다.").assertDoesNotExist()
         composeRule.onNodeWithText("주변 주유소를 불러오는 중입니다.").assertDoesNotExist()
     }
