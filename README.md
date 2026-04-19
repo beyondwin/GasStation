@@ -7,10 +7,9 @@
 `prod` 기준 주요 화면입니다.
 
 <p align="center">
-  <img width="24%" alt="주유주유소 prod flow" src="docs/readme-assets/prod-flow.gif">
-  <img width="24%" alt="주유주유소 prod station list" src="docs/readme-assets/prod-station-list.png">
-  <img width="24%" alt="주유주유소 prod watchlist" src="docs/readme-assets/prod-watchlist.png">
-  <img width="24%" alt="주유주유소 prod settings" src="docs/readme-assets/prod-settings.png">
+  <img width="31%" alt="주유주유소 화면 11" src="docs/readme-assets/11.png">
+  <img width="31%" alt="주유주유소 화면 22" src="docs/readme-assets/22.png">
+  <img width="31%" alt="주유주유소 화면 33" src="docs/readme-assets/33.png">
 </p>
 
 ## 빠른 요약
