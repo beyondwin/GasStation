@@ -39,6 +39,12 @@ object LocationModule {
 
     @Provides
     @Singleton
+    internal fun provideAddressResolver(
+        resolver: AndroidAddressResolver,
+    ): AddressResolver = resolver
+
+    @Provides
+    @Singleton
     internal fun provideLocationRepository(
         repository: DefaultLocationRepository,
     ): LocationRepository = repository

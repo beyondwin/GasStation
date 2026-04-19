@@ -2,6 +2,8 @@ package com.gasstation.core.location
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
 import com.gasstation.domain.location.LocationRepository as DomainLocationRepository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.flowOf
 internal class DefaultLocationRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val foregroundLocationProvider: ForegroundLocationProvider,
+    private val addressResolver: AddressResolver,
     private val demoLocationOverride: Optional<DemoLocationOverride>,
 ) : DomainLocationRepository {
     override fun observeAvailability(): Flow<Boolean> = if (demoLocationOverride.isPresent) {
@@ -33,6 +36,10 @@ internal class DefaultLocationRepository @Inject constructor(
             LocationLookupResult.TimedOut -> DomainLocationLookupResult.TimedOut
             is LocationLookupResult.Error -> DomainLocationLookupResult.Error(result.throwable)
         }
+
+    override suspend fun getCurrentAddress(
+        coordinates: Coordinates,
+    ): DomainLocationAddressLookupResult = addressResolver.addressFor(coordinates)
 }
 
 private fun DomainLocationPermissionState.toCorePermissionState(): LocationPermissionState = when (this) {
