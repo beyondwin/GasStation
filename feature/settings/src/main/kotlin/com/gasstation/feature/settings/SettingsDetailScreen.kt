@@ -38,6 +38,7 @@ import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
 import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationTopBar
@@ -119,6 +120,13 @@ private fun SettingsDetailOptionRow(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        option.brandIconBrand?.let { brand ->
+            GasStationBrandIcon(
+                brand = brand,
+                contentDescription = "${option.label} 브랜드",
+                modifier = Modifier.padding(end = spacing.space12),
+            )
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(spacing.space4),

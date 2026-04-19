@@ -6,10 +6,13 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import com.gasstation.domain.settings.model.UserPreferences
+import com.gasstation.domain.station.model.Brand
+import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.SearchRadius
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -263,5 +266,37 @@ class SettingsScreenTest {
             "Expected selected check icon to stay above the descriptive subtitle.",
             checkBounds.top < subtitleBounds.top,
         )
+    }
+
+    @Test
+    fun `brand filter detail renders icons for concrete brands only`() {
+        composeRule.setContent {
+            SettingsDetailScreen(
+                section = SettingsSection.BrandFilter,
+                options = listOf(
+                    SettingOptionUiModel(
+                        label = "전체",
+                        subtitle = "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다.",
+                        meta = "현재 선택",
+                        action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
+                        isSelected = true,
+                        brandIconBrand = null,
+                    ),
+                    SettingOptionUiModel(
+                        label = "GS칼텍스",
+                        subtitle = "GS칼텍스 주유소만 골라 비교합니다.",
+                        meta = null,
+                        action = SettingsAction.BrandFilterSelected(BrandFilter.GSC),
+                        isSelected = false,
+                        brandIconBrand = Brand.GSC,
+                    ),
+                ),
+                onBackClick = {},
+                onOptionClick = {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
+        composeRule.onNodeWithContentDescription("전체 브랜드").assertDoesNotExist()
     }
 }
