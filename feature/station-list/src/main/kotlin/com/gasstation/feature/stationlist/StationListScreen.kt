@@ -78,6 +78,7 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
 import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
@@ -448,10 +449,16 @@ private fun StationCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         FuelChip(text = fuelTypeLabel)
+                        GasStationBrandIcon(
+                            brand = station.brand,
+                            contentDescription = "${station.brandLabel} 브랜드",
+                        )
                         Text(
                             text = station.brandLabel,
                             style = typography.meta,
                             color = ColorGray2,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     PriceDeltaIndicator(

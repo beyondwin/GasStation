@@ -10,6 +10,7 @@ import androidx.compose.ui.test.swipeDown
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.FuelType
 import org.junit.Rule
 import org.junit.Test
@@ -177,6 +178,44 @@ class StationListScreenTest {
             priceComparisonBounds.top,
             1f,
         )
+    }
+
+    @Test
+    fun `station card renders brand icon beside brand label`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(
+                        StationListItemUiModel(
+                            id = "station-1",
+                            name = "테스트 주유소",
+                            brand = Brand.GSC,
+                            brandLabel = "GS칼텍스",
+                            priceLabel = "1,689원",
+                            distanceLabel = "0.3km",
+                            priceNumberLabel = "1,689",
+                            priceUnitLabel = "원",
+                            distanceNumberLabel = "0.3",
+                            distanceUnitLabel = "km",
+                            priceDeltaLabel = "-",
+                            isWatched = false,
+                            latitude = 37.498095,
+                            longitude = 127.02761,
+                        ),
+                    ),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
+        composeRule.onNodeWithText("GS칼텍스").assertExists()
     }
 
     @Test
