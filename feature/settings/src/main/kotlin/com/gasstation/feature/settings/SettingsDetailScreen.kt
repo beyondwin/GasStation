@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
@@ -87,6 +88,7 @@ fun SettingsDetailScreen(
                         )
                         options.forEachIndexed { index, option ->
                             SettingsDetailOptionRow(
+                                section = section,
                                 option = option,
                                 onClick = { onOptionClick(option) },
                             )
@@ -103,6 +105,7 @@ fun SettingsDetailScreen(
 
 @Composable
 private fun SettingsDetailOptionRow(
+    section: SettingsSection,
     option: SettingOptionUiModel,
     onClick: () -> Unit,
 ) {
@@ -120,12 +123,9 @@ private fun SettingsDetailOptionRow(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        option.brandIconBrand?.let { brand ->
-            GasStationBrandIcon(
-                brand = brand,
-                contentDescription = "${option.label} 브랜드",
-                modifier = Modifier.padding(end = spacing.space12),
-            )
+        if (section == SettingsSection.BrandFilter) {
+            SettingsDetailBrandLeadingSlot(option = option)
+            Spacer(modifier = Modifier.width(spacing.space12))
         }
         Column(
             modifier = Modifier.weight(1f),
@@ -148,6 +148,57 @@ private fun SettingsDetailOptionRow(
             Spacer(modifier = Modifier.width(16.dp))
             SelectedCheckIcon()
         }
+    }
+}
+
+@Composable
+private fun SettingsDetailBrandLeadingSlot(option: SettingOptionUiModel) {
+    val brand = option.brandIconBrand
+    if (brand != null) {
+        GasStationBrandIcon(
+            brand = brand,
+            contentDescription = "${option.label} 브랜드",
+        )
+    } else {
+        AllBrandFilterIcon()
+    }
+}
+
+@Composable
+private fun AllBrandFilterIcon() {
+    Canvas(modifier = Modifier.size(30.dp)) {
+        val strokeWidth = size.minDimension * 0.085f
+        val funnel = Path().apply {
+            moveTo(size.width * 0.22f, size.height * 0.24f)
+            lineTo(size.width * 0.78f, size.height * 0.24f)
+            lineTo(size.width * 0.58f, size.height * 0.50f)
+            lineTo(size.width * 0.58f, size.height * 0.68f)
+            lineTo(size.width * 0.42f, size.height * 0.78f)
+            lineTo(size.width * 0.42f, size.height * 0.50f)
+            close()
+        }
+        drawPath(
+            path = funnel,
+            color = ColorBlack,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+            ),
+        )
+        drawLine(
+            color = ColorYellow,
+            start = center.copy(x = size.width * 0.20f, y = size.height * 0.80f),
+            end = center.copy(x = size.width * 0.80f, y = size.height * 0.20f),
+            strokeWidth = strokeWidth * 1.08f,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = ColorBlack,
+            start = center.copy(x = size.width * 0.20f, y = size.height * 0.80f),
+            end = center.copy(x = size.width * 0.80f, y = size.height * 0.20f),
+            strokeWidth = strokeWidth * 0.46f,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
