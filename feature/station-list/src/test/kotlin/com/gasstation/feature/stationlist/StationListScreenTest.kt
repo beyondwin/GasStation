@@ -24,7 +24,7 @@ class StationListScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `query context shows current address and condition without old card copy`() {
+    fun `query context shows current address only through dong and condition without old card copy`() {
         composeRule.setContent {
             StationListScreen(
                 uiState = StationListUiState(
@@ -42,10 +42,35 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
-        composeRule.onNodeWithText("서울 영등포구 당산동 194-32").assertExists()
+        composeRule.onNodeWithText("서울 영등포구 당산동").assertExists()
+        composeRule.onNodeWithText("서울 영등포구 당산동 194-32").assertDoesNotExist()
         composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
         composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
         composeRule.onNodeWithText("반경과 유종 기준으로 정렬합니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `query context does not treat building dong as administrative dong`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    currentAddressLabel = "대한민국 서울 특별시 강남구 지하 번지 동 상가 27호 KR 서울특별시 강남구 역삼동",
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("서울특별시 강남구 역삼동").assertExists()
+        composeRule.onNodeWithText(
+            "대한민국 서울 특별시 강남구 지하 번지 동 상가 27호 KR 서울특별시 강남구 역삼동",
+        ).assertDoesNotExist()
     }
 
     @Test
@@ -173,7 +198,7 @@ class StationListScreenTest {
     }
 
     @Test
-    fun `station card places price comparison to the right of fuel and brand row`() {
+    fun `station card places price comparison to the right of fuel and brand icon row`() {
         composeRule.setContent {
             StationListScreen(
                 uiState = StationListUiState(
@@ -207,33 +232,23 @@ class StationListScreenTest {
             )
         }
 
-        val brandRight = composeRule
-            .onNodeWithText("GS칼텍스", useUnmergedTree = true)
+        val brandIconRight = composeRule
+            .onNodeWithContentDescription("GS칼텍스 브랜드", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot.right
-        val brandTop = composeRule
-            .onNodeWithText("GS칼텍스", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot.top
         val priceComparisonBounds = composeRule
             .onNodeWithTag(STATION_LIST_PRICE_CHANGE_TAG, useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
 
         assertTrue(
-            "Expected price comparison text to appear to the right of brand row.",
-            priceComparisonBounds.left > brandRight,
-        )
-        assertEquals(
-            "Expected price comparison text to share the same row as fuel and brand.",
-            brandTop,
-            priceComparisonBounds.top,
-            1f,
+            "Expected price comparison text to appear to the right of brand icon row.",
+            priceComparisonBounds.left > brandIconRight,
         )
     }
 
     @Test
-    fun `station card renders brand icon beside brand label`() {
+    fun `station card renders brand icon without visible brand label`() {
         composeRule.setContent {
             StationListScreen(
                 uiState = StationListUiState(
@@ -267,7 +282,7 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
-        composeRule.onNodeWithText("GS칼텍스").assertExists()
+        composeRule.onNodeWithText("GS칼텍스").assertDoesNotExist()
     }
 
     @Test

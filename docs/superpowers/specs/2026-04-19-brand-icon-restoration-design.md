@@ -91,21 +91,20 @@ The station list card should add the brand icon to the existing fuel and brand m
 Current row:
 
 - Fuel chip
-- Brand text
+- Brand text, before the compact station-list follow-up
 - Price delta
 
-New row:
+Current row after the compact station-list follow-up:
 
 - Fuel chip
 - Brand icon
-- Brand text
 - Price delta
 
-The icon should be compact, around 28-32dp, so the restored visual identity does not compete with the price and distance metrics. The brand text stays as a secondary label for readability and accessibility.
+The icon should be compact, around 28-32dp, so the restored visual identity does not compete with the price and distance metrics. The station list now keeps the accessible brand description on the icon and removes the visible brand text to preserve horizontal room for the price delta.
 
 ## Watchlist
 
-The watchlist card should use the same brand presentation as the station list.
+The watchlist card keeps the explicit brand label because the comparison view has more room and benefits from a readable saved-station label.
 
 Current area:
 
@@ -117,7 +116,7 @@ New area:
 - Station name
 - Brand icon plus brand text
 
-This keeps both station-card surfaces visually consistent.
+This keeps the shared brand icon language while letting the denser station list use icon-only brand metadata.
 
 ## Settings Brand Filter
 
@@ -147,14 +146,14 @@ Every rendered icon must have either:
 - A meaningful content description when the icon is independently discoverable by tests or accessibility services, or
 - `null` content description when adjacent text already provides the same name in the same merged row.
 
-For this implementation, use meaningful descriptions on the icon component and keep the adjacent text. Tests can assert the descriptions without relying on image internals.
+For this implementation, use meaningful descriptions on the icon component. Station list cards rely on that description because the visible brand text is intentionally removed; watchlist and settings rows may keep adjacent text where the layout needs explicit labels.
 
 ## Testing
 
 Add focused coverage:
 
 - Brand icon resource mapping covers every `Brand`.
-- Station list card renders the brand icon for a concrete brand and preserves the existing price-above-title hierarchy.
+- Station list card renders the brand icon for a concrete brand, omits visible brand text, and preserves the existing price-above-title hierarchy.
 - Watchlist card renders the brand icon for a concrete brand.
 - Brand filter detail screen renders icons for concrete brands and leaves `전체` without a brand icon.
 
@@ -176,7 +175,7 @@ The restored PNGs come from an older UI. If any icon looks soft at the new compa
 
 ### Layout crowding in the station list metadata row
 
-The row already contains a fuel chip, brand text, and price delta. Use a compact icon and preserve text overflow behavior so the price delta remains visible on narrow screens.
+The row contains a fuel chip, brand icon, and price delta. Keeping the visible brand text out of the station list prevents narrow screens from crowding the price delta.
 
 ### Design-system dependency on `domain:station`
 
