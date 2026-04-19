@@ -653,7 +653,7 @@ git commit -m "feat: show brand icons in settings"
 - No new files.
 - Verify all changed modules together.
 
-- [ ] **Step 1: Run all affected unit test tasks**
+- [x] **Step 1: Run all affected unit test tasks**
 
 Run:
 
@@ -663,7 +663,7 @@ Run:
 
 Expected: PASS for all four Gradle tasks.
 
-- [ ] **Step 2: Check final diff**
+- [x] **Step 2: Check final diff**
 
 Run:
 
@@ -674,7 +674,7 @@ git diff --stat HEAD
 
 Expected: `git status --short` is empty if every task was committed. `git diff --stat HEAD` prints no file changes.
 
-- [ ] **Step 3: Capture implementation summary**
+- [x] **Step 3: Capture implementation summary**
 
 Run:
 
