@@ -82,6 +82,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -130,6 +131,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -180,6 +182,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -278,6 +281,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -317,6 +321,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -359,6 +364,7 @@ class StationListScreenTest {
                         StationListItemUiModel(
                             id = "station-1",
                             name = "테스트 주유소",
+                            brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
                             priceLabel = "1,689원",
                             distanceLabel = "0.3km",
@@ -644,6 +650,7 @@ class StationListScreenTest {
     private fun testStation() = StationListItemUiModel(
         id = "station-1",
         name = "테스트 주유소",
+        brand = Brand.GSC,
         brandLabel = "GS칼텍스",
         priceLabel = "1,689원",
         distanceLabel = "0.3km",
