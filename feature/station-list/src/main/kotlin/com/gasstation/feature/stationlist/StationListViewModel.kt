@@ -3,7 +3,9 @@ package com.gasstation.feature.stationlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.GetCurrentAddressUseCase
 import com.gasstation.domain.location.GetCurrentLocationUseCase
+import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
@@ -50,6 +52,7 @@ class StationListViewModel @Inject constructor(
     private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
     private val observeLocationAvailability: ObserveLocationAvailabilityUseCase,
     private val getCurrentLocation: GetCurrentLocationUseCase,
+    private val getCurrentAddress: GetCurrentAddressUseCase,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
@@ -125,6 +128,7 @@ class StationListViewModel @Inject constructor(
         combine(preferences, sessionState, searchResult) { prefs, session, result ->
             StationListUiState(
                 currentCoordinates = session.currentCoordinates,
+                currentAddressLabel = session.currentAddressLabel,
                 permissionState = session.permissionState,
                 hasDeniedLocationAccess = session.hasDeniedLocationAccess,
                 needsRecoveryRefresh = session.needsRecoveryRefresh,
@@ -222,14 +226,21 @@ class StationListViewModel @Inject constructor(
                     showPermissionDeniedFeedback = showPermissionDeniedFeedback,
                 ) ?: return@launch
 
+                val previousCoordinates = sessionState.value.currentCoordinates
                 sessionState.update {
                     it.copy(
                         currentCoordinates = coordinates,
+                        currentAddressLabel = if (previousCoordinates == coordinates) {
+                            it.currentAddressLabel
+                        } else {
+                            null
+                        },
                         hasDeniedLocationAccess = session.permissionState == LocationPermissionState.Denied,
                         needsRecoveryRefresh = false,
                         blockingFailure = null,
                     )
                 }
+                refreshAddressLabel(coordinates)
 
                 val query = buildQuery(preferences.value, coordinates)
                 activeQueryState.update { current ->
@@ -256,6 +267,24 @@ class StationListViewModel @Inject constructor(
                         isLoading = false,
                         isRefreshing = false,
                     )
+                }
+            }
+        }
+    }
+
+    private fun refreshAddressLabel(coordinates: Coordinates) {
+        viewModelScope.launch {
+            val addressLabel = when (val result = getCurrentAddress(coordinates)) {
+                is LocationAddressLookupResult.Success -> result.addressLabel
+                LocationAddressLookupResult.Unavailable,
+                is LocationAddressLookupResult.Error -> null
+            }
+
+            sessionState.update { current ->
+                if (current.currentCoordinates == coordinates) {
+                    current.copy(currentAddressLabel = addressLabel)
+                } else {
+                    current
                 }
             }
         }
@@ -402,6 +431,7 @@ private data class StationListSessionState(
     val isGpsEnabled: Boolean = true,
     val isAvailabilityKnown: Boolean = false,
     val currentCoordinates: Coordinates? = null,
+    val currentAddressLabel: String? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,

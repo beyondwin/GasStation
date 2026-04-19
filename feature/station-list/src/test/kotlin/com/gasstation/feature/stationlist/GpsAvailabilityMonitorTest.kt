@@ -5,7 +5,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.GetCurrentAddressUseCase
 import com.gasstation.domain.location.GetCurrentLocationUseCase
+import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.LocationRepository
@@ -367,6 +369,10 @@ private fun stationListViewModelForRouteTest(
         override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
             return resultForPermission(permissionState)
         }
+
+        override suspend fun getCurrentAddress(
+            coordinates: Coordinates,
+        ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
     }
 
     return RouteTestFixture(
@@ -378,6 +384,7 @@ private fun stationListViewModelForRouteTest(
             updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
             observeLocationAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
             getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
+            getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
             stationEventLogger = object : StationEventLogger {
                 override fun log(event: com.gasstation.domain.station.model.StationEvent) = Unit
             },
