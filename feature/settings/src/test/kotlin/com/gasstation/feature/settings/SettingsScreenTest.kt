@@ -14,6 +14,7 @@ import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.BrandFilter
 import com.gasstation.domain.station.model.SearchRadius
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -298,5 +299,52 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
         composeRule.onNodeWithContentDescription("전체 브랜드").assertDoesNotExist()
+    }
+
+    @Test
+    fun `brand filter all option aligns with concrete brand rows`() {
+        composeRule.setContent {
+            SettingsDetailScreen(
+                section = SettingsSection.BrandFilter,
+                options = listOf(
+                    SettingOptionUiModel(
+                        label = "전체",
+                        subtitle = "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다.",
+                        meta = "현재 선택",
+                        action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
+                        isSelected = true,
+                        brandIconBrand = null,
+                    ),
+                    SettingOptionUiModel(
+                        label = "SK에너지",
+                        subtitle = "SK에너지 주유소만 골라 비교합니다.",
+                        meta = null,
+                        action = SettingsAction.BrandFilterSelected(BrandFilter.SKE),
+                        isSelected = false,
+                        brandIconBrand = Brand.SKE,
+                    ),
+                ),
+                onBackClick = {},
+                onOptionClick = {},
+            )
+        }
+
+        val allLabelLeft = composeRule
+            .onNodeWithText("전체", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+        val skEnergyLabelLeft = composeRule
+            .onNodeWithText("SK에너지", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+
+        assertEquals(
+            "Expected 전체 to reserve the same leading slot as concrete brand rows.",
+            skEnergyLabelLeft,
+            allLabelLeft,
+            1f,
+        )
     }
 }
