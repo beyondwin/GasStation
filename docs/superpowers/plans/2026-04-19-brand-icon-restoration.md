@@ -58,7 +58,7 @@
 - Modify: `core/designsystem/build.gradle.kts`
 - Restore: `core/designsystem/src/main/res/drawable/*.png` brand icons listed above
 
-- [ ] **Step 1: Restore old PNG resources from the pre-`6bbb36e` tree**
+- [x] **Step 1: Restore old PNG resources from the pre-`6bbb36e` tree**
 
 Run:
 
@@ -72,7 +72,7 @@ ls core/designsystem/src/main/res/drawable/ic_*.png
 
 Expected: the command lists the eight restored icon files under `core/designsystem/src/main/res/drawable`.
 
-- [ ] **Step 2: Write the failing mapping test**
+- [x] **Step 2: Write the failing mapping test**
 
 Create `core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/BrandIconTest.kt`:
 
@@ -101,7 +101,7 @@ class BrandIconTest {
 }
 ```
 
-- [ ] **Step 3: Run test to verify it fails on missing dependency or missing mapping**
+- [x] **Step 3: Run test to verify it fails on missing dependency or missing mapping**
 
 Run:
 
@@ -111,7 +111,7 @@ Run:
 
 Expected: FAIL because `com.gasstation.domain.station.model.Brand` is not available to `core:designsystem` or `gasStationBrandIconResource()` is not defined.
 
-- [ ] **Step 4: Add the station domain dependency**
+- [x] **Step 4: Add the station domain dependency**
 
 Modify `core/designsystem/build.gradle.kts` dependencies block:
 
@@ -129,7 +129,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 5: Implement the shared brand icon mapping and renderer**
+- [x] **Step 5: Implement the shared brand icon mapping and renderer**
 
 Create `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/BrandIcon.kt`:
 
@@ -176,7 +176,7 @@ fun GasStationBrandIcon(
 }
 ```
 
-- [ ] **Step 6: Run design-system test to verify it passes**
+- [x] **Step 6: Run design-system test to verify it passes**
 
 Run:
 
@@ -186,7 +186,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit design-system icon foundation**
+- [x] **Step 7: Commit design-system icon foundation**
 
 Run:
 
