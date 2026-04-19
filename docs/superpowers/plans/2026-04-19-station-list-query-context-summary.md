@@ -55,7 +55,7 @@
 - Modify: `domain/location/src/main/kotlin/com/gasstation/domain/location/LocationRepository.kt`
 - Modify: `domain/location/src/test/kotlin/com/gasstation/domain/location/LocationUseCasesTest.kt`
 
-- [ ] **Step 1: Write the failing domain use case test**
+- [x] **Step 1: Write the failing domain use case test**
 
 Add this test inside `LocationUseCasesTest`:
 
@@ -107,7 +107,7 @@ private class FakeLocationRepository(
 }
 ```
 
-- [ ] **Step 2: Run the domain test and verify it fails**
+- [x] **Step 2: Run the domain test and verify it fails**
 
 Run:
 
@@ -117,7 +117,7 @@ Run:
 
 Expected: compilation fails because `LocationAddressLookupResult`, `GetCurrentAddressUseCase`, and `LocationRepository.getCurrentAddress` do not exist.
 
-- [ ] **Step 3: Add the domain result type**
+- [x] **Step 3: Add the domain result type**
 
 Create `domain/location/src/main/kotlin/com/gasstation/domain/location/LocationAddressLookupResult.kt`:
 
@@ -133,7 +133,7 @@ sealed interface LocationAddressLookupResult {
 }
 ```
 
-- [ ] **Step 4: Extend the repository contract**
+- [x] **Step 4: Extend the repository contract**
 
 Modify `LocationRepository.kt`:
 
@@ -156,7 +156,7 @@ interface LocationRepository {
 }
 ```
 
-- [ ] **Step 5: Add the use case**
+- [x] **Step 5: Add the use case**
 
 Create `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentAddressUseCase.kt`:
 
@@ -175,7 +175,7 @@ class GetCurrentAddressUseCase @Inject constructor(
 }
 ```
 
-- [ ] **Step 6: Run the domain test and verify it passes**
+- [x] **Step 6: Run the domain test and verify it passes**
 
 Run:
 
@@ -185,7 +185,7 @@ Run:
 
 Expected: all tests in `LocationUseCasesTest` pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add domain/location/src/main/kotlin/com/gasstation/domain/location/LocationAddressLookupResult.kt \
