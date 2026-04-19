@@ -353,7 +353,7 @@ git commit -m "feat: show brand icons in station list"
 - Modify: `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`
 - Modify: `feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist/WatchlistScreenTest.kt`
 
-- [ ] **Step 1: Write the failing watchlist UI test**
+- [x] **Step 1: Write the failing watchlist UI test**
 
 In `feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist/WatchlistScreenTest.kt`, add these imports:
 
@@ -397,7 +397,7 @@ fun `watchlist card renders brand icon beside brand label`() {
 }
 ```
 
-- [ ] **Step 2: Run watchlist screen test to verify it fails**
+- [x] **Step 2: Run watchlist screen test to verify it fails**
 
 Run:
 
@@ -407,7 +407,7 @@ Run:
 
 Expected: FAIL because `WatchlistItemUiModel` does not yet expose `brand` or the icon is not rendered.
 
-- [ ] **Step 3: Carry `Brand` through watchlist UI model**
+- [x] **Step 3: Carry `Brand` through watchlist UI model**
 
 Modify `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistItemUiModel.kt`:
 
@@ -456,7 +456,7 @@ data class WatchlistItemUiModel(
 }
 ```
 
-- [ ] **Step 4: Render the brand icon in watchlist cards**
+- [x] **Step 4: Render the brand icon in watchlist cards**
 
 In `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`, add:
 
@@ -484,7 +484,7 @@ Row(
 }
 ```
 
-- [ ] **Step 5: Run watchlist targeted tests**
+- [x] **Step 5: Run watchlist targeted tests**
 
 Run:
 
@@ -494,7 +494,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit watchlist icon rendering**
+- [x] **Step 6: Commit watchlist icon rendering**
 
 Run:
 

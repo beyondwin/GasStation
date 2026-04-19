@@ -36,6 +36,7 @@ import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
 import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationTopBar
@@ -124,11 +125,21 @@ fun WatchlistScreen(
                                             style = GasStationTheme.typography.cardTitle,
                                             color = ColorBlack,
                                         )
-                                        Text(
-                                            text = station.brandLabel,
-                                            style = GasStationTheme.typography.meta,
-                                            color = ColorGray2,
-                                        )
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            GasStationBrandIcon(
+                                                brand = station.brand,
+                                                contentDescription = "${station.brandLabel} 브랜드",
+                                            )
+                                            Text(
+                                                text = station.brandLabel,
+                                                style = GasStationTheme.typography.meta,
+                                                color = ColorGray2,
+                                                maxLines = 1,
+                                            )
+                                        }
                                     }
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),

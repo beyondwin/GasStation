@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 data class WatchlistItemUiModel(
     val id: String,
     val name: String,
+    val brand: Brand = Brand.ETC,
     val brandLabel: String,
     val priceLabel: String,
     val priceNumberLabel: String,
@@ -39,6 +40,7 @@ data class WatchlistItemUiModel(
     constructor(summary: WatchedStationSummary) : this(
         id = summary.station.id,
         name = summary.station.name,
+        brand = summary.station.brand,
         brandLabel = summary.station.brand.toLabel(),
         priceLabel = summary.station.price.value.toPriceLabel(),
         priceNumberLabel = summary.station.price.value.toGroupedDigits(),

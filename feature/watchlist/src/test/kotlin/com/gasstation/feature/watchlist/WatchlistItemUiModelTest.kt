@@ -39,6 +39,7 @@ class WatchlistItemUiModelTest {
             assertEquals("1,689원", item.priceLabel)
             assertEquals("1,689", item.priceNumberLabel)
             assertEquals("원", item.priceUnitLabel)
+            assertEquals(Brand.GSC, item.brand)
             assertEquals("0.3km", item.distanceLabel)
             assertEquals("0.3", item.distanceNumberLabel)
             assertEquals("km", item.distanceUnitLabel)
@@ -104,6 +105,7 @@ class WatchlistItemUiModelTest {
         val item = WatchlistItemUiModel(
             id = "station-1",
             name = "테스트 주유소",
+            brand = Brand.GSC,
             brandLabel = "GS칼텍스",
             priceLabel = "1689원",
             priceNumberLabel = "1689",
@@ -118,6 +120,7 @@ class WatchlistItemUiModelTest {
         )
 
         assertEquals("1689", item.priceNumberLabel)
+        assertEquals(Brand.GSC, item.brand)
         assertEquals("원", item.priceUnitLabel)
         assertEquals("0.3", item.distanceNumberLabel)
         assertEquals("km", item.distanceUnitLabel)
@@ -129,6 +132,7 @@ class WatchlistItemUiModelTest {
             WatchlistItemUiModel(
                 id = "station-1",
                 name = "테스트 주유소",
+                brand = Brand.GSC,
                 brandLabel = "GS칼텍스",
                 priceLabel = "1689원",
                 priceNumberLabel = "",
