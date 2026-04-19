@@ -208,7 +208,7 @@ git commit -m "feat: add location address lookup contract"
 - Modify: `core/location/src/main/kotlin/com/gasstation/core/location/LocationModule.kt`
 - Modify: `core/location/src/test/kotlin/com/gasstation/core/location/DefaultLocationRepositoryTest.kt`
 
-- [ ] **Step 1: Write failing repository address mapping tests**
+- [x] **Step 1: Write failing repository address mapping tests**
 
 In `DefaultLocationRepositoryTest`, add imports:
 
@@ -280,7 +280,7 @@ private class FakeAddressResolver(
 }
 ```
 
-- [ ] **Step 2: Write failing address formatter tests**
+- [x] **Step 2: Write failing address formatter tests**
 
 Create `core/location/src/test/kotlin/com/gasstation/core/location/AddressLabelFormatterTest.kt`:
 
@@ -326,7 +326,7 @@ class AddressLabelFormatterTest {
 }
 ```
 
-- [ ] **Step 3: Run core location tests and verify they fail**
+- [x] **Step 3: Run core location tests and verify they fail**
 
 Run:
 
@@ -336,7 +336,7 @@ Run:
 
 Expected: compilation fails because `AddressResolver`, `AddressLabelFormatter`, and the new `DefaultLocationRepository` constructor parameter do not exist.
 
-- [ ] **Step 4: Add the resolver interface**
+- [x] **Step 4: Add the resolver interface**
 
 Create `core/location/src/main/kotlin/com/gasstation/core/location/AddressResolver.kt`:
 
@@ -351,7 +351,7 @@ internal interface AddressResolver {
 }
 ```
 
-- [ ] **Step 5: Add the address formatter**
+- [x] **Step 5: Add the address formatter**
 
 Create `core/location/src/main/kotlin/com/gasstation/core/location/AddressLabelFormatter.kt`:
 
@@ -390,7 +390,7 @@ private fun String?.cleanAddressPart(): String? =
     this?.trim()?.takeIf(String::isNotBlank)
 ```
 
-- [ ] **Step 6: Add the Android Geocoder resolver**
+- [x] **Step 6: Add the Android Geocoder resolver**
 
 Create `core/location/src/main/kotlin/com/gasstation/core/location/AndroidAddressResolver.kt`:
 
@@ -432,7 +432,7 @@ internal class AndroidAddressResolver @Inject constructor(
 }
 ```
 
-- [ ] **Step 7: Delegate repository address lookup**
+- [x] **Step 7: Delegate repository address lookup**
 
 Modify the `DefaultLocationRepository` constructor and add `getCurrentAddress`:
 
@@ -474,7 +474,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
 ```
 
-- [ ] **Step 8: Provide the resolver from Hilt**
+- [x] **Step 8: Provide the resolver from Hilt**
 
 Add this provider to `LocationModule`:
 
@@ -486,7 +486,7 @@ internal fun provideAddressResolver(
 ): AddressResolver = resolver
 ```
 
-- [ ] **Step 9: Run core location tests and verify they pass**
+- [x] **Step 9: Run core location tests and verify they pass**
 
 Run:
 
@@ -496,7 +496,7 @@ Run:
 
 Expected: both test classes pass.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add core/location/src/main/kotlin/com/gasstation/core/location/AddressResolver.kt \
