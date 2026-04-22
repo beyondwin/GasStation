@@ -1,24 +1,26 @@
 # 프로젝트 읽기 가이드
 
-처음 보는 사람이 "어디서부터 읽어야 가장 빨리 이해되는가"를 정리한 안내서입니다. 세부 설계 설명은 다른 문서에 나눠 두고, 여기서는 질문별 진입점을 제공합니다.
+이 문서는 처음 보는 사람이 "어디서부터 읽어야 가장 빨리 이해되는가"를 찾는 라우터입니다. 운영 계약은 `AGENTS.md`, 작업 절차는 `docs/agent-workflow.md`, 모듈 위치 판단은 `docs/module-contracts.md`가 소유하고, 여기서는 질문별 진입점만 제공합니다.
 
 ## 먼저 볼 문서
 
-1. `README.md`
-2. `docs/architecture.md`
-3. `docs/module-contracts.md`
-4. `docs/agent-workflow.md`
-5. `docs/state-model.md`
-6. `docs/offline-strategy.md`
-7. `docs/test-strategy.md`
-8. `docs/verification-matrix.md`
+1. `AGENTS.md`
+2. `README.md`
+3. `docs/architecture.md`
+4. `docs/module-contracts.md`
+5. `docs/agent-workflow.md`
+6. `docs/state-model.md`
+7. `docs/offline-strategy.md`
+8. `docs/test-strategy.md`
+9. `docs/verification-matrix.md`
 
-이 순서는 "큰 그림 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
+이 순서는 "운영 계약 -> 큰 그림 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
 
 ## 질문별 가장 빠른 진입점
 
 | 질문 | 먼저 볼 파일 |
 | --- | --- |
+| 모든 작업에 적용되는 운영 원칙은 어디서 보나 | `AGENTS.md` |
 | 앱 전체 구조는 어디서 보나 | `settings.gradle.kts`, `README.md`, `docs/architecture.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |

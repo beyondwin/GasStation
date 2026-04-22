@@ -1,6 +1,6 @@
 # 모듈 계약
 
-이 문서는 "어떤 변경을 어디에 둬야 하는가"를 빠르게 판단하기 위한 경계 문서입니다. 세부 데이터 흐름은 `docs/architecture.md`, 읽기 순서는 `docs/project-reading-guide.md`를 봅니다.
+이 문서는 "어떤 변경을 어디에 둬야 하는가"와 "어떤 모듈이 무엇을 소유하면 안 되는가"를 판단하는 단일 출처입니다. `AGENTS.md`와 `docs/agent-workflow.md`는 전체 모듈 표를 반복하지 않고 이 문서를 참조합니다. 세부 데이터 흐름은 `docs/architecture.md`, 읽기 순서는 `docs/project-reading-guide.md`를 봅니다.
 
 ## 공통 규칙
 
