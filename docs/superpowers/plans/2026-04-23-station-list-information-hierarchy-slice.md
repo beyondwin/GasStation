@@ -51,7 +51,7 @@ Deferred to follow-up plans:
 **Files:**
 - Modify: `core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/ChromeContractsTest.kt`
 
-- [ ] **Step 1: Add imports for metric padding assertions**
+- [x] **Step 1: Add imports for metric padding assertions**
 
 Update the import block in `core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/ChromeContractsTest.kt` to include `dp` and `assertTrue`:
 
@@ -65,7 +65,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 ```
 
-- [ ] **Step 2: Write failing metric emphasis contract tests**
+- [x] **Step 2: Write failing metric emphasis contract tests**
 
 Add these tests inside `ChromeContractsTest` after `prominent numeric emphasis is reserved for price hero and metric value`:
 
@@ -94,7 +94,7 @@ Add these tests inside `ChromeContractsTest` after `prominent numeric emphasis i
     }
 ```
 
-- [ ] **Step 3: Run the focused design-system contract test and verify it fails**
+- [x] **Step 3: Run the focused design-system contract test and verify it fails**
 
 Run:
 
@@ -104,7 +104,7 @@ Run:
 
 Expected: `BUILD FAILED` with unresolved reference errors for `GasStationMetricEmphasis`.
 
-- [ ] **Step 4: Commit the failing-test checkpoint**
+- [x] **Step 4: Commit the failing-test checkpoint**
 
 Run:
 
@@ -123,7 +123,7 @@ Expected: Commit succeeds with only `ChromeContractsTest.kt` staged.
 - Create: `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/Metric.kt`
 - Test: `core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/ChromeContractsTest.kt`
 
-- [ ] **Step 1: Create the metric primitive implementation**
+- [x] **Step 1: Create the metric primitive implementation**
 
 Create `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/Metric.kt` with this complete content:
 
@@ -214,7 +214,7 @@ fun GasStationMetricBlock(
 }
 ```
 
-- [ ] **Step 2: Run the focused design-system contract test and verify it passes**
+- [x] **Step 2: Run the focused design-system contract test and verify it passes**
 
 Run:
 
@@ -224,7 +224,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Run the full design-system unit test suite**
+- [x] **Step 3: Run the full design-system unit test suite**
 
 Run:
 
@@ -234,7 +234,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit the shared metric primitive**
+- [x] **Step 4: Commit the shared metric primitive**
 
 Run:
 
@@ -253,7 +253,7 @@ Expected: Commit succeeds with `Metric.kt` and `ChromeContractsTest.kt` staged.
 **Files:**
 - Test: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Run the station-list card hierarchy tests before refactoring**
+- [x] **Step 1: Run the station-list card hierarchy tests before refactoring**
 
 Run:
 
@@ -263,7 +263,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 2: Confirm the existing tests cover the contracts this refactor must preserve**
+- [x] **Step 2: Confirm the existing tests cover the contracts this refactor must preserve**
 
 Run:
 
@@ -281,7 +281,7 @@ station card renders brand icon without visible brand label
 loading keeps rendered station list visible while showing top refresh rail
 ```
 
-- [ ] **Step 3: Commit is skipped for this task**
+- [x] **Step 3: Commit is skipped for this task**
 
 No files are changed in Task 3. Keep the working tree unchanged before the station-list refactor.
 
@@ -293,7 +293,7 @@ No files are changed in Task 3. Keep the working tree unchanged before the stati
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - Test: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Add shared metric imports to `StationListScreen.kt`**
+- [x] **Step 1: Add shared metric imports to `StationListScreen.kt`**
 
 Add these imports near the other `core.designsystem.component` imports:
 
@@ -302,7 +302,7 @@ import com.gasstation.core.designsystem.component.GasStationMetricBlock
 import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
 ```
 
-- [ ] **Step 2: Replace the complete `StationCard` function**
+- [x] **Step 2: Replace the complete `StationCard` function**
 
 Replace the current `private fun StationCard(...)` implementation in `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt` with this complete function:
 
@@ -397,7 +397,7 @@ private fun StationCard(
 }
 ```
 
-- [ ] **Step 3: Delete the local station-list metric enum and composable**
+- [x] **Step 3: Delete the local station-list metric enum and composable**
 
 Delete this entire block from `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`:
 
@@ -455,7 +455,7 @@ private fun MetricBlock(
 }
 ```
 
-- [ ] **Step 4: Run an import cleanup command**
+- [x] **Step 4: Run an import cleanup command**
 
 Run:
 
@@ -475,7 +475,7 @@ Keep this import because `FuelChip` still uses it:
 import com.gasstation.core.designsystem.ColorGray4
 ```
 
-- [ ] **Step 5: Verify the local metric implementation is gone and the shared primitive is used**
+- [x] **Step 5: Verify the local metric implementation is gone and the shared primitive is used**
 
 Run:
 
@@ -485,7 +485,7 @@ rg -n "private enum class MetricEmphasis|private fun MetricBlock|GasStationMetri
 
 Expected output includes `GasStationMetricBlock` and `GasStationMetricEmphasis`. Expected output does not include `private enum class MetricEmphasis` or `private fun MetricBlock`.
 
-- [ ] **Step 6: Run station-list UI tests**
+- [x] **Step 6: Run station-list UI tests**
 
 Run:
 
@@ -495,7 +495,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit the station-list migration**
+- [x] **Step 7: Commit the station-list migration**
 
 Run:
 
@@ -516,7 +516,7 @@ Expected: Commit succeeds with only `StationListScreen.kt` staged.
 - Verify: `core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/ChromeContractsTest.kt`
 - Verify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Run design-system tests**
+- [x] **Step 1: Run design-system tests**
 
 Run:
 
@@ -526,7 +526,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 2: Run station-list tests**
+- [x] **Step 2: Run station-list tests**
 
 Run:
 
@@ -536,7 +536,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Run app demo unit tests that compile the integrated graph**
+- [x] **Step 3: Run app demo unit tests that compile the integrated graph**
 
 Run:
 
@@ -546,7 +546,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Assemble the demo app**
+- [x] **Step 4: Assemble the demo app**
 
 Run:
 
@@ -556,7 +556,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Inspect the final diff for scope control**
+- [x] **Step 5: Inspect the final diff for scope control**
 
 Run:
 
@@ -573,7 +573,7 @@ core/designsystem/src/test/kotlin/com/gasstation/core/designsystem/component/Chr
 feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt
 ```
 
-- [ ] **Step 6: Commit a verification note only when a docs update is needed**
+- [x] **Step 6: Commit a verification note only when a docs update is needed**
 
 No docs commit is required when all behavior is unchanged and the test commands above pass. Leave README screenshots unchanged for this slice.
 
