@@ -70,7 +70,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.core.tween
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
@@ -80,6 +79,8 @@ import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationMetricBlock
+import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
 import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
@@ -398,19 +399,19 @@ private fun StationCard(
                     horizontalArrangement = Arrangement.spacedBy(spacing.space24),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    MetricBlock(
+                    GasStationMetricBlock(
                         modifier = Modifier.fillMaxHeight(),
                         label = "가격",
                         number = station.priceNumberLabel,
                         unit = station.priceUnitLabel,
-                        emphasis = MetricEmphasis.Primary,
+                        emphasis = GasStationMetricEmphasis.Primary,
                     )
-                    MetricBlock(
+                    GasStationMetricBlock(
                         modifier = Modifier.fillMaxHeight(),
                         label = "거리",
                         number = station.distanceNumberLabel,
                         unit = station.distanceUnitLabel,
-                        emphasis = MetricEmphasis.Secondary,
+                        emphasis = GasStationMetricEmphasis.Secondary,
                     )
                 }
                 Text(
@@ -523,58 +524,6 @@ private fun FuelChip(
             style = typography.chip,
             color = ColorBlack,
         )
-    }
-}
-
-private enum class MetricEmphasis {
-    Primary,
-    Secondary,
-}
-
-@Composable
-private fun MetricBlock(
-    modifier: Modifier = Modifier,
-    label: String,
-    number: String,
-    unit: String,
-    emphasis: MetricEmphasis,
-) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-    val numberStyle = when (emphasis) {
-        MetricEmphasis.Primary -> typography.priceHero
-        MetricEmphasis.Secondary -> typography.metricValue
-    }
-    val unitBottomPadding = when (emphasis) {
-        MetricEmphasis.Primary -> 4.dp
-        MetricEmphasis.Secondary -> 3.dp
-    }
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = typography.meta,
-            color = ColorGray3,
-        )
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = number,
-                style = numberStyle,
-                color = ColorBlack,
-            )
-            Text(
-                text = unit,
-                modifier = Modifier.padding(
-                    start = spacing.space4,
-                    bottom = unitBottomPadding,
-                ),
-                style = typography.meta,
-                color = ColorGray2,
-            )
-        }
     }
 }
 
