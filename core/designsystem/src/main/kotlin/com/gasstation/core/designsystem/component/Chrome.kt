@@ -314,7 +314,7 @@ private fun GasStationStatusTone.colors(): StatusColors = when (this) {
 }
 
 @Composable
-private fun ChromeTextRole.style(): androidx.compose.ui.text.TextStyle = when (this) {
+internal fun ChromeTextRole.style(): androidx.compose.ui.text.TextStyle = when (this) {
     ChromeTextRole.TopBarTitle -> GasStationTheme.typography.topBarTitle
     ChromeTextRole.SectionTitle -> GasStationTheme.typography.sectionTitle
     ChromeTextRole.CardTitle -> GasStationTheme.typography.cardTitle
