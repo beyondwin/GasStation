@@ -1,6 +1,6 @@
 # 오프라인 전략
 
-GasStation의 오프라인 전략은 "마지막 성공 스냅샷을 버리지 않고, 실패와 빈 결과를 구분한 채 계속 보여준다"로 요약할 수 있습니다. 핵심 구현은 `data:station/DefaultStationRepository.kt`와 `core:database` 스키마입니다.
+이 문서는 GasStation의 cache, stale, refresh 실패, watchlist fallback 의미를 설명하는 단일 출처입니다. 오프라인 전략은 "마지막 성공 스냅샷을 버리지 않고, 실패와 빈 결과를 구분한 채 계속 보여준다"로 요약할 수 있습니다. 핵심 구현은 `data:station/DefaultStationRepository.kt`와 `core:database` 스키마입니다.
 
 ## 핵심 원칙
 
