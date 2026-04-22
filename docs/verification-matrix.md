@@ -14,9 +14,10 @@
 
 ```bash
 ./gradlew \
-  :domain:location:test \
-  :domain:settings:test \
-  :domain:station:test \
+  :core:designsystem:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
   :app:assembleDemoDebug \
   :app:testDemoDebugUnitTest \
   :benchmark:assemble
