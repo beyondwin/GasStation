@@ -7,18 +7,20 @@
 1. `README.md`
 2. `docs/architecture.md`
 3. `docs/module-contracts.md`
-4. `docs/state-model.md`
-5. `docs/offline-strategy.md`
-6. `docs/test-strategy.md`
-7. `docs/verification-matrix.md`
+4. `docs/agent-workflow.md`
+5. `docs/state-model.md`
+6. `docs/offline-strategy.md`
+7. `docs/test-strategy.md`
+8. `docs/verification-matrix.md`
 
-이 순서는 "큰 그림 -> 경계 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
+이 순서는 "큰 그림 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
 
 ## 질문별 가장 빠른 진입점
 
 | 질문 | 먼저 볼 파일 |
 | --- | --- |
 | 앱 전체 구조는 어디서 보나 | `settings.gradle.kts`, `README.md`, `docs/architecture.md` |
+| 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |
 | 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `StationListUiState.kt`, `domain/location/*` |
 | 설정 화면은 왜 main/detail route가 나뉘나 | `GasStationNavHost.kt`, `feature/settings/SettingsRoute.kt`, `SettingsDetailRoute.kt`, `SettingsViewModel.kt` |
