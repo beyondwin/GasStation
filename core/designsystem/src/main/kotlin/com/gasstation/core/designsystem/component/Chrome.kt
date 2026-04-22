@@ -1,5 +1,6 @@
 package com.gasstation.core.designsystem.component
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -10,14 +11,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,17 +25,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.ColorSupportSuccess
-import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
+import com.gasstation.core.designsystem.GasStationTheme
 
 enum class MaterialTypographySlot {
     TitleLarge,
@@ -104,6 +104,7 @@ data class StatusBannerContent(
 ) {
     init {
         require(title.isNotBlank()) { "Status banner title is required." }
+        require(body == null || body.isNotBlank()) { "Status banner body must not be blank when provided." }
     }
 
     fun orderedSlots(): List<TextSlotRole> = buildList {
@@ -113,6 +114,23 @@ data class StatusBannerContent(
         }
     }
 }
+
+internal enum class StatusBannerSymbolMark {
+    Bar,
+    Dot,
+    Check,
+    Triangle,
+    Cross,
+}
+
+internal data class StatusBannerToneVisual(
+    val surfaceColor: Color,
+    val borderColor: Color,
+    val contentColor: Color,
+    val symbolContainerColor: Color,
+    val symbolContentColor: Color,
+    val symbolMark: StatusBannerSymbolMark,
+)
 
 @Composable
 fun GasStationBackground(
@@ -219,17 +237,17 @@ fun GasStationStatusBanner(
 ) {
     val content = StatusBannerContent(
         title = text,
-        body = detail,
+        body = detail?.takeIf(String::isNotBlank),
     )
-    val colors = tone.colors()
+    val visual = tone.visual()
     val corner = GasStationTheme.corner
     val spacing = GasStationTheme.spacing
     val stroke = GasStationTheme.stroke
 
     Surface(
         modifier = modifier,
-        color = colors.container,
-        contentColor = colors.content,
+        color = visual.surfaceColor,
+        contentColor = visual.contentColor,
         shape = RoundedCornerShape(corner.medium),
     ) {
         Row(
@@ -237,35 +255,112 @@ fun GasStationStatusBanner(
                 .fillMaxWidth()
                 .border(
                     width = stroke.default,
-                    color = ColorBlack,
+                    color = visual.borderColor,
                     shape = RoundedCornerShape(corner.medium),
                 )
                 .padding(
                     horizontal = spacing.space12,
                     vertical = spacing.space12,
                 ),
+            horizontalArrangement = Arrangement.spacedBy(spacing.space12),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 8.dp, height = 40.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(colors.accent),
-            )
-            Spacer(modifier = Modifier.width(spacing.space12))
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(corner.small))
+                    .background(visual.symbolContainerColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                StatusBannerSymbol(visual = visual)
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.space4),
+            ) {
                 Text(
                     text = content.title,
                     style = ChromeTextRole.BannerTitle.style(),
-                    color = colors.content,
+                    color = visual.contentColor,
                 )
                 if (content.body != null) {
                     Text(
                         text = content.body,
                         style = ChromeTextRole.BannerBody.style(),
-                        color = colors.content.copy(alpha = 0.8f),
+                        color = visual.contentColor.copy(alpha = 0.8f),
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusBannerSymbol(
+    visual: StatusBannerToneVisual,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val markColor = visual.symbolContentColor
+        val strokeWidth = size.minDimension * 0.16f
+
+        when (visual.symbolMark) {
+            StatusBannerSymbolMark.Bar -> {
+                drawLine(
+                    color = markColor,
+                    start = Offset(size.width * 0.24f, center.y),
+                    end = Offset(size.width * 0.76f, center.y),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square,
+                )
+            }
+            StatusBannerSymbolMark.Dot -> {
+                drawCircle(
+                    color = markColor,
+                    radius = size.minDimension * 0.28f,
+                    center = center,
+                )
+            }
+            StatusBannerSymbolMark.Check -> {
+                drawLine(
+                    color = markColor,
+                    start = Offset(size.width * 0.2f, size.height * 0.54f),
+                    end = Offset(size.width * 0.42f, size.height * 0.76f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = markColor,
+                    start = Offset(size.width * 0.42f, size.height * 0.76f),
+                    end = Offset(size.width * 0.8f, size.height * 0.26f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square,
+                )
+            }
+            StatusBannerSymbolMark.Triangle -> {
+                val triangle = Path().apply {
+                    moveTo(size.width * 0.5f, size.height * 0.18f)
+                    lineTo(size.width * 0.84f, size.height * 0.78f)
+                    lineTo(size.width * 0.16f, size.height * 0.78f)
+                    close()
+                }
+                drawPath(path = triangle, color = markColor)
+            }
+            StatusBannerSymbolMark.Cross -> {
+                drawLine(
+                    color = markColor,
+                    start = Offset(size.width * 0.24f, size.height * 0.24f),
+                    end = Offset(size.width * 0.76f, size.height * 0.76f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = markColor,
+                    start = Offset(size.width * 0.76f, size.height * 0.24f),
+                    end = Offset(size.width * 0.24f, size.height * 0.76f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square,
+                )
             }
         }
     }
@@ -279,37 +374,46 @@ enum class GasStationStatusTone {
     Error,
 }
 
-private data class StatusColors(
-    val container: Color,
-    val content: Color,
-    val accent: Color,
-)
-
-private fun GasStationStatusTone.colors(): StatusColors = when (this) {
-    GasStationStatusTone.Neutral -> StatusColors(
-        container = ColorWhite,
-        content = ColorBlack,
-        accent = ColorGray2,
+internal fun GasStationStatusTone.visual(): StatusBannerToneVisual = when (this) {
+    GasStationStatusTone.Neutral -> StatusBannerToneVisual(
+        surfaceColor = ColorWhite,
+        borderColor = ColorBlack,
+        contentColor = ColorBlack,
+        symbolContainerColor = ColorGray2,
+        symbolContentColor = ColorWhite,
+        symbolMark = StatusBannerSymbolMark.Bar,
     )
-    GasStationStatusTone.Info -> StatusColors(
-        container = ColorGray4,
-        content = ColorBlack,
-        accent = ColorSupportInfo,
+    GasStationStatusTone.Info -> StatusBannerToneVisual(
+        surfaceColor = Color(0xFFE9F2FF),
+        borderColor = ColorSupportInfo,
+        contentColor = ColorBlack,
+        symbolContainerColor = ColorSupportInfo,
+        symbolContentColor = ColorWhite,
+        symbolMark = StatusBannerSymbolMark.Dot,
     )
-    GasStationStatusTone.Success -> StatusColors(
-        container = ColorGray4,
-        content = ColorBlack,
-        accent = ColorSupportSuccess,
+    GasStationStatusTone.Success -> StatusBannerToneVisual(
+        surfaceColor = Color(0xFFEAF7ED),
+        borderColor = ColorSupportSuccess,
+        contentColor = ColorBlack,
+        symbolContainerColor = ColorSupportSuccess,
+        symbolContentColor = ColorWhite,
+        symbolMark = StatusBannerSymbolMark.Check,
     )
-    GasStationStatusTone.Warning -> StatusColors(
-        container = ColorWhite,
-        content = ColorBlack,
-        accent = ColorYellow,
+    GasStationStatusTone.Warning -> StatusBannerToneVisual(
+        surfaceColor = Color(0xFFFFF3A3),
+        borderColor = ColorBlack,
+        contentColor = ColorBlack,
+        symbolContainerColor = ColorBlack,
+        symbolContentColor = ColorYellow,
+        symbolMark = StatusBannerSymbolMark.Triangle,
     )
-    GasStationStatusTone.Error -> StatusColors(
-        container = ColorGray4,
-        content = ColorBlack,
-        accent = ColorSupportError,
+    GasStationStatusTone.Error -> StatusBannerToneVisual(
+        surfaceColor = Color(0xFFFFEBEE),
+        borderColor = ColorSupportError,
+        contentColor = ColorBlack,
+        symbolContainerColor = ColorSupportError,
+        symbolContentColor = ColorWhite,
+        symbolMark = StatusBannerSymbolMark.Cross,
     )
 }
 

@@ -83,7 +83,7 @@ flowchart LR
 | `data:settings` | DataStore 기반 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
-| `core:designsystem` | `GasStationTheme`, 카드/배너/탑바 등 공유 UI primitive |
+| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
@@ -94,6 +94,18 @@ flowchart LR
 ## 의존성 해석 기준
 
 문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. 기능 계층만 보면 `core:datastore -> domain:station`, `core:network -> domain:station` edge가 낯설 수 있는데, 이는 설정/검색 입력이 `domain:station`의 enum을 공통 언어로 쓰기 때문입니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+
+## Presentation hierarchy
+
+화면 정보 위계는 `core:designsystem`의 공통 primitive를 먼저 통과합니다. 가격과 거리처럼 비교 판단에 쓰이는 숫자는 `GasStationMetricBlock`과 `GasStationMetricEmphasis`를 사용하고, 보조 정보는 `GasStationSupportingInfo`, 설정 행은 `GasStationRow`, 권한/GPS/loading/empty/failure 안내는 `GasStationGuidanceCard`, stale/approximate 같은 목록 상단 상태는 `GasStationStatusBanner`로 표현합니다.
+
+이 primitive들은 배치와 텍스트 역할만 소유합니다. "브랜드 label을 목록에서는 숨기고 watchlist에서는 보인다", "GPS가 loading보다 먼저 보인다", "어떤 실패 문구를 쓴다" 같은 화면별 판단은 계속 `feature:*`가 소유합니다.
+
+화면별 핵심 계약:
+
+- `feature:station-list`: 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 유종 chip 옆 아이콘 중심으로만 노출하고 visible brand label은 렌더링하지 않습니다.
+- `feature:watchlist`: 같은 metric 위계를 쓰지만 저장 항목 식별을 위해 brand icon과 visible brand label을 함께 보여줍니다.
+- `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
 
 ## 런타임 흐름
 

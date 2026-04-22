@@ -102,7 +102,9 @@ fun GasStationNavHost(
             popEnterTransition = { backwardEnterTransition() },
             popExitTransition = { backwardExitTransition() },
         ) {
-            WatchlistRoute()
+            WatchlistRoute(
+                onCloseClick = { navController.popBackStack() },
+            )
         }
     }
 }

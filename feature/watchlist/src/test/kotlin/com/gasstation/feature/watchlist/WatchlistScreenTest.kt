@@ -1,5 +1,8 @@
 package com.gasstation.feature.watchlist
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -7,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.gasstation.domain.station.model.Brand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -44,6 +49,7 @@ class WatchlistScreenTest {
                         ),
                     ),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -75,6 +81,7 @@ class WatchlistScreenTest {
                         ),
                     ),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -103,6 +110,7 @@ class WatchlistScreenTest {
                         ),
                     ),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -125,6 +133,7 @@ class WatchlistScreenTest {
                 uiState = WatchlistUiState(
                     stations = emptyList(),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -136,12 +145,32 @@ class WatchlistScreenTest {
     }
 
     @Test
+    fun `watchlist top bar exposes close action`() {
+        var closeClicks = 0
+
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = emptyList(),
+                ),
+                onCloseClick = { closeClicks += 1 },
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("닫기").assertExists()
+        composeRule.onNodeWithContentDescription("닫기").performClick()
+
+        assertEquals(1, closeClicks)
+    }
+
+    @Test
     fun `watchlist empty card stays in the upper portion of the screen`() {
         composeRule.setContent {
             WatchlistScreen(
                 uiState = WatchlistUiState(
                     stations = emptyList(),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -182,6 +211,7 @@ class WatchlistScreenTest {
                         ),
                     ),
                 ),
+                onCloseClick = {},
             )
         }
 
@@ -196,6 +226,67 @@ class WatchlistScreenTest {
 
         assertTrue(deltaIndicatorBounds.left > changeValueBounds.right)
         assertEquals(changeValueBounds.top, deltaIndicatorBounds.top, 2f)
+    }
+
+    @Test
+    fun `watchlist constrains long saved station identity and large metrics`() {
+        val longName = "서울특별시강남구테헤란로초장문테스트주유소직영점"
+        val longBrandLabel = "현대오일뱅크직영초장문브랜드라벨"
+
+        composeRule.setContent {
+            Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
+                WatchlistScreen(
+                    uiState = WatchlistUiState(
+                        stations = listOf(
+                            WatchlistItemUiModel(
+                                id = "station-1",
+                                name = longName,
+                                brand = Brand.HDO,
+                                brandLabel = longBrandLabel,
+                                priceLabel = "123,456,789원",
+                                priceNumberLabel = "123,456,789",
+                                priceUnitLabel = "원",
+                                distanceLabel = "123.4km",
+                                distanceNumberLabel = "123.4",
+                                distanceUnitLabel = "km",
+                                priceDeltaLabel = "999원",
+                                priceDeltaTone = WatchlistPriceDeltaTone.Rise,
+                                lastSeenLabel = "4월 18일 12:00",
+                                latitude = 37.498095,
+                                longitude = 127.02761,
+                            ),
+                        ),
+                    ),
+                    onCloseClick = {},
+                )
+            }
+        }
+
+        val cardBounds = composeRule
+            .onNodeWithTag(WATCHLIST_CARD_CONTENT_DESCRIPTION, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val distanceMetricBounds = composeRule
+            .onNodeWithTag(WATCHLIST_DISTANCE_METRIC_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val nameBounds = composeRule
+            .onNodeWithText(longName, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val brandLabelBounds = composeRule
+            .onNodeWithText(longBrandLabel, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val brandIconBounds = composeRule
+            .onNodeWithContentDescription("$longBrandLabel 브랜드", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue("Expected distance metric to stay inside the card.", distanceMetricBounds.right <= cardBounds.right)
+        assertTrue("Expected long station name to stay inside the card.", nameBounds.right <= cardBounds.right)
+        assertTrue("Expected long brand label to stay inside the card.", brandLabelBounds.right <= cardBounds.right)
+        assertTrue("Expected visible brand label to remain after the brand icon.", brandLabelBounds.left > brandIconBounds.right)
     }
 
     private fun watchlistStation(

@@ -24,7 +24,7 @@
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
 | `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현 |
 | `core:model` | 값 객체와 불변식 | 없음 | 앱 정책 |
-| `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바 | Compose/Material3 | feature 전용 비즈니스 문구 |
+| `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive | Compose/Material3 | feature 전용 비즈니스 문구, 화면 상태 분기 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
 | `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model`, `domain:station` | 캐시/Room 조합 |
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |

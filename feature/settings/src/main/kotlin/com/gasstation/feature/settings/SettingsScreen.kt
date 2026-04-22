@@ -2,7 +2,6 @@ package com.gasstation.feature.settings
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,12 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
@@ -33,13 +28,14 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationRow
+import com.gasstation.core.designsystem.component.GasStationRowDivider
 import com.gasstation.core.designsystem.component.GasStationTopBar
 
 internal const val SETTINGS_SCREEN_LIST_TAG = "settings-screen-list"
@@ -141,7 +137,10 @@ private fun SettingsMenuRow(
     selectedLabel: String,
     onClick: () -> Unit,
 ) {
-    Row(
+    GasStationRow(
+        title = section.title,
+        value = selectedLabel,
+        body = section.subtitle,
         modifier = Modifier
             .fillMaxWidth()
             .testTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}")
@@ -149,36 +148,14 @@ private fun SettingsMenuRow(
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(GasStationTheme.corner.small))
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = "${section.title} : $selectedLabel",
-                style = GasStationTheme.typography.cardTitle,
-                color = ColorBlack,
-            )
-            Text(
-                text = section.subtitle,
-                style = GasStationTheme.typography.bannerBody,
-                color = ColorGray3,
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        LegacyChevronIcon()
-    }
+        bodyColor = ColorGray3,
+        trailingContent = { LegacyChevronIcon() },
+    )
 }
 
 @Composable
 private fun SettingsMenuDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(ColorGray),
-    )
+    GasStationRowDivider()
 }
 
 @Composable
