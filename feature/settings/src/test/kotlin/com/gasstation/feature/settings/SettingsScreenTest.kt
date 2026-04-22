@@ -1,5 +1,8 @@
 package com.gasstation.feature.settings
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.hasTestTag
@@ -13,7 +16,10 @@ import androidx.compose.ui.test.performScrollToNode
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.model.Brand
 import com.gasstation.domain.station.model.BrandFilter
+import com.gasstation.domain.station.model.FuelType
+import com.gasstation.domain.station.model.MapProvider
 import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.domain.station.model.SortOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -170,6 +176,44 @@ class SettingsScreenTest {
         ).assertExists()
         composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(0)
         composeRule.onAllNodesWithText(uiState.selectedLabelFor(SettingsSection.SearchRadius)).assertCountEquals(0)
+    }
+
+    @Test
+    fun `settings menu constrains long current values without changing row rhythm`() {
+        val uiState = SettingsUiState(
+            searchRadius = SearchRadius.KM_5,
+            fuelType = FuelType.PREMIUM_GASOLINE,
+            brandFilter = BrandFilter.RTX,
+            sortOrder = SortOrder.PRICE,
+            mapProvider = MapProvider.KAKAO_NAVI,
+        )
+        val brandRowText = "주유소 브랜드 : ${uiState.selectedLabelFor(SettingsSection.BrandFilter)}"
+
+        composeRule.setContent {
+            Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
+                SettingsScreen(
+                    uiState = uiState,
+                    onCloseClick = {},
+                    onSectionClick = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+            .performScrollToNode(hasText(brandRowText))
+
+        val rowBounds = composeRule
+            .onNodeWithTag("$SETTINGS_ROW_TAG_PREFIX${SettingsSection.BrandFilter.routeSegment}", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val textBounds = composeRule
+            .onNodeWithText(brandRowText, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue("Expected long settings value to stay inside its row.", textBounds.right <= rowBounds.right)
+        composeRule.onAllNodesWithText(uiState.selectedLabelFor(SettingsSection.BrandFilter)).assertCountEquals(0)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.gasstation.core.designsystem
 
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.junit.Assert.assertEquals
@@ -45,6 +46,63 @@ class GasStationThemeTokensTest {
                 assertTrue(
                     "Expected $getterName to stay below the MetricValue scale.",
                     style.fontSize < metricValue.fontSize,
+                )
+            }
+    }
+
+    @Test
+    fun `typography roles keep neutral tracking and system font`() {
+        val typography = getDefaultToken("Typography")
+
+        expectedRoleGetterNames.forEach { getterName ->
+            val style = typography.textStyle(getterName)
+
+            assertEquals(
+                "Expected $getterName to avoid optical tracking overrides.",
+                0.sp,
+                style.letterSpacing,
+            )
+            assertEquals(
+                "Expected $getterName to keep Android system font for Korean readability.",
+                FontFamily.Default,
+                style.fontFamily,
+            )
+        }
+    }
+
+    @Test
+    fun `typography hierarchy keeps price and metric above supporting copy`() {
+        val typography = getDefaultToken("Typography")
+        val priceHero = typography.textStyle("getPriceHero")
+        val metricValue = typography.textStyle("getMetricValue")
+        val cardTitle = typography.textStyle("getCardTitle")
+
+        assertTrue(priceHero.fontSize > metricValue.fontSize)
+        assertTrue(metricValue.fontSize > cardTitle.fontSize)
+
+        supportingRoleGetterNames.forEach { getterName ->
+            val style = typography.textStyle(getterName)
+
+            assertTrue(
+                "Expected $getterName to stay below CardTitle in the scan hierarchy.",
+                cardTitle.fontSize > style.fontSize,
+            )
+        }
+    }
+
+    @Test
+    fun `supporting copy roles do not inherit numeric display styling`() {
+        val typography = getDefaultToken("Typography")
+
+        supportingRoleGetterNames
+            .plus(setOf("getSectionTitle", "getTopBarTitle"))
+            .forEach { getterName ->
+                val style = typography.textStyle(getterName)
+
+                assertEquals(
+                    "Expected $getterName to avoid numeric font feature settings.",
+                    null,
+                    style.fontFeatureSettings,
                 )
             }
     }
@@ -124,6 +182,14 @@ class GasStationThemeTokensTest {
         private val largeNumberRoleGetterNames = setOf(
             "getPriceHero",
             "getMetricValue",
+        )
+
+        private val supportingRoleGetterNames = setOf(
+            "getBody",
+            "getMeta",
+            "getChip",
+            "getBannerTitle",
+            "getBannerBody",
         )
     }
 }

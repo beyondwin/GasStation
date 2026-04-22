@@ -38,8 +38,6 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,14 +72,13 @@ import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.ColorWhite
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationGuidanceCard
 import com.gasstation.core.designsystem.component.GasStationMetricBlock
 import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
-import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
@@ -93,6 +90,7 @@ internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
+internal const val STATION_LIST_FUEL_CHIP_TAG = "station-list-fuel-chip"
 
 private sealed interface StationListBodyState {
     data object PermissionRequired : StationListBodyState
@@ -394,20 +392,25 @@ private fun StationCard(
             ) {
                 Row(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .testTag(STATION_LIST_METRIC_ROW_TAG)
                         .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.space24),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space16),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     GasStationMetricBlock(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier
+                            .weight(1.35f)
+                            .fillMaxHeight(),
                         label = "가격",
                         number = station.priceNumberLabel,
                         unit = station.priceUnitLabel,
                         emphasis = GasStationMetricEmphasis.Primary,
                     )
                     GasStationMetricBlock(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                         label = "거리",
                         number = station.distanceNumberLabel,
                         unit = station.distanceUnitLabel,
@@ -431,7 +434,10 @@ private fun StationCard(
                         horizontalArrangement = Arrangement.spacedBy(spacing.space8),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FuelChip(text = fuelTypeLabel)
+                        FuelChip(
+                            text = fuelTypeLabel,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
                         GasStationBrandIcon(
                             brand = station.brand,
                             contentDescription = "${station.brandLabel} 브랜드",
@@ -499,6 +505,7 @@ private fun PriceDeltaIndicator(
 @Composable
 private fun FuelChip(
     text: String,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = GasStationTheme.spacing
     val corner = GasStationTheme.corner
@@ -506,6 +513,7 @@ private fun FuelChip(
     val typography = GasStationTheme.typography
 
     Surface(
+        modifier = modifier.testTag(STATION_LIST_FUEL_CHIP_TAG),
         color = ColorGray4,
         shape = RoundedCornerShape(corner.small),
     ) {
@@ -520,9 +528,11 @@ private fun FuelChip(
                 .padding(
                     horizontal = spacing.space8,
                     vertical = spacing.space4,
-                ),
+            ),
             style = typography.chip,
             color = ColorBlack,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -564,11 +574,11 @@ private fun PermissionRequired(
     onRequestPermissions: () -> Unit,
 ) {
     BrandedStateContainer(modifier = modifier) {
-        StationListActionStateCard(
+        GasStationGuidanceCard(
             title = "위치 권한이 필요합니다.",
             body = "주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.",
-            buttonLabel = "권한 요청",
-            onClick = onRequestPermissions,
+            actionLabel = "권한 요청",
+            onAction = onRequestPermissions,
         )
     }
 }
@@ -579,11 +589,11 @@ private fun GpsRequired(
     onOpenLocationSettings: () -> Unit,
 ) {
     BrandedStateContainer(modifier = modifier) {
-        StationListActionStateCard(
+        GasStationGuidanceCard(
             title = "위치 서비스를 켜야 합니다.",
             body = "GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 북마크를 정확하게 불러올 수 있습니다.",
-            buttonLabel = "위치 설정 열기",
-            onClick = onOpenLocationSettings,
+            actionLabel = "위치 설정 열기",
+            onAction = onOpenLocationSettings,
         )
     }
 }
@@ -592,39 +602,18 @@ private fun GpsRequired(
 private fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
     BrandedStateContainer(modifier = modifier) {
-        GasStationCard(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(
-                horizontal = spacing.space16,
-                vertical = spacing.space16,
-            ),
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.space12),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        GasStationGuidanceCard(
+            title = "주변 주유소를 불러오는 중입니다.",
+            body = "현재 조건으로 최신 가격을 확인하고 있습니다.",
+            leadingContent = {
                 CircularProgressIndicator(
                     modifier = Modifier.size(28.dp),
                     color = ColorBlack,
                     strokeWidth = 3.dp,
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.space4)) {
-                    Text(
-                        text = "주변 주유소를 불러오는 중입니다.",
-                        style = typography.sectionTitle,
-                        color = ColorBlack,
-                    )
-                    Text(
-                        text = "조회 기준을 유지한 채 최신 가격을 확인하고 있습니다.",
-                        style = typography.body,
-                        color = ColorGray2,
-                    )
-                }
-            }
-        }
+            },
+        )
     }
 }
 
@@ -637,11 +626,11 @@ private fun FailureState(
     val content = reason.toFailureCardContent()
 
     BrandedStateContainer(modifier = modifier) {
-        StationListActionStateCard(
+        GasStationGuidanceCard(
             title = content.title,
             body = content.body,
-            buttonLabel = "다시 시도",
-            onClick = { onAction(StationListAction.RetryClicked) },
+            actionLabel = "다시 시도",
+            onAction = { onAction(StationListAction.RetryClicked) },
         )
     }
 }
@@ -651,32 +640,13 @@ private fun EmptyState(
     onAction: (StationListAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-    GasStationCard(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(
-            horizontal = spacing.space16,
-            vertical = spacing.space16,
-        ),
-    ) {
-        GasStationSectionHeading(
-            title = "주변 주유소가 없습니다.",
-            subtitle = "반경이나 유종 조건을 유지한 채 다시 조회할 수 있습니다.",
-        )
-        Button(
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ColorBlack,
-                contentColor = ColorYellow,
-            ),
-            onClick = { onAction(StationListAction.RetryClicked) },
-        ) {
-            Text(
-                text = "다시 시도",
-                style = typography.body,
-            )
-        }
-    }
+    GasStationGuidanceCard(
+        modifier = modifier,
+        title = "조건에 맞는 주변 주유소가 없습니다.",
+        body = "반경, 유종, 브랜드 조건을 조정하거나 다시 조회해보세요.",
+        actionLabel = "다시 시도",
+        onAction = { onAction(StationListAction.RetryClicked) },
+    )
 }
 
 @Composable
@@ -789,7 +759,7 @@ private fun RefreshingStatusRail(
                 )
             }
             Text(
-                text = "조회 기준으로 최신 가격을 확인하고 있습니다.",
+                text = "현재 조건으로 최신 가격을 확인하고 있습니다.",
                 style = typography.meta,
                 color = ColorYellow.copy(alpha = 0.78f),
             )
@@ -805,43 +775,11 @@ private fun RefreshingStatusRail(
     }
 }
 
-@Composable
-private fun StationListActionStateCard(
-    title: String,
-    body: String,
-    buttonLabel: String,
-    onClick: () -> Unit,
-) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-    GasStationCard(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(
-            horizontal = spacing.space16,
-            vertical = spacing.space16,
-        ),
-    ) {
-        GasStationSectionHeading(title = title, subtitle = body)
-        Button(
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ColorBlack,
-                contentColor = ColorYellow,
-            ),
-            onClick = onClick,
-        ) {
-            Text(
-                text = buttonLabel,
-                style = typography.body,
-            )
-        }
-    }
-}
-
 private fun StationListUiState.toBodyState(): StationListBodyState = when {
-    isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
     permissionState == LocationPermissionState.Denied &&
         !(hasDeniedLocationAccess && currentCoordinates != null) -> StationListBodyState.PermissionRequired
     !isGpsEnabled -> StationListBodyState.GpsRequired
+    isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
     else -> StationListBodyState.Results
 }
@@ -990,7 +928,7 @@ private data class StationListFailureCardContent(
 private fun StationListFailureReason.toFailureCardContent(): StationListFailureCardContent = when (this) {
     StationListFailureReason.LocationTimedOut -> StationListFailureCardContent(
         title = "위치를 확인하는 데 시간이 오래 걸리고 있습니다.",
-        body = "GPS 신호나 네트워크 상태를 확인한 뒤 다시 시도해주세요.",
+        body = "GPS 신호와 네트워크 상태를 확인한 뒤 다시 시도해주세요.",
     )
 
     StationListFailureReason.LocationFailed -> StationListFailureCardContent(
@@ -1000,7 +938,7 @@ private fun StationListFailureReason.toFailureCardContent(): StationListFailureC
 
     StationListFailureReason.RefreshTimedOut -> StationListFailureCardContent(
         title = "주변 주유소를 불러오지 못했습니다.",
-        body = "서버 응답이 늦어 주변 주유소를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        body = "서버 응답이 늦습니다. 잠시 후 같은 조건으로 다시 시도해주세요.",
     )
 
     StationListFailureReason.RefreshFailed -> StationListFailureCardContent(
