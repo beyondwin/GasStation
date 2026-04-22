@@ -1,7 +1,9 @@
 package com.gasstation.core.designsystem.component
 
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChromeContractsTest {
@@ -15,6 +17,29 @@ class ChromeContractsTest {
             ChromeTextRole.entries
                 .filter(ChromeTextRole::isProminentNumericEmphasis)
                 .toSet(),
+        )
+    }
+
+    @Test
+    fun `metric emphasis maps to approved numeric text roles`() {
+        assertEquals(
+            ChromeTextRole.PriceHero,
+            GasStationMetricEmphasis.Primary.numberRole,
+        )
+        assertEquals(
+            ChromeTextRole.MetricValue,
+            GasStationMetricEmphasis.Secondary.numberRole,
+        )
+    }
+
+    @Test
+    fun `metric unit padding keeps primary numbers optically dominant`() {
+        assertEquals(4.dp, GasStationMetricEmphasis.Primary.unitBottomPadding)
+        assertEquals(3.dp, GasStationMetricEmphasis.Secondary.unitBottomPadding)
+        assertTrue(
+            "Primary metric unit should sit slightly lower than secondary unit.",
+            GasStationMetricEmphasis.Primary.unitBottomPadding >
+                GasStationMetricEmphasis.Secondary.unitBottomPadding,
         )
     }
 
