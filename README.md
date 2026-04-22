@@ -7,9 +7,9 @@
 `prod` 기준 주요 화면입니다.
 
 <p align="center">
-  <img width="31%" alt="주유주유소 브랜드 설정 화면" src="docs/readme-assets/playstore_11.png">
-  <img width="31%" alt="주유주유소 터치 길 안내 화면" src="docs/readme-assets/playstore_22.png">
-  <img width="31%" alt="주유주유소 가까운 주유소 목록 화면" src="docs/readme-assets/playstore_33.png">
+  <img width="31%" alt="주유주유소 가까운 주유소 목록 화면" src="docs/readme-assets/playstore_11.png">
+  <img width="31%" alt="주유주유소 한 번의 터치 길 안내 화면" src="docs/readme-assets/playstore_22.png">
+  <img width="31%" alt="주유주유소 찾기 설정 화면" src="docs/readme-assets/playstore_33.png">
 </p>
 
 ## 빠른 요약
@@ -44,14 +44,18 @@ flowchart LR
     app --> fwatch["feature:watchlist"]
     app --> dsettings["data:settings"]
     app --> dstation["data:station"]
+    app --> cdesign["core:designsystem"]
     app --> clocation["core:location"]
 
     fstation --> domStation["domain:station"]
     fstation --> domSettings["domain:settings"]
     fstation --> domLocation["domain:location"]
+    fstation --> cdesign
     fsettings --> domSettings
     fsettings --> domStation
+    fsettings --> cdesign
     fwatch --> domStation
+    fwatch --> cdesign
 
     dstation --> domStation
     dstation --> cdb["core:database"]
@@ -62,6 +66,7 @@ flowchart LR
     cstore --> domStation
     cnet --> cmodel
     cnet --> domStation
+    cdesign --> domStation
     clocation --> domLocation
     domSettings --> domStation
     domSettings --> cmodel
@@ -109,6 +114,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 ## 문서 지도
 
+- [디자인 컨텍스트](.impeccable.md): 포트폴리오/review 성격, yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 - [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
 - [모듈 계약](docs/module-contracts.md): 각 모듈의 소유 범위와 변경 경계를 고정합니다.
@@ -116,13 +122,21 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다.
 
 ## 검증
 
 빠른 로컬 확인:
 
 ```bash
-./gradlew :app:assembleDemoDebug :app:testDemoDebugUnitTest :benchmark:assemble
+./gradlew \
+  :core:designsystem:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :app:assembleDemoDebug \
+  :app:testDemoDebugUnitTest \
+  :benchmark:assemble
 ```
 
 기기 기반 UI 확인:

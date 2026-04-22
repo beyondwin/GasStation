@@ -42,6 +42,7 @@ flowchart LR
     fwatch --> domStation
     fwatch --> cmodel
     fwatch --> cdesign
+    cdesign --> domStation
 
     dstation --> domStation
     dstation --> cnetwork
@@ -83,7 +84,7 @@ flowchart LR
 | `data:settings` | DataStore 기반 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
-| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive |
+| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스 매핑 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
@@ -93,7 +94,7 @@ flowchart LR
 
 ## 의존성 해석 기준
 
-문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. 기능 계층만 보면 `core:datastore -> domain:station`, `core:network -> domain:station` edge가 낯설 수 있는데, 이는 설정/검색 입력이 `domain:station`의 enum을 공통 언어로 쓰기 때문입니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. 기능 계층만 보면 `core:datastore -> domain:station`, `core:network -> domain:station`, `core:designsystem -> domain:station` edge가 낯설 수 있는데, 이는 설정/검색 입력과 브랜드 아이콘 매핑이 `domain:station`의 enum을 공통 언어로 쓰기 때문입니다. `core:designsystem`은 `Brand`를 리소스에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
 
 ## Presentation hierarchy
 
