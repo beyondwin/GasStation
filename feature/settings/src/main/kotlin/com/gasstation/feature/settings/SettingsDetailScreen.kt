@@ -16,11 +16,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -29,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
+import com.gasstation.core.designsystem.ColorSurface
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
@@ -147,36 +151,84 @@ private fun SettingsDetailBrandLeadingSlot(option: SettingOptionUiModel) {
 @Composable
 private fun AllBrandFilterIcon() {
     Canvas(modifier = Modifier.size(30.dp)) {
-        val strokeWidth = size.minDimension * 0.085f
-        val funnel = Path().apply {
-            moveTo(size.width * 0.22f, size.height * 0.24f)
-            lineTo(size.width * 0.78f, size.height * 0.24f)
-            lineTo(size.width * 0.58f, size.height * 0.50f)
-            lineTo(size.width * 0.58f, size.height * 0.68f)
-            lineTo(size.width * 0.42f, size.height * 0.78f)
-            lineTo(size.width * 0.42f, size.height * 0.50f)
-            close()
-        }
-        drawPath(
-            path = funnel,
-            color = ColorBlack,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = strokeWidth,
+        val iconSize = size.minDimension
+        val strokeWidth = iconSize * 0.065f
+
+        fun drawPump(
+            topLeft: Offset,
+            bodySize: Size,
+            fill: Color,
+            windowColor: Color,
+        ) {
+            val cornerRadius = CornerRadius(iconSize * 0.045f, iconSize * 0.045f)
+            drawRoundRect(
+                color = fill,
+                topLeft = topLeft,
+                size = bodySize,
+                cornerRadius = cornerRadius,
+            )
+            drawRoundRect(
+                color = ColorBlack,
+                topLeft = topLeft,
+                size = bodySize,
+                cornerRadius = cornerRadius,
+                style = Stroke(width = strokeWidth),
+            )
+
+            val windowInsetX = bodySize.width * 0.20f
+            val windowTop = topLeft.y + bodySize.height * 0.18f
+            val windowSize = Size(
+                width = bodySize.width * 0.60f,
+                height = bodySize.height * 0.22f,
+            )
+            drawRoundRect(
+                color = windowColor,
+                topLeft = Offset(topLeft.x + windowInsetX, windowTop),
+                size = windowSize,
+                cornerRadius = CornerRadius(iconSize * 0.025f, iconSize * 0.025f),
+            )
+
+            val baseY = topLeft.y + bodySize.height + iconSize * 0.045f
+            drawLine(
+                color = ColorBlack,
+                start = Offset(topLeft.x - iconSize * 0.015f, baseY),
+                end = Offset(topLeft.x + bodySize.width + iconSize * 0.015f, baseY),
+                strokeWidth = strokeWidth,
                 cap = StrokeCap.Round,
-            ),
+            )
+        }
+
+        drawPump(
+            topLeft = Offset(iconSize * 0.10f, iconSize * 0.36f),
+            bodySize = Size(iconSize * 0.24f, iconSize * 0.38f),
+            fill = ColorYellow,
+            windowColor = ColorBlack,
         )
+        drawPump(
+            topLeft = Offset(iconSize * 0.66f, iconSize * 0.36f),
+            bodySize = Size(iconSize * 0.24f, iconSize * 0.38f),
+            fill = ColorYellow,
+            windowColor = ColorBlack,
+        )
+        drawPump(
+            topLeft = Offset(iconSize * 0.34f, iconSize * 0.18f),
+            bodySize = Size(iconSize * 0.32f, iconSize * 0.56f),
+            fill = ColorSurface,
+            windowColor = ColorYellow,
+        )
+
         drawLine(
-            color = ColorYellow,
-            start = center.copy(x = size.width * 0.20f, y = size.height * 0.80f),
-            end = center.copy(x = size.width * 0.80f, y = size.height * 0.20f),
-            strokeWidth = strokeWidth * 1.08f,
+            color = ColorBlack,
+            start = Offset(iconSize * 0.68f, iconSize * 0.34f),
+            end = Offset(iconSize * 0.82f, iconSize * 0.44f),
+            strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = ColorBlack,
-            start = center.copy(x = size.width * 0.20f, y = size.height * 0.80f),
-            end = center.copy(x = size.width * 0.80f, y = size.height * 0.20f),
-            strokeWidth = strokeWidth * 0.46f,
+            start = Offset(iconSize * 0.82f, iconSize * 0.44f),
+            end = Offset(iconSize * 0.82f, iconSize * 0.62f),
+            strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
     }
