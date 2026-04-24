@@ -1269,7 +1269,7 @@ git commit -m "refactor: extract station list location state machine"
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
-- [ ] **Step 1: Create orchestrator with clear boundary**
+- [x] **Step 1: Create orchestrator with clear boundary**
 
 `StationSearchOrchestrator` owns:
 
@@ -1460,7 +1460,7 @@ private fun emptySearchResult(): StationSearchResult = StationSearchResult(
 )
 ```
 
-- [ ] **Step 2: Write orchestrator tests**
+- [x] **Step 2: Write orchestrator tests**
 
 Create tests covering:
 
@@ -1478,7 +1478,7 @@ Create tests covering:
 
 Use a fake `StationRepository` with `MutableSharedFlow<StationSearchResult>` like existing `StationListViewModelTest`.
 
-- [ ] **Step 3: Run orchestrator tests**
+- [x] **Step 3: Run orchestrator tests**
 
 Run:
 
@@ -1488,7 +1488,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 4: Integrate orchestrator into ViewModel**
+- [x] **Step 4: Integrate orchestrator into ViewModel**
 
 Replace direct `observeNearbyStations`, `refreshNearbyStations`, `activeQueryState`, `pendingBlockingFailure`, `searchResult`, `CachedSnapshotState`, and `shouldRefreshForCriteriaChange()` ownership with:
 
@@ -1498,7 +1498,7 @@ private val searchOrchestrator: StationSearchOrchestrator,
 
 The ViewModel still builds `StationQuery` from preferences and current coordinates. The orchestrator observes that query flow.
 
-- [ ] **Step 5: Log refresh failures from ViewModel**
+- [x] **Step 5: Log refresh failures from ViewModel**
 
 When `RefreshOutcome.Failed(reason)` returns:
 
@@ -1522,7 +1522,7 @@ private fun StationRefreshFailureReason?.refreshFailureMessage(): String = when 
 }
 ```
 
-- [ ] **Step 6: Run station-list tests**
+- [x] **Step 6: Run station-list tests**
 
 Run:
 
@@ -1532,7 +1532,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 7: Check ViewModel size**
+- [x] **Step 7: Check ViewModel size**
 
 Run:
 
@@ -1542,7 +1542,7 @@ wc -l feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/St
 
 Expected: lower than 350 lines. If slightly above 350 because of imports or helper functions, inspect whether the remaining code is UI action dispatch and state composition rather than hidden search/location policy.
 
-- [ ] **Step 8: Commit search orchestrator extraction**
+- [x] **Step 8: Commit search orchestrator extraction**
 
 ```bash
 git add -A

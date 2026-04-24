@@ -383,8 +383,10 @@ private fun stationListViewModelForRouteTest(
 
     return RouteTestFixture(
         viewModel = StationListViewModel(
-            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+            searchOrchestrator = StationSearchOrchestrator(
+                observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+                refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+            ),
             updateWatchState = UpdateWatchStateUseCase(repository),
             observeUserPreferences = settingsFixture.observeUserPreferences,
             updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
