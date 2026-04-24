@@ -23,6 +23,15 @@ class LogcatStationEventLogger @Inject constructor() : StationEventLogger {
         is StationEvent.ExternalMapOpened -> {
             "external_map_opened stationId=$stationId provider=${provider.name}"
         }
+        is StationEvent.RefreshFailed -> {
+            "refresh_failed reason=${reason::class.java.simpleName}"
+        }
+        is StationEvent.LocationFailed -> {
+            "location_failed resultType=$resultType"
+        }
+        is StationEvent.RetryAttempted -> {
+            "retry_attempted originalReason=${originalReason::class.java.simpleName} succeeded=$succeeded"
+        }
     }
 
     private companion object {
