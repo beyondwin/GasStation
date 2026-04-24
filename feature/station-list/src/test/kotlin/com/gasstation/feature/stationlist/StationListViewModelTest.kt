@@ -829,12 +829,14 @@ class StationListViewModelTest {
                 refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
             )
             val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
             val viewModel = stationListViewModel(
                 repository = repository,
                 settingsFixture = settingsFixture,
                 locationRepository = FakeLocationRepository(
                     result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
                 ),
+                analytics = analytics,
             )
 
             viewModel.effects.test {
@@ -851,6 +853,10 @@ class StationListViewModelTest {
             }
             assertEquals(1, repository.refreshedQueries.size)
             assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
+            assertEquals(
+                listOf(StationEvent.RefreshFailed(reason = StationRefreshFailureReason.Unknown)),
+                analytics.events,
+            )
         } finally {
             Dispatchers.resetMain()
         }
@@ -978,8 +984,10 @@ private fun stationListViewModel(
         observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
     )
     return StationListViewModel(
-        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-        refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        searchOrchestrator = StationSearchOrchestrator(
+            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        ),
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
         updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
