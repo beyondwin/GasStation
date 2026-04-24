@@ -39,7 +39,7 @@
 
 ## 머지 전 권장 회귀 세트
 
-모듈 단위 회귀를 폭넓게 확인하는 조합입니다.
+모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 enum 이동, settings dependency cleanup, station retry, station-list 상태 추출 회귀를 함께 막습니다.
 
 ```bash
 ./gradlew \

@@ -20,11 +20,11 @@
 - 캐시 존재 판단은 `fetchedAt != null`이 아니라 `StationSearchResult.hasCachedSnapshot`을 따른다.
 - 문서와 테스트 명령은 Android library 모듈 기준 task명을 쓴다. 예: `:data:station:testDebugUnitTest`, `:feature:station-list:testDebugUnitTest`.
 
-## Current Code Facts
+## Baseline Code Facts Before Implementation
 
-- `StationListViewModel.kt`는 현재 522줄이다.
-- enum import 영향은 현재 기준 51개 `.kt` 파일, 129개 import occurrence다. 실행 시 다시 측정한다.
-- `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 현재 `domain:station`에 직접 또는 간접 enum 의존을 가진다.
+- `StationListViewModel.kt`는 계획 작성 시점에 522줄이었다.
+- enum import 영향은 계획 작성 시점 기준 51개 `.kt` 파일, 129개 import occurrence였다. 실행 시 다시 측정한다.
+- `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 계획 작성 시점에는 `domain:station`에 직접 또는 간접 enum 의존을 가졌다.
 - `feature:settings`는 enum만 사용하므로 `domain:station` 직접 의존을 제거할 수 있다.
 - `feature:watchlist`, `feature:station-list`, `data:station`, `tools:demo-seed`, `app`은 enum 외 station domain 계약도 사용하므로 `domain:station` 의존을 유지한다.
 
@@ -1561,7 +1561,7 @@ git commit -m "refactor: extract station search orchestration"
 - Modify: `docs/test-strategy.md`
 - Modify: `docs/verification-matrix.md`
 
-- [ ] **Step 1: Update module graph docs**
+- [x] **Step 1: Update module graph docs**
 
 In `docs/architecture.md`, remove these graph edges:
 
@@ -1587,7 +1587,7 @@ Update `core:model` responsibility to include:
 Coordinates, DistanceMeters, MoneyWon value objects plus Brand, BrandFilter, FuelType, MapProvider, SearchRadius, SortOrder shared enum vocabulary.
 ```
 
-- [ ] **Step 2: Update module contracts**
+- [x] **Step 2: Update module contracts**
 
 In `docs/module-contracts.md`:
 
@@ -1598,7 +1598,7 @@ In `docs/module-contracts.md`:
 - `domain:settings`: direct dependency should be `core:model`.
 - `feature:settings`: direct dependency should be `core:model`, `domain:settings`, `core:designsystem`.
 
-- [ ] **Step 3: Update state model**
+- [x] **Step 3: Update state model**
 
 In `docs/state-model.md`, replace `StationListSessionState` as the sole owner with:
 
@@ -1610,7 +1610,7 @@ StationListViewModel owns loading flags, user action dispatch, one-shot effects,
 
 Mention that address label resolution is non-blocking and must not delay station refresh.
 
-- [ ] **Step 4: Update offline strategy**
+- [x] **Step 4: Update offline strategy**
 
 In `docs/offline-strategy.md`, add:
 
@@ -1620,7 +1620,7 @@ Retry policy does not clear or mutate existing snapshots on failure. Timeout and
 
 Keep the `hasCachedSnapshot` rule as the source of truth.
 
-- [ ] **Step 5: Update test strategy**
+- [x] **Step 5: Update test strategy**
 
 In `docs/test-strategy.md`, add:
 
@@ -1631,7 +1631,7 @@ In `docs/test-strategy.md`, add:
 
 Update `StationListViewModelTest` description so it focuses on UI state composition, effects, and action dispatch after extraction.
 
-- [ ] **Step 6: Update verification matrix**
+- [x] **Step 6: Update verification matrix**
 
 In `docs/verification-matrix.md`, ensure the merge regression set includes:
 
@@ -1655,7 +1655,7 @@ In `docs/verification-matrix.md`, ensure the merge regression set includes:
 :benchmark:assemble
 ```
 
-- [ ] **Step 7: Commit docs**
+- [x] **Step 7: Commit docs**
 
 ```bash
 git add docs/architecture.md docs/module-contracts.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md
