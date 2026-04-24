@@ -8,6 +8,20 @@
 - `prod` 앱을 실제로 실행하려면 `opinet.apikey`가 필요합니다.
 - benchmark 모듈은 `demo` 데이터를 대상으로 동작합니다.
 
+## 문서/계약 설명 갱신 확인
+
+코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
+
+```bash
+git diff --check
+./gradlew \
+  :domain:station:test \
+  :data:station:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest
+```
+
+이 조합은 `StationEvent` 계약, retry 정책, station-list 상태 분리와 blocking failure 의미를 다시 확인합니다.
+
 ## 빠른 로컬 확인
 
 문서/리팩터링/가벼운 변경 후 가장 먼저 돌릴 조합입니다.

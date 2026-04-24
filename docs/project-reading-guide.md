@@ -24,14 +24,16 @@
 | 앱 전체 구조는 어디서 보나 | `settings.gradle.kts`, `README.md`, `docs/architecture.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |
-| 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `StationListUiState.kt`, `domain/location/*` |
+| 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `StationListUiState.kt`, `domain/location/*` |
 | 설정 화면은 왜 main/detail route가 나뉘나 | `GasStationNavHost.kt`, `feature/settings/SettingsRoute.kt`, `SettingsDetailRoute.kt`, `SettingsViewModel.kt` |
 | watchlist는 어떻게 만들어지나 | `feature/watchlist/WatchlistViewModel.kt`, `domain/station/usecase/ObserveWatchlistUseCase.kt`, `data/station/DefaultStationRepository.kt` |
 | 디자인 방향과 공통 UI primitive는 어디서 보나 | `.impeccable.md`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/*` |
 | 오프라인과 stale는 어디서 결정되나 | `data/station/DefaultStationRepository.kt`, `StationCachePolicy.kt`, `core/database/station/*` |
+| 일시적 refresh 실패 재시도는 어디서 보나 | `data/station/StationRetryPolicy.kt`, `DefaultStationRepository.kt`, `domain/station/model/StationEvent.kt` |
 | demo는 어디서 고정되나 | `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`, `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`, `app/src/demo/kotlin/com/gasstation/demo/seed/DemoSeedStationRemoteDataSource.kt` |
 | prod는 어디서 달라지나 | `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`, `app/build.gradle.kts` |
 | 외부 지도 연동은 어디 있나 | `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt` |
+| 이벤트 로그 계약은 어디 있나 | `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt` |
 
 ## 권장 코드 읽기 순서
 
@@ -49,12 +51,15 @@
 
 1. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
 2. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
-3. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
-4. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
-5. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
-6. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
-7. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
-8. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+3. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
+4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
+6. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
+7. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
+8. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
+9. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
+10. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+11. `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
 
 목록 화면이 이 프로젝트의 중심입니다. 권한, GPS, 위치 조회, 캐시 유지, 가격 변화, watch toggle까지 대부분 여기서 이어집니다.
 

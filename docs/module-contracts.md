@@ -14,15 +14,15 @@
 
 | 모듈 | 소유 범위 | 직접 의존 | 이 모듈에 두지 말 것 |
 | --- | --- | --- | --- |
-| `app` | Hilt 조립, startup hook, navigation, flavor 연결 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
+| `app` | Hilt 조립, startup hook, navigation, flavor 연결, 외부 앱 handoff, `StationEventLogger` 구현 연결 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
 | `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, 주소 라벨 보정, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` | DataStore 구현, Android 타입 |
-| `domain:station` | `StationRepository`, 검색/비교 use case, 이벤트 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO |
+| `domain:station` | `StationRepository`, 검색/비교 use case, `StationEvent`/`StationEventLogger` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics SDK 구현 |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
-| `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현 |
+| `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합, 일시적 refresh 실패 retry 정책 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현, snackbar/전면 실패 판단 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary | 없음 | 앱 정책 |
 | `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive, 브랜드 아이콘 리소스 매핑 | Compose/Material3, `core:model` | feature 전용 비즈니스 문구, 화면 상태 분기, 검색/저장 정책 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
@@ -50,6 +50,10 @@
   `core:model`의 `Brand` enum과 `core/designsystem/component/BrandIcon.kt` 리소스 매핑을 먼저 확인하고, 목록/북마크별 label 노출 정책은 각 `feature:*` 화면에 둠
 - 캐시/stale 정책 변경:
   `data/station/StationCachePolicy.kt`와 `core/database/*`
+- refresh 재시도 정책 변경:
+  `data/station/StationRetryPolicy.kt`, `data/station/DefaultStationRepository.kt`, retry event 계약이 바뀌면 `domain/station/model/StationEvent.kt`
+- 이벤트 로깅 계약 변경:
+  이벤트 종류와 payload는 `domain/station/model/StationEvent.kt`, 앱의 현재 Logcat 매핑은 `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`
 - watchlist 비교 규칙 변경:
   `data/station/DefaultStationRepository.kt`와 `feature/watchlist/*`
 - demo 재현 경로 변경:
