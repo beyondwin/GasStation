@@ -31,6 +31,7 @@
 - `station_cache_snapshot`과 `StationSearchResult.hasCachedSnapshot`으로 "성공한 빈 결과"와 "캐시 자체가 없음"을 구분합니다.
 - 목록은 stale 결과를 유지하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
 - 주유소 목록 카드는 가격과 거리 가독성을 우선하고, 유종 chip 옆에는 브랜드 텍스트 없이 브랜드 아이콘만 배치합니다.
+- `Brand`, `FuelType`, `SearchRadius` 같은 공유 enum vocabulary는 `core:model`에 두어 settings, network, designsystem이 `domain:station`을 거치지 않고 사용합니다.
 - `core:designsystem`의 metric, supporting-info, row, guidance primitive를 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다.
 - 설정 메인 화면과 상세 선택 화면은 route는 다르지만 같은 `SettingsViewModel` 상태를 공유하고, 쓰기는 explicit domain use case로만 흘립니다.
 - `prod` 검색 파이프라인은 로컬 KATEC 좌표 변환 + Opinet 호출만 사용하고, `demo`는 같은 규칙을 seed 데이터로 재현합니다.
@@ -51,11 +52,13 @@ flowchart LR
     fstation --> domSettings["domain:settings"]
     fstation --> domLocation["domain:location"]
     fstation --> cdesign
+    fstation --> cmodel
     fsettings --> domSettings
-    fsettings --> domStation
     fsettings --> cdesign
+    fsettings --> cmodel
     fwatch --> domStation
     fwatch --> cdesign
+    fwatch --> cmodel
 
     dstation --> domStation
     dstation --> cdb["core:database"]
@@ -63,12 +66,10 @@ flowchart LR
     dstation --> cmodel["core:model"]
     dsettings --> cstore["core:datastore"]
     cstore --> domSettings
-    cstore --> domStation
+    cstore --> cmodel
     cnet --> cmodel
-    cnet --> domStation
-    cdesign --> domStation
+    cdesign --> cmodel
     clocation --> domLocation
-    domSettings --> domStation
     domSettings --> cmodel
     domLocation --> cmodel
     domStation --> cmodel

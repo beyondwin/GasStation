@@ -102,6 +102,8 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 - `InvalidPayload`
 - `Unknown`
 
+Retry policy does not clear or mutate existing snapshots on failure. Timeout and Network failures are retried once before the final StationRefreshException reaches feature code. InvalidPayload and Unknown are not retried.
+
 하지만 기존 `station_cache`와 `station_cache_snapshot`은 지우지 않습니다. 이 덕분에 UI는 실패 중에도 마지막 성공 결과를 계속 렌더링할 수 있습니다.
 
 ## watchlist fallback

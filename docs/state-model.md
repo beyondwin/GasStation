@@ -1,13 +1,15 @@
 # 상태 모델
 
-이 문서는 GasStation의 상태 원천과 lifecycle 판단을 설명하는 단일 출처입니다. 상태는 다섯 층으로 나눠서 보면 가장 덜 헷갈리고, 여기서는 각 상태가 어디서 만들어지고 얼마나 오래 유지되는지 설명합니다.
+이 문서는 GasStation의 상태 원천과 lifecycle 판단을 설명하는 단일 출처입니다. 상태는 여러 층으로 나눠서 보면 가장 덜 헷갈리고, 여기서는 각 상태가 어디서 만들어지고 얼마나 오래 유지되는지 설명합니다.
 
 ## 상태 층 요약
 
 | 층 | 대표 타입 | 유지 범위 | 역할 |
 | --- | --- | --- | --- |
 | 영속 선호 상태 | `UserPreferences` | 프로세스 재시작 이후에도 유지 | 반경, 유종, 브랜드, 정렬, 지도 앱 |
-| 목록 세션 상태 | `StationListSessionState` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS, 현재 좌표, 로딩, blocking failure |
+| 목록 위치 상태 | `LocationStateMachine` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS availability, 현재 좌표, 주소 라벨, denied-access, recovery refresh flag |
+| 목록 검색 상태 | `StationSearchOrchestrator` | `StationListViewModel` 생존 동안만 유지 | active query, cache snapshot state, observed search result, pending blocking refresh failure |
+| 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
 | 설정 화면 파생 상태 | `SettingsUiState` | `UserPreferences`로부터 항상 재생성 가능 | 요약 라벨과 선택 옵션 |
 | 단발성 UI effect | `StationListEffect` | 한 번 소비하고 버림 | snackbar, 위치 설정 열기, 외부 지도 열기 |
@@ -30,26 +32,21 @@
 
 `demo` flavor는 예외가 하나 있습니다. `DemoSeedStartupHook`이 앱 시작 시 `UserPreferences.default()`로 다시 덮어써 검토 시작 상태를 항상 고정합니다.
 
-## 2. 목록 세션 상태
+## 2. 목록 런타임 상태
 
-`StationListViewModel`은 영속값과 별도로 런타임 전용 세션 상태를 유지합니다.
+목록 화면의 런타임 상태는 단일 세션 객체가 아니라 세 책임으로 나뉩니다.
 
-- `permissionState`
-- `hasDeniedLocationAccess`
-- `needsRecoveryRefresh`
-- `isGpsEnabled`
-- `isAvailabilityKnown`
-- `currentCoordinates`
-- `isLoading`
-- `isRefreshing`
-- `blockingFailure`
+- `LocationStateMachine`: permission, GPS availability, current coordinates, address label, denied-access flag, recovery refresh flag를 소유합니다.
+- `StationSearchOrchestrator`: active query, cache snapshot state, observed search result, pending blocking refresh failure를 소유합니다.
+- `StationListViewModel`: loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` composition을 소유합니다.
 
-이 값은 저장되지 않습니다. 화면을 떠나면 사라지고, 앱 재시작 후 복원 대상도 아닙니다.
+이 값들은 저장되지 않습니다. 화면을 떠나면 사라지고, 앱 재시작 후 복원 대상도 아닙니다.
 
 ### 위치 관련 분기
 
 - 위치 availability는 `domain:location.ObserveLocationAvailabilityUseCase`를 통해 ViewModel로 들어오고, route는 foreground 구간에서만 이 흐름을 수집합니다.
 - 현재 위치 조회는 평상시 구독이 아니라 새로고침 시점에만 `domain:location.GetCurrentLocationUseCase`를 호출합니다.
+- 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다.
 - `demo`에서는 `core:location.DefaultLocationRepository` 내부의 `DemoLocationOverride`가 좌표를 공급하지만, permission state는 별도 우회 없이 그대로 유지합니다. 대신 ViewModel이 `hasDeniedLocationAccess`로 demo/recovery 경로를 따로 추적합니다.
 - `prod`에서는 같은 저장소 구현이 Android 위치 provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
 - GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다.
@@ -59,7 +56,7 @@
 목록 화면은 세션 상태만으로 그려지지 않습니다. ViewModel은 다음 세 입력을 결합해 `StationListUiState`를 만듭니다.
 
 - `UserPreferences`
-- `StationListSessionState`
+- `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
 - `StationSearchResult`
 
 `StationSearchResult`의 의미:
@@ -87,7 +84,7 @@
 - 캐시 스냅샷이 없으면:
   `LocationTimedOut`, `LocationFailed`, `RefreshTimedOut`, `RefreshFailed` 중 하나가 blocking failure로 올라갑니다.
 
-이 정책은 ViewModel 안에서 `PendingBlockingFailure`와 `CachedSnapshotState`를 사용해 구현합니다. 실패가 먼저 들어오고 저장소 관찰 결과가 나중에 도착할 수 있기 때문에, ViewModel은 "지금 정말 캐시가 없는가"를 확인한 뒤에만 전면 실패를 확정합니다.
+이 정책은 `StationSearchOrchestrator`가 `PendingBlockingFailure`와 `CachedSnapshotState`를 사용해 구현합니다. 실패가 먼저 들어오고 저장소 관찰 결과가 나중에 도착할 수 있기 때문에, orchestrator는 "지금 정말 캐시가 없는가"를 확인한 뒤에만 전면 실패를 확정하고, ViewModel은 그 결과를 최종 `StationListUiState`에 반영합니다.
 
 ## 5. watchlist 상태
 
@@ -122,7 +119,9 @@
 ## 상태 경계 한 줄 요약
 
 - 오래 유지되는 사용자 선택: `UserPreferences`
-- 실행 중 환경과 실패 여부: `StationListSessionState`
+- 실행 중 위치 환경: `LocationStateMachine`
+- 실행 중 검색/cache/failure 판단: `StationSearchOrchestrator`
+- 목록 화면 action/effect/UI 조합: `StationListViewModel`
 - 화면에 그릴 데이터 조합: `StationSearchResult`, `WatchedStationSummary`
 - 설정 화면 라벨과 옵션: `SettingsUiState`
 - 한 번만 소비할 반응: `StationListEffect`

@@ -16,19 +16,19 @@
 | --- | --- | --- | --- |
 | `app` | Hilt 조립, startup hook, navigation, flavor 연결 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
 | `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, 주소 라벨 보정, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
-| `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `domain:settings`, `domain:station`, `core:designsystem` | 저장 구현, 네트워크 설정 |
+| `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
-| `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `domain:station`, `core:model` | DataStore 구현, Android 타입 |
+| `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` | DataStore 구현, Android 타입 |
 | `domain:station` | `StationRepository`, 검색/비교 use case, 이벤트 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
 | `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현 |
-| `core:model` | 값 객체와 불변식 | 없음 | 앱 정책 |
-| `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive, 브랜드 아이콘 리소스 매핑 | Compose/Material3, `domain:station` | feature 전용 비즈니스 문구, 화면 상태 분기, 검색/저장 정책 |
+| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary | 없음 | 앱 정책 |
+| `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive, 브랜드 아이콘 리소스 매핑 | Compose/Material3, `core:model` | feature 전용 비즈니스 문구, 화면 상태 분기, 검색/저장 정책 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
-| `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model`, `domain:station` | 캐시/Room 조합 |
+| `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model` | 캐시/Room 조합 |
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
-| `core:datastore` | DataStore data source, serializer | `domain:settings`, `domain:station` | 화면 상태, 설정 정책 |
+| `core:datastore` | DataStore data source, serializer | `core:model`, `domain:settings` | 화면 상태, 설정 정책 |
 | `tools:demo-seed` | demo seed 재생성 CLI | `core:network`, `domain:station`, `core:model` | 앱 런타임 의존 |
 | `benchmark` | 매크로벤치마크와 baseline profile | `app` | 기능 구현 |
 
@@ -47,7 +47,7 @@
 - 현재 주소 표시 변경:
   지오코더 결과를 행정동 단위로 정규화하는 규칙은 `core/location/*`, 목록 상단에 어떻게 보일지는 `feature/station-list/*`
 - 브랜드 아이콘 표시 변경:
-  `domain:station`의 `Brand` enum과 `core/designsystem/component/BrandIcon.kt` 리소스 매핑을 먼저 확인하고, 목록/북마크별 label 노출 정책은 각 `feature:*` 화면에 둠
+  `core:model`의 `Brand` enum과 `core/designsystem/component/BrandIcon.kt` 리소스 매핑을 먼저 확인하고, 목록/북마크별 label 노출 정책은 각 `feature:*` 화면에 둠
 - 캐시/stale 정책 변경:
   `data/station/StationCachePolicy.kt`와 `core/database/*`
 - watchlist 비교 규칙 변경:

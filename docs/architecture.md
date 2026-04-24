@@ -36,13 +36,13 @@ flowchart LR
     fstation --> cmodel
 
     fsettings --> domSettings
-    fsettings --> domStation
     fsettings --> cdesign
+    fsettings --> cmodel
 
     fwatch --> domStation
     fwatch --> cmodel
     fwatch --> cdesign
-    cdesign --> domStation
+    cdesign --> cmodel
 
     dstation --> domStation
     dstation --> cnetwork
@@ -53,13 +53,11 @@ flowchart LR
     dsettings --> cstore["core:datastore"]
 
     cstore --> domSettings
-    cstore --> domStation
+    cstore --> cmodel
     cnetwork --> cmodel
-    cnetwork --> domStation
 
     clocation --> domLocation
     clocation --> cmodel
-    domSettings --> domStation
     domSettings --> cmodel
     domLocation --> cmodel
     domStation --> cmodel
@@ -83,18 +81,18 @@ flowchart LR
 | `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약 |
 | `data:settings` | DataStore 기반 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현 |
-| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체 |
+| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
 | `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스 매핑 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
-| `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아 원격 DTO를 정규화 |
+| `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
-| `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer. 선호값 타입이 `domain:station`의 유종/브랜드/정렬/지도 enum을 포함하므로 해당 도메인 모델을 그대로 직렬화 |
+| `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer. 선호값 타입은 `core:model`의 유종/브랜드/정렬/지도 enum vocabulary를 직렬화 |
 | `tools:demo-seed` | Opinet 결과를 기준으로 demo seed JSON을 다시 생성하는 JVM CLI |
 | `benchmark` | `demo` 경로를 대상으로 cold start, watchlist 이동, baseline profile 측정 |
 
 ## 의존성 해석 기준
 
-문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. 기능 계층만 보면 `core:datastore -> domain:station`, `core:network -> domain:station`, `core:designsystem -> domain:station` edge가 낯설 수 있는데, 이는 설정/검색 입력과 브랜드 아이콘 매핑이 `domain:station`의 enum을 공통 언어로 쓰기 때문입니다. `core:designsystem`은 `Brand`를 리소스에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체와 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `core:designsystem`은 `Brand`를 리소스에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
 
 ## Presentation hierarchy
 
@@ -114,11 +112,11 @@ flowchart LR
 
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
 2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다.
-3. ViewModel은 `ObserveLocationAvailabilityUseCase`와 `ObserveUserPreferencesUseCase`를 구독해 세션 상태와 `UserPreferences`를 관찰하고, 새로고침 시점에만 `GetCurrentLocationUseCase`를 호출합니다.
-4. 위치 조회가 성공하면 `GetCurrentAddressUseCase`로 주소 라벨도 조회합니다. `core:location`은 행정동 단위 주소를 우선 만들고, 화면은 지오코더가 섞어 보낸 국가 코드나 건물 동 표기를 다시 방어합니다.
-5. ViewModel은 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 `StationQuery`를 만들고 `ObserveNearbyStationsUseCase`를 구독합니다.
+3. ViewModel은 `LocationStateMachine`을 통해 `ObserveLocationAvailabilityUseCase`와 새로고침 시점의 `GetCurrentLocationUseCase`를 다루고, 별도로 `ObserveUserPreferencesUseCase`를 구독합니다.
+4. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `GetCurrentAddressUseCase` 주소 라벨 조회는 non-blocking 표시용 context로 뒤따릅니다. `core:location`은 행정동 단위 주소를 우선 만들고, 화면은 지오코더가 섞어 보낸 국가 코드나 건물 동 표기를 다시 방어합니다.
+5. `StationSearchOrchestrator`는 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만들고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
 6. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
-7. UI는 `StationListUiState`를 통해 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 카드의 브랜드 영역은 유종 chip과 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
+7. ViewModel은 loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합을 맡고, UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 카드의 브랜드 영역은 유종 chip과 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
 
 ### 2. 새로고침과 실패 처리
 
