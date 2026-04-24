@@ -2,51 +2,132 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** core→domain 역의존 해소, domain 간 커플링 제거, ViewModel 책임 분리, 재시도 정책 도입, 구조화된 에러 로깅 추가
+**Goal:** `core:* -> domain:station` 역의존과 `domain:settings -> domain:station` 커플링을 제거하고, station list refresh 흐름을 위치, 검색, retry, logging 책임으로 분리한다.
 
-**Architecture:** 공유 enum 6개를 `domain:station`에서 `core:model`로 이동하여 core→domain 역의존을 끊고, `StationListViewModel`을 `LocationStateMachine` + `StationSearchOrchestrator`로 분리하며, `data:station`에 1회 재시도 정책과 `StationEvent` 확장 에러 로깅을 추가한다.
+**Architecture:** 공유 enum 6개는 `core:model`로 이동한다. `StationListViewModel`은 UI state 조합과 action dispatch만 맡고, 위치 상태는 `LocationStateMachine`, 검색 query/cache/failure 판단은 `StationSearchOrchestrator`, 일시적 원격 실패 재시도는 `StationRetryPolicy`가 맡는다. 사용자 동작, demo/prod 경로, 캐시 의미는 유지한다.
 
-**Tech Stack:** Kotlin, Jetpack Compose, Hilt, Room, Retrofit, Coroutines/Flow, Turbine (test), JUnit
+**Tech Stack:** Kotlin, Gradle multi-module, Jetpack Compose, Hilt, Room, Retrofit, Coroutines/Flow, JUnit, Turbine
 
 ---
+
+## Operating Notes
+
+- 시작 전 항상 `git status --short`를 확인한다.
+- 활성 모듈은 `settings.gradle.kts`의 include 기준으로 판단한다.
+- `demo`와 `prod`는 모두 정식 실행 경로다.
+- 가격 우선 UI 위계는 바꾸지 않는다.
+- 주소 라벨은 검색 입력이 아니라 표시용 context다. 주소 조회는 주유소 검색을 막지 않는다.
+- 캐시 존재 판단은 `fetchedAt != null`이 아니라 `StationSearchResult.hasCachedSnapshot`을 따른다.
+- 문서와 테스트 명령은 Android library 모듈 기준 task명을 쓴다. 예: `:data:station:testDebugUnitTest`, `:feature:station-list:testDebugUnitTest`.
+
+## Current Code Facts
+
+- `StationListViewModel.kt`는 현재 522줄이다.
+- enum import 영향은 현재 기준 51개 `.kt` 파일, 129개 import occurrence다. 실행 시 다시 측정한다.
+- `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 현재 `domain:station`에 직접 또는 간접 enum 의존을 가진다.
+- `feature:settings`는 enum만 사용하므로 `domain:station` 직접 의존을 제거할 수 있다.
+- `feature:watchlist`, `feature:station-list`, `data:station`, `tools:demo-seed`, `app`은 enum 외 station domain 계약도 사용하므로 `domain:station` 의존을 유지한다.
 
 ## File Structure
 
-### 이동 파일 (6개)
+### Move To `core:model`
 
 | From | To |
-|------|----|
-| `domain/station/src/main/kotlin/.../domain/station/model/Brand.kt` | `core/model/src/main/kotlin/.../core/model/Brand.kt` |
-| `domain/station/src/main/kotlin/.../domain/station/model/BrandFilter.kt` | `core/model/src/main/kotlin/.../core/model/BrandFilter.kt` |
-| `domain/station/src/main/kotlin/.../domain/station/model/FuelType.kt` | `core/model/src/main/kotlin/.../core/model/FuelType.kt` |
-| `domain/station/src/main/kotlin/.../domain/station/model/MapProvider.kt` | `core/model/src/main/kotlin/.../core/model/MapProvider.kt` |
-| `domain/station/src/main/kotlin/.../domain/station/model/SearchRadius.kt` | `core/model/src/main/kotlin/.../core/model/SearchRadius.kt` |
-| `domain/station/src/main/kotlin/.../domain/station/model/SortOrder.kt` | `core/model/src/main/kotlin/.../core/model/SortOrder.kt` |
+| --- | --- |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/Brand.kt` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/BrandFilter.kt` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/FuelType.kt` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/MapProvider.kt` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/SearchRadius.kt` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt` | `core/model/src/main/kotlin/com/gasstation/core/model/SortOrder.kt` |
 
-### 신규 파일 (6개)
+### Create
 
-| 파일 | 모듈 |
-|------|------|
-| `feature/station-list/src/main/kotlin/.../stationlist/LocationStateMachine.kt` | feature:station-list |
-| `feature/station-list/src/test/kotlin/.../stationlist/LocationStateMachineTest.kt` | feature:station-list |
-| `feature/station-list/src/main/kotlin/.../stationlist/StationSearchOrchestrator.kt` | feature:station-list |
-| `feature/station-list/src/test/kotlin/.../stationlist/StationSearchOrchestratorTest.kt` | feature:station-list |
-| `data/station/src/main/kotlin/.../data/station/StationRetryPolicy.kt` | data:station |
-| `data/station/src/test/kotlin/.../data/station/StationRetryPolicyTest.kt` | data:station |
+| File | Owner | Responsibility |
+| --- | --- | --- |
+| `core/model/src/test/kotlin/com/gasstation/core/model/SharedEnumContractTest.kt` | `core:model` | enum identity and no UI/transport field contract |
+| `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt` | `data:station` | retry once for retryable refresh failures |
+| `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt` | `data:station` | retry policy behavior and retry logging |
+| `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt` | `feature:station-list` | permission, GPS, coordinates, address label, recovery flag |
+| `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/LocationStateMachineTest.kt` | `feature:station-list` | location state transitions |
+| `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt` | `feature:station-list` | active query, observed result, cache state, pending blocking failure |
+| `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestratorTest.kt` | `feature:station-list` | query/cache/failure state transitions |
 
-### 수정 파일 (주요)
+### Modify
 
-- 4개 `build.gradle.kts` (core:datastore, core:network, core:designsystem, domain:settings)
-- 51개 `.kt` 파일 import 경로 변경
-- `StationListViewModel.kt` — 책임 분리
-- `DefaultStationRepository.kt` — 재시도 적용
-- `StationEvent.kt` — 에러 이벤트 추가
-- `LogcatStationEventLogger.kt` — 새 이벤트 매핑
-- `docs/architecture.md`, `docs/module-contracts.md` — 문서 갱신
+| File | Change |
+| --- | --- |
+| `core/datastore/build.gradle.kts` | remove `domain:station`, add `core:model` |
+| `core/network/build.gradle.kts` | remove `domain:station` |
+| `core/designsystem/build.gradle.kts` | replace `domain:station` with `core:model` |
+| `domain/settings/build.gradle.kts` | replace `domain:station` with `core:model` |
+| `feature/settings/build.gradle.kts` | replace `domain:station` with `core:model` |
+| `data/settings/build.gradle.kts` | replace test `domain:station` with `core:model` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/*.kt` | import moved enum types from `core:model` where needed |
+| `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt` | remove enum identity assertions, keep station contract assertions |
+| `domain/station/src/test/kotlin/com/gasstation/domain/station/BrandFilterTest.kt` | move or repoint to `core:model` |
+| `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt` | inject and apply `StationRetryPolicy` |
+| `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt` | add structured error events |
+| `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt` | map new events |
+| `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt` | integrate `LocationStateMachine` and `StationSearchOrchestrator` |
+| `docs/architecture.md` | update dependency graph and runtime flow |
+| `docs/module-contracts.md` | update module ownership and direct dependency table |
+| `docs/state-model.md` | replace `StationListSessionState` with extracted state owners |
+| `docs/offline-strategy.md` | mention retry without cache invalidation |
+| `docs/test-strategy.md` | add new test files and responsibilities |
+| `docs/verification-matrix.md` | include correct module verification commands |
 
 ---
 
-## Task 1: 공유 Enum 파일을 core:model로 이동
+## Task 0: Baseline And Safety Checks
+
+**Files:**
+- Read: `settings.gradle.kts`
+- Read: `docs/module-contracts.md`
+- Read: `docs/agent-workflow.md`
+- Read: `docs/state-model.md`
+- Read: `docs/offline-strategy.md`
+- Read: `docs/test-strategy.md`
+- Read: `docs/verification-matrix.md`
+
+- [ ] **Step 1: Confirm clean working tree**
+
+Run:
+
+```bash
+git status --short
+```
+
+Expected: no output. If there is output, inspect it and do not overwrite user changes.
+
+- [ ] **Step 2: Confirm active modules**
+
+Run:
+
+```bash
+sed -n '1,220p' settings.gradle.kts
+```
+
+Expected: includes `:app`, `:core:model`, `:core:designsystem`, `:core:location`, `:core:network`, `:core:database`, `:core:datastore`, `:domain:location`, `:domain:settings`, `:domain:station`, `:data:settings`, `:data:station`, `:feature:settings`, `:feature:station-list`, `:feature:watchlist`, `:tools:demo-seed`, `:benchmark`.
+
+- [ ] **Step 3: Measure current enum import surface**
+
+Run:
+
+```bash
+rg -l "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|MapProvider|SearchRadius|SortOrder)" -g "*.kt" | wc -l
+rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|MapProvider|SearchRadius|SortOrder)" -g "*.kt" | wc -l
+```
+
+Expected at the time this plan was written: `51` files and `129` import occurrences. If counts differ, continue using the current repo output.
+
+- [ ] **Step 4: Commit nothing**
+
+This task is read-only.
+
+---
+
+## Task 1: Move Shared Enums To `core:model`
 
 **Files:**
 - Create: `core/model/src/main/kotlin/com/gasstation/core/model/Brand.kt`
@@ -55,32 +136,39 @@
 - Create: `core/model/src/main/kotlin/com/gasstation/core/model/MapProvider.kt`
 - Create: `core/model/src/main/kotlin/com/gasstation/core/model/SearchRadius.kt`
 - Create: `core/model/src/main/kotlin/com/gasstation/core/model/SortOrder.kt`
-- Delete: 위 6개 파일의 원본 (`domain/station/src/main/kotlin/.../domain/station/model/` 하위)
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt`
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt`
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt`
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt`
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt`
+- Delete: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt`
+- Create: `core/model/src/test/kotlin/com/gasstation/core/model/SharedEnumContractTest.kt`
+- Modify: all `.kt` files importing the six moved types
 
-- [ ] **Step 1: 6개 enum 파일을 core:model 패키지로 복사하고 패키지 선언 변경**
+- [ ] **Step 1: Move the six enum files**
 
-```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/Brand.kt
-package com.gasstation.core.model
+Use `git mv` so history is preserved:
 
-enum class Brand {
-    SKE,
-    GSC,
-    HDO,
-    SOL,
-    RTO,
-    RTX,
-    NHO,
-    ETC,
-    E1G,
-    SKG,
-}
+```bash
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt core/model/src/main/kotlin/com/gasstation/core/model/Brand.kt
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt core/model/src/main/kotlin/com/gasstation/core/model/BrandFilter.kt
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt core/model/src/main/kotlin/com/gasstation/core/model/FuelType.kt
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt core/model/src/main/kotlin/com/gasstation/core/model/MapProvider.kt
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt core/model/src/main/kotlin/com/gasstation/core/model/SearchRadius.kt
+git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt core/model/src/main/kotlin/com/gasstation/core/model/SortOrder.kt
 ```
 
-```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/BrandFilter.kt
-package com.gasstation.core.model
+- [ ] **Step 2: Change package declarations**
 
+Each moved file must start with:
+
+```kotlin
+package com.gasstation.core.model
+```
+
+`BrandFilter.kt` must keep this behavior:
+
+```kotlin
 enum class BrandFilter(val brand: Brand?) {
     ALL(brand = null),
     SKE(brand = Brand.SKE),
@@ -99,131 +187,143 @@ enum class BrandFilter(val brand: Brand?) {
 }
 ```
 
+- [ ] **Step 3: Rewrite imports for moved enum types**
+
+Run:
+
+```bash
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.Brand$/import com.gasstation.core.model.Brand/' $(rg -l "import com\.gasstation\.domain\.station\.model\.Brand$" -g "*.kt")
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.BrandFilter$/import com.gasstation.core.model.BrandFilter/' $(rg -l "import com\.gasstation\.domain\.station\.model\.BrandFilter$" -g "*.kt")
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.FuelType$/import com.gasstation.core.model.FuelType/' $(rg -l "import com\.gasstation\.domain\.station\.model\.FuelType$" -g "*.kt")
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.MapProvider$/import com.gasstation.core.model.MapProvider/' $(rg -l "import com\.gasstation\.domain\.station\.model\.MapProvider$" -g "*.kt")
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.SearchRadius$/import com.gasstation.core.model.SearchRadius/' $(rg -l "import com\.gasstation\.domain\.station\.model\.SearchRadius$" -g "*.kt")
+perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.SortOrder$/import com.gasstation.core.model.SortOrder/' $(rg -l "import com\.gasstation\.domain\.station\.model\.SortOrder$" -g "*.kt")
+```
+
+If one of the `rg -l` commands returns no files, run the corresponding replacement manually with the remaining files found by Step 4.
+
+- [ ] **Step 4: Verify no moved enum imports remain**
+
+Run:
+
+```bash
+rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|MapProvider|SearchRadius|SortOrder)" -g "*.kt"
+```
+
+Expected: no output.
+
+- [ ] **Step 5: Add enum contract test to `core:model`**
+
+Create `core/model/src/test/kotlin/com/gasstation/core/model/SharedEnumContractTest.kt`:
+
 ```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/FuelType.kt
 package com.gasstation.core.model
 
-enum class FuelType {
-    GASOLINE,
-    DIESEL,
-    PREMIUM_GASOLINE,
-    KEROSENE,
-    LPG,
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class SharedEnumContractTest {
+
+    @Test
+    fun `shared fuel type identities stay stable without ui or transport fields`() {
+        assertEquals(
+            listOf("GASOLINE", "DIESEL", "PREMIUM_GASOLINE", "KEROSENE", "LPG"),
+            FuelType.entries.map { it.name },
+        )
+        assertTrue(FuelType::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
+        assertFalse(FuelType::class.java.declaredMethods.any { it.name == "getDisplayName" })
+        assertFalse(FuelType::class.java.declaredMethods.any { it.name == "getProductCode" })
+    }
+
+    @Test
+    fun `shared brand identities and filters stay stable`() {
+        assertEquals(
+            listOf("SKE", "GSC", "HDO", "SOL", "RTO", "RTX", "NHO", "ETC", "E1G", "SKG"),
+            Brand.entries.map { it.name },
+        )
+        assertTrue(Brand::class.java.declaredFields.none { it.name.contains("code", ignoreCase = true) })
+        assertFalse(Brand::class.java.declaredMethods.any { it.name == "getDisplayName" })
+        assertFalse(Brand::class.java.declaredMethods.any { it.name == "getBrandCode" })
+
+        assertEquals(
+            listOf("ALL", "SKE", "GSC", "HDO", "SOL", "RTO", "RTX", "NHO", "ETC", "E1G", "SKG"),
+            BrandFilter.entries.map { it.name },
+        )
+        assertTrue(BrandFilter.ALL.matches(Brand.GSC))
+        assertTrue(BrandFilter.GSC.matches(Brand.GSC))
+        assertFalse(BrandFilter.GSC.matches(Brand.SKE))
+    }
+
+    @Test
+    fun `shared preference enums stay stable`() {
+        assertEquals(listOf("DISTANCE", "PRICE"), SortOrder.entries.map { it.name })
+        assertEquals(3_000, SearchRadius.KM_3.meters)
+        assertEquals(4_000, SearchRadius.KM_4.meters)
+        assertEquals(5_000, SearchRadius.KM_5.meters)
+        assertEquals(listOf("TMAP", "KAKAO_NAVI", "NAVER_MAP"), MapProvider.entries.map { it.name })
+    }
 }
 ```
 
-```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/MapProvider.kt
-package com.gasstation.core.model
+- [ ] **Step 6: Move or delete old domain enum tests**
 
-enum class MapProvider {
-    TMAP,
-    KAKAO_NAVI,
-    NAVER_MAP,
-}
+Move `BrandFilterTest` to `core:model` if it tests only `BrandFilter.matches()`:
+
+```bash
+git mv domain/station/src/test/kotlin/com/gasstation/domain/station/BrandFilterTest.kt core/model/src/test/kotlin/com/gasstation/core/model/BrandFilterTest.kt
 ```
 
-```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/SearchRadius.kt
-package com.gasstation.core.model
-
-enum class SearchRadius(val meters: Int) {
-    KM_3(meters = 3_000),
-    KM_4(meters = 4_000),
-    KM_5(meters = 5_000),
-}
-```
+Then change its package to:
 
 ```kotlin
-// core/model/src/main/kotlin/com/gasstation/core/model/SortOrder.kt
 package com.gasstation.core.model
-
-enum class SortOrder {
-    DISTANCE,
-    PRICE,
-}
 ```
 
-- [ ] **Step 2: domain:station에서 원본 6개 파일 삭제**
+Remove imports for `Brand` and `BrandFilter` from that moved test because they now live in the same package.
+
+- [ ] **Step 7: Trim `DomainContractSurfaceTest`**
+
+In `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt`, remove imports for the six moved enum types and remove the test named:
+
+```kotlin
+fun `station domain enums keep stable identities without ui or transport fields`()
+```
+
+Keep the `StationEvent`, `StationRepository`, `StationSearchResult`, `StationPriceDelta`, and watchlist contract assertions.
+
+- [ ] **Step 8: Run focused tests and expect compile failures from missing Gradle dependencies**
+
+Run:
 
 ```bash
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt
-rm domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt
+./gradlew :core:model:test :domain:station:test
 ```
 
-- [ ] **Step 3: 전체 소비자 파일의 import 경로 일괄 변경**
+Expected before Task 2 is complete: `:core:model:test` should compile after package fixes. `:domain:station:test` may fail if imports or dependencies still reference old enum packages. Fix import misses before moving on.
 
-51개 `.kt` 파일에서 import 경로를 변경한다. 각 enum에 대해 다음 패턴으로 치환:
-
-```bash
-# 프로젝트 루트에서 실행
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.Brand$/import com.gasstation.core.model.Brand/' {} +
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.BrandFilter/import com.gasstation.core.model.BrandFilter/' {} +
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.FuelType/import com.gasstation.core.model.FuelType/' {} +
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.MapProvider/import com.gasstation.core.model.MapProvider/' {} +
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.SearchRadius/import com.gasstation.core.model.SearchRadius/' {} +
-find . -name "*.kt" -path "*/src/*" -exec sed -i '' \
-  's/import com\.gasstation\.domain\.station\.model\.SortOrder/import com.gasstation.core.model.SortOrder/' {} +
-```
-
-- [ ] **Step 4: 변경 누락 확인**
-
-```bash
-grep -r "import com.gasstation.domain.station.model.Brand" --include="*.kt" .
-grep -r "import com.gasstation.domain.station.model.BrandFilter" --include="*.kt" .
-grep -r "import com.gasstation.domain.station.model.FuelType" --include="*.kt" .
-grep -r "import com.gasstation.domain.station.model.MapProvider" --include="*.kt" .
-grep -r "import com.gasstation.domain.station.model.SearchRadius" --include="*.kt" .
-grep -r "import com.gasstation.domain.station.model.SortOrder" --include="*.kt" .
-```
-
-Expected: 모든 grep이 빈 결과를 반환해야 한다. 만약 남아있다면 수동으로 수정한다.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add -A
-git commit -m "refactor: move shared enums from domain:station to core:model
-
-Move Brand, BrandFilter, FuelType, MapProvider, SearchRadius, SortOrder
-to core:model as shared vocabulary types. Update 51 consumer files."
-```
+Do not commit until Task 2 also passes. The enum move and Gradle dependency cleanup are one atomic slice.
 
 ---
 
-## Task 2: build.gradle.kts 의존성 정리
+## Task 2: Clean Gradle Dependencies For Enum Move
 
 **Files:**
 - Modify: `core/datastore/build.gradle.kts`
 - Modify: `core/network/build.gradle.kts`
 - Modify: `core/designsystem/build.gradle.kts`
 - Modify: `domain/settings/build.gradle.kts`
+- Modify: `feature/settings/build.gradle.kts`
+- Modify: `data/settings/build.gradle.kts`
 
-- [ ] **Step 1: core:datastore에서 domain:station 의존 제거**
+- [ ] **Step 1: Update `core:datastore` dependencies**
 
-`core/datastore/build.gradle.kts` 변경:
+Change `core/datastore/build.gradle.kts` dependencies to include `core:model` directly and remove `domain:station`:
 
 ```kotlin
-// Before:
 dependencies {
-    implementation(project(":domain:settings"))
-    implementation(project(":domain:station"))
-    implementation(libs.androidx.datastore)
-    implementation(libs.androidx.datastore.core)
-    testImplementation(libs.junit)
-}
-
-// After:
-dependencies {
+    implementation(project(":core:model"))
     implementation(project(":domain:settings"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.core)
@@ -231,368 +331,482 @@ dependencies {
 }
 ```
 
-참고: `core:datastore`는 `domain:settings`를 유지해야 한다 (`UserPreferences` 타입 사용). `domain:settings`는 이제 `core:model`에만 의존하므로, enum은 `core:model`을 통해 간접 접근한다. 만약 `domain:settings`가 `implementation`으로 `core:model`을 가져오면 `core:datastore`에서 enum에 접근 불가할 수 있다. 그 경우 `core:datastore`에 `implementation(project(":core:model"))` 추가가 필요하다.
+- [ ] **Step 2: Update `core:network` dependencies**
 
-- [ ] **Step 2: core:network에서 domain:station 의존 제거**
-
-`core/network/build.gradle.kts` 변경:
+Change `core/network/build.gradle.kts` dependencies so it no longer depends on `domain:station`:
 
 ```kotlin
-// Before:
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":domain:station"))
-    ...
-}
-
-// After:
-dependencies {
-    implementation(project(":core:model"))
-    ...
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation("org.locationtech.proj4j:proj4j:1.4.1")
+    testImplementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.junit)
+    testImplementation(libs.mockwebserver)
 }
 ```
 
-- [ ] **Step 3: core:designsystem에서 domain:station을 core:model로 교체**
+- [ ] **Step 3: Update `core:designsystem` dependencies**
 
-`core/designsystem/build.gradle.kts` 변경:
+Change `core/designsystem/build.gradle.kts` dependencies to use `core:model`:
 
 ```kotlin
-// Before:
-dependencies {
-    implementation(project(":domain:station"))
-    ...
-}
-
-// After:
 dependencies {
     implementation(project(":core:model"))
-    ...
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    testImplementation(libs.junit)
+    debugImplementation(libs.androidx.ui.tooling)
 }
 ```
 
-- [ ] **Step 4: domain:settings에서 domain:station 의존 제거**
+- [ ] **Step 4: Update `domain:settings` dependencies**
 
-`domain/settings/build.gradle.kts` 변경:
+Change `domain/settings/build.gradle.kts` dependencies to use `core:model`:
 
 ```kotlin
-// Before:
-dependencies {
-    implementation(project(":domain:station"))
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.javax.inject)
-    ...
-}
-
-// After:
 dependencies {
     implementation(project(":core:model"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
-    ...
+    testImplementation(libs.app.cash.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 ```
 
-- [ ] **Step 5: core:datastore에 core:model 직접 의존 추가 (필요 시)**
+- [ ] **Step 5: Update `feature:settings` dependencies**
 
-`domain:settings`가 `implementation(project(":core:model"))`을 사용하므로, `core:datastore`에서 enum 타입에 직접 접근하려면 `core:model`을 명시적으로 추가해야 한다:
+`feature:settings` uses settings use cases and enum types, but does not use station repository or station read models. Change `feature/settings/build.gradle.kts`:
 
 ```kotlin
-// core/datastore/build.gradle.kts
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":domain:settings"))
-    ...
+    implementation(project(":core:designsystem"))
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.junit)
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
 ```
 
-- [ ] **Step 6: 빌드 확인**
+- [ ] **Step 6: Update `data:settings` test dependency**
 
-```bash
-./gradlew :core:datastore:compileKotlin :core:network:compileKotlin :core:designsystem:compileDebugKotlin :domain:settings:compileKotlin
+`data/settings/src/test/.../DefaultSettingsRepositoryTest.kt` only needs moved enum types from `core:model`. Change `data/settings/build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation(project(":core:datastore"))
+    implementation(project(":domain:settings"))
+    testImplementation(project(":core:model"))
+    testImplementation(libs.junit)
+}
 ```
 
-Expected: BUILD SUCCESSFUL. 컴파일 에러가 있다면 누락된 `core:model` 의존을 추가한다.
+- [ ] **Step 7: Verify removed dependency edges**
 
-- [ ] **Step 7: 전체 빌드 확인**
+Run:
 
 ```bash
-./gradlew build
+rg 'project\(":domain:station"\)' core/datastore/build.gradle.kts core/network/build.gradle.kts core/designsystem/build.gradle.kts domain/settings/build.gradle.kts feature/settings/build.gradle.kts data/settings/build.gradle.kts
 ```
 
-Expected: BUILD SUCCESSFUL
+Expected: no output.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Run enum and dependency verification**
+
+Run:
+
+```bash
+./gradlew \
+  :core:model:test \
+  :domain:settings:test \
+  :domain:station:test \
+  :core:datastore:testDebugUnitTest \
+  :core:network:test \
+  :core:designsystem:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :data:settings:testDebugUnitTest
+```
+
+Expected: BUILD SUCCESSFUL.
+
+- [ ] **Step 9: Commit enum move and dependency cleanup**
 
 ```bash
 git add -A
-git commit -m "refactor: remove domain:station dependency from core modules
-
-core:datastore, core:network, core:designsystem no longer depend on
-domain:station. domain:settings no longer depends on domain:station.
-All enum types are now sourced from core:model."
+git commit -m "refactor: move shared station enums to core:model"
 ```
 
 ---
 
-## Task 3: DomainContractSurfaceTest 갱신
+## Task 3: Add Structured Error Events
 
 **Files:**
+- Modify: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt`
 - Modify: `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt`
+- Modify: `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`
 
-- [ ] **Step 1: enum surface test를 core:model 기준으로 갱신**
+- [ ] **Step 1: Add event variants**
 
-enum이 `domain:station`에서 `core:model`로 이동했으므로, enum identity 테스트의 import를 변경한다. 이 테스트의 목적은 enum 값의 안정성을 검증하는 것이므로, import 경로만 바뀌고 assertion은 동일하다.
-
-`domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt` 변경:
-
-import 경로를 전부 `com.gasstation.core.model.*`로 변경한다 (Task 1 Step 3에서 이미 치환되었을 수 있으나 확인):
+Change `StationEvent.kt` so it includes these extra variants:
 
 ```kotlin
-import com.gasstation.core.model.Brand
-import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.MapProvider
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
+data class RefreshFailed(
+    val reason: StationRefreshFailureReason,
+) : StationEvent
+
+data class LocationFailed(
+    val resultType: String,
+) : StationEvent
+
+data class RetryAttempted(
+    val originalReason: StationRefreshFailureReason,
+    val succeeded: Boolean,
+) : StationEvent
 ```
 
-`domain/station/build.gradle.kts`에 `testImplementation(project(":core:model"))`이 없으면 추가:
+Add this import:
 
 ```kotlin
-// domain/station/build.gradle.kts
-dependencies {
-    implementation(project(":core:model"))
-    ...
-    testImplementation(libs.app.cash.turbine)
-}
+import com.gasstation.domain.station.StationRefreshFailureReason
 ```
 
-`core:model`은 이미 `implementation`으로 있으므로 test에서도 접근 가능하다. 추가 변경 불필요.
+`RefreshFailed` intentionally has no `wasRetried` boolean. Retry outcome is represented by `RetryAttempted`, which is emitted by `data:station`.
 
-- [ ] **Step 2: StationEvent surface assertion 갱신 (Part 5 이후)**
+- [ ] **Step 2: Update station event surface assertion**
 
-`StationEvent`에 새 variant가 추가되면 (Task 7), `permittedSubclasses` assertion을 갱신해야 한다. 이 step은 Task 7 이후에 수행한다. 여기서는 memo만 남긴다.
+In `DomainContractSurfaceTest`, update the `StationEvent` assertion:
 
 ```kotlin
-// Task 7 이후 갱신 필요:
 assertEquals(
-    setOf("SearchRefreshed", "WatchToggled", "CompareViewed", "ExternalMapOpened",
-          "RefreshFailed", "LocationFailed", "RetryAttempted"),
+    setOf(
+        "SearchRefreshed",
+        "WatchToggled",
+        "CompareViewed",
+        "ExternalMapOpened",
+        "RefreshFailed",
+        "LocationFailed",
+        "RetryAttempted",
+    ),
     StationEvent::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
 )
 ```
 
-- [ ] **Step 3: 테스트 실행**
+- [ ] **Step 3: Update logcat mapping**
 
-```bash
-./gradlew :domain:station:test
+In `LogcatStationEventLogger.kt`, add branches:
+
+```kotlin
+is StationEvent.RefreshFailed -> {
+    "refresh_failed reason=${reason::class.java.simpleName}"
+}
+is StationEvent.LocationFailed -> {
+    "location_failed resultType=$resultType"
+}
+is StationEvent.RetryAttempted -> {
+    "retry_attempted originalReason=${originalReason::class.java.simpleName} succeeded=$succeeded"
+}
 ```
 
-Expected: ALL TESTS PASSED
+- [ ] **Step 4: Run event contract tests**
 
-- [ ] **Step 4: Commit**
+Run:
 
 ```bash
-git add -A
-git commit -m "test: update DomainContractSurfaceTest for core:model enum location"
+./gradlew :domain:station:test :app:testDemoDebugUnitTest
+```
+
+Expected: BUILD SUCCESSFUL.
+
+- [ ] **Step 5: Commit structured event contract**
+
+```bash
+git add domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt \
+        domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt \
+        app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt
+git commit -m "feat: add structured station failure events"
 ```
 
 ---
 
-## Task 4: StationRetryPolicy 구현
+## Task 4: Add Retry Policy Tests In `data:station`
 
 **Files:**
-- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
 - Create: `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`
 
-- [ ] **Step 1: 재시도 정책 테스트 작성**
+- [ ] **Step 1: Write retry policy tests first**
+
+Create `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`:
 
 ```kotlin
-// data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt
 package com.gasstation.data.station
 
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.model.StationEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationRetryPolicyTest {
 
-    private val policy = StationRetryPolicy()
+    private val logger = RecordingStationEventLogger()
+    private val policy = StationRetryPolicy(stationEventLogger = logger)
 
     @Test
-    fun `success on first attempt returns result without retry`() = runTest {
+    fun `success on first attempt returns result without retry event`() = runTest {
         var callCount = 0
+
         val result = policy.withRetry {
-            callCount++
+            callCount += 1
             "ok"
         }
+
         assertEquals("ok", result)
         assertEquals(1, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
     fun `timeout failure retries once and succeeds`() = runTest {
         var callCount = 0
+
         val result = policy.withRetry {
-            callCount++
+            callCount += 1
             if (callCount == 1) {
                 throw StationRefreshException(StationRefreshFailureReason.Timeout)
             }
             "ok"
         }
+
         assertEquals("ok", result)
         assertEquals(2, callCount)
+        val event = assertIs<StationEvent.RetryAttempted>(logger.events.single())
+        assertEquals(StationRefreshFailureReason.Timeout, event.originalReason)
+        assertEquals(true, event.succeeded)
     }
 
     @Test
     fun `network failure retries once and succeeds`() = runTest {
         var callCount = 0
+
         val result = policy.withRetry {
-            callCount++
+            callCount += 1
             if (callCount == 1) {
                 throw StationRefreshException(StationRefreshFailureReason.Network)
             }
             "ok"
         }
+
         assertEquals("ok", result)
         assertEquals(2, callCount)
+        val event = assertIs<StationEvent.RetryAttempted>(logger.events.single())
+        assertEquals(StationRefreshFailureReason.Network, event.originalReason)
+        assertEquals(true, event.succeeded)
     }
 
     @Test
-    fun `timeout failure retries once then fails`() = runTest {
+    fun `retryable failure retries once then propagates second failure`() = runTest {
         var callCount = 0
-        val exception = assertThrows(StationRefreshException::class.java) {
-            kotlinx.coroutines.test.runTest {
-                policy.withRetry {
-                    callCount++
-                    throw StationRefreshException(StationRefreshFailureReason.Timeout)
-                }
+
+        val exception = assertFailsWith<StationRefreshException> {
+            policy.withRetry {
+                callCount += 1
+                throw StationRefreshException(StationRefreshFailureReason.Timeout)
             }
         }
+
         assertEquals(StationRefreshFailureReason.Timeout, exception.reason)
         assertEquals(2, callCount)
+        val event = assertIs<StationEvent.RetryAttempted>(logger.events.single())
+        assertEquals(StationRefreshFailureReason.Timeout, event.originalReason)
+        assertEquals(false, event.succeeded)
     }
 
     @Test
     fun `invalid payload does not retry`() = runTest {
         var callCount = 0
-        val exception = assertThrows(StationRefreshException::class.java) {
-            kotlinx.coroutines.test.runTest {
-                policy.withRetry {
-                    callCount++
-                    throw StationRefreshException(StationRefreshFailureReason.InvalidPayload)
-                }
+
+        val exception = assertFailsWith<StationRefreshException> {
+            policy.withRetry {
+                callCount += 1
+                throw StationRefreshException(StationRefreshFailureReason.InvalidPayload)
             }
         }
+
         assertEquals(StationRefreshFailureReason.InvalidPayload, exception.reason)
         assertEquals(1, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
     fun `unknown failure does not retry`() = runTest {
         var callCount = 0
-        val exception = assertThrows(StationRefreshException::class.java) {
-            kotlinx.coroutines.test.runTest {
-                policy.withRetry {
-                    callCount++
-                    throw StationRefreshException(StationRefreshFailureReason.Unknown)
-                }
+
+        val exception = assertFailsWith<StationRefreshException> {
+            policy.withRetry {
+                callCount += 1
+                throw StationRefreshException(StationRefreshFailureReason.Unknown)
             }
         }
+
         assertEquals(StationRefreshFailureReason.Unknown, exception.reason)
         assertEquals(1, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
-    fun `cancellation exception is not retried`() = runTest {
+    fun `cancellation is never retried`() = runTest {
         var callCount = 0
-        assertThrows(CancellationException::class.java) {
-            kotlinx.coroutines.test.runTest {
-                policy.withRetry {
-                    callCount++
-                    throw CancellationException("cancelled")
-                }
+
+        assertFailsWith<CancellationException> {
+            policy.withRetry {
+                callCount += 1
+                throw CancellationException("cancelled")
             }
         }
+
         assertEquals(1, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
-    fun `non-StationRefreshException is not retried`() = runTest {
+    fun `non station refresh exception is not retried`() = runTest {
         var callCount = 0
-        assertThrows(IllegalStateException::class.java) {
-            kotlinx.coroutines.test.runTest {
-                policy.withRetry {
-                    callCount++
-                    throw IllegalStateException("unexpected")
-                }
+
+        assertFailsWith<IllegalStateException> {
+            policy.withRetry {
+                callCount += 1
+                throw IllegalStateException("unexpected")
             }
         }
+
         assertEquals(1, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
-    fun `retry waits before second attempt`() = runTest {
+    fun `retry waits 500ms before second attempt`() = runTest {
         var callCount = 0
-        val timestamps = mutableListOf<Long>()
+        val attemptTimes = mutableListOf<Long>()
+
         policy.withRetry {
-            callCount++
-            timestamps.add(testScheduler.currentTime)
+            callCount += 1
+            attemptTimes += testScheduler.currentTime
             if (callCount == 1) {
-                throw StationRefreshException(StationRefreshFailureReason.Timeout)
+                throw StationRefreshException(StationRefreshFailureReason.Network)
             }
             "ok"
         }
-        assertEquals(2, timestamps.size)
-        assertTrue(
-            "Expected delay >= 500ms but was ${timestamps[1] - timestamps[0]}ms",
-            timestamps[1] - timestamps[0] >= 500,
-        )
+
+        assertEquals(listOf(0L, StationRetryPolicy.RETRY_DELAY_MS), attemptTimes)
+    }
+}
+
+private class RecordingStationEventLogger : StationEventLogger {
+    val events = mutableListOf<StationEvent>()
+
+    override fun log(event: StationEvent) {
+        events += event
     }
 }
 ```
 
-- [ ] **Step 2: 테스트 실행 확인 — 실패**
+- [ ] **Step 2: Run test and verify it fails because retry class does not exist**
+
+Run:
 
 ```bash
-./gradlew :data:station:test --tests "com.gasstation.data.station.StationRetryPolicyTest"
+./gradlew :data:station:testDebugUnitTest --tests "com.gasstation.data.station.StationRetryPolicyTest"
 ```
 
-Expected: COMPILATION ERROR — `StationRetryPolicy` 클래스가 존재하지 않음
+Expected: compilation failure for `StationRetryPolicy`.
 
-- [ ] **Step 3: StationRetryPolicy 구현**
+Do not commit this failing test alone. Commit it with the implementation in Task 5.
+
+---
+
+## Task 5: Implement Retry Policy And Apply It To Repository
+
+**Files:**
+- Create: `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
+- Modify: `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`
+- Modify: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- Modify: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
+- Modify: `data/station/src/test/kotlin/com/gasstation/data/station/WatchlistRepositoryTest.kt`
+
+- [ ] **Step 1: Implement `StationRetryPolicy`**
+
+Create `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`:
 
 ```kotlin
-// data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt
 package com.gasstation.data.station
 
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.model.StationEvent
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
-class StationRetryPolicy @Inject constructor() {
-
+class StationRetryPolicy @Inject constructor(
+    private val stationEventLogger: StationEventLogger,
+) {
     suspend fun <T> withRetry(block: suspend () -> T): T {
         return try {
             block()
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (exception: StationRefreshException) {
-            if (exception.reason.isRetryable()) {
-                delay(RETRY_DELAY_MS)
-                block()
-            } else {
+            if (!exception.reason.isRetryable()) {
                 throw exception
+            }
+
+            delay(RETRY_DELAY_MS)
+            try {
+                val result = block()
+                stationEventLogger.log(
+                    StationEvent.RetryAttempted(
+                        originalReason = exception.reason,
+                        succeeded = true,
+                    ),
+                )
+                result
+            } catch (retryCancel: CancellationException) {
+                throw retryCancel
+            } catch (retryException: Throwable) {
+                stationEventLogger.log(
+                    StationEvent.RetryAttempted(
+                        originalReason = exception.reason,
+                        succeeded = false,
+                    ),
+                )
+                throw retryException
             }
         }
     }
@@ -610,83 +824,38 @@ class StationRetryPolicy @Inject constructor() {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행 확인 — 성공**
+- [ ] **Step 2: Run retry policy tests**
+
+Run:
 
 ```bash
-./gradlew :data:station:test --tests "com.gasstation.data.station.StationRetryPolicyTest"
+./gradlew :data:station:testDebugUnitTest --tests "com.gasstation.data.station.StationRetryPolicyTest"
 ```
 
-Expected: ALL TESTS PASSED
+Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Inject retry policy into repository**
 
-```bash
-git add data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt \
-       data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt
-git commit -m "feat: add StationRetryPolicy for transient failure retry
-
-Retry once with 500ms delay for Timeout and Network failures.
-InvalidPayload, Unknown, and CancellationException are not retried."
-```
-
----
-
-## Task 5: DefaultStationRepository에 재시도 정책 적용
-
-**Files:**
-- Modify: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
-- Modify: `data/station/src/main/kotlin/com/gasstation/data/station/StationDataModule.kt` (재시도 정책 바인딩 확인)
-- Modify: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
-
-- [ ] **Step 1: DefaultStationRepository에 StationRetryPolicy 주입**
-
-`data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt` 변경:
+In `DefaultStationRepository`, add constructor parameter:
 
 ```kotlin
-// 생성자에 retryPolicy 추가:
-class DefaultStationRepository @Inject constructor(
-    private val stationCacheDao: StationCacheDao,
-    private val stationPriceHistoryDao: StationPriceHistoryDao,
-    private val watchedStationDao: WatchedStationDao,
-    private val remoteDataSource: StationRemoteDataSource,
-    private val seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
-    private val cachePolicy: StationCachePolicy,
-    private val clock: Clock,
-    private val retryPolicy: StationRetryPolicy,
-) : StationRepository {
+private val retryPolicy: StationRetryPolicy,
 ```
 
-- [ ] **Step 2: refreshNearbyStations에 재시도 적용**
-
-`DefaultStationRepository.refreshNearbyStations()` 메서드에서 원격 호출을 `retryPolicy.withRetry`로 감싼다:
-
-```kotlin
-override suspend fun refreshNearbyStations(query: StationQuery) {
-    val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
-    val fetchedAt = clock.instant()
-    val remoteStations = retryPolicy.withRetry {
-        if (seedRemoteDataSource.isPresent) {
-            seedRemoteDataSource.get().fetchStations(query)
-        } else {
-            remoteDataSource.fetchStations(query)
-        }
-    }
-    // ... 이하 기존 코드 동일
-```
-
-주의: `retryPolicy.withRetry`는 `StationRefreshException`을 catch하므로, `RemoteStationFetchResult.Failure`를 `StationRefreshException`으로 변환하는 로직이 `withRetry` 블록 안에 있어야 한다. 현재 코드에서 `when (remoteStations)` 분기의 `Failure -> throw` 부분을 블록 안으로 이동:
+Then change `refreshNearbyStations(query)` so remote fetch and failure conversion both run inside `withRetry`:
 
 ```kotlin
 override suspend fun refreshNearbyStations(query: StationQuery) {
     val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
     val fetchedAt = clock.instant()
     val successResult = retryPolicy.withRetry {
-        val result = if (seedRemoteDataSource.isPresent) {
-            seedRemoteDataSource.get().fetchStations(query)
-        } else {
-            remoteDataSource.fetchStations(query)
-        }
-        when (result) {
+        when (
+            val result = if (seedRemoteDataSource.isPresent) {
+                seedRemoteDataSource.get().fetchStations(query)
+            } else {
+                remoteDataSource.fetchStations(query)
+            }
+        ) {
             is RemoteStationFetchResult.Failure -> throw StationRefreshException(
                 reason = result.reason,
                 cause = result.cause,
@@ -723,55 +892,113 @@ override suspend fun refreshNearbyStations(query: StationQuery) {
 }
 ```
 
-- [ ] **Step 3: DefaultStationRepositoryTest에 재시도 fixture 추가**
+- [ ] **Step 4: Update repository test fixtures**
 
-기존 테스트에서 `DefaultStationRepository` 생성 시 `retryPolicy = StationRetryPolicy()`를 추가한다. 기존 시나리오에 영향 없음 (재시도는 `StationRefreshException`만 처리하고, 기존 테스트의 fake는 성공/실패를 직접 반환).
+In `DefaultStationRepositoryTest` and `WatchlistRepositoryTest`, update repository helpers:
 
 ```kotlin
-// 기존 테스트의 repository 생성 부분에 추가:
-val repository = DefaultStationRepository(
-    stationCacheDao = ...,
-    stationPriceHistoryDao = ...,
-    watchedStationDao = ...,
-    remoteDataSource = ...,
-    seedRemoteDataSource = ...,
-    cachePolicy = ...,
-    clock = ...,
-    retryPolicy = StationRetryPolicy(),
-)
+retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
 ```
 
-- [ ] **Step 4: 테스트 실행 확인**
+Add this helper to each test file or a local test helper file in the same package:
+
+```kotlin
+private class RecordingStationEventLogger : StationEventLogger {
+    val events = mutableListOf<StationEvent>()
+
+    override fun log(event: StationEvent) {
+        events += event
+    }
+}
+```
+
+Add imports:
+
+```kotlin
+import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.model.StationEvent
+```
+
+- [ ] **Step 5: Add repository retry tests**
+
+In `DefaultStationRepositoryTest`, add a fake remote that returns multiple results:
+
+```kotlin
+private class QueueStationRemoteDataSource(
+    private val results: ArrayDeque<RemoteStationFetchResult>,
+) : StationRemoteDataSource {
+    override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult =
+        results.removeFirst()
+}
+```
+
+Add test:
+
+```kotlin
+@Test
+fun `refresh retries network failure once and stores successful retry result`() = runTest {
+    val repository = repository(
+        remoteDataSource = QueueStationRemoteDataSource(
+            ArrayDeque(
+                listOf(
+                    RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network),
+                    RemoteStationFetchResult.Success(
+                        listOf(
+                            RemoteStation(
+                                stationId = "station-1",
+                                name = "Retry Station",
+                                brandCode = "GSC",
+                                priceWon = 1699,
+                                coordinates = Coordinates(37.498095, 127.027610),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    repository.refreshNearbyStations(stationQuery())
+
+    val result = repository.observeNearbyStations(stationQuery()).first()
+    assertEquals(listOf("station-1"), result.stations.map { it.station.id })
+    assertTrue(result.hasCachedSnapshot)
+}
+```
+
+- [ ] **Step 6: Run data station tests**
+
+Run:
 
 ```bash
-./gradlew :data:station:test
+./gradlew :data:station:testDebugUnitTest
 ```
 
-Expected: ALL TESTS PASSED
+Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit retry policy**
 
 ```bash
 git add -A
-git commit -m "feat: apply retry policy to DefaultStationRepository
-
-refreshNearbyStations now retries once on Timeout/Network failures
-via StationRetryPolicy before propagating the exception."
+git commit -m "feat: retry transient station refresh failures"
 ```
 
 ---
 
-## Task 6: LocationStateMachine 추출
+## Task 6: Extract `LocationStateMachine`
 
 **Files:**
 - Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 - Create: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/LocationStateMachineTest.kt`
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
+- Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
+- Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/GpsAvailabilityMonitorTest.kt`
 
-- [ ] **Step 1: LocationStateMachine 테스트 작성**
+- [ ] **Step 1: Create location state machine**
+
+Create `LocationStateMachine.kt` with this responsibility boundary:
 
 ```kotlin
-// feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/LocationStateMachineTest.kt
 package com.gasstation.feature.stationlist
 
 import com.gasstation.core.model.Coordinates
@@ -781,150 +1008,13 @@ import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
-
-@OptIn(ExperimentalCoroutinesApi::class)
-class LocationStateMachineTest {
-
-    private val gangnam = Coordinates(37.498095, 127.027610)
-
-    @Test
-    fun `initial state has denied permission and no coordinates`() {
-        val machine = createMachine()
-        val state = machine.state.value
-        assertEquals(LocationPermissionState.Denied, state.permissionState)
-        assertNull(state.currentCoordinates)
-        assertFalse(state.hasDeniedLocationAccess)
-    }
-
-    @Test
-    fun `permission change updates state`() {
-        val machine = createMachine()
-        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
-        assertEquals(LocationPermissionState.PreciseGranted, machine.state.value.permissionState)
-    }
-
-    @Test
-    fun `gps availability change updates state`() {
-        val machine = createMachine()
-        machine.onGpsAvailabilityChanged(isEnabled = false)
-        assertFalse(machine.state.value.isGpsEnabled)
-        assertTrue(machine.state.value.isAvailabilityKnown)
-    }
-
-    @Test
-    fun `acquire location succeeds and updates coordinates`() = runTest {
-        val machine = createMachine(
-            locationResult = LocationLookupResult.Success(gangnam),
-            addressResult = LocationAddressLookupResult.Success("서울특별시 강남구 역삼동"),
-        )
-        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
-
-        val result = machine.acquireLocationAndAddress()
-
-        assertTrue(result is LocationAcquisitionResult.Success)
-        val success = result as LocationAcquisitionResult.Success
-        assertEquals(gangnam, success.coordinates)
-        assertEquals("서울특별시 강남구 역삼동", success.addressLabel)
-        assertEquals(gangnam, machine.state.value.currentCoordinates)
-    }
-
-    @Test
-    fun `acquire location permission denied returns failure`() = runTest {
-        val machine = createMachine(
-            locationResult = LocationLookupResult.PermissionDenied,
-        )
-
-        val result = machine.acquireLocationAndAddress()
-
-        assertTrue(result is LocationAcquisitionResult.PermissionDenied)
-    }
-
-    @Test
-    fun `acquire location timed out returns failure`() = runTest {
-        val machine = createMachine(
-            locationResult = LocationLookupResult.TimedOut,
-        )
-
-        val result = machine.acquireLocationAndAddress()
-
-        assertTrue(result is LocationAcquisitionResult.Failed)
-        assertEquals(
-            StationListFailureReason.LocationTimedOut,
-            (result as LocationAcquisitionResult.Failed).reason,
-        )
-    }
-
-    @Test
-    fun `acquire location unavailable returns failure`() = runTest {
-        val machine = createMachine(
-            locationResult = LocationLookupResult.Unavailable,
-        )
-
-        val result = machine.acquireLocationAndAddress()
-
-        assertTrue(result is LocationAcquisitionResult.Failed)
-        assertEquals(
-            StationListFailureReason.LocationFailed,
-            (result as LocationAcquisitionResult.Failed).reason,
-        )
-    }
-
-    @Test
-    fun `recovery refresh detected when location becomes usable after denial`() {
-        val machine = createMachine()
-        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
-        machine.onGpsAvailabilityChanged(isEnabled = true)
-
-        // Simulate having had coordinates and denied access
-        // Then GPS becomes available → needsRecoveryRefresh
-        // This tests the recovery state transition
-    }
-
-    private fun createMachine(
-        locationResult: LocationLookupResult = LocationLookupResult.Success(gangnam),
-        addressResult: LocationAddressLookupResult = LocationAddressLookupResult.Success("서울특별시 강남구"),
-    ): LocationStateMachine {
-        val getCurrentLocation = GetCurrentLocationUseCase { locationResult }
-        val getCurrentAddress = GetCurrentAddressUseCase { addressResult }
-        val observeAvailability = ObserveLocationAvailabilityUseCase { flowOf(true) }
-        return LocationStateMachine(
-            getCurrentLocation = getCurrentLocation,
-            getCurrentAddress = getCurrentAddress,
-            observeAvailability = observeAvailability,
-        )
-    }
-}
-```
-
-참고: `GetCurrentLocationUseCase`, `GetCurrentAddressUseCase`, `ObserveLocationAvailabilityUseCase`가 function interface 또는 operator invoke를 지원하는지 확인하고, fake 생성 패턴을 기존 `StationListViewModelTest`의 패턴에 맞춘다.
-
-- [ ] **Step 2: LocationStateMachine 구현**
-
-```kotlin
-// feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt
-package com.gasstation.feature.stationlist
-
-import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.location.GetCurrentAddressUseCase
-import com.gasstation.domain.location.GetCurrentLocationUseCase
-import com.gasstation.domain.location.LocationAddressLookupResult
-import com.gasstation.domain.location.LocationLookupResult
-import com.gasstation.domain.location.LocationPermissionState
-import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
+import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-class LocationStateMachine(
+class LocationStateMachine @Inject constructor(
     private val getCurrentLocation: GetCurrentLocationUseCase,
     private val getCurrentAddress: GetCurrentAddressUseCase,
     private val observeAvailability: ObserveLocationAvailabilityUseCase,
@@ -950,20 +1040,11 @@ class LocationStateMachine(
         }
     }
 
-    fun clearBlockingFailure() {
-        mutableState.update { it.copy(blockingFailure = null) }
-    }
-
-    fun setLoading(isLoading: Boolean, isRefreshing: Boolean) {
-        mutableState.update { it.copy(isLoading = isLoading, isRefreshing = isRefreshing) }
-    }
-
-    suspend fun acquireLocationAndAddress(): LocationAcquisitionResult {
-        val permissionState = mutableState.value.permissionState
-        return when (val result = getCurrentLocation(permissionState)) {
+    suspend fun acquireLocation(): LocationAcquisitionResult =
+        when (val result = getCurrentLocation(state.value.permissionState)) {
             is LocationLookupResult.Success -> {
                 val coordinates = result.coordinates
-                val previousCoordinates = mutableState.value.currentCoordinates
+                val previousCoordinates = state.value.currentCoordinates
                 mutableState.update {
                     it.copy(
                         currentCoordinates = coordinates,
@@ -972,31 +1053,26 @@ class LocationStateMachine(
                         } else {
                             null
                         },
-                        hasDeniedLocationAccess = permissionState == LocationPermissionState.Denied,
+                        hasDeniedLocationAccess = it.permissionState == LocationPermissionState.Denied,
                         needsRecoveryRefresh = false,
-                        blockingFailure = null,
                     )
                 }
-                val addressLabel = resolveAddressLabel(coordinates)
-                LocationAcquisitionResult.Success(coordinates, addressLabel)
+                LocationAcquisitionResult.Success(coordinates)
             }
-
             LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
-
-            LocationLookupResult.TimedOut -> {
-                mutableState.update { it.copy(blockingFailure = StationListFailureReason.LocationTimedOut) }
-                LocationAcquisitionResult.Failed(StationListFailureReason.LocationTimedOut)
-            }
-
-            LocationLookupResult.Unavailable,
-            is LocationLookupResult.Error -> {
-                mutableState.update { it.copy(blockingFailure = StationListFailureReason.LocationFailed) }
-                LocationAcquisitionResult.Failed(StationListFailureReason.LocationFailed)
-            }
+            LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
+            LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
+            is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
         }
-    }
 
-    fun refreshAddressLabel(coordinates: Coordinates, addressLabel: String?) {
+    suspend fun resolveAddressLabel(coordinates: Coordinates): String? =
+        when (val result = getCurrentAddress(coordinates)) {
+            is LocationAddressLookupResult.Success -> result.addressLabel
+            LocationAddressLookupResult.Unavailable,
+            is LocationAddressLookupResult.Error -> null
+        }
+
+    fun onAddressResolved(coordinates: Coordinates, addressLabel: String?) {
         mutableState.update { current ->
             if (current.currentCoordinates == coordinates) {
                 current.copy(currentAddressLabel = addressLabel)
@@ -1005,13 +1081,6 @@ class LocationStateMachine(
             }
         }
     }
-
-    private suspend fun resolveAddressLabel(coordinates: Coordinates): String? =
-        when (val result = getCurrentAddress(coordinates)) {
-            is LocationAddressLookupResult.Success -> result.addressLabel
-            LocationAddressLookupResult.Unavailable,
-            is LocationAddressLookupResult.Error -> null
-        }
 }
 
 data class LocationState(
@@ -1022,15 +1091,14 @@ data class LocationState(
     val isAvailabilityKnown: Boolean = false,
     val currentCoordinates: Coordinates? = null,
     val currentAddressLabel: String? = null,
-    val isLoading: Boolean = false,
-    val isRefreshing: Boolean = false,
-    val blockingFailure: StationListFailureReason? = null,
 )
 
 sealed interface LocationAcquisitionResult {
-    data class Success(val coordinates: Coordinates, val addressLabel: String?) : LocationAcquisitionResult
+    data class Success(val coordinates: Coordinates) : LocationAcquisitionResult
     data object PermissionDenied : LocationAcquisitionResult
-    data class Failed(val reason: StationListFailureReason) : LocationAcquisitionResult
+    data object TimedOut : LocationAcquisitionResult
+    data object Unavailable : LocationAcquisitionResult
+    data class Error(val throwable: Throwable) : LocationAcquisitionResult
 }
 
 private fun LocationState.withLocationRecoveryState(
@@ -1043,586 +1111,673 @@ private fun LocationState.withLocationRecoveryState(
         isGpsEnabled = isGpsEnabled,
         isAvailabilityKnown = isAvailabilityKnown,
     )
-    val needsRecovery = !isLocationUsable() &&
+    val needsRecoveryRefresh = !isLocationUsable() &&
         updated.isLocationUsable() &&
         currentCoordinates != null &&
         !hasDeniedLocationAccess
     return updated.copy(
-        needsRecoveryRefresh = updated.needsRecoveryRefresh || needsRecovery,
+        needsRecoveryRefresh = updated.needsRecoveryRefresh || needsRecoveryRefresh,
     )
 }
 
 private fun LocationState.isLocationUsable(): Boolean =
     isGpsEnabled &&
-        (permissionState != LocationPermissionState.Denied || hasDeniedLocationAccess)
+        (
+            permissionState != LocationPermissionState.Denied ||
+                hasDeniedLocationAccess
+            )
 ```
 
-- [ ] **Step 3: 테스트 실행**
+- [ ] **Step 2: Write location state tests**
 
-```bash
-./gradlew :feature:station-list:test --tests "com.gasstation.feature.stationlist.LocationStateMachineTest"
-```
-
-Expected: ALL TESTS PASSED
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt \
-       feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/LocationStateMachineTest.kt
-git commit -m "refactor: extract LocationStateMachine from StationListViewModel
-
-Encapsulates permission state, GPS availability, location acquisition,
-and address resolution into a standalone state holder."
-```
-
----
-
-## Task 7: StationEvent에 에러 이벤트 추가
-
-**Files:**
-- Modify: `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt`
-- Modify: `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`
-- Modify: `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt`
-
-- [ ] **Step 1: StationEvent에 새 variant 추가**
-
-`domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt` 변경:
+Create tests covering:
 
 ```kotlin
-package com.gasstation.domain.station.model
-
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.SortOrder
-import com.gasstation.core.model.MapProvider
-import com.gasstation.domain.station.StationRefreshFailureReason
-
-sealed interface StationEvent {
-    data class SearchRefreshed(
-        val radius: SearchRadius,
-        val fuelType: FuelType,
-        val sortOrder: SortOrder,
-        val stale: Boolean,
-    ) : StationEvent
-
-    data class WatchToggled(
-        val stationId: String,
-        val watched: Boolean,
-    ) : StationEvent
-
-    data class CompareViewed(val count: Int) : StationEvent
-
-    data class ExternalMapOpened(
-        val stationId: String,
-        val provider: MapProvider,
-    ) : StationEvent
-
-    data class RefreshFailed(
-        val reason: StationRefreshFailureReason,
-        val wasRetried: Boolean,
-    ) : StationEvent
-
-    data class LocationFailed(
-        val resultType: String,
-    ) : StationEvent
-
-    data class RetryAttempted(
-        val originalReason: StationRefreshFailureReason,
-        val succeeded: Boolean,
-    ) : StationEvent
-}
+@Test fun `initial state starts denied with no coordinates`()
+@Test fun `permission change updates permission state`()
+@Test fun `gps availability change marks availability known`()
+@Test fun `successful location acquisition stores coordinates and resets recovery flag`()
+@Test fun `permission denied result does not set coordinates`()
+@Test fun `timeout result maps to timed out acquisition result`()
+@Test fun `unavailable result maps to unavailable acquisition result`()
+@Test fun `error result maps to error acquisition result`()
+@Test fun `address resolution updates label only for current coordinates`()
+@Test fun `recovery refresh is set when location becomes usable after prior coordinates`()
 ```
 
-- [ ] **Step 2: LogcatStationEventLogger에 새 이벤트 매핑 추가**
-
-`app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt` 변경:
+Use a fake `LocationRepository`, then construct existing use cases:
 
 ```kotlin
-private fun StationEvent.toLogMessage(): String = when (this) {
-    is StationEvent.SearchRefreshed -> {
-        "search_refreshed radius=${radius.name} fuelType=${fuelType.name} sortOrder=${sortOrder.name} stale=$stale"
-    }
-    is StationEvent.WatchToggled -> {
-        "watch_toggled stationId=$stationId watched=$watched"
-    }
-    is StationEvent.CompareViewed -> "compare_viewed count=$count"
-    is StationEvent.ExternalMapOpened -> {
-        "external_map_opened stationId=$stationId provider=${provider.name}"
-    }
-    is StationEvent.RefreshFailed -> {
-        "refresh_failed reason=$reason wasRetried=$wasRetried"
-    }
-    is StationEvent.LocationFailed -> {
-        "location_failed resultType=$resultType"
-    }
-    is StationEvent.RetryAttempted -> {
-        "retry_attempted originalReason=$originalReason succeeded=$succeeded"
-    }
-}
-```
-
-- [ ] **Step 3: DomainContractSurfaceTest surface assertion 갱신**
-
-```kotlin
-// domain/station/src/test/kotlin/.../DomainContractSurfaceTest.kt
-// station contracts expose watchlist and event read models 테스트의 StationEvent assertion 변경:
-assertEquals(
-    setOf("SearchRefreshed", "WatchToggled", "CompareViewed", "ExternalMapOpened",
-          "RefreshFailed", "LocationFailed", "RetryAttempted"),
-    StationEvent::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+private fun createMachine(
+    repository: LocationRepository = FakeLocationRepository(),
+): LocationStateMachine = LocationStateMachine(
+    getCurrentLocation = GetCurrentLocationUseCase(repository),
+    getCurrentAddress = GetCurrentAddressUseCase(repository),
+    observeAvailability = ObserveLocationAvailabilityUseCase(repository),
 )
 ```
 
-- [ ] **Step 4: 테스트 실행**
+- [ ] **Step 3: Run location state machine tests**
+
+Run:
 
 ```bash
-./gradlew :domain:station:test :app:testDemoDebugUnitTest
+./gradlew :feature:station-list:testDebugUnitTest --tests "com.gasstation.feature.stationlist.LocationStateMachineTest"
 ```
 
-Expected: ALL TESTS PASSED
+Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Integrate into ViewModel without changing search behavior**
+
+In `StationListViewModel`, replace direct location use cases with:
+
+```kotlin
+private val locationStateMachine: LocationStateMachine,
+```
+
+Keep loading and blocking failure in ViewModel for this task:
+
+```kotlin
+private val transientState = MutableStateFlow(StationListTransientState())
+
+private data class StationListTransientState(
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val blockingFailure: StationListFailureReason? = null,
+)
+```
+
+Combine `preferences`, `locationStateMachine.state`, `transientState`, and `searchResult` for UI state. `LocationStateMachine` must not own `blockingFailure`, `isLoading`, or `isRefreshing`.
+
+- [ ] **Step 5: Keep address lookup non-blocking**
+
+Replace old `refreshAddressLabel(coordinates)` with:
+
+```kotlin
+private fun refreshAddressLabel(coordinates: Coordinates) {
+    viewModelScope.launch {
+        val addressLabel = locationStateMachine.resolveAddressLabel(coordinates)
+        locationStateMachine.onAddressResolved(coordinates, addressLabel)
+    }
+}
+```
+
+Call this after successful location acquisition, but do not wait for it before `refreshNearbyStations(query)`.
+
+- [ ] **Step 6: Update failure mapping and logging**
+
+Add:
+
+```kotlin
+private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
+    is LocationAcquisitionResult.Success -> null
+    LocationAcquisitionResult.PermissionDenied -> "PermissionDenied"
+    LocationAcquisitionResult.TimedOut -> "TimedOut"
+    LocationAcquisitionResult.Unavailable -> "Unavailable"
+    is LocationAcquisitionResult.Error -> "Error"
+}
+```
+
+When location acquisition fails, log:
+
+```kotlin
+acquisitionResult.failureEventType()?.let { resultType ->
+    stationEventLogger.log(StationEvent.LocationFailed(resultType = resultType))
+}
+```
+
+Keep snackbar and blocking failure messages exactly as they are today.
+
+- [ ] **Step 7: Update ViewModel tests**
+
+Update ViewModel and GPS monitor test helpers to construct a `LocationStateMachine`:
+
+```kotlin
+val locationStateMachine = LocationStateMachine(
+    getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
+    getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
+    observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
+)
+```
+
+Then pass `locationStateMachine = locationStateMachine` to `StationListViewModel`.
+
+- [ ] **Step 8: Run station-list tests**
+
+Run:
+
+```bash
+./gradlew :feature:station-list:testDebugUnitTest
+```
+
+Expected: BUILD SUCCESSFUL.
+
+- [ ] **Step 9: Commit location extraction**
 
 ```bash
 git add -A
-git commit -m "feat: add error event variants to StationEvent
-
-Add RefreshFailed, LocationFailed, RetryAttempted events for
-structured error logging. Update LogcatStationEventLogger mapping."
+git commit -m "refactor: extract station list location state machine"
 ```
 
 ---
 
-## Task 8: StationRetryPolicy에 이벤트 로깅 통합
+## Task 7: Extract `StationSearchOrchestrator`
 
 **Files:**
-- Modify: `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
-- Modify: `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`
-
-- [ ] **Step 1: StationRetryPolicy에 이벤트 로거 주입**
-
-```kotlin
-// data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt
-package com.gasstation.data.station
-
-import com.gasstation.domain.station.StationEventLogger
-import com.gasstation.domain.station.StationRefreshException
-import com.gasstation.domain.station.StationRefreshFailureReason
-import com.gasstation.domain.station.model.StationEvent
-import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-
-class StationRetryPolicy @Inject constructor(
-    private val stationEventLogger: StationEventLogger,
-) {
-
-    suspend fun <T> withRetry(block: suspend () -> T): T {
-        return try {
-            block()
-        } catch (cancel: CancellationException) {
-            throw cancel
-        } catch (exception: StationRefreshException) {
-            if (exception.reason.isRetryable()) {
-                delay(RETRY_DELAY_MS)
-                try {
-                    val result = block()
-                    stationEventLogger.log(
-                        StationEvent.RetryAttempted(
-                            originalReason = exception.reason,
-                            succeeded = true,
-                        ),
-                    )
-                    result
-                } catch (retryCancel: CancellationException) {
-                    throw retryCancel
-                } catch (retryException: Throwable) {
-                    stationEventLogger.log(
-                        StationEvent.RetryAttempted(
-                            originalReason = exception.reason,
-                            succeeded = false,
-                        ),
-                    )
-                    throw retryException
-                }
-            } else {
-                throw exception
-            }
-        }
-    }
-
-    private fun StationRefreshFailureReason.isRetryable(): Boolean = when (this) {
-        StationRefreshFailureReason.Timeout,
-        StationRefreshFailureReason.Network -> true
-        StationRefreshFailureReason.InvalidPayload,
-        StationRefreshFailureReason.Unknown -> false
-    }
-
-    companion object {
-        const val RETRY_DELAY_MS = 500L
-    }
-}
-```
-
-- [ ] **Step 2: StationRetryPolicyTest에 로거 fixture 추가**
-
-```kotlin
-// 테스트 상단에 RecordingEventLogger 추가:
-private class RecordingEventLogger : StationEventLogger {
-    val events = mutableListOf<StationEvent>()
-    override fun log(event: StationEvent) { events.add(event) }
-}
-
-// policy 생성 변경:
-private val logger = RecordingEventLogger()
-private val policy = StationRetryPolicy(logger)
-
-// 새 테스트 추가:
-@Test
-fun `retry success logs RetryAttempted with succeeded true`() = runTest {
-    var callCount = 0
-    policy.withRetry {
-        callCount++
-        if (callCount == 1) throw StationRefreshException(StationRefreshFailureReason.Timeout)
-        "ok"
-    }
-    assertEquals(1, logger.events.size)
-    val event = logger.events[0] as StationEvent.RetryAttempted
-    assertEquals(StationRefreshFailureReason.Timeout, event.originalReason)
-    assertTrue(event.succeeded)
-}
-
-@Test
-fun `retry failure logs RetryAttempted with succeeded false`() = runTest {
-    var callCount = 0
-    runCatching {
-        policy.withRetry {
-            callCount++
-            throw StationRefreshException(StationRefreshFailureReason.Network)
-        }
-    }
-    assertEquals(1, logger.events.size)
-    val event = logger.events[0] as StationEvent.RetryAttempted
-    assertEquals(StationRefreshFailureReason.Network, event.originalReason)
-    assertFalse(event.succeeded)
-}
-```
-
-- [ ] **Step 3: 테스트 실행**
-
-```bash
-./gradlew :data:station:test --tests "com.gasstation.data.station.StationRetryPolicyTest"
-```
-
-Expected: ALL TESTS PASSED
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add -A
-git commit -m "feat: add retry event logging to StationRetryPolicy
-
-Log RetryAttempted event on each retry attempt with success/failure
-outcome and original failure reason."
-```
-
----
-
-## Task 9: StationListViewModel 리팩터링 — LocationStateMachine 통합
-
-**Files:**
+- Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+- Create: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestratorTest.kt`
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
-- [ ] **Step 1: ViewModel에서 LocationStateMachine 사용으로 전환**
+- [ ] **Step 1: Create orchestrator with clear boundary**
 
-`StationListViewModel.kt`를 다음과 같이 리팩터링한다:
+`StationSearchOrchestrator` owns:
 
-1. 생성자에서 `getCurrentLocation`, `getCurrentAddress`, `observeLocationAvailability`를 제거하고 `LocationStateMachine`을 주입
-2. `sessionState: MutableStateFlow<StationListSessionState>`를 제거하고 `locationStateMachine.state`를 사용
-3. `handleLocationResult()`, `refreshAddressLabel()`, `withLocationRecoveryState()`, `isLocationUsable()`, `StationListSessionState` 전체를 제거
-4. `refresh()` 메서드에서 `locationStateMachine.acquireLocationAndAddress()`를 사용
-5. `onAction()`의 `PermissionChanged`, `GpsAvailabilityChanged`를 `locationStateMachine`에 위임
-6. `collectLocationAvailability()`를 `locationStateMachine.observeGpsAvailability()`로 변경
-7. UI state 조합에서 `locationStateMachine.state`를 사용
+- current active query
+- observed `StationSearchResult`
+- `CachedSnapshotState`
+- pending blocking refresh failure
+- refresh call wrapper
+
+It does not own:
+
+- permission/GPS/location lookup
+- snackbar messages
+- external map action
+- watch toggle action
+- settings writes
+
+Create `StationSearchOrchestrator.kt`:
 
 ```kotlin
-@HiltViewModel
-class StationListViewModel @Inject constructor(
-    private val locationStateMachine: LocationStateMachine,
+package com.gasstation.feature.stationlist
+
+import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.model.StationQuery
+import com.gasstation.domain.station.model.StationSearchResult
+import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
+import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
+import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class StationSearchOrchestrator @Inject constructor(
     private val observeNearbyStations: ObserveNearbyStationsUseCase,
     private val refreshNearbyStations: RefreshNearbyStationsUseCase,
-    private val updateWatchState: UpdateWatchStateUseCase,
-    observeUserPreferences: ObserveUserPreferencesUseCase,
-    private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
-    private val stationEventLogger: StationEventLogger,
-) : ViewModel() {
-```
+) {
+    private val mutableActiveQueryState = MutableStateFlow(ActiveStationQueryState())
+    private val mutableSearchResult = MutableStateFlow(emptySearchResult())
+    private val mutableBlockingFailure = MutableStateFlow<StationListFailureReason?>(null)
+    private val pendingBlockingFailure = MutableStateFlow<PendingBlockingFailure?>(null)
 
-UI state 조합에서 `sessionState` 대신 `locationStateMachine.state`를 사용:
+    val activeQueryState = mutableActiveQueryState.asStateFlow()
+    val searchResult = mutableSearchResult.asStateFlow()
+    val blockingFailure = mutableBlockingFailure.asStateFlow()
 
-```kotlin
-combine(preferences, locationStateMachine.state, searchResult) { prefs, locState, result ->
-    StationListUiState(
-        currentCoordinates = locState.currentCoordinates,
-        currentAddressLabel = locState.currentAddressLabel,
-        permissionState = locState.permissionState,
-        hasDeniedLocationAccess = locState.hasDeniedLocationAccess,
-        needsRecoveryRefresh = locState.needsRecoveryRefresh,
-        isGpsEnabled = locState.isGpsEnabled,
-        isAvailabilityKnown = locState.isAvailabilityKnown,
-        isLoading = locState.isLoading,
-        isRefreshing = locState.isRefreshing,
-        isStale = result.freshness is StationFreshness.Stale,
-        blockingFailure = locState.blockingFailure,
-        stations = result.stations.map(::StationListItemUiModel),
-        selectedBrandFilter = prefs.brandFilter,
-        selectedRadius = prefs.searchRadius,
-        selectedFuelType = prefs.fuelType,
-        selectedSortOrder = prefs.sortOrder,
-        lastUpdatedAt = result.fetchedAt,
-    )
-}
-```
-
-`refresh()` 메서드 간소화:
-
-```kotlin
-private fun refresh(showPermissionDeniedFeedback: Boolean) {
-    viewModelScope.launch {
-        if (!locationStateMachine.state.value.isGpsEnabled) {
-            mutableEffects.emit(StationListEffect.OpenLocationSettings)
-            return@launch
-        }
-
-        locationStateMachine.setLoading(
-            isLoading = locationStateMachine.state.value.currentCoordinates == null,
-            isRefreshing = true,
-        )
-
-        try {
-            val acquisitionResult = locationStateMachine.acquireLocationAndAddress()
-            when (acquisitionResult) {
-                is LocationAcquisitionResult.Success -> {
-                    val query = buildQuery(preferences.value, acquisitionResult.coordinates)
-                    activeQueryState.update { current ->
-                        if (current.query == query) current else ActiveStationQueryState(
-                            query = query,
-                            cacheState = CachedSnapshotState.Unknown,
-                        )
-                    }
-
-                    try {
-                        refreshNearbyStations(query)
-                        if (activeQueryState.value.query == query) {
-                            pendingBlockingFailure.value = null
-                            locationStateMachine.clearBlockingFailure()
-                        }
-                    } catch (cancellationException: CancellationException) {
-                        throw cancellationException
-                    } catch (throwable: Throwable) {
-                        handleRefreshFailure(query, (throwable as? StationRefreshException)?.reason)
-                    }
-                }
-                is LocationAcquisitionResult.PermissionDenied -> {
-                    if (showPermissionDeniedFeedback) {
-                        mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
-                    }
-                }
-                is LocationAcquisitionResult.Failed -> {
-                    onBlockingFailure(
-                        reason = acquisitionResult.reason,
-                        message = when (acquisitionResult.reason) {
-                            StationListFailureReason.LocationTimedOut -> "현재 위치 확인이 지연되고 있습니다."
-                            StationListFailureReason.LocationFailed -> "현재 위치를 확인하지 못했습니다."
-                            else -> "현재 위치를 확인하지 못했습니다."
-                        },
-                    )
+    fun observe(queryFlow: Flow<StationQuery?>): Flow<StationSearchResult> =
+        queryFlow.distinctUntilChanged()
+            .onEach(::onQueryChanged)
+            .flatMapLatest { query ->
+                if (query == null) {
+                    flowOf(emptySearchResult())
+                } else {
+                    observeNearbyStations(query)
                 }
             }
-        } finally {
-            locationStateMachine.setLoading(isLoading = false, isRefreshing = false)
+            .onEach(::onObservedResult)
+
+    suspend fun refresh(query: StationQuery): RefreshOutcome {
+        return try {
+            refreshNearbyStations(query)
+            if (activeQueryState.value.query == query) {
+                pendingBlockingFailure.value = null
+                mutableBlockingFailure.value = null
+            }
+            RefreshOutcome.Success
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (throwable: Throwable) {
+            RefreshOutcome.Failed((throwable as? StationRefreshException)?.reason)
         }
     }
-}
-```
 
-- [ ] **Step 2: ViewModel에 에러 로깅 이벤트 발행 추가**
+    fun onRefreshFailure(query: StationQuery, reason: StationRefreshFailureReason?) {
+        if (activeQueryState.value.query != query) return
+        val failureReason = reason.toStationListFailureReason()
+        when (activeQueryState.value.cacheState) {
+            CachedSnapshotState.Present -> {
+                pendingBlockingFailure.value = null
+                mutableBlockingFailure.value = null
+            }
+            CachedSnapshotState.Absent -> {
+                pendingBlockingFailure.value = null
+                mutableBlockingFailure.value = failureReason
+            }
+            CachedSnapshotState.Unknown -> {
+                pendingBlockingFailure.value = PendingBlockingFailure(query, failureReason)
+            }
+        }
+    }
 
-`handleRefreshFailure()` 메서드에 `RefreshFailed` 이벤트 로깅 추가:
+    fun shouldRefreshForCriteriaChange(previous: StationQuery?, next: StationQuery?): Boolean =
+        previous != null &&
+            next != null &&
+            previous.coordinates == next.coordinates &&
+            (
+                previous.radius != next.radius ||
+                    previous.fuelType != next.fuelType ||
+                    previous.brandFilter != next.brandFilter ||
+                    previous.sortOrder != next.sortOrder
+                )
 
-```kotlin
-private suspend fun handleRefreshFailure(
-    query: StationQuery,
-    reason: StationRefreshFailureReason?,
-) {
-    if (activeQueryState.value.query != query) return
-
-    reason?.let {
-        stationEventLogger.log(
-            StationEvent.RefreshFailed(
-                reason = it,
-                wasRetried = true, // 재시도 정책이 data layer에서 이미 적용됨
-            ),
+    private fun onQueryChanged(query: StationQuery?) {
+        val previousQuery = activeQueryState.value.query
+        mutableActiveQueryState.value = ActiveStationQueryState(
+            query = query,
+            cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
         )
+        if (previousQuery != query) {
+            pendingBlockingFailure.value = null
+            mutableBlockingFailure.value = null
+        }
     }
 
-    when (reason) {
-        // ... 기존 분기 유지
+    private fun onObservedResult(result: StationSearchResult) {
+        mutableSearchResult.value = result
+        val hasCachedSnapshot = result.hasCachedSnapshot
+        mutableActiveQueryState.update { current ->
+            current.copy(
+                cacheState = if (hasCachedSnapshot) {
+                    CachedSnapshotState.Present
+                } else {
+                    CachedSnapshotState.Absent
+                },
+            )
+        }
+        syncBlockingFailureWithObservedResult(hasCachedSnapshot)
+    }
+
+    private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
+        if (hasCachedSnapshot) {
+            pendingBlockingFailure.value = null
+            mutableBlockingFailure.value = null
+            return
+        }
+
+        val activeQuery = activeQueryState.value.query ?: return
+        val pendingFailure = pendingBlockingFailure.value
+            ?.takeIf { it.query == activeQuery }
+            ?: return
+        pendingBlockingFailure.value = null
+        mutableBlockingFailure.value = pendingFailure.reason
     }
 }
+
+data class ActiveStationQueryState(
+    val query: StationQuery? = null,
+    val cacheState: CachedSnapshotState = CachedSnapshotState.Absent,
+)
+
+data class PendingBlockingFailure(
+    val query: StationQuery,
+    val reason: StationListFailureReason,
+)
+
+enum class CachedSnapshotState {
+    Unknown,
+    Present,
+    Absent,
+}
+
+sealed interface RefreshOutcome {
+    data object Success : RefreshOutcome
+    data class Failed(val reason: StationRefreshFailureReason?) : RefreshOutcome
+}
+
+private fun StationRefreshFailureReason?.toStationListFailureReason(): StationListFailureReason = when (this) {
+    StationRefreshFailureReason.Timeout -> StationListFailureReason.RefreshTimedOut
+    StationRefreshFailureReason.Network,
+    StationRefreshFailureReason.InvalidPayload,
+    StationRefreshFailureReason.Unknown,
+    null -> StationListFailureReason.RefreshFailed
+}
+
+private fun emptySearchResult(): StationSearchResult = StationSearchResult(
+    stations = emptyList(),
+    freshness = StationFreshness.Stale,
+    fetchedAt = null,
+)
 ```
 
-`refresh()` 내 location 실패 시 `LocationFailed` 이벤트 로깅 추가:
+- [ ] **Step 2: Write orchestrator tests**
+
+Create tests covering:
 
 ```kotlin
-is LocationAcquisitionResult.Failed -> {
-    stationEventLogger.log(
-        StationEvent.LocationFailed(resultType = acquisitionResult.reason::class.simpleName ?: "Unknown"),
-    )
-    // ... 기존 코드
-}
+@Test fun `null query emits empty stale result`()
+@Test fun `new query observes repository result`()
+@Test fun `query change clears blocking failure`()
+@Test fun `criteria change with same coordinates requires refresh`()
+@Test fun `criteria change with different coordinates does not count as criteria refresh`()
+@Test fun `refresh success clears blocking failure for active query`()
+@Test fun `refresh failure with cached snapshot does not expose blocking failure`()
+@Test fun `refresh failure without cached snapshot exposes blocking failure`()
+@Test fun `refresh failure before cache state is known waits for observed result`()
 ```
 
-- [ ] **Step 3: StationListViewModelTest 갱신**
+Use a fake `StationRepository` with `MutableSharedFlow<StationSearchResult>` like existing `StationListViewModelTest`.
 
-기존 테스트에서:
-- `getCurrentLocation`, `getCurrentAddress`, `observeLocationAvailability` 대신 `LocationStateMachine`을 주입
-- fake 패턴을 `LocationStateMachine`으로 변경
-- 기존 시나리오의 외부 동작 계약은 동일하게 유지
+- [ ] **Step 3: Run orchestrator tests**
 
-기존 `stationListViewModel()` helper 변경:
-
-```kotlin
-private fun stationListViewModel(
-    repository: FakeStationRepository = FakeStationRepository(),
-    settingsFixture: SettingsUseCaseTestFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-    locationResult: LocationLookupResult = LocationLookupResult.Success(gangnam),
-    addressResult: LocationAddressLookupResult = LocationAddressLookupResult.Success("서울특별시 강남구"),
-): StationListViewModel {
-    val locationStateMachine = LocationStateMachine(
-        getCurrentLocation = GetCurrentLocationUseCase { locationResult },
-        getCurrentAddress = GetCurrentAddressUseCase { addressResult },
-        observeAvailability = ObserveLocationAvailabilityUseCase { flowOf(true) },
-    )
-    return StationListViewModel(
-        locationStateMachine = locationStateMachine,
-        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-        refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
-        updateWatchState = UpdateWatchStateUseCase(repository),
-        observeUserPreferences = settingsFixture.observe,
-        updatePreferredSortOrder = settingsFixture.updateSortOrder,
-        stationEventLogger = RecordingStationEventLogger(),
-    )
-}
-```
-
-- [ ] **Step 4: private 상태 클래스 정리**
-
-ViewModel 파일에서 제거:
-- `StationListSessionState` data class
-- `withLocationRecoveryState()` extension
-- `isLocationUsable()` extension
-
-ViewModel 파일에 유지:
-- `ActiveStationQueryState`
-- `PendingBlockingFailure`
-- `CachedSnapshotState`
-- `shouldRefreshForCriteriaChange()`
-
-- [ ] **Step 5: 테스트 실행**
+Run:
 
 ```bash
-./gradlew :feature:station-list:test
+./gradlew :feature:station-list:testDebugUnitTest --tests "com.gasstation.feature.stationlist.StationSearchOrchestratorTest"
 ```
 
-Expected: ALL TESTS PASSED
+Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 6: ViewModel 줄 수 확인**
+- [ ] **Step 4: Integrate orchestrator into ViewModel**
+
+Replace direct `observeNearbyStations`, `refreshNearbyStations`, `activeQueryState`, `pendingBlockingFailure`, `searchResult`, `CachedSnapshotState`, and `shouldRefreshForCriteriaChange()` ownership with:
+
+```kotlin
+private val searchOrchestrator: StationSearchOrchestrator,
+```
+
+The ViewModel still builds `StationQuery` from preferences and current coordinates. The orchestrator observes that query flow.
+
+- [ ] **Step 5: Log refresh failures from ViewModel**
+
+When `RefreshOutcome.Failed(reason)` returns:
+
+```kotlin
+reason?.let {
+    stationEventLogger.log(StationEvent.RefreshFailed(reason = it))
+}
+searchOrchestrator.onRefreshFailure(query = query, reason = reason)
+mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureMessage()))
+```
+
+Use:
+
+```kotlin
+private fun StationRefreshFailureReason?.refreshFailureMessage(): String = when (this) {
+    StationRefreshFailureReason.Timeout -> "서버 응답이 늦어 가격을 새로고침하지 못했습니다."
+    StationRefreshFailureReason.Network,
+    StationRefreshFailureReason.InvalidPayload,
+    StationRefreshFailureReason.Unknown,
+    null -> "주유소 목록을 새로고침하지 못했습니다."
+}
+```
+
+- [ ] **Step 6: Run station-list tests**
+
+Run:
+
+```bash
+./gradlew :feature:station-list:testDebugUnitTest
+```
+
+Expected: BUILD SUCCESSFUL.
+
+- [ ] **Step 7: Check ViewModel size**
+
+Run:
 
 ```bash
 wc -l feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt
 ```
 
-Expected: 350줄 이하 (기존 522줄에서 감소)
+Expected: lower than 350 lines. If slightly above 350 because of imports or helper functions, inspect whether the remaining code is UI action dispatch and state composition rather than hidden search/location policy.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit search orchestrator extraction**
 
 ```bash
 git add -A
-git commit -m "refactor: integrate LocationStateMachine into StationListViewModel
-
-Replace inline location state management with LocationStateMachine.
-Add RefreshFailed and LocationFailed event logging.
-ViewModel reduced from 522 to ~300 lines."
+git commit -m "refactor: extract station search orchestration"
 ```
 
 ---
 
-## Task 10: 문서 갱신
+## Task 8: Update Documentation
 
 **Files:**
 - Modify: `docs/architecture.md`
 - Modify: `docs/module-contracts.md`
+- Modify: `docs/state-model.md`
+- Modify: `docs/offline-strategy.md`
+- Modify: `docs/test-strategy.md`
+- Modify: `docs/verification-matrix.md`
 
-- [ ] **Step 1: architecture.md 모듈 그래프 갱신**
+- [ ] **Step 1: Update module graph docs**
 
-모듈 그래프에서 다음 edge를 제거:
-- `cstore --> domStation` (core:datastore → domain:station)
-- `cnetwork --> domStation` (core:network → domain:station)
-- `cdesign --> domStation` (core:designsystem → domain:station)
-- `domSettings --> domStation` (domain:settings → domain:station)
+In `docs/architecture.md`, remove these graph edges:
 
-다음 edge를 추가:
-- `cdesign --> cmodel` (core:designsystem → core:model)
-
-`cstore`의 의존에서 `domStation` 제거. `cnetwork`에서 `domStation` 제거.
-
-모듈별 책임 표에서:
-- `core:model`: "값 객체와 불변식" → "`Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum"
-- `core:datastore`: "선호값 타입이 `domain:station`의 유종/브랜드/정렬/지도 enum을 포함하므로..." → "`core:model`의 공유 enum을 직렬화"
-- `core:network`: "`FuelType`, `SearchRadius` 같은 도메인 검색 입력만 받아..." → "`core:model`의 `FuelType`, `SearchRadius`를 받아..."
-
-의존성 해석 기준 섹션에서 `core:datastore -> domain:station`, `core:network -> domain:station`, `core:designsystem -> domain:station` edge 설명을 갱신:
-- "이 edge들은 공유 enum이 `core:model`로 이동하면서 제거되었다."
-
-- [ ] **Step 2: module-contracts.md 모듈 인벤토리 갱신**
-
-| 모듈 | 직접 의존 변경 |
-|------|-------------|
-| `core:model` | 소유 범위에 공유 enum 추가 |
-| `core:designsystem` | 직접 의존에서 `domain:station` → `core:model` |
-| `core:network` | 직접 의존에서 `domain:station` 제거 (이미 `core:model` 있음) |
-| `core:datastore` | 직접 의존에서 `domain:station` 제거, `core:model` 추가 |
-| `domain:settings` | 직접 의존에서 `domain:station` 제거, `core:model` 추가 |
-
-- [ ] **Step 3: 전체 테스트 최종 확인**
-
-```bash
-./gradlew test
+```text
+cdesign --> domStation
+cstore --> domStation
+cnetwork --> domStation
+domSettings --> domStation
 ```
 
-Expected: ALL TESTS PASSED
+Add or keep:
 
-- [ ] **Step 4: Commit**
+```text
+cdesign --> cmodel
+cstore --> cmodel
+cnetwork --> cmodel
+domSettings --> cmodel
+```
+
+Update `core:model` responsibility to include:
+
+```text
+Coordinates, DistanceMeters, MoneyWon value objects plus Brand, BrandFilter, FuelType, MapProvider, SearchRadius, SortOrder shared enum vocabulary.
+```
+
+- [ ] **Step 2: Update module contracts**
+
+In `docs/module-contracts.md`:
+
+- `core:model`: add the six shared enums to owned scope.
+- `core:designsystem`: direct dependency should be `core:model`, not `domain:station`.
+- `core:network`: direct dependency should be `core:model`, not `domain:station`.
+- `core:datastore`: direct dependencies should be `core:model`, `domain:settings`.
+- `domain:settings`: direct dependency should be `core:model`.
+- `feature:settings`: direct dependency should be `core:model`, `domain:settings`, `core:designsystem`.
+
+- [ ] **Step 3: Update state model**
+
+In `docs/state-model.md`, replace `StationListSessionState` as the sole owner with:
+
+```text
+LocationStateMachine owns permission, GPS availability, current coordinates, address label, denied-access flag, and recovery refresh flag.
+StationSearchOrchestrator owns active query, cache snapshot state, observed search result, and pending blocking refresh failure.
+StationListViewModel owns loading flags, user action dispatch, one-shot effects, and final StationListUiState composition.
+```
+
+Mention that address label resolution is non-blocking and must not delay station refresh.
+
+- [ ] **Step 4: Update offline strategy**
+
+In `docs/offline-strategy.md`, add:
+
+```text
+Retry policy does not clear or mutate existing snapshots on failure. Timeout and Network failures are retried once before the final StationRefreshException reaches feature code. InvalidPayload and Unknown are not retried.
+```
+
+Keep the `hasCachedSnapshot` rule as the source of truth.
+
+- [ ] **Step 5: Update test strategy**
+
+In `docs/test-strategy.md`, add:
+
+- `core:model/SharedEnumContractTest`
+- `data:station/StationRetryPolicyTest`
+- `feature:station-list/LocationStateMachineTest`
+- `feature:station-list/StationSearchOrchestratorTest`
+
+Update `StationListViewModelTest` description so it focuses on UI state composition, effects, and action dispatch after extraction.
+
+- [ ] **Step 6: Update verification matrix**
+
+In `docs/verification-matrix.md`, ensure the merge regression set includes:
 
 ```bash
-git add docs/architecture.md docs/module-contracts.md
-git commit -m "docs: update architecture and module contracts for enum migration
+:core:model:test
+:core:datastore:testDebugUnitTest
+:core:network:test
+:core:designsystem:testDebugUnitTest
+:domain:settings:test
+:domain:station:test
+:data:settings:testDebugUnitTest
+:data:station:testDebugUnitTest
+:feature:settings:testDebugUnitTest
+:feature:station-list:testDebugUnitTest
+:feature:watchlist:testDebugUnitTest
+:app:testDemoDebugUnitTest
+:app:testProdDebugUnitTest
+:tools:demo-seed:test
+:app:assembleDemoDebug
+:app:assembleProdDebug
+:benchmark:assemble
+```
 
-Reflect core:model as the home for shared enums. Remove stale
-core→domain dependency edges from the module graph."
+- [ ] **Step 7: Commit docs**
+
+```bash
+git add docs/architecture.md docs/module-contracts.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md
+git commit -m "docs: update architecture cleanup contracts"
 ```
 
 ---
 
-## Verification Checklist
+## Task 9: Final Verification
 
-모든 Task 완료 후 최종 검증:
+**Files:**
+- Verify: full working tree
 
-- [ ] `grep -r "domain:station" core/datastore/build.gradle.kts core/network/build.gradle.kts core/designsystem/build.gradle.kts domain/settings/build.gradle.kts` → 결과 없음
-- [ ] `grep -r "import com.gasstation.domain.station.model.Brand" --include="*.kt" .` → 결과 없음
-- [ ] `wc -l feature/station-list/src/main/kotlin/.../StationListViewModel.kt` → 350줄 이하
-- [ ] `./gradlew build` → BUILD SUCCESSFUL
-- [ ] `./gradlew test` → ALL TESTS PASSED
+- [ ] **Step 1: Verify removed build dependency edges**
+
+Run:
+
+```bash
+rg 'project\(":domain:station"\)' core/datastore/build.gradle.kts core/network/build.gradle.kts core/designsystem/build.gradle.kts domain/settings/build.gradle.kts feature/settings/build.gradle.kts data/settings/build.gradle.kts
+```
+
+Expected: no output.
+
+- [ ] **Step 2: Verify no moved enum imports remain**
+
+Run:
+
+```bash
+rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|MapProvider|SearchRadius|SortOrder)" -g "*.kt"
+```
+
+Expected: no output.
+
+- [ ] **Step 3: Verify old enum files are gone**
+
+Run:
+
+```bash
+ls domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt \
+   domain/station/src/main/kotlin/com/gasstation/domain/station/model/BrandFilter.kt \
+   domain/station/src/main/kotlin/com/gasstation/domain/station/model/FuelType.kt \
+   domain/station/src/main/kotlin/com/gasstation/domain/station/model/MapProvider.kt \
+   domain/station/src/main/kotlin/com/gasstation/domain/station/model/SearchRadius.kt \
+   domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt
+```
+
+Expected: each path reports no such file.
+
+- [ ] **Step 4: Run full merge regression set**
+
+Run:
+
+```bash
+./gradlew \
+  :domain:location:test \
+  :core:model:test \
+  :domain:station:test \
+  :domain:settings:test \
+  :core:database:testDebugUnitTest \
+  :core:datastore:testDebugUnitTest \
+  :core:designsystem:testDebugUnitTest \
+  :core:location:testDebugUnitTest \
+  :core:network:test \
+  :data:settings:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :tools:demo-seed:test \
+  :app:assembleDemoDebug \
+  :app:assembleProdDebug \
+  :benchmark:assemble
+```
+
+Expected: BUILD SUCCESSFUL.
+
+- [ ] **Step 5: Check final diff**
+
+Run:
+
+```bash
+git status --short
+git diff --stat HEAD
+```
+
+Expected: only intended files changed.
+
+- [ ] **Step 6: Commit final verification fixes if any**
+
+If Task 9 required fixes, commit them:
+
+```bash
+git add -A
+git commit -m "chore: finish architecture cleanup verification"
+```
+
+If no fixes were required, do not create an empty commit.
+
+---
+
+## Success Criteria
+
+- `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`, `feature:settings`, and `data:settings` no longer depend on `domain:station` just to access shared enums.
+- The six shared enum types live in `core:model`.
+- `domain:station` still owns station contracts, use cases, repository interface, station read models, and station events.
+- `StationRetryPolicy` retries `Timeout` and `Network` once, waits 500ms, preserves cancellation behavior, and logs retry outcomes.
+- `RefreshFailed`, `LocationFailed`, and `RetryAttempted` are represented as `StationEvent` variants.
+- `LocationStateMachine` owns location state only. It does not own loading flags or blocking failure policy.
+- Address label resolution remains non-blocking for station search.
+- `StationSearchOrchestrator` owns query/cache/failure state and preserves `hasCachedSnapshot` semantics.
+- `StationListViewModel` is reduced below 350 lines or its remaining lines are only UI state composition, actions, effects, and small helpers.
+- `demo` and `prod` behavior remains user-visible compatible.
+- Full merge regression set passes.
+
+## Explicit Non-Goals
+
+- Do not change permission prompt UI flow.
+- Do not change GPS settings UI flow.
+- Do not change Room schema or DataStore persisted format.
+- Do not add a new Gradle module.
+- Do not change station card visual hierarchy.
+- Do not make address lookup part of the station search input.
+- Do not clear cache snapshots on refresh failure.
