@@ -3,12 +3,7 @@ package com.gasstation.feature.stationlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.location.GetCurrentAddressUseCase
-import com.gasstation.domain.location.GetCurrentLocationUseCase
-import com.gasstation.domain.location.LocationAddressLookupResult
-import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
-import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
@@ -50,13 +45,11 @@ class StationListViewModel @Inject constructor(
     private val updateWatchState: UpdateWatchStateUseCase,
     observeUserPreferences: ObserveUserPreferencesUseCase,
     private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
-    private val observeLocationAvailability: ObserveLocationAvailabilityUseCase,
-    private val getCurrentLocation: GetCurrentLocationUseCase,
-    private val getCurrentAddress: GetCurrentAddressUseCase,
+    private val locationStateMachine: LocationStateMachine,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
     private val preferences = MutableStateFlow(UserPreferences.default())
-    private val sessionState = MutableStateFlow(StationListSessionState())
+    private val transientState = MutableStateFlow(StationListTransientState())
     private val activeQueryState = MutableStateFlow(ActiveStationQueryState())
     private val pendingBlockingFailure = MutableStateFlow<PendingBlockingFailure?>(null)
     private val searchResult = MutableStateFlow(
@@ -77,14 +70,9 @@ class StationListViewModel @Inject constructor(
             .onEach { preferences.value = it }
             .launchIn(viewModelScope)
 
-        combine(preferences, sessionState) { prefs, session ->
-            session.currentCoordinates?.takeIf {
-                session.isGpsEnabled &&
-                    (
-                        session.permissionState != LocationPermissionState.Denied ||
-                            session.hasDeniedLocationAccess
-                        )
-            }?.let { coordinates -> buildQuery(preferences = prefs, coordinates = coordinates) }
+        combine(preferences, locationStateMachine.state) { prefs, location ->
+            location.usableCoordinates()
+                ?.let { coordinates -> buildQuery(preferences = prefs, coordinates = coordinates) }
         }.distinctUntilChanged()
             .onEach { query ->
                 val previousQuery = activeQueryState.value.query
@@ -94,7 +82,7 @@ class StationListViewModel @Inject constructor(
                 )
                 if (previousQuery != query) {
                     pendingBlockingFailure.value = null
-                    sessionState.update { it.copy(blockingFailure = null) }
+                    transientState.update { it.copy(blockingFailure = null) }
                 }
                 if (previousQuery.shouldRefreshForCriteriaChange(query) && query != null) {
                     refreshActiveQuery(query)
@@ -128,19 +116,24 @@ class StationListViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        combine(preferences, sessionState, searchResult) { prefs, session, result ->
+        combine(
+            preferences,
+            locationStateMachine.state,
+            transientState,
+            searchResult,
+        ) { prefs, location, transient, result ->
             StationListUiState(
-                currentCoordinates = session.currentCoordinates,
-                currentAddressLabel = session.currentAddressLabel,
-                permissionState = session.permissionState,
-                hasDeniedLocationAccess = session.hasDeniedLocationAccess,
-                needsRecoveryRefresh = session.needsRecoveryRefresh,
-                isGpsEnabled = session.isGpsEnabled,
-                isAvailabilityKnown = session.isAvailabilityKnown,
-                isLoading = session.isLoading,
-                isRefreshing = session.isRefreshing,
+                currentCoordinates = location.currentCoordinates,
+                currentAddressLabel = location.currentAddressLabel,
+                permissionState = location.permissionState,
+                hasDeniedLocationAccess = location.hasDeniedLocationAccess,
+                needsRecoveryRefresh = location.needsRecoveryRefresh,
+                isGpsEnabled = location.isGpsEnabled,
+                isAvailabilityKnown = location.isAvailabilityKnown,
+                isLoading = transient.isLoading,
+                isRefreshing = transient.isRefreshing,
                 isStale = result.freshness is StationFreshness.Stale,
-                blockingFailure = session.blockingFailure,
+                blockingFailure = transient.blockingFailure,
                 stations = result.stations.map(::StationListItemUiModel),
                 selectedBrandFilter = prefs.brandFilter,
                 selectedRadius = prefs.searchRadius,
@@ -170,19 +163,12 @@ class StationListViewModel @Inject constructor(
                 watched = action.watched,
             )
 
-            is StationListAction.PermissionChanged -> sessionState.update {
-                it.withLocationRecoveryState(permissionState = action.permissionState)
-            }
+            is StationListAction.PermissionChanged -> locationStateMachine.onPermissionChanged(action.permissionState)
 
-            is StationListAction.GpsAvailabilityChanged -> sessionState.update {
-                it.withLocationRecoveryState(
-                    isGpsEnabled = action.isEnabled,
-                    isAvailabilityKnown = true,
-                )
-            }
+            is StationListAction.GpsAvailabilityChanged -> locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
 
             is StationListAction.StationClicked -> viewModelScope.launch {
-                val currentCoordinates = sessionState.value.currentCoordinates
+                val currentCoordinates = locationStateMachine.state.value.currentCoordinates
                 mutableEffects.emit(
                     StationListEffect.OpenExternalMap(
                         provider = preferences.value.mapProvider,
@@ -200,7 +186,7 @@ class StationListViewModel @Inject constructor(
     suspend fun collectLocationAvailability(
         flowOverride: Flow<Boolean>? = null,
     ) {
-        (flowOverride ?: observeLocationAvailability())
+        (flowOverride ?: locationStateMachine.observeGpsAvailability())
             .collect { isEnabled ->
                 onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
             }
@@ -210,39 +196,25 @@ class StationListViewModel @Inject constructor(
         showPermissionDeniedFeedback: Boolean,
     ) {
         viewModelScope.launch {
-            val session = sessionState.value
-            if (!session.isGpsEnabled) {
+            val location = locationStateMachine.state.value
+            if (!location.isGpsEnabled) {
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
                 return@launch
             }
 
-            sessionState.update {
+            transientState.update {
                 it.copy(
-                    isLoading = it.currentCoordinates == null,
+                    isLoading = location.currentCoordinates == null,
                     isRefreshing = true,
                 )
             }
 
             try {
                 val coordinates = handleLocationResult(
-                    getCurrentLocation(session.permissionState),
+                    locationStateMachine.acquireLocation(),
                     showPermissionDeniedFeedback = showPermissionDeniedFeedback,
                 ) ?: return@launch
 
-                val previousCoordinates = sessionState.value.currentCoordinates
-                sessionState.update {
-                    it.copy(
-                        currentCoordinates = coordinates,
-                        currentAddressLabel = if (previousCoordinates == coordinates) {
-                            it.currentAddressLabel
-                        } else {
-                            null
-                        },
-                        hasDeniedLocationAccess = session.permissionState == LocationPermissionState.Denied,
-                        needsRecoveryRefresh = false,
-                        blockingFailure = null,
-                    )
-                }
                 refreshAddressLabel(coordinates)
 
                 val query = buildQuery(preferences.value, coordinates)
@@ -257,7 +229,7 @@ class StationListViewModel @Inject constructor(
                     refreshNearbyStations(query)
                     if (activeQueryState.value.query == query) {
                         pendingBlockingFailure.value = null
-                        sessionState.update { current -> current.copy(blockingFailure = null) }
+                        transientState.update { current -> current.copy(blockingFailure = null) }
                     }
                 } catch (cancellationException: CancellationException) {
                     throw cancellationException
@@ -265,7 +237,7 @@ class StationListViewModel @Inject constructor(
                     handleRefreshFailure(query, (throwable as? StationRefreshException)?.reason)
                 }
             } finally {
-                sessionState.update {
+                transientState.update {
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
@@ -277,39 +249,30 @@ class StationListViewModel @Inject constructor(
 
     private fun refreshAddressLabel(coordinates: Coordinates) {
         viewModelScope.launch {
-            val addressLabel = when (val result = getCurrentAddress(coordinates)) {
-                is LocationAddressLookupResult.Success -> result.addressLabel
-                LocationAddressLookupResult.Unavailable,
-                is LocationAddressLookupResult.Error -> null
-            }
-
-            sessionState.update { current ->
-                if (current.currentCoordinates == coordinates) {
-                    current.copy(currentAddressLabel = addressLabel)
-                } else {
-                    current
-                }
-            }
+            val addressLabel = locationStateMachine.resolveAddressLabel(coordinates)
+            locationStateMachine.onAddressResolved(coordinates, addressLabel)
         }
     }
 
     private suspend fun handleLocationResult(
-        result: LocationLookupResult,
+        result: LocationAcquisitionResult,
         showPermissionDeniedFeedback: Boolean,
     ): Coordinates? = when (result) {
-        is LocationLookupResult.Success -> {
-            sessionState.update { it.copy(blockingFailure = null) }
+        is LocationAcquisitionResult.Success -> {
+            transientState.update { it.copy(blockingFailure = null) }
             result.coordinates
         }
 
-        LocationLookupResult.PermissionDenied -> {
+        LocationAcquisitionResult.PermissionDenied -> {
+            logLocationFailure(result)
             if (showPermissionDeniedFeedback) {
                 mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
             }
             null
         }
 
-        LocationLookupResult.TimedOut -> {
+        LocationAcquisitionResult.TimedOut -> {
+            logLocationFailure(result)
             onBlockingFailure(
                 reason = StationListFailureReason.LocationTimedOut,
                 message = "현재 위치 확인이 지연되고 있습니다.",
@@ -317,8 +280,9 @@ class StationListViewModel @Inject constructor(
             null
         }
 
-        LocationLookupResult.Unavailable,
-        is LocationLookupResult.Error -> {
+        LocationAcquisitionResult.Unavailable,
+        is LocationAcquisitionResult.Error -> {
+            logLocationFailure(result)
             onBlockingFailure(
                 reason = StationListFailureReason.LocationFailed,
                 message = "현재 위치를 확인하지 못했습니다.",
@@ -359,12 +323,12 @@ class StationListViewModel @Inject constructor(
         when (activeQueryState.value.cacheState) {
             CachedSnapshotState.Present -> {
                 pendingBlockingFailure.value = null
-                sessionState.update { it.copy(blockingFailure = null) }
+                transientState.update { it.copy(blockingFailure = null) }
             }
 
             CachedSnapshotState.Absent -> {
                 pendingBlockingFailure.value = null
-                sessionState.update { it.copy(blockingFailure = reason) }
+                transientState.update { it.copy(blockingFailure = reason) }
             }
 
             CachedSnapshotState.Unknown -> {
@@ -374,9 +338,15 @@ class StationListViewModel @Inject constructor(
         mutableEffects.emit(StationListEffect.ShowSnackbar(message))
     }
 
+    private fun logLocationFailure(result: LocationAcquisitionResult) {
+        result.failureEventType()?.let { resultType ->
+            stationEventLogger.log(StationEvent.LocationFailed(resultType = resultType))
+        }
+    }
+
     private fun refreshActiveQuery(query: StationQuery) {
         viewModelScope.launch {
-            sessionState.update {
+            transientState.update {
                 it.copy(
                     isLoading = true,
                     isRefreshing = true,
@@ -387,14 +357,14 @@ class StationListViewModel @Inject constructor(
                 refreshNearbyStations(query)
                 if (activeQueryState.value.query == query) {
                     pendingBlockingFailure.value = null
-                    sessionState.update { current -> current.copy(blockingFailure = null) }
+                    transientState.update { current -> current.copy(blockingFailure = null) }
                 }
             } catch (cancellationException: CancellationException) {
                 throw cancellationException
             } catch (throwable: Throwable) {
                 handleRefreshFailure(query, (throwable as? StationRefreshException)?.reason)
             } finally {
-                sessionState.update {
+                transientState.update {
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
@@ -407,7 +377,7 @@ class StationListViewModel @Inject constructor(
     private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
         if (hasCachedSnapshot) {
             pendingBlockingFailure.value = null
-            sessionState.update { it.copy(blockingFailure = null) }
+            transientState.update { it.copy(blockingFailure = null) }
             return
         }
 
@@ -416,7 +386,7 @@ class StationListViewModel @Inject constructor(
             ?.takeIf { it.query == activeQuery }
             ?: return
         pendingBlockingFailure.value = null
-        sessionState.update { it.copy(blockingFailure = pendingFailure.reason) }
+        transientState.update { it.copy(blockingFailure = pendingFailure.reason) }
     }
 
     private fun toggleSortOrder() {
@@ -457,44 +427,11 @@ class StationListViewModel @Inject constructor(
     )
 }
 
-private data class StationListSessionState(
-    val permissionState: LocationPermissionState = LocationPermissionState.Denied,
-    val hasDeniedLocationAccess: Boolean = false,
-    val needsRecoveryRefresh: Boolean = false,
-    val isGpsEnabled: Boolean = true,
-    val isAvailabilityKnown: Boolean = false,
-    val currentCoordinates: Coordinates? = null,
-    val currentAddressLabel: String? = null,
+private data class StationListTransientState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,
 )
-
-private fun StationListSessionState.withLocationRecoveryState(
-    permissionState: LocationPermissionState = this.permissionState,
-    isGpsEnabled: Boolean = this.isGpsEnabled,
-    isAvailabilityKnown: Boolean = this.isAvailabilityKnown,
-): StationListSessionState {
-    val updated = copy(
-        permissionState = permissionState,
-        isGpsEnabled = isGpsEnabled,
-        isAvailabilityKnown = isAvailabilityKnown,
-    )
-    val needsRecoveryRefresh = !isLocationUsable() &&
-        updated.isLocationUsable() &&
-        currentCoordinates != null &&
-        !hasDeniedLocationAccess
-    return updated.copy(
-        needsRecoveryRefresh = updated.needsRecoveryRefresh || needsRecoveryRefresh,
-    )
-}
-
-private fun StationListSessionState.isLocationUsable(): Boolean =
-    isGpsEnabled &&
-        (
-            permissionState != LocationPermissionState.Denied ||
-                hasDeniedLocationAccess
-            )
 
 private data class ActiveStationQueryState(
     val query: StationQuery? = null,
@@ -520,3 +457,20 @@ private fun StationQuery?.shouldRefreshForCriteriaChange(next: StationQuery?): B
             fuelType != next.fuelType ||
             brandFilter != next.brandFilter ||
             sortOrder != next.sortOrder)
+
+private fun LocationState.usableCoordinates(): Coordinates? =
+    currentCoordinates?.takeIf {
+        isGpsEnabled &&
+            (
+                permissionState != LocationPermissionState.Denied ||
+                    hasDeniedLocationAccess
+                )
+    }
+
+private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
+    is LocationAcquisitionResult.Success -> null
+    LocationAcquisitionResult.PermissionDenied -> "PermissionDenied"
+    LocationAcquisitionResult.TimedOut -> "TimedOut"
+    LocationAcquisitionResult.Unavailable -> "Unavailable"
+    is LocationAcquisitionResult.Error -> "Error"
+}

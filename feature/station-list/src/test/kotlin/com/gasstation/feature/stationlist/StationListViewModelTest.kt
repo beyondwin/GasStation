@@ -671,6 +671,48 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `location acquisition failure logs location failed event`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+            )
+            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+            val analytics = RecordingStationEventLogger()
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = settingsFixture,
+                locationRepository = FakeLocationRepository(
+                    result = LocationLookupResult.Unavailable,
+                ),
+                analytics = analytics,
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
+                    awaitItem(),
+                )
+                expectNoEvents()
+            }
+
+            assertEquals(listOf(StationEvent.LocationFailed(resultType = "Unavailable")), analytics.events)
+            assertTrue(repository.refreshedQueries.isEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun `manual refresh with gps disabled opens location settings when permission is granted`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         try {
@@ -929,17 +971,22 @@ private fun stationListViewModel(
     settingsFixture: SettingsUseCaseTestFixture,
     locationRepository: LocationRepository,
     analytics: RecordingStationEventLogger = RecordingStationEventLogger(),
-): StationListViewModel = StationListViewModel(
-    observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-    refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
-    updateWatchState = UpdateWatchStateUseCase(repository),
-    observeUserPreferences = settingsFixture.observeUserPreferences,
-    updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
-    observeLocationAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
-    getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
-    getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
-    stationEventLogger = analytics,
-)
+): StationListViewModel {
+    val locationStateMachine = LocationStateMachine(
+        getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
+        getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
+        observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
+    )
+    return StationListViewModel(
+        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+        refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        updateWatchState = UpdateWatchStateUseCase(repository),
+        observeUserPreferences = settingsFixture.observeUserPreferences,
+        updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
+        locationStateMachine = locationStateMachine,
+        stationEventLogger = analytics,
+    )
+}
 
 private class FakeStationRepository(
     result: StationSearchResult,
