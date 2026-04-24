@@ -1669,7 +1669,7 @@ git commit -m "docs: update architecture cleanup contracts"
 **Files:**
 - Verify: full working tree
 
-- [ ] **Step 1: Verify removed build dependency edges**
+- [x] **Step 1: Verify removed build dependency edges**
 
 Run:
 
@@ -1679,7 +1679,7 @@ rg 'project\(":domain:station"\)' core/datastore/build.gradle.kts core/network/b
 
 Expected: no output.
 
-- [ ] **Step 2: Verify no moved enum imports remain**
+- [x] **Step 2: Verify no moved enum imports remain**
 
 Run:
 
@@ -1689,7 +1689,7 @@ rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|
 
 Expected: no output.
 
-- [ ] **Step 3: Verify old enum files are gone**
+- [x] **Step 3: Verify old enum files are gone**
 
 Run:
 
@@ -1704,7 +1704,7 @@ ls domain/station/src/main/kotlin/com/gasstation/domain/station/model/Brand.kt \
 
 Expected: each path reports no such file.
 
-- [ ] **Step 4: Run full merge regression set**
+- [x] **Step 4: Run full merge regression set**
 
 Run:
 
@@ -1734,7 +1734,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Check final diff**
+- [x] **Step 5: Check final diff**
 
 Run:
 
@@ -1745,7 +1745,7 @@ git diff --stat HEAD
 
 Expected: only intended files changed.
 
-- [ ] **Step 6: Commit final verification fixes if any**
+- [x] **Step 6: Commit final verification fixes if any**
 
 If Task 9 required fixes, commit them:
 
