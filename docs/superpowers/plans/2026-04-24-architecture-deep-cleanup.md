@@ -994,7 +994,7 @@ git commit -m "feat: retry transient station refresh failures"
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/GpsAvailabilityMonitorTest.kt`
 
-- [ ] **Step 1: Create location state machine**
+- [x] **Step 1: Create location state machine**
 
 Create `LocationStateMachine.kt` with this responsibility boundary:
 
@@ -1128,7 +1128,7 @@ private fun LocationState.isLocationUsable(): Boolean =
             )
 ```
 
-- [ ] **Step 2: Write location state tests**
+- [x] **Step 2: Write location state tests**
 
 Create tests covering:
 
@@ -1157,7 +1157,7 @@ private fun createMachine(
 )
 ```
 
-- [ ] **Step 3: Run location state machine tests**
+- [x] **Step 3: Run location state machine tests**
 
 Run:
 
@@ -1167,7 +1167,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 4: Integrate into ViewModel without changing search behavior**
+- [x] **Step 4: Integrate into ViewModel without changing search behavior**
 
 In `StationListViewModel`, replace direct location use cases with:
 
@@ -1189,7 +1189,7 @@ private data class StationListTransientState(
 
 Combine `preferences`, `locationStateMachine.state`, `transientState`, and `searchResult` for UI state. `LocationStateMachine` must not own `blockingFailure`, `isLoading`, or `isRefreshing`.
 
-- [ ] **Step 5: Keep address lookup non-blocking**
+- [x] **Step 5: Keep address lookup non-blocking**
 
 Replace old `refreshAddressLabel(coordinates)` with:
 
@@ -1204,7 +1204,7 @@ private fun refreshAddressLabel(coordinates: Coordinates) {
 
 Call this after successful location acquisition, but do not wait for it before `refreshNearbyStations(query)`.
 
-- [ ] **Step 6: Update failure mapping and logging**
+- [x] **Step 6: Update failure mapping and logging**
 
 Add:
 
@@ -1228,7 +1228,7 @@ acquisitionResult.failureEventType()?.let { resultType ->
 
 Keep snackbar and blocking failure messages exactly as they are today.
 
-- [ ] **Step 7: Update ViewModel tests**
+- [x] **Step 7: Update ViewModel tests**
 
 Update ViewModel and GPS monitor test helpers to construct a `LocationStateMachine`:
 
@@ -1242,7 +1242,7 @@ val locationStateMachine = LocationStateMachine(
 
 Then pass `locationStateMachine = locationStateMachine` to `StationListViewModel`.
 
-- [ ] **Step 8: Run station-list tests**
+- [x] **Step 8: Run station-list tests**
 
 Run:
 
@@ -1252,7 +1252,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 9: Commit location extraction**
+- [x] **Step 9: Commit location extraction**
 
 ```bash
 git add -A

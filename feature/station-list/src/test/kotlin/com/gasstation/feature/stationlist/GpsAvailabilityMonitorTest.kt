@@ -375,6 +375,12 @@ private fun stationListViewModelForRouteTest(
         ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
     }
 
+    val locationStateMachine = LocationStateMachine(
+        getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
+        getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
+        observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
+    )
+
     return RouteTestFixture(
         viewModel = StationListViewModel(
             observeNearbyStations = ObserveNearbyStationsUseCase(repository),
@@ -382,9 +388,7 @@ private fun stationListViewModelForRouteTest(
             updateWatchState = UpdateWatchStateUseCase(repository),
             observeUserPreferences = settingsFixture.observeUserPreferences,
             updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
-            observeLocationAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
-            getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
-            getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
+            locationStateMachine = locationStateMachine,
             stationEventLogger = object : StationEventLogger {
                 override fun log(event: com.gasstation.domain.station.model.StationEvent) = Unit
             },
