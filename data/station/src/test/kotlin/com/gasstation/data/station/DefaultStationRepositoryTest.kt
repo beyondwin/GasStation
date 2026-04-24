@@ -11,7 +11,9 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import java.time.Clock
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.math.roundToInt
@@ -374,6 +377,38 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `refresh retries network failure once and stores successful retry result`() = runTest {
+        val query = stationQuery()
+        val repository = repository(
+            remoteDataSource = QueueStationRemoteDataSource(
+                ArrayDeque(
+                    listOf(
+                        RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network),
+                        RemoteStationFetchResult.Success(
+                            listOf(
+                                RemoteStation(
+                                    stationId = "station-1",
+                                    name = "Retry Station",
+                                    brandCode = "GSC",
+                                    priceWon = 1_699,
+                                    coordinates = Coordinates(37.498095, 127.027610),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        val result = repository.observeNearbyStations(query).first()
+
+        assertEquals(listOf("station-1"), result.stations.map { it.station.id })
+        assertTrue(result.hasCachedSnapshot)
+    }
+
+    @Test
     fun `observeNearbyStations exposes cached empty snapshot after empty refresh`() = runBlocking {
         val query = stationQuery()
         val repository = repository(
@@ -407,6 +442,7 @@ class DefaultStationRepositoryTest {
         remoteDataSource = remoteDataSource,
         seedRemoteDataSource = seedRemoteDataSource,
         cachePolicy = StationCachePolicy(),
+        retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         clock = clock,
     )
 
@@ -471,6 +507,21 @@ class DefaultStationRepositoryTest {
         private val result: RemoteStationFetchResult,
     ) : SeedStationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
+    }
+
+    private class QueueStationRemoteDataSource(
+        private val results: ArrayDeque<RemoteStationFetchResult>,
+    ) : StationRemoteDataSource {
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult =
+            results.removeFirst()
+    }
+
+    private class RecordingStationEventLogger : StationEventLogger {
+        val events = mutableListOf<StationEvent>()
+
+        override fun log(event: StationEvent) {
+            events += event
+        }
     }
 
     private class RecordingStationCacheDao : StationCacheDao() {

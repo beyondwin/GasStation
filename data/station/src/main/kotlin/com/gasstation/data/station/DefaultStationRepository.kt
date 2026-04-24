@@ -46,6 +46,7 @@ class DefaultStationRepository @Inject constructor(
     private val remoteDataSource: StationRemoteDataSource,
     private val seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
     private val cachePolicy: StationCachePolicy,
+    private val retryPolicy: StationRetryPolicy,
     private val clock: Clock,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
@@ -136,47 +137,49 @@ class DefaultStationRepository @Inject constructor(
     override suspend fun refreshNearbyStations(query: StationQuery) {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
         val fetchedAt = clock.instant()
-        val remoteStations = if (seedRemoteDataSource.isPresent) {
+        val remoteStations = retryPolicy.withRetry {
+            when (val result = fetchRemoteStations(query)) {
+                is RemoteStationFetchResult.Failure -> throw StationRefreshException(
+                    reason = result.reason,
+                    cause = result.cause,
+                )
+                is RemoteStationFetchResult.Success -> result
+            }
+        }
+
+        val snapshotEntities = remoteStations.stations.map { it.toEntity(cacheKey, fetchedAt) }
+        stationCacheDao.replaceSnapshot(
+            latitudeBucket = cacheKey.latitudeBucket,
+            longitudeBucket = cacheKey.longitudeBucket,
+            radiusMeters = cacheKey.radiusMeters,
+            fuelType = cacheKey.fuelType.name,
+            fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
+            entities = snapshotEntities,
+        )
+
+        val historyEntities = remoteStations.stations.map { station ->
+            StationPriceHistoryEntity(
+                stationId = station.stationId,
+                fuelType = cacheKey.fuelType.name,
+                priceWon = station.priceWon,
+                fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
+            )
+        }
+        stationPriceHistoryDao.insertAll(historyEntities)
+        remoteStations.stations.forEach { station ->
+            stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
+                stationId = station.stationId,
+                fuelType = cacheKey.fuelType.name,
+            )
+        }
+    }
+
+    private suspend fun fetchRemoteStations(query: StationQuery): RemoteStationFetchResult =
+        if (seedRemoteDataSource.isPresent) {
             seedRemoteDataSource.get().fetchStations(query)
         } else {
             remoteDataSource.fetchStations(query)
         }
-        when (remoteStations) {
-            is RemoteStationFetchResult.Failure -> {
-                throw StationRefreshException(
-                    reason = remoteStations.reason,
-                    cause = remoteStations.cause,
-                )
-            }
-            is RemoteStationFetchResult.Success -> {
-                val snapshotEntities = remoteStations.stations.map { it.toEntity(cacheKey, fetchedAt) }
-                stationCacheDao.replaceSnapshot(
-                    latitudeBucket = cacheKey.latitudeBucket,
-                    longitudeBucket = cacheKey.longitudeBucket,
-                    radiusMeters = cacheKey.radiusMeters,
-                    fuelType = cacheKey.fuelType.name,
-                    fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
-                    entities = snapshotEntities,
-                )
-
-                val historyEntities = remoteStations.stations.map { station ->
-                    StationPriceHistoryEntity(
-                        stationId = station.stationId,
-                        fuelType = cacheKey.fuelType.name,
-                        priceWon = station.priceWon,
-                        fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
-                    )
-                }
-                stationPriceHistoryDao.insertAll(historyEntities)
-                remoteStations.stations.forEach { station ->
-                    stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
-                        stationId = station.stationId,
-                        fuelType = cacheKey.fuelType.name,
-                    )
-                }
-            }
-        }
-    }
 
     override suspend fun updateWatchState(
         station: Station,
