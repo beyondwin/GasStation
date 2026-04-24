@@ -2,8 +2,8 @@ package com.gasstation.core.network.station
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.di.NetworkModule
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

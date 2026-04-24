@@ -2,7 +2,7 @@ package com.gasstation.core.network.station
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.model.OpinetStationDto
-import com.gasstation.domain.station.model.FuelType
+import com.gasstation.core.model.FuelType
 
 internal fun OpinetStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
     val stationId = stationId?.takeIf(String::isNotBlank) ?: return null

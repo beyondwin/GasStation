@@ -9,7 +9,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.R
-import com.gasstation.domain.station.model.Brand
+import com.gasstation.core.model.Brand
 
 @DrawableRes
 fun Brand.gasStationBrandIconResource(): Int = when (this) {

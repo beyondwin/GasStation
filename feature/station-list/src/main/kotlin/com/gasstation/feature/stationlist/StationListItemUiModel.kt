@@ -1,7 +1,7 @@
 package com.gasstation.feature.stationlist
 
 import com.gasstation.core.model.DistanceMeters
-import com.gasstation.domain.station.model.Brand
+import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
 import java.text.DecimalFormat

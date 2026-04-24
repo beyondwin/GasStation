@@ -7,8 +7,8 @@ import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.network.model.OpinetStationDto
 import com.gasstation.core.network.station.LocalKoreanCoordinateTransform
 import com.gasstation.data.station.RemoteStation
-import com.gasstation.domain.station.model.Brand
-import com.gasstation.domain.station.model.FuelType
+import com.gasstation.core.model.Brand
+import com.gasstation.core.model.FuelType
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationQueryCacheKey
 import java.time.Instant

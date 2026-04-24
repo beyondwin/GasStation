@@ -2,7 +2,7 @@ package com.gasstation.core.datastore
 
 import androidx.datastore.core.DataStoreFactory
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.domain.station.model.MapProvider
+import com.gasstation.core.model.MapProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

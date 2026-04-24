@@ -3,7 +3,7 @@ package com.gasstation.map
 import android.app.Application
 import android.content.pm.PackageInfo
 import androidx.test.core.app.ApplicationProvider
-import com.gasstation.domain.station.model.MapProvider
+import com.gasstation.core.model.MapProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -1,7 +1,7 @@
 package com.gasstation.domain.settings.usecase
 
 import com.gasstation.domain.settings.SettingsRepository
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.SearchRadius
 import javax.inject.Inject
 
 class UpdateSearchRadiusUseCase @Inject constructor(

@@ -1,7 +1,7 @@
 package com.gasstation.core.designsystem.component
 
 import com.gasstation.core.designsystem.R
-import com.gasstation.domain.station.model.Brand
+import com.gasstation.core.model.Brand
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

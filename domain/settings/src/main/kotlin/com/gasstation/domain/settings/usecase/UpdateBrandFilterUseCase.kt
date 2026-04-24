@@ -1,7 +1,7 @@
 package com.gasstation.domain.settings.usecase
 
 import com.gasstation.domain.settings.SettingsRepository
-import com.gasstation.domain.station.model.BrandFilter
+import com.gasstation.core.model.BrandFilter
 import javax.inject.Inject
 
 class UpdateBrandFilterUseCase @Inject constructor(

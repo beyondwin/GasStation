@@ -5,11 +5,11 @@ import com.gasstation.core.network.model.OpinetResponseDto
 import com.gasstation.core.network.service.OpinetService
 import com.gasstation.core.network.station.NetworkStationFetcher
 import com.gasstation.domain.station.StationRefreshFailureReason
-import com.gasstation.domain.station.model.BrandFilter
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.MapProvider
-import com.gasstation.domain.station.model.SearchRadius
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.StationQuery
 import java.io.InterruptedIOException
 import java.net.SocketTimeoutException

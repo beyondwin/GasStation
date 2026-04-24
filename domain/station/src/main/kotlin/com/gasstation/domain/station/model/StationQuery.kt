@@ -1,6 +1,10 @@
 package com.gasstation.domain.station.model
 
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 
 data class StationQuery(
     val coordinates: Coordinates,

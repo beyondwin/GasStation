@@ -1,5 +1,10 @@
 package com.gasstation.domain.station.model
 
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
+
 sealed interface StationEvent {
     data class SearchRefreshed(
         val radius: SearchRadius,

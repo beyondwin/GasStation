@@ -1,7 +1,7 @@
 package com.gasstation.tools.demoseed
 
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 
 data class DemoSeedQuery(
     val radius: SearchRadius,

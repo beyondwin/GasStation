@@ -3,7 +3,7 @@ package com.gasstation.feature.stationlist
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.domain.station.model.Brand
+import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta

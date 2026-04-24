@@ -2,7 +2,7 @@ package com.gasstation.data.settings
 
 import com.gasstation.core.datastore.UserPreferencesDataSource
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.SortOrder
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
