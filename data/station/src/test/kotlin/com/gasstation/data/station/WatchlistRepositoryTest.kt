@@ -7,7 +7,9 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.Brand
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationPriceDelta
 import java.time.Clock
 import java.time.Instant
@@ -227,12 +229,21 @@ class WatchlistRepositoryTest {
         remoteDataSource = NoOpStationRemoteDataSource,
         seedRemoteDataSource = Optional.empty(),
         cachePolicy = StationCachePolicy(),
+        retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         clock = clock,
     )
 
     private object NoOpStationRemoteDataSource : StationRemoteDataSource {
         override suspend fun fetchStations(query: com.gasstation.domain.station.model.StationQuery): RemoteStationFetchResult {
             error("refreshNearbyStations is not used in watchlist repository tests")
+        }
+    }
+
+    private class RecordingStationEventLogger : StationEventLogger {
+        val events = mutableListOf<StationEvent>()
+
+        override fun log(event: StationEvent) {
+            events += event
         }
     }
 

@@ -551,7 +551,7 @@ git commit -m "feat: add structured station failure events"
 **Files:**
 - Create: `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`
 
-- [ ] **Step 1: Write retry policy tests first**
+- [x] **Step 1: Write retry policy tests first**
 
 Create `data/station/src/test/kotlin/com/gasstation/data/station/StationRetryPolicyTest.kt`:
 
@@ -736,7 +736,7 @@ private class RecordingStationEventLogger : StationEventLogger {
 }
 ```
 
-- [ ] **Step 2: Run test and verify it fails because retry class does not exist**
+- [x] **Step 2: Run test and verify it fails because retry class does not exist**
 
 Run:
 
@@ -759,7 +759,7 @@ Do not commit this failing test alone. Commit it with the implementation in Task
 - Modify: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
 - Modify: `data/station/src/test/kotlin/com/gasstation/data/station/WatchlistRepositoryTest.kt`
 
-- [ ] **Step 1: Implement `StationRetryPolicy`**
+- [x] **Step 1: Implement `StationRetryPolicy`**
 
 Create `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`:
 
@@ -824,7 +824,7 @@ class StationRetryPolicy @Inject constructor(
 }
 ```
 
-- [ ] **Step 2: Run retry policy tests**
+- [x] **Step 2: Run retry policy tests**
 
 Run:
 
@@ -834,7 +834,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 3: Inject retry policy into repository**
+- [x] **Step 3: Inject retry policy into repository**
 
 In `DefaultStationRepository`, add constructor parameter:
 
@@ -892,7 +892,7 @@ override suspend fun refreshNearbyStations(query: StationQuery) {
 }
 ```
 
-- [ ] **Step 4: Update repository test fixtures**
+- [x] **Step 4: Update repository test fixtures**
 
 In `DefaultStationRepositoryTest` and `WatchlistRepositoryTest`, update repository helpers:
 
@@ -919,7 +919,7 @@ import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.StationEvent
 ```
 
-- [ ] **Step 5: Add repository retry tests**
+- [x] **Step 5: Add repository retry tests**
 
 In `DefaultStationRepositoryTest`, add a fake remote that returns multiple results:
 
@@ -966,7 +966,7 @@ fun `refresh retries network failure once and stores successful retry result`() 
 }
 ```
 
-- [ ] **Step 6: Run data station tests**
+- [x] **Step 6: Run data station tests**
 
 Run:
 
@@ -976,7 +976,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 7: Commit retry policy**
+- [x] **Step 7: Commit retry policy**
 
 ```bash
 git add -A
