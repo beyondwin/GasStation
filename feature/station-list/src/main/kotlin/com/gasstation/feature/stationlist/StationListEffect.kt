@@ -1,6 +1,6 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.domain.station.model.MapProvider
+import com.gasstation.core.model.MapProvider
 
 sealed interface StationListEffect {
     data class OpenExternalMap(

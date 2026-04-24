@@ -4,7 +4,6 @@ plugins {
 
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":domain:station"))
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation("org.locationtech.proj4j:proj4j:1.4.1")

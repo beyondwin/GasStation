@@ -83,7 +83,7 @@ import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
 import com.gasstation.domain.location.LocationPermissionState
-import com.gasstation.domain.station.model.BrandFilter
+import com.gasstation.core.model.BrandFilter
 
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
@@ -192,7 +192,7 @@ fun StationListScreen(
 
 @Composable
 private fun SortToggleTitle(
-    sortOrder: com.gasstation.domain.station.model.SortOrder,
+    sortOrder: com.gasstation.core.model.SortOrder,
     onClick: () -> Unit,
 ) {
     val corner = GasStationTheme.corner
@@ -219,7 +219,7 @@ private fun SortToggleTitle(
     ) {
         SortToggleSegment(
             label = "거리순",
-            selected = sortOrder == com.gasstation.domain.station.model.SortOrder.DISTANCE,
+            selected = sortOrder == com.gasstation.core.model.SortOrder.DISTANCE,
         )
         Box(
             modifier = Modifier
@@ -229,7 +229,7 @@ private fun SortToggleTitle(
         )
         SortToggleSegment(
             label = "가격순",
-            selected = sortOrder == com.gasstation.domain.station.model.SortOrder.PRICE,
+            selected = sortOrder == com.gasstation.core.model.SortOrder.PRICE,
         )
     }
 }
@@ -882,28 +882,28 @@ private fun StationListBannerTone.toStatusTone(): GasStationStatusTone = when (t
     StationListBannerTone.Error -> GasStationStatusTone.Error
 }
 
-private fun com.gasstation.domain.station.model.SortOrder.toStateDescription(): String = when (this) {
-    com.gasstation.domain.station.model.SortOrder.DISTANCE -> "현재 거리순 정렬"
-    com.gasstation.domain.station.model.SortOrder.PRICE -> "현재 가격순 정렬"
+private fun com.gasstation.core.model.SortOrder.toStateDescription(): String = when (this) {
+    com.gasstation.core.model.SortOrder.DISTANCE -> "현재 거리순 정렬"
+    com.gasstation.core.model.SortOrder.PRICE -> "현재 가격순 정렬"
 }
 
-private fun com.gasstation.domain.station.model.SortOrder.toNextSortActionLabel(): String = when (this) {
-    com.gasstation.domain.station.model.SortOrder.DISTANCE -> "가격순으로 정렬"
-    com.gasstation.domain.station.model.SortOrder.PRICE -> "거리순으로 정렬"
+private fun com.gasstation.core.model.SortOrder.toNextSortActionLabel(): String = when (this) {
+    com.gasstation.core.model.SortOrder.DISTANCE -> "가격순으로 정렬"
+    com.gasstation.core.model.SortOrder.PRICE -> "거리순으로 정렬"
 }
 
-private fun com.gasstation.domain.station.model.SearchRadius.toLabel(): String = when (this) {
-    com.gasstation.domain.station.model.SearchRadius.KM_3 -> "3km"
-    com.gasstation.domain.station.model.SearchRadius.KM_4 -> "4km"
-    com.gasstation.domain.station.model.SearchRadius.KM_5 -> "5km"
+private fun com.gasstation.core.model.SearchRadius.toLabel(): String = when (this) {
+    com.gasstation.core.model.SearchRadius.KM_3 -> "3km"
+    com.gasstation.core.model.SearchRadius.KM_4 -> "4km"
+    com.gasstation.core.model.SearchRadius.KM_5 -> "5km"
 }
 
-private fun com.gasstation.domain.station.model.FuelType.toLabel(): String = when (this) {
-    com.gasstation.domain.station.model.FuelType.GASOLINE -> "휘발유"
-    com.gasstation.domain.station.model.FuelType.DIESEL -> "경유"
-    com.gasstation.domain.station.model.FuelType.PREMIUM_GASOLINE -> "고급휘발유"
-    com.gasstation.domain.station.model.FuelType.KEROSENE -> "등유"
-    com.gasstation.domain.station.model.FuelType.LPG -> "LPG"
+private fun com.gasstation.core.model.FuelType.toLabel(): String = when (this) {
+    com.gasstation.core.model.FuelType.GASOLINE -> "휘발유"
+    com.gasstation.core.model.FuelType.DIESEL -> "경유"
+    com.gasstation.core.model.FuelType.PREMIUM_GASOLINE -> "고급휘발유"
+    com.gasstation.core.model.FuelType.KEROSENE -> "등유"
+    com.gasstation.core.model.FuelType.LPG -> "LPG"
 }
 
 private fun BrandFilter.toLabel(): String = when (this) {

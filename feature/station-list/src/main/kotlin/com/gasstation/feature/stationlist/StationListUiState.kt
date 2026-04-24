@@ -2,10 +2,10 @@ package com.gasstation.feature.stationlist
 
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.station.model.BrandFilter
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import java.time.Instant
 
 data class StationListUiState(

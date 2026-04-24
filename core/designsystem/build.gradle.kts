@@ -7,7 +7,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":domain:station"))
+    implementation(project(":core:model"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.ui)

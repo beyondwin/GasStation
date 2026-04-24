@@ -7,11 +7,11 @@ import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.demo.seed.DemoSeedAssetLoader
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.domain.station.model.BrandFilter
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.MapProvider
-import com.gasstation.domain.station.model.SearchRadius
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first

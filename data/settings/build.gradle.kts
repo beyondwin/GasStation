@@ -10,6 +10,6 @@ android {
 dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":domain:settings"))
-    testImplementation(project(":domain:station"))
+    testImplementation(project(":core:model"))
     testImplementation(libs.junit)
 }

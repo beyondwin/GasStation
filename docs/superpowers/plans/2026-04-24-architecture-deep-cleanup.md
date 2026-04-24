@@ -90,7 +90,7 @@
 - Read: `docs/test-strategy.md`
 - Read: `docs/verification-matrix.md`
 
-- [ ] **Step 1: Confirm clean working tree**
+- [x] **Step 1: Confirm clean working tree**
 
 Run:
 
@@ -100,7 +100,7 @@ git status --short
 
 Expected: no output. If there is output, inspect it and do not overwrite user changes.
 
-- [ ] **Step 2: Confirm active modules**
+- [x] **Step 2: Confirm active modules**
 
 Run:
 
@@ -110,7 +110,7 @@ sed -n '1,220p' settings.gradle.kts
 
 Expected: includes `:app`, `:core:model`, `:core:designsystem`, `:core:location`, `:core:network`, `:core:database`, `:core:datastore`, `:domain:location`, `:domain:settings`, `:domain:station`, `:data:settings`, `:data:station`, `:feature:settings`, `:feature:station-list`, `:feature:watchlist`, `:tools:demo-seed`, `:benchmark`.
 
-- [ ] **Step 3: Measure current enum import surface**
+- [x] **Step 3: Measure current enum import surface**
 
 Run:
 
@@ -121,7 +121,7 @@ rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|
 
 Expected at the time this plan was written: `51` files and `129` import occurrences. If counts differ, continue using the current repo output.
 
-- [ ] **Step 4: Commit nothing**
+- [x] **Step 4: Commit nothing**
 
 This task is read-only.
 
@@ -145,7 +145,7 @@ This task is read-only.
 - Create: `core/model/src/test/kotlin/com/gasstation/core/model/SharedEnumContractTest.kt`
 - Modify: all `.kt` files importing the six moved types
 
-- [ ] **Step 1: Move the six enum files**
+- [x] **Step 1: Move the six enum files**
 
 Use `git mv` so history is preserved:
 
@@ -158,7 +158,7 @@ git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/Search
 git mv domain/station/src/main/kotlin/com/gasstation/domain/station/model/SortOrder.kt core/model/src/main/kotlin/com/gasstation/core/model/SortOrder.kt
 ```
 
-- [ ] **Step 2: Change package declarations**
+- [x] **Step 2: Change package declarations**
 
 Each moved file must start with:
 
@@ -187,7 +187,7 @@ enum class BrandFilter(val brand: Brand?) {
 }
 ```
 
-- [ ] **Step 3: Rewrite imports for moved enum types**
+- [x] **Step 3: Rewrite imports for moved enum types**
 
 Run:
 
@@ -202,7 +202,7 @@ perl -pi -e 's/import com\.gasstation\.domain\.station\.model\.SortOrder$/import
 
 If one of the `rg -l` commands returns no files, run the corresponding replacement manually with the remaining files found by Step 4.
 
-- [ ] **Step 4: Verify no moved enum imports remain**
+- [x] **Step 4: Verify no moved enum imports remain**
 
 Run:
 
@@ -212,7 +212,7 @@ rg "import com\.gasstation\.domain\.station\.model\.(Brand|BrandFilter|FuelType|
 
 Expected: no output.
 
-- [ ] **Step 5: Add enum contract test to `core:model`**
+- [x] **Step 5: Add enum contract test to `core:model`**
 
 Create `core/model/src/test/kotlin/com/gasstation/core/model/SharedEnumContractTest.kt`:
 
@@ -267,7 +267,7 @@ class SharedEnumContractTest {
 }
 ```
 
-- [ ] **Step 6: Move or delete old domain enum tests**
+- [x] **Step 6: Move or delete old domain enum tests**
 
 Move `BrandFilterTest` to `core:model` if it tests only `BrandFilter.matches()`:
 
@@ -283,7 +283,7 @@ package com.gasstation.core.model
 
 Remove imports for `Brand` and `BrandFilter` from that moved test because they now live in the same package.
 
-- [ ] **Step 7: Trim `DomainContractSurfaceTest`**
+- [x] **Step 7: Trim `DomainContractSurfaceTest`**
 
 In `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt`, remove imports for the six moved enum types and remove the test named:
 
@@ -293,7 +293,7 @@ fun `station domain enums keep stable identities without ui or transport fields`
 
 Keep the `StationEvent`, `StationRepository`, `StationSearchResult`, `StationPriceDelta`, and watchlist contract assertions.
 
-- [ ] **Step 8: Run focused tests and expect compile failures from missing Gradle dependencies**
+- [x] **Step 8: Run focused tests and expect compile failures from missing Gradle dependencies**
 
 Run:
 
@@ -317,7 +317,7 @@ Do not commit until Task 2 also passes. The enum move and Gradle dependency clea
 - Modify: `feature/settings/build.gradle.kts`
 - Modify: `data/settings/build.gradle.kts`
 
-- [ ] **Step 1: Update `core:datastore` dependencies**
+- [x] **Step 1: Update `core:datastore` dependencies**
 
 Change `core/datastore/build.gradle.kts` dependencies to include `core:model` directly and remove `domain:station`:
 
@@ -331,7 +331,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 2: Update `core:network` dependencies**
+- [x] **Step 2: Update `core:network` dependencies**
 
 Change `core/network/build.gradle.kts` dependencies so it no longer depends on `domain:station`:
 
@@ -347,7 +347,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 3: Update `core:designsystem` dependencies**
+- [x] **Step 3: Update `core:designsystem` dependencies**
 
 Change `core/designsystem/build.gradle.kts` dependencies to use `core:model`:
 
@@ -365,7 +365,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 4: Update `domain:settings` dependencies**
+- [x] **Step 4: Update `domain:settings` dependencies**
 
 Change `domain/settings/build.gradle.kts` dependencies to use `core:model`:
 
@@ -379,7 +379,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 5: Update `feature:settings` dependencies**
+- [x] **Step 5: Update `feature:settings` dependencies**
 
 `feature:settings` uses settings use cases and enum types, but does not use station repository or station read models. Change `feature/settings/build.gradle.kts`:
 
@@ -406,7 +406,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 6: Update `data:settings` test dependency**
+- [x] **Step 6: Update `data:settings` test dependency**
 
 `data/settings/src/test/.../DefaultSettingsRepositoryTest.kt` only needs moved enum types from `core:model`. Change `data/settings/build.gradle.kts`:
 
@@ -419,7 +419,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 7: Verify removed dependency edges**
+- [x] **Step 7: Verify removed dependency edges**
 
 Run:
 
@@ -429,7 +429,7 @@ rg 'project\(":domain:station"\)' core/datastore/build.gradle.kts core/network/b
 
 Expected: no output.
 
-- [ ] **Step 8: Run enum and dependency verification**
+- [x] **Step 8: Run enum and dependency verification**
 
 Run:
 
@@ -447,7 +447,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 9: Commit enum move and dependency cleanup**
+- [x] **Step 9: Commit enum move and dependency cleanup**
 
 ```bash
 git add -A

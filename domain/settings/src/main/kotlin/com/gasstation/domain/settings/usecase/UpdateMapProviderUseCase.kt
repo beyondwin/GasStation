@@ -1,7 +1,7 @@
 package com.gasstation.domain.settings.usecase
 
 import com.gasstation.domain.settings.SettingsRepository
-import com.gasstation.domain.station.model.MapProvider
+import com.gasstation.core.model.MapProvider
 import javax.inject.Inject
 
 class UpdateMapProviderUseCase @Inject constructor(

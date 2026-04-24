@@ -2,8 +2,8 @@ package com.gasstation.demo.seed
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

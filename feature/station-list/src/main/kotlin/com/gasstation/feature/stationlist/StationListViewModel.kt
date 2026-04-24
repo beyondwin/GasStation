@@ -16,7 +16,7 @@ import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationEvent
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult

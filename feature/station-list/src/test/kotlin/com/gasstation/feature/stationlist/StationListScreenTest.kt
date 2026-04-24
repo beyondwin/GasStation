@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import com.gasstation.domain.location.LocationPermissionState
-import com.gasstation.domain.station.model.Brand
-import com.gasstation.domain.station.model.FuelType
+import com.gasstation.core.model.Brand
+import com.gasstation.core.model.FuelType
 import java.time.Instant
 import org.junit.Rule
 import org.junit.Test

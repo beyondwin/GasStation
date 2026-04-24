@@ -1,6 +1,6 @@
 package com.gasstation.tools.demoseed
 
-import com.gasstation.domain.station.model.FuelType
+import com.gasstation.core.model.FuelType
 import kotlin.math.absoluteValue
 import kotlin.math.max
 

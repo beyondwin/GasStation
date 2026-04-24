@@ -2,7 +2,7 @@ package com.gasstation.domain.settings.usecase
 
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.SortOrder
 import javax.inject.Inject
 
 class UpdatePreferredSortOrderUseCase private constructor(

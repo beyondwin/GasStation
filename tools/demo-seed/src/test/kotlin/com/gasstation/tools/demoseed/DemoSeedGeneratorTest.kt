@@ -1,8 +1,8 @@
 package com.gasstation.tools.demoseed
 
 import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -4,7 +4,7 @@ import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.model.DistanceMeters
-import com.gasstation.domain.station.model.Brand
+import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.WatchedStationSummary
 import java.text.DecimalFormat

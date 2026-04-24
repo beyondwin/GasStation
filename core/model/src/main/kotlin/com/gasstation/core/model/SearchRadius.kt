@@ -1,4 +1,4 @@
-package com.gasstation.domain.station.model
+package com.gasstation.core.model
 
 enum class SearchRadius(val meters: Int) {
     KM_3(meters = 3_000),

@@ -6,11 +6,11 @@ import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
-import com.gasstation.domain.station.model.BrandFilter
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.MapProvider
-import com.gasstation.domain.station.model.SearchRadius
-import com.gasstation.domain.station.model.SortOrder
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery

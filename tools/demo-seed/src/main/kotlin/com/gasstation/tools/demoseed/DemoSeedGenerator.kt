@@ -4,8 +4,8 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.di.NetworkModule
 import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.core.network.station.NetworkStationFetcher
-import com.gasstation.domain.station.model.FuelType
-import com.gasstation.domain.station.model.SearchRadius
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import java.io.File
 
 data class DemoSeedRemoteStation(
