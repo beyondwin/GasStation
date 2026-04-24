@@ -43,6 +43,8 @@ Room은 네 개의 저장 단위를 씁니다.
 
 이 값들은 스냅샷을 다시 받아오지 않고 읽기 모델 단계에서 적용할 수 있기 때문입니다.
 
+다만 목록 화면의 active query는 브랜드 필터와 정렬도 포함합니다. 현재 좌표가 유지된 상태에서 조건이 바뀌면 feature는 새 active query로 refresh를 다시 요청합니다. 캐시 키에는 브랜드/정렬이 없으므로 기존 스냅샷은 즉시 재사용해 필터/정렬할 수 있고, 원격 refresh가 성공하면 같은 버킷 스냅샷이 최신 데이터로 교체됩니다.
+
 ## observeNearbyStations 동작
 
 저장소는 먼저 현재 쿼리 버킷의 스냅샷 마커와 캐시 행을 같이 읽습니다.
@@ -102,7 +104,7 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 - `InvalidPayload`
 - `Unknown`
 
-Retry policy does not clear or mutate existing snapshots on failure. Timeout and Network failures are retried once before the final StationRefreshException reaches feature code. InvalidPayload and Unknown are not retried.
+`StationRetryPolicy`는 실패 시 기존 스냅샷을 지우거나 바꾸지 않습니다. `Timeout`과 `Network` 실패만 500ms 뒤 한 번 재시도하고, 두 번째 시도 결과는 `StationEvent.RetryAttempted`로 남깁니다. `InvalidPayload`와 `Unknown`은 재시도하지 않습니다.
 
 하지만 기존 `station_cache`와 `station_cache_snapshot`은 지우지 않습니다. 이 덕분에 UI는 실패 중에도 마지막 성공 결과를 계속 렌더링할 수 있습니다.
 

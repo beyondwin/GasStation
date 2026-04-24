@@ -13,6 +13,7 @@
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
 | 설정 화면 파생 상태 | `SettingsUiState` | `UserPreferences`로부터 항상 재생성 가능 | 요약 라벨과 선택 옵션 |
 | 단발성 UI effect | `StationListEffect` | 한 번 소비하고 버림 | snackbar, 위치 설정 열기, 외부 지도 열기 |
+| 구조화 이벤트 | `StationEvent` | 영속 상태가 아니라 관찰/진단용 로그 | watch toggle, refresh/location 실패, retry 결과 같은 앱 이벤트 |
 
 ## 1. 영속 선호 상태
 
@@ -47,7 +48,7 @@
 - 위치 availability는 `domain:location.ObserveLocationAvailabilityUseCase`를 통해 ViewModel로 들어오고, route는 foreground 구간에서만 이 흐름을 수집합니다.
 - 현재 위치 조회는 평상시 구독이 아니라 새로고침 시점에만 `domain:location.GetCurrentLocationUseCase`를 호출합니다.
 - 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다.
-- `demo`에서는 `core:location.DefaultLocationRepository` 내부의 `DemoLocationOverride`가 좌표를 공급하지만, permission state는 별도 우회 없이 그대로 유지합니다. 대신 ViewModel이 `hasDeniedLocationAccess`로 demo/recovery 경로를 따로 추적합니다.
+- `demo`에서는 `DemoLocationOverride`가 availability를 항상 사용 가능으로 만들고, `AndroidForegroundLocationProvider`가 고정 좌표를 공급합니다. permission state는 별도 우회 없이 그대로 유지합니다. 대신 ViewModel이 `hasDeniedLocationAccess`로 demo/recovery 경로를 따로 추적합니다.
 - `prod`에서는 같은 저장소 구현이 Android 위치 provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
 - GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다.
 
@@ -58,6 +59,8 @@
 - `UserPreferences`
 - `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
 - `StationSearchResult`
+
+현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
 `StationSearchResult`의 의미:
 
@@ -116,6 +119,16 @@
 
 이 값들은 복원 대상이 아니라 즉시 소비 대상입니다. 화면 재구성 후 그대로 남겨 두면 중복 실행되므로 `SharedFlow`로 분리합니다.
 
+## 8. 구조화 이벤트
+
+`StationEvent`는 화면 복원용 상태가 아니라 관찰과 진단을 위한 계약입니다.
+
+- `WatchToggled`는 북마크 저장/해제 액션에서 emit됩니다.
+- `RefreshFailed`는 원격 refresh 최종 실패가 feature에 도착했을 때 emit됩니다.
+- `LocationFailed`는 위치 획득 실패 유형을 feature가 분류해 emit합니다.
+- `RetryAttempted`는 `data:station`의 retry 정책이 두 번째 시도를 마쳤을 때 emit합니다.
+- `SearchRefreshed`, `CompareViewed`, `ExternalMapOpened`는 계약과 Logcat 매핑은 있지만 현재 코드 경로에서는 emit되지 않습니다.
+
 ## 상태 경계 한 줄 요약
 
 - 오래 유지되는 사용자 선택: `UserPreferences`
@@ -125,3 +138,4 @@
 - 화면에 그릴 데이터 조합: `StationSearchResult`, `WatchedStationSummary`
 - 설정 화면 라벨과 옵션: `SettingsUiState`
 - 한 번만 소비할 반응: `StationListEffect`
+- 복원하지 않는 관찰 이벤트: `StationEvent`
