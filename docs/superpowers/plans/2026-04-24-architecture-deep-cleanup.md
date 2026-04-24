@@ -463,7 +463,7 @@ git commit -m "refactor: move shared station enums to core:model"
 - Modify: `domain/station/src/test/kotlin/com/gasstation/domain/station/DomainContractSurfaceTest.kt`
 - Modify: `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`
 
-- [ ] **Step 1: Add event variants**
+- [x] **Step 1: Add event variants**
 
 Change `StationEvent.kt` so it includes these extra variants:
 
@@ -490,7 +490,7 @@ import com.gasstation.domain.station.StationRefreshFailureReason
 
 `RefreshFailed` intentionally has no `wasRetried` boolean. Retry outcome is represented by `RetryAttempted`, which is emitted by `data:station`.
 
-- [ ] **Step 2: Update station event surface assertion**
+- [x] **Step 2: Update station event surface assertion**
 
 In `DomainContractSurfaceTest`, update the `StationEvent` assertion:
 
@@ -509,7 +509,7 @@ assertEquals(
 )
 ```
 
-- [ ] **Step 3: Update logcat mapping**
+- [x] **Step 3: Update logcat mapping**
 
 In `LogcatStationEventLogger.kt`, add branches:
 
@@ -525,7 +525,7 @@ is StationEvent.RetryAttempted -> {
 }
 ```
 
-- [ ] **Step 4: Run event contract tests**
+- [x] **Step 4: Run event contract tests**
 
 Run:
 
@@ -535,7 +535,7 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit structured event contract**
+- [x] **Step 5: Commit structured event contract**
 
 ```bash
 git add domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationEvent.kt \

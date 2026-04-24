@@ -39,7 +39,15 @@ class DomainContractSurfaceTest {
             StationPriceDelta::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
         )
         assertEquals(
-            setOf("SearchRefreshed", "WatchToggled", "CompareViewed", "ExternalMapOpened"),
+            setOf(
+                "SearchRefreshed",
+                "WatchToggled",
+                "CompareViewed",
+                "ExternalMapOpened",
+                "RefreshFailed",
+                "LocationFailed",
+                "RetryAttempted",
+            ),
             StationEvent::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
         )
 
