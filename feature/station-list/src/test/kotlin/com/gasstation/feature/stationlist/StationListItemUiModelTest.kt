@@ -44,6 +44,15 @@ class StationListItemUiModelTest {
     }
 
     @Test
+    fun `station list item uses canonical rtx brand label`() {
+        val item = StationListItemUiModel(
+            entry = stationEntry(brand = Brand.RTX),
+        )
+
+        assertEquals("고속도로알뜰", item.brandLabel)
+    }
+
+    @Test
     fun `price delta tone resolves stock colors`() {
         assertEquals(com.gasstation.core.designsystem.ColorSupportError, PriceDeltaTone.Rise.toColor())
         assertEquals(com.gasstation.core.designsystem.ColorSupportInfo, PriceDeltaTone.Fall.toColor())
@@ -53,11 +62,12 @@ class StationListItemUiModelTest {
 
 private fun stationEntry(
     priceDelta: StationPriceDelta = StationPriceDelta.Unchanged,
+    brand: Brand = Brand.GSC,
 ): StationListEntry = StationListEntry(
     station = Station(
         id = "station-1",
         name = "테스트 주유소",
-        brand = Brand.GSC,
+        brand = brand,
         price = MoneyWon(1689),
         distance = DistanceMeters(320),
         coordinates = Coordinates(

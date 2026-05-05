@@ -125,6 +125,63 @@ class WatchlistRepositoryTest {
     }
 
     @Test
+    fun `observeWatchlist builds summary from dao selected latest cache row`() = runBlocking {
+        val origin = Coordinates(37.498095, 127.027610)
+        val repository = repository(
+            stationCacheDao = RecordingWatchlistStationCacheDao(
+                cachedStations = listOf(
+                    cachedStation(
+                        stationId = "station-3",
+                        name = "DAO Selected Snapshot",
+                        brandCode = "RTX",
+                        priceWon = 1_590,
+                        latitude = 37.500095,
+                        longitude = 127.025610,
+                        fetchedAt = now.minusSeconds(45),
+                        fuelType = "DIESEL",
+                    ),
+                ),
+            ),
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-3",
+                        fuelType = "DIESEL",
+                        priceWon = 1_630,
+                        fetchedAt = now.minusSeconds(120),
+                    ),
+                    history(
+                        stationId = "station-3",
+                        fuelType = "GASOLINE",
+                        priceWon = 1_700,
+                        fetchedAt = now.minusSeconds(30),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-3",
+                        name = "Watched Fallback",
+                        brandCode = "GSC",
+                        latitude = 37.490095,
+                        longitude = 127.015610,
+                        watchedAt = now.minusSeconds(5),
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(origin).first().single()
+
+        assertEquals("DAO Selected Snapshot", item.station.name)
+        assertEquals(Brand.RTX, item.station.brand)
+        assertEquals(1_590, item.station.price.value)
+        assertEquals(StationPriceDelta.Decreased(40), item.priceDelta)
+        assertEquals(now.minusSeconds(45), item.lastSeenAt)
+    }
+
+    @Test
     fun `observeWatchlist history fallback stays within one fuel type context`() = runBlocking {
         val origin = Coordinates(37.498095, 127.027610)
         val repository = repository(
@@ -230,6 +287,7 @@ class WatchlistRepositoryTest {
         seedRemoteDataSource = Optional.empty(),
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
+        stationEventLogger = RecordingStationEventLogger(),
         clock = clock,
     )
 
@@ -300,11 +358,15 @@ class WatchlistRepositoryTest {
         latitude: Double,
         longitude: Double,
         fetchedAt: Instant,
+        fuelType: String = "GASOLINE",
+        radiusMeters: Int = 3_000,
+        latitudeBucket: Int = 0,
+        longitudeBucket: Int = 0,
     ) = StationCacheEntity(
-        latitudeBucket = 0,
-        longitudeBucket = 0,
-        radiusMeters = 3_000,
-        fuelType = "GASOLINE",
+        latitudeBucket = latitudeBucket,
+        longitudeBucket = longitudeBucket,
+        radiusMeters = radiusMeters,
+        fuelType = fuelType,
         stationId = stationId,
         brandCode = brandCode,
         name = name,

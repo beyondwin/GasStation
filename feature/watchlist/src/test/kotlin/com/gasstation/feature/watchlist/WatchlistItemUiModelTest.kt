@@ -94,6 +94,26 @@ class WatchlistItemUiModelTest {
     }
 
     @Test
+    fun `summary constructor uses canonical rtx brand label`() {
+        val item = WatchlistItemUiModel(
+            WatchedStationSummary(
+                station = Station(
+                    id = "station-1",
+                    name = "Gangnam First",
+                    brand = Brand.RTX,
+                    price = MoneyWon(1689),
+                    distance = DistanceMeters(300),
+                    coordinates = Coordinates(37.498095, 127.02761),
+                ),
+                priceDelta = StationPriceDelta.Unchanged,
+                lastSeenAt = null,
+            ),
+        )
+
+        assertEquals("고속도로알뜰", item.brandLabel)
+    }
+
+    @Test
     fun `watchlist price delta tone resolves stock colors`() {
         assertEquals(com.gasstation.core.designsystem.ColorSupportError, WatchlistPriceDeltaTone.Rise.toColor())
         assertEquals(com.gasstation.core.designsystem.ColorSupportInfo, WatchlistPriceDeltaTone.Fall.toColor())

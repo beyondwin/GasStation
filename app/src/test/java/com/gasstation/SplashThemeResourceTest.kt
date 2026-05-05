@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [31])
+@Config(sdk = [31], application = android.app.Application::class)
 class SplashThemeResourceTest {
     @Test
     fun `main activity theme exposes branded splash background and icon on android 12 and above`() {
