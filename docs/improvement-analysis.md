@@ -32,8 +32,8 @@
 
 | 우선순위 | 항목 | 핵심 검증 |
 | --- | --- | --- |
-| 완료 확인 | 1-1/1-2 secret 파일 정리, 1-3 cleartext 범위 축소, 1-4 backup 비활성화, 1-5 모바일 클라이언트 API 키 한계 문서화, 2-1 KSP 버전 수정, 2-4 release minification, 2-5 테스트 컨벤션 플러그인, 3-1/3-2/3-3 cache/UI 성능 항목, 4-1 retry catch 범위 축소, 5-1 이벤트 emit 연결, 6-1 status bar API, 6-2 Geocoder API 교체, 7-1 브랜드 라벨 단일 출처, 10-1 datastore 의존 방향 | 관련 unit/resource/migration 테스트와 docs diff check |
-| 남은 즉시/단기 | 2-2/2-3/2-6 build hygiene, 4-2 watchlist fallback 방어성, 8-1/8-2 테스트 보강 | 항목별 검증 |
+| 완료 확인 | 1-1/1-2 secret 파일 정리, 1-3 cleartext 범위 축소, 1-4 backup 비활성화, 1-5 모바일 클라이언트 API 키 한계 문서화, 2-1 KSP 버전 수정, 2-2 proj4j catalog 등록, 2-4 release minification, 2-5 테스트 컨벤션 플러그인, 3-1/3-2/3-3 cache/UI 성능 항목, 4-1 retry catch 범위 축소, 5-1 이벤트 emit 연결, 6-1 status bar API, 6-2 Geocoder API 교체, 7-1 브랜드 라벨 단일 출처, 8-1 Main dispatcher rule, 8-2 watchlist silent-discard coverage, 9-4 watchlist ASCII test tag, 10-1 datastore 의존 방향 | 관련 unit/resource/migration 테스트와 docs diff check |
+| 남은 즉시/단기 | 2-3/2-6 build hygiene, 4-2 watchlist fallback 방어성 | 항목별 검증 |
 | 장기 | 9-1/9-2 theme/string resource 정리 | 전체 회귀 세트 또는 관련 모듈 matrix |
 
 ## 추가/보완/수정 관점
@@ -208,23 +208,19 @@ KSP Gradle plugin은 Kotlin compiler와 맞는 release line을 사용해야 합�
 
 ---
 
-### 2-2. `proj4j` 버전 카탈로그 미등록 `[빌드]`
+### 2-2. `proj4j` 버전 카탈로그 미등록 `[완료됨]`
 
 **파일:** `core/network/build.gradle.kts`, `gradle/libs.versions.toml`
 
 **소유:** `core:network`, build logic
 
-```kotlin
-implementation("org.locationtech.proj4j:proj4j:1.4.1")
-```
-
-`proj4j`만 버전 카탈로그를 거치지 않고 하드코딩되어 있습니다. 의존성 감사와 버전 일관성 유지에 사각지대가 생깁니다.
+`proj4j`만 버전 카탈로그를 거치지 않고 하드코딩되어 있던 문제입니다. `proj4j`는 `gradle/libs.versions.toml`의 `proj4j` version/library alias로 이동했고, `core/network/build.gradle.kts`는 `implementation(libs.proj4j)`를 사용합니다.
 
 **권장 조치:** `libs.versions.toml`에 `proj4j` version/library alias를 추가하고 `core/network/build.gradle.kts`에서 `implementation(libs.proj4j)`로 참조합니다.
 
 **완료 기준:** dependency coordinate가 카탈로그에 모이고 좌표 변환 테스트가 그대로 통과합니다.
 
-**검증:** `./gradlew :core:network:test`
+**검증:** `./gradlew :core:network:test` 통과
 
 ---
 
@@ -285,6 +281,8 @@ isMinifyEnabled = false
 **완료 기준:** 중복 dependency 선언이 줄고, 기존 test task 표면이 바뀌지 않습니다.
 
 **검증:** `./gradlew :build-logic:convention:compileKotlin` 및 `./gradlew :domain:location:test :core:model:test :domain:station:test :domain:settings:test :core:database:testDebugUnitTest :core:datastore:testDebugUnitTest :core:designsystem:testDebugUnitTest :core:location:testDebugUnitTest :core:network:test :data:settings:testDebugUnitTest :data:station:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :tools:demo-seed:test`
+
+**CI matrix status:** GitHub Actions `Verification Matrix`는 `docs/verification-matrix.md`의 머지 전 권장 회귀 세트 기준으로 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`를 포함합니다. release assemble은 CI 시간과 R8 회귀 필요성에 따라 별도 결정하는 조건부 항목으로 남깁니다.
 
 ---
 
@@ -542,35 +540,35 @@ Geocoder(context, Locale.KOREA).getFromLocation(...)
 
 ## 8. 테스트
 
-### 8-1. `StationListViewModelTest`의 Main dispatcher 설정 반복 `[테스트]`
+### 8-1. `StationListViewModelTest`의 Main dispatcher 설정 반복 `[완료됨]`
 
 **파일:** `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
 **소유:** `feature:station-list` test infrastructure
 
-여러 테스트가 `Dispatchers.setMain(dispatcher)` / `Dispatchers.resetMain()`을 수동 반복합니다. 기존 분석에서는 `try/finally` 예외 시 reset이 누락된다고 적었지만, 현재 코드의 `finally`는 예외가 나도 실행됩니다. 실제 문제는 누출보다 반복과 일관성입니다.
+여러 테스트가 `Dispatchers.setMain(dispatcher)` / `Dispatchers.resetMain()`을 수동 반복하던 문제입니다. `MainDispatcherRule`이 `Dispatchers.setMain/resetMain`을 중앙화했고, `StationListViewModelTest`는 rule이 제공하는 dispatcher를 사용합니다. 기존 분석에서는 `try/finally` 예외 시 reset이 누락된다고 적었지만, 현재 코드의 `finally`는 예외가 나도 실행됩니다. 실제 문제는 누출보다 반복과 일관성이었습니다.
 
 **권장 조치:** JUnit4 `TestWatcher` 기반 `MainDispatcherRule`을 도입해 dispatcher setup을 중앙화합니다. `StandardTestDispatcher`/`UnconfinedTestDispatcher` 선택은 현재 테스트의 scheduling 기대를 보고 결정합니다.
 
 **완료 기준:** 각 테스트의 dispatcher boilerplate가 줄고, 기존 async/effect 테스트가 flaky해지지 않습니다.
 
-**검증:** `./gradlew :feature:station-list:testDebugUnitTest`
+**검증:** `./gradlew :feature:station-list:testDebugUnitTest` 통과
 
 ---
 
-### 8-2. watchlist silent-discard 경로 테스트 부재 `[테스트]`
+### 8-2. watchlist silent-discard 경로 테스트 기존 보강 `[완료됨]`
 
 **파일:** `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`, `data/station/src/test`
 
 **소유:** `data:station`
 
-`observeWatchlist`에서 cached snapshot과 price history가 모두 없으면 `toWatchedSummary()`가 `null`을 반환하고 `mapNotNull`이 항목을 제외합니다. 이 fallback 의미가 테스트로 분명히 고정되어야 합니다.
+`observeWatchlist`에서 cached snapshot과 price history가 모두 없으면 `toWatchedSummary()`가 `null`을 반환하고 `mapNotNull`이 항목을 제외합니다. 이 fallback 의미는 `WatchlistRepositoryTest`의 `observeWatchlist drops watched entries with no last known snapshot or history`가 이미 고정합니다.
 
-**권장 조치:** `WatchlistRepositoryTest`에 "캐시와 히스토리 모두 없는 watchlist 항목은 결과에서 제외된다" 케이스를 추가합니다.
+**권장 조치:** 별도 구현 작업은 필요하지 않습니다. 기존 테스트가 삭제되지 않도록 유지합니다.
 
-**완료 기준:** 저장 항목이 사라지는 조건이 의도된 silent discard인지, placeholder를 보여야 하는 미완성인지 테스트 이름으로 읽힙니다.
+**완료 기준:** 저장 항목이 사라지는 조건이 의도된 silent discard인지 테스트 이름과 repository 테스트에서 읽힙니다.
 
-**검증:** `./gradlew :data:station:testDebugUnitTest`
+**검증:** 관련 명령은 `./gradlew :data:station:testDebugUnitTest`
 
 ---
 
@@ -667,24 +665,19 @@ v31 스플래시 테마에서 splash background가 고정 색상입니다. `valu
 
 ---
 
-### 9-4. 한글 문자열을 test tag로 사용 `[품질]`
+### 9-4. 한글 문자열을 test tag로 사용 `[완료됨]`
 
 **파일:** `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistSemantics.kt`
 
 **소유:** `feature:watchlist`
 
-```kotlin
-const val WATCHLIST_CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"
-const val WATCHLIST_DISTANCE_METRIC_TAG = "관심 주유소 거리 지표"
-```
-
-content description은 사용자/스크린 리더 대상이므로 한글이 적절하지만, test tag는 도구 대상 식별자입니다. 같은 의미라도 content description과 test tag를 분리하는 편이 안정적입니다.
+content description은 사용자/스크린 리더 대상이므로 한글이 적절하지만, test tag는 도구 대상 식별자입니다. 같은 의미라도 content description과 test tag를 분리하는 편이 안정적입니다. 현재 watchlist selector는 `watchlist-card`, `watchlist-distance-metric` ASCII tag를 사용하고, 한글 접근성 content description은 유지합니다.
 
 **권장 조치:** `WATCHLIST_CARD_TEST_TAG = "watchlist-card"`처럼 ASCII test tag 상수를 분리하고, content description은 그대로 유지합니다.
 
 **완료 기준:** 접근성 텍스트와 테스트 selector가 분리되고 기존 Compose UI 테스트가 새 tag를 사용합니다.
 
-**검증:** `./gradlew :feature:watchlist:testDebugUnitTest`
+**검증:** `./gradlew :feature:watchlist:testDebugUnitTest` 통과
 
 ---
 
