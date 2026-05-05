@@ -62,7 +62,7 @@ Do not implement these in this pass:
 - Read: `docs/verification-matrix.md`
 - Read: `docs/deep-analysis-report.md`
 
-- [ ] **Step 1: Confirm the existing worktree state**
+- [x] **Step 1: Confirm the existing worktree state**
 
 Run:
 
@@ -74,7 +74,7 @@ Expected:
 - Existing user edits are visible before patches start.
 - If `docs/deep-analysis-report.md` is still untracked, preserve it and do not overwrite it.
 
-- [ ] **Step 2: Confirm active modules**
+- [x] **Step 2: Confirm active modules**
 
 Run:
 
@@ -86,7 +86,7 @@ Expected:
 - `:core:network`, `:feature:station-list`, `:feature:watchlist`, `:tools:demo-seed`, and `:benchmark` are included.
 - `:core:common` and `:core:ui` are not included.
 
-- [ ] **Step 3: Confirm the work is still necessary**
+- [x] **Step 3: Confirm the work is still necessary**
 
 Run:
 
@@ -109,7 +109,7 @@ Expected at baseline:
 - Modify: `gradle/libs.versions.toml`
 - Modify: `core/network/build.gradle.kts`
 
-- [ ] **Step 1: Add the version catalog entries**
+- [x] **Step 1: Add the version catalog entries**
 
 Modify `gradle/libs.versions.toml` so the relevant sections contain these entries:
 
@@ -127,7 +127,7 @@ proj4j = { module = "org.locationtech.proj4j:proj4j", version.ref = "proj4j" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 ```
 
-- [ ] **Step 2: Replace the hardcoded dependency**
+- [x] **Step 2: Replace the hardcoded dependency**
 
 Modify `core/network/build.gradle.kts` so the final dependency block is:
 
@@ -143,7 +143,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 3: Confirm no direct coordinate remains**
+- [x] **Step 3: Confirm no direct coordinate remains**
 
 Run:
 
@@ -154,7 +154,7 @@ rg -n 'org\.locationtech\.proj4j:proj4j' core/network/build.gradle.kts gradle/li
 Expected:
 - Only `gradle/libs.versions.toml` contains the coordinate.
 
-- [ ] **Step 4: Verify `core:network`**
+- [x] **Step 4: Verify `core:network`**
 
 Run:
 
@@ -165,7 +165,7 @@ Run:
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit this task**
+- [x] **Step 5: Commit this task**
 
 Run:
 
@@ -182,7 +182,7 @@ Expected:
 **Files:**
 - Modify: `.github/workflows/android.yml`
 
-- [ ] **Step 1: Add the missing matrix tasks**
+- [x] **Step 1: Add the missing matrix tasks**
 
 Modify `.github/workflows/android.yml` so the `Verification Matrix` command is:
 
@@ -205,16 +205,16 @@ Modify `.github/workflows/android.yml` so the `Verification Matrix` command is:
             :feature:station-list:testDebugUnitTest \
             :feature:watchlist:testDebugUnitTest \
             :app:testDemoDebugUnitTest \
-            :app:assembleDebug \
+            :app:testProdDebugUnitTest \
+            :tools:demo-seed:test \
             :app:assembleDemoDebug \
             :app:assembleProdDebug \
-            :tools:demo-seed:test \
             :benchmark:assemble
 ```
 
 Do not add `:app:assembleDemoRelease` or `:app:assembleProdRelease` in this task. Those are conditional CI-cost decisions.
 
-- [ ] **Step 2: Verify YAML contains both missing tasks**
+- [x] **Step 2: Verify YAML contains both missing tasks**
 
 Run:
 
@@ -225,7 +225,7 @@ rg -n ':domain:location:test|:tools:demo-seed:test' .github/workflows/android.ym
 Expected:
 - Both task names are printed.
 
-- [ ] **Step 3: Run the same CI command locally**
+- [x] **Step 3: Run the same CI command locally**
 
 Run:
 
@@ -246,17 +246,17 @@ JAVA_HOME="${JAVA_HOME}" PATH="${JAVA_HOME}/bin:${PATH}" ./gradlew \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \
   :app:testDemoDebugUnitTest \
-  :app:assembleDebug \
+  :app:testProdDebugUnitTest \
+  :tools:demo-seed:test \
   :app:assembleDemoDebug \
   :app:assembleProdDebug \
-  :tools:demo-seed:test \
   :benchmark:assemble
 ```
 
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit this task**
+- [x] **Step 4: Commit this task**
 
 Run:
 
@@ -274,7 +274,7 @@ Expected:
 - Create: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/MainDispatcherRule.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt`
 
-- [ ] **Step 1: Create the dispatcher rule**
+- [x] **Step 1: Create the dispatcher rule**
 
 Create `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/MainDispatcherRule.kt`:
 
@@ -304,7 +304,7 @@ class MainDispatcherRule(
 }
 ```
 
-- [ ] **Step 2: Update imports in `StationListViewModelTest.kt`**
+- [x] **Step 2: Update imports in `StationListViewModelTest.kt`**
 
 Remove these imports:
 
@@ -321,7 +321,7 @@ Add:
 import org.junit.Rule
 ```
 
-- [ ] **Step 3: Replace the dispatcher field**
+- [x] **Step 3: Replace the dispatcher field**
 
 Replace:
 
@@ -338,7 +338,7 @@ with:
     private val dispatcher = mainDispatcherRule.dispatcher
 ```
 
-- [ ] **Step 4: Remove repeated setup and teardown from each test**
+- [x] **Step 4: Remove repeated setup and teardown from each test**
 
 For each test in `StationListViewModelTest.kt`, remove this setup call:
 
@@ -379,7 +379,7 @@ After unwrapping, the first test must start like this:
 
 Keep all remaining statements from that test after the shown setup block in their current order. Apply the same unwrapping rule to every test in the file.
 
-- [ ] **Step 5: Confirm no repeated Main dispatcher calls remain**
+- [x] **Step 5: Confirm no repeated Main dispatcher calls remain**
 
 Run:
 
@@ -391,7 +391,7 @@ Expected:
 - No matches in `StationListViewModelTest.kt`.
 - Matches may remain in `MainDispatcherRule.kt`.
 
-- [ ] **Step 6: Verify station-list tests**
+- [x] **Step 6: Verify station-list tests**
 
 Run:
 
@@ -402,7 +402,7 @@ Run:
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit this task**
+- [x] **Step 7: Commit this task**
 
 Run:
 
@@ -421,7 +421,7 @@ Expected:
 - Modify: `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`
 - Modify: `feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist/WatchlistScreenTest.kt`
 
-- [ ] **Step 1: Update watchlist semantics constants**
+- [x] **Step 1: Update watchlist semantics constants**
 
 Replace `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistSemantics.kt` with:
 
@@ -433,7 +433,7 @@ const val WATCHLIST_CARD_TEST_TAG = "watchlist-card"
 const val WATCHLIST_DISTANCE_METRIC_TAG = "watchlist-distance-metric"
 ```
 
-- [ ] **Step 2: Use the card test tag in the screen**
+- [x] **Step 2: Use the card test tag in the screen**
 
 In `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`, replace:
 
@@ -449,7 +449,7 @@ with:
 
 Keep the existing accessibility copy where it is used for content descriptions. Do not replace content descriptions with ASCII test tags.
 
-- [ ] **Step 3: Update screen tests**
+- [x] **Step 3: Update screen tests**
 
 In `feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist/WatchlistScreenTest.kt`, replace `onNodeWithTag` calls that use `WATCHLIST_CARD_CONTENT_DESCRIPTION` with `WATCHLIST_CARD_TEST_TAG`.
 
@@ -467,7 +467,7 @@ WATCHLIST_CARD_TEST_TAG
 
 only where they are passed to `onNodeWithTag`. Keep `WATCHLIST_CARD_CONTENT_DESCRIPTION` for content-description assertions if such assertions are added in a later task.
 
-- [ ] **Step 4: Confirm no Korean test tag remains**
+- [x] **Step 4: Confirm no Korean test tag remains**
 
 Run:
 
@@ -478,7 +478,7 @@ rg -n 'testTag\(.*[가-힣]|WATCHLIST_DISTANCE_METRIC_TAG = "[가-힣]|onNodeWit
 Expected:
 - No matches.
 
-- [ ] **Step 5: Verify watchlist tests**
+- [x] **Step 5: Verify watchlist tests**
 
 Run:
 
@@ -489,7 +489,7 @@ Run:
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 6: Commit this task**
+- [x] **Step 6: Commit this task**
 
 Run:
 
@@ -507,7 +507,7 @@ Expected:
 - Modify: `docs/improvement-analysis.md`
 - Modify: `docs/deep-analysis-report.md`
 
-- [ ] **Step 1: Update `docs/improvement-analysis.md` for completed backlog items**
+- [x] **Step 1: Update `docs/improvement-analysis.md` for completed backlog items**
 
 If Task 1 completed, update item `2-2. proj4j 버전 카탈로그 미등록` to `[완료됨]` and add a short implementation note:
 
@@ -521,11 +521,11 @@ If Task 2 completed, add a CI note under build hygiene or the relevant verificat
 GitHub Actions `Verification Matrix`는 `docs/verification-matrix.md`의 머지 전 권장 회귀 세트 중 `:domain:location:test`와 `:tools:demo-seed:test`를 포함합니다. release assemble은 CI 시간과 R8 회귀 필요성에 따라 별도 결정합니다.
 ```
 
-- [ ] **Step 2: Update `docs/deep-analysis-report.md` for completed implementation**
+- [x] **Step 2: Update `docs/deep-analysis-report.md` for completed implementation**
 
 In `docs/deep-analysis-report.md`, move completed items out of "실행 필요" wording or mark them as completed with verification evidence. Keep conditional and "지금 하지 않을 것" sections intact.
 
-- [ ] **Step 3: Verify docs**
+- [x] **Step 3: Verify docs**
 
 Run:
 
@@ -536,7 +536,7 @@ git diff --check -- docs/improvement-analysis.md docs/deep-analysis-report.md
 Expected:
 - No whitespace errors.
 
-- [ ] **Step 4: Commit this task**
+- [x] **Step 4: Commit this task**
 
 Run:
 
@@ -553,7 +553,7 @@ Expected:
 **Files:**
 - Read: all changed files
 
-- [ ] **Step 1: Run targeted verification**
+- [x] **Step 1: Run targeted verification**
 
 Run:
 
@@ -567,7 +567,7 @@ Run:
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 2: Run CI-equivalent verification**
+- [x] **Step 2: Run CI-equivalent verification**
 
 Run:
 
@@ -588,17 +588,17 @@ JAVA_HOME="${JAVA_HOME}" PATH="${JAVA_HOME}/bin:${PATH}" ./gradlew \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \
   :app:testDemoDebugUnitTest \
-  :app:assembleDebug \
+  :app:testProdDebugUnitTest \
+  :tools:demo-seed:test \
   :app:assembleDemoDebug \
   :app:assembleProdDebug \
-  :tools:demo-seed:test \
   :benchmark:assemble
 ```
 
 Expected:
 - `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Check final diff**
+- [x] **Step 3: Check final diff**
 
 Run:
 
