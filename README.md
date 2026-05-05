@@ -41,42 +41,55 @@
 
 ## 아키텍처 한눈에
 
+아래 그래프는 Gradle 프로젝트 간 직접 의존성을 기준으로 그린 모듈 그래프입니다.
+
 ```mermaid
 flowchart LR
     app["app"] --> fstation["feature:station-list"]
     app --> fsettings["feature:settings"]
     app --> fwatch["feature:watchlist"]
-    app --> dsettings["data:settings"]
     app --> dstation["data:station"]
+    app --> dsettings["data:settings"]
     app --> cdesign["core:designsystem"]
     app --> clocation["core:location"]
+    app --> cnetwork["core:network"]
+    app --> cdatabase["core:database"]
+    app --> cmodel["core:model"]
+    app --> domSettings["domain:settings"]
+    app --> domStation["domain:station"]
 
-    fstation --> domStation["domain:station"]
-    fstation --> domSettings["domain:settings"]
+    fstation --> domSettings
+    fstation --> domStation
     fstation --> domLocation["domain:location"]
     fstation --> cdesign
     fstation --> cmodel
+
     fsettings --> domSettings
     fsettings --> cdesign
     fsettings --> cmodel
+
     fwatch --> domStation
-    fwatch --> cdesign
     fwatch --> cmodel
+    fwatch --> cdesign
+    cdesign --> cmodel
 
     dstation --> domStation
-    dstation --> cdb["core:database"]
-    dstation --> cnet["core:network"]
-    dstation --> cmodel["core:model"]
+    dstation --> cnetwork
+    dstation --> cdatabase
+    dstation --> cmodel
+
     dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
-    cnet --> cmodel
-    cdesign --> cmodel
+
+    cnetwork --> cmodel
+
     clocation --> domLocation
+    clocation --> cmodel
     domSettings --> cmodel
     domLocation --> cmodel
     domStation --> cmodel
 
-    tools["tools:demo-seed"] --> cnet
+    tools["tools:demo-seed"] --> cnetwork
     tools --> domStation
     tools --> cmodel
     benchmark["benchmark"] --> app
@@ -134,7 +147,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
 - [개선 분석](docs/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
-- `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다. 현재 구조와 실행 명령의 기준은 위 live 문서와 코드입니다.
 
 ## 검증
 
@@ -148,6 +161,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
   :feature:settings:testDebugUnitTest \
   :app:assembleDemoDebug \
   :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
   :benchmark:assemble
 ```
 

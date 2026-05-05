@@ -13,8 +13,10 @@
 코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
 
 ```bash
-git diff --check -- README.md AGENTS.md .impeccable.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/improvement-analysis.md
+git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/improvement-analysis.md docs/release-notes/*.md
 ```
+
+`docs/superpowers/specs/`와 `docs/superpowers/plans/`는 과거 설계/계획 이력이므로 current contract 확인 명령에는 기본 포함하지 않습니다. 해당 이력 문서를 직접 수정했다면 수정한 파일 경로를 위 명령에 명시적으로 추가합니다.
 
 문서 갱신이 이미 구현된 key handling, cleartext, backup, cache/event/state, location, brand label 계약을 설명한다면 아래 관련 테스트도 선택합니다.
 
