@@ -10,6 +10,8 @@
 - 이미 문서로 약속한 사용자 흐름은 가능한 한 테스트 파일 이름으로도 추적 가능해야 합니다.
 - Android library 공통 unit test 의존성(`junit`, `kotlinx-coroutines-test`, `androidx.test:core`, `robolectric`)은 `gasstation.android.library` 컨벤션이 소유합니다.
 - Compose Android library의 UI test/debug 의존성(Compose test BOM, UI test JUnit4, UI tooling, UI test manifest)은 `gasstation.android.library.compose` 컨벤션이 소유합니다. 모듈 build file에는 Turbine, MockWebServer, `kotlin.test`, project test dependency, androidTest smoke dependency처럼 모듈별로 필요한 의존성만 둡니다.
+- Compose 테스트 selector는 ASCII `testTag`를 사용하고, 한글 사용자 문구와 스크린 리더용 설명은 `contentDescription` 같은 접근성 semantics에 남깁니다.
+- 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel 테스트에서 `Dispatchers.Main`이 필요하면 feature-local rule/helper로 설정을 중앙화합니다. 현재 station-list 테스트는 `MainDispatcherRule`이 이 계약을 소유합니다.
 
 ## 계층별 목적
 
@@ -69,6 +71,10 @@
   station list, watchlist, settings가 같은 브랜드 표시 label을 공유하므로 RTX 같은 canonical label 회귀를 한 곳에서 막습니다.
 - Theme/string cleanup
   Feature-owned user copy는 `app`이나 `core:designsystem`으로 이동하지 않습니다. 화면 semantics와 test tag가 회귀 방어선입니다.
+- Compose semantics/test tag cleanup
+  테스트용 식별자는 사용자 표시 문자열과 분리합니다. watchlist card처럼 스크린 리더에 필요한 한글 설명은 유지하되, 테스트는 안정적인 ASCII tag를 선택합니다.
+- Station-list Main dispatcher test setup
+  `StationListViewModelTest`의 `Dispatchers.setMain/resetMain` 반복은 `MainDispatcherRule`로 묶어 scheduler 기대를 한 곳에서 관리합니다.
 - `DemoSeedStartupHook`
   demo 시작 상태가 흔들리면 문서, 스크린샷, benchmark, UI 테스트가 함께 흔들립니다.
 - `ExternalMapLauncher`

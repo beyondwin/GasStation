@@ -93,6 +93,12 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md docs/agent-w
   :benchmark:assemble
 ```
 
+## CI 연결
+
+GitHub Actions의 `Verification Matrix` job은 위 머지 전 권장 회귀 세트를 기준으로 합니다. `:app:testProdDebugUnitTest`와 `:tools:demo-seed:test`를 포함해 `demo`/`prod` 그래프와 seed 도구를 함께 확인하고, aggregate `:app:assembleDebug`는 사용하지 않습니다.
+
+`demoRelease`/`prodRelease` assemble은 기본 CI matrix에 포함하지 않습니다. R8/minify 회귀를 모든 PR에서 잡아야 하거나 CI 시간이 감당 가능하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
+
 ## 기기 기반 UI 확인
 
 demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.

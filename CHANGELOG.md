@@ -2,6 +2,20 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## Unreleased
+
+### 개발자 영향
+
+- `core:network`의 `proj4j` 의존성을 Gradle version catalog로 이동해 dependency 선언 방식을 다른 라이브러리와 맞췄습니다.
+- GitHub Actions `Verification Matrix`를 `docs/verification-matrix.md`의 머지 전 권장 회귀 세트에 맞춰 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`를 포함하도록 보강했습니다. release assemble은 CI 시간과 R8 회귀 필요성에 따라 조건부로 남깁니다.
+- `feature:station-list` ViewModel 테스트의 `Dispatchers.Main` 설정을 `MainDispatcherRule`로 중앙화했습니다.
+- watchlist Compose 테스트 selector를 ASCII `testTag`로 분리하고, 한글 접근성 문구는 `contentDescription`으로 유지했습니다.
+
+### 문서와 검증
+
+- deep analysis 결과 문서와 개선 backlog를 실제 구현 상태에 맞춰 갱신했습니다.
+- `README`, 테스트 전략, 검증 매트릭스, 작업 절차 문서에 이번 pass 이후의 테스트/문서 계약을 반영했습니다.
+
 ## 1.0.1 - 2026-05-05
 
 ### 사용자 영향
