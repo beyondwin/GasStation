@@ -115,7 +115,10 @@ fun WatchlistScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .animateContentSize()
-                                    .testTag(WATCHLIST_CARD_CONTENT_DESCRIPTION),
+                                    .testTag(WATCHLIST_CARD_TEST_TAG)
+                                    .semantics {
+                                        contentDescription = WATCHLIST_CARD_CONTENT_DESCRIPTION
+                                    },
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(spacing.space12)) {
                                     Row(
