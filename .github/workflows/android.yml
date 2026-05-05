@@ -19,6 +19,7 @@ jobs:
       - name: Verification Matrix
         run: |
           JAVA_HOME="${JAVA_HOME}" PATH="${JAVA_HOME}/bin:${PATH}" ./gradlew \
+            :domain:location:test \
             :core:model:test \
             :domain:station:test \
             :domain:settings:test \
@@ -33,7 +34,8 @@ jobs:
             :feature:station-list:testDebugUnitTest \
             :feature:watchlist:testDebugUnitTest \
             :app:testDemoDebugUnitTest \
-            :app:assembleDebug \
+            :app:testProdDebugUnitTest \
+            :tools:demo-seed:test \
             :app:assembleDemoDebug \
             :app:assembleProdDebug \
             :benchmark:assemble
