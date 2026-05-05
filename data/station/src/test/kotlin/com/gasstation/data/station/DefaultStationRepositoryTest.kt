@@ -127,6 +127,86 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `refreshNearbyStations prunes cache rows after successful persistence`() = runBlocking {
+        val query = stationQuery()
+        val stationCacheDao = RecordingStationCacheDao()
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            remoteDataSource = FakeStationRemoteDataSource(
+                result = RemoteStationFetchResult.Success(
+                    listOf(
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First",
+                            brandCode = "GSC",
+                            priceWon = 1_689,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        assertEquals(listOf(Instant.parse("2026-04-11T03:00:00Z").toEpochMilli()), stationCacheDao.pruneCutoffCalls)
+    }
+
+    @Test
+    fun `refreshNearbyStations logs search refreshed after successful persistence`() = runBlocking {
+        val query = stationQuery(sortOrder = SortOrder.PRICE)
+        val analytics = RecordingStationEventLogger()
+        val repository = repository(
+            analytics = analytics,
+            remoteDataSource = FakeStationRemoteDataSource(
+                result = RemoteStationFetchResult.Success(emptyList()),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        assertEquals(
+            listOf(
+                StationEvent.SearchRefreshed(
+                    radius = SearchRadius.KM_3,
+                    fuelType = FuelType.GASOLINE,
+                    sortOrder = SortOrder.PRICE,
+                    stale = false,
+                ),
+            ),
+            analytics.events,
+        )
+    }
+
+    @Test
+    fun `refreshNearbyStations completes after persistence when search refreshed logging fails`() = runBlocking {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val stationCacheDao = RecordingStationCacheDao()
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            analytics = ThrowingStationEventLogger(),
+            remoteDataSource = FakeStationRemoteDataSource(
+                result = RemoteStationFetchResult.Success(
+                    listOf(
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First",
+                            brandCode = "GSC",
+                            priceWon = 1_689,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        assertEquals(listOf("station-1"), stationCacheDao.snapshotFor(cacheKey).map { it.stationId })
+    }
+
+    @Test
     fun `refreshNearbyStations prefers seed data source when available`() = runBlocking {
         val query = stationQuery()
         val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
@@ -435,6 +515,7 @@ class DefaultStationRepositoryTest {
             RemoteStationFetchResult.Success(emptyList()),
         ),
         seedRemoteDataSource: Optional<SeedStationRemoteDataSource> = Optional.empty(),
+        analytics: StationEventLogger = RecordingStationEventLogger(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationPriceHistoryDao = stationPriceHistoryDao,
@@ -442,7 +523,8 @@ class DefaultStationRepositoryTest {
         remoteDataSource = remoteDataSource,
         seedRemoteDataSource = seedRemoteDataSource,
         cachePolicy = StationCachePolicy(),
-        retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
+        retryPolicy = StationRetryPolicy(analytics),
+        stationEventLogger = analytics,
         clock = clock,
     )
 
@@ -524,10 +606,17 @@ class DefaultStationRepositoryTest {
         }
     }
 
+    private class ThrowingStationEventLogger : StationEventLogger {
+        override fun log(event: StationEvent) {
+            throw IllegalStateException("analytics failed")
+        }
+    }
+
     private class RecordingStationCacheDao : StationCacheDao() {
         private val entities = MutableStateFlow<List<StationCacheEntity>>(emptyList())
         private val snapshots = MutableStateFlow<List<StationCacheSnapshotEntity>>(emptyList())
         val replaceSnapshotCalls = mutableListOf<List<StationCacheEntity>>()
+        val pruneCutoffCalls = mutableListOf<Long>()
 
         override fun observeStations(
             latitudeBucket: Int,
@@ -620,6 +709,11 @@ class DefaultStationRepositoryTest {
 
         override suspend fun pruneSnapshotsOlderThan(cutoffEpochMillis: Long) {
             snapshots.value = snapshots.value.filterNot { it.fetchedAtEpochMillis < cutoffEpochMillis }
+        }
+
+        override suspend fun pruneOlderThan(cutoffEpochMillis: Long) {
+            pruneCutoffCalls += cutoffEpochMillis
+            super.pruneOlderThan(cutoffEpochMillis)
         }
 
         fun seed(vararg entities: StationCacheEntity) {

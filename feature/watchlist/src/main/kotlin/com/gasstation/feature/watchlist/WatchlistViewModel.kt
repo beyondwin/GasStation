@@ -4,6 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.logSafely
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -15,14 +18,20 @@ import kotlinx.coroutines.flow.stateIn
 class WatchlistViewModel @Inject constructor(
     observeWatchlist: ObserveWatchlistUseCase,
     savedStateHandle: SavedStateHandle,
+    private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
     private val origin = Coordinates(
         latitude = savedStateHandle.requiredCoordinate("latitude"),
         longitude = savedStateHandle.requiredCoordinate("longitude"),
     )
+    private var hasLoggedCompareViewed = false
 
     val uiState = observeWatchlist(origin)
         .map { summaries ->
+            if (!hasLoggedCompareViewed) {
+                hasLoggedCompareViewed = true
+                stationEventLogger.logSafely(StationEvent.CompareViewed(count = summaries.size))
+            }
             WatchlistUiState(stations = summaries.map(::WatchlistItemUiModel))
         }
         .stateIn(

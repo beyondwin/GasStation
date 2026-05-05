@@ -3,6 +3,7 @@ package com.gasstation.data.station
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -24,17 +25,15 @@ class StationRetryPolicy @Inject constructor(
             delay(RETRY_DELAY_MS)
             try {
                 val result = block()
-                stationEventLogger.log(
+                stationEventLogger.logSafely(
                     StationEvent.RetryAttempted(
                         originalReason = exception.reason,
                         succeeded = true,
                     ),
                 )
                 result
-            } catch (retryCancel: CancellationException) {
-                throw retryCancel
-            } catch (retryException: Throwable) {
-                stationEventLogger.log(
+            } catch (retryException: StationRefreshException) {
+                stationEventLogger.logSafely(
                     StationEvent.RetryAttempted(
                         originalReason = exception.reason,
                         succeeded = false,

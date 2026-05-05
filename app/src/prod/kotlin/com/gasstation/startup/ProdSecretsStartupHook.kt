@@ -7,14 +7,17 @@ import timber.log.Timber
 
 class ProdSecretsStartupHook @Inject constructor() : AppStartupHook {
     override fun run(application: Application) {
+        requireLocalSecrets(opinetApiKey = BuildConfig.OPINET_API_KEY)
+        Timber.i("Prod secrets loaded from local Gradle properties.")
+    }
+
+    internal fun requireLocalSecrets(opinetApiKey: String) {
         val missingSecrets = buildList {
-            if (BuildConfig.OPINET_API_KEY.isBlank()) add("opinet.apikey")
+            if (opinetApiKey.isBlank()) add("opinet.apikey")
         }
 
         check(missingSecrets.isEmpty()) {
             "Prod flavor requires local secrets: ${missingSecrets.joinToString()}."
         }
-
-        Timber.i("Prod secrets loaded from local Gradle properties.")
     }
 }

@@ -65,7 +65,7 @@ class GasStationDatabaseMigrationTest {
     }
 
     @Test
-    fun `migration 1 to 4 preserves cache data and backfills snapshot metadata`() = runBlocking {
+    fun `migration 1 to 5 preserves cache data and creates latest by station index`() = runBlocking {
         val db = helper.writableDatabase
         createVersion1Schema(db)
         insertVersion1CacheRow(db)
@@ -80,6 +80,7 @@ class GasStationDatabaseMigrationTest {
                 GasStationDatabase.MIGRATION_1_2,
                 GasStationDatabase.MIGRATION_2_3,
                 GasStationDatabase.MIGRATION_3_4,
+                GasStationDatabase.MIGRATION_4_5,
             )
             .allowMainThreadQueries()
             .build()
@@ -114,13 +115,30 @@ class GasStationDatabaseMigrationTest {
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "watched_station"))
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_cache_snapshot"))
+            assertLatestByStationIndex(migratedDatabase.openHelper.writableDatabase)
         } finally {
             migratedDatabase.close()
         }
     }
 
     @Test
-    fun `migration 2 to 4 preserves cache and watched rows while recreating price history`() = runBlocking {
+    fun `current schema creates latest by station cache index`() {
+        val currentDatabase = Room.inMemoryDatabaseBuilder(
+            context,
+            GasStationDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            assertLatestByStationIndex(currentDatabase.openHelper.writableDatabase)
+        } finally {
+            currentDatabase.close()
+        }
+    }
+
+    @Test
+    fun `migration 2 to 5 preserves cache and watched rows while creating latest by station index`() = runBlocking {
         val db = helper.writableDatabase
         createVersion2Schema(db)
         insertVersion2CacheRow(db)
@@ -135,6 +153,7 @@ class GasStationDatabaseMigrationTest {
         )
             .addMigrations(GasStationDatabase.MIGRATION_2_3)
             .addMigrations(GasStationDatabase.MIGRATION_3_4)
+            .addMigrations(GasStationDatabase.MIGRATION_4_5)
             .allowMainThreadQueries()
             .build()
 
@@ -160,13 +179,37 @@ class GasStationDatabaseMigrationTest {
             assertEquals(emptyList<Any>(), historyRows)
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_price_history"))
             assertTrue(tableExists(migratedDatabase.openHelper.writableDatabase, "station_cache_snapshot"))
+            assertLatestByStationIndex(migratedDatabase.openHelper.writableDatabase)
         } finally {
             migratedDatabase.close()
         }
     }
 
     @Test
-    fun `production builder migrates 3 to 4 and backfills snapshot metadata`() = runBlocking {
+    fun `migration 4 to 5 creates latest by station index`() {
+        val db = helper.writableDatabase
+        createVersion4Schema(db)
+        insertVersion2CacheRow(db)
+        helper.close()
+
+        val migratedDatabase = Room.databaseBuilder(
+            context,
+            GasStationDatabase::class.java,
+            databaseName,
+        )
+            .addMigrations(GasStationDatabase.MIGRATION_4_5)
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            assertLatestByStationIndex(migratedDatabase.openHelper.writableDatabase)
+        } finally {
+            migratedDatabase.close()
+        }
+    }
+
+    @Test
+    fun `production builder migrates 3 to 5 and creates latest by station index`() = runBlocking {
         helper.close()
         databaseName = GasStationDatabase.DATABASE_NAME
         databaseFile = context.getDatabasePath(databaseName)
@@ -213,6 +256,7 @@ class GasStationDatabaseMigrationTest {
 
             assertEquals(listOf(version1CacheRow()), cacheRows)
             assertEquals(version1SnapshotRow(), snapshot)
+            assertLatestByStationIndex(migratedDatabase.openHelper.writableDatabase)
         } finally {
             migratedDatabase.close()
         }
@@ -330,6 +374,23 @@ class GasStationDatabaseMigrationTest {
         db.execSQL("PRAGMA user_version = 3")
     }
 
+    private fun createVersion4Schema(db: SupportSQLiteDatabase) {
+        createVersion3Schema(db)
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `station_cache_snapshot` (
+                `latitudeBucket` INTEGER NOT NULL,
+                `longitudeBucket` INTEGER NOT NULL,
+                `radiusMeters` INTEGER NOT NULL,
+                `fuelType` TEXT NOT NULL,
+                `fetchedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`latitudeBucket`, `longitudeBucket`, `radiusMeters`, `fuelType`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("PRAGMA user_version = 4")
+    }
+
     private fun insertVersion1CacheRow(db: SupportSQLiteDatabase) {
         val row = version1CacheRow()
         db.execSQL(
@@ -444,5 +505,44 @@ class GasStationDatabaseMigrationTest {
         arrayOf(tableName),
     ).use { cursor ->
         cursor.moveToFirst()
+    }
+
+    private fun assertLatestByStationIndex(db: SupportSQLiteDatabase) {
+        val indexName = "index_station_cache_latest_by_station"
+
+        assertTrue(indexExists(db, indexName))
+        assertEquals(
+            listOf(
+                "stationId",
+                "fetchedAtEpochMillis",
+                "fuelType",
+                "radiusMeters",
+                "latitudeBucket",
+                "longitudeBucket",
+            ),
+            indexColumns(db, indexName),
+        )
+    }
+
+    private fun indexExists(
+        db: SupportSQLiteDatabase,
+        indexName: String,
+    ): Boolean = db.query(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+        arrayOf(indexName),
+    ).use { cursor ->
+        cursor.moveToFirst()
+    }
+
+    private fun indexColumns(
+        db: SupportSQLiteDatabase,
+        indexName: String,
+    ): List<String> = db.query("PRAGMA index_info(`$indexName`)").use { cursor ->
+        val nameIndex = cursor.getColumnIndexOrThrow("name")
+        buildList {
+            while (cursor.moveToNext()) {
+                add(cursor.getString(nameIndex))
+            }
+        }
     }
 }

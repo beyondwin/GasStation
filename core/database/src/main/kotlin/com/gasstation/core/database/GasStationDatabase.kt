@@ -19,7 +19,7 @@ import com.gasstation.core.database.station.WatchedStationEntity
         StationPriceHistoryEntity::class,
         WatchedStationEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class GasStationDatabase : RoomDatabase() {
@@ -134,6 +134,24 @@ abstract class GasStationDatabase : RoomDatabase() {
                         `longitudeBucket`,
                         `radiusMeters`,
                         `fuelType`
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_station_cache_latest_by_station`
+                    ON `station_cache` (
+                        `stationId`,
+                        `fetchedAtEpochMillis`,
+                        `fuelType`,
+                        `radiusMeters`,
+                        `latitudeBucket`,
+                        `longitudeBucket`
+                    )
                     """.trimIndent(),
                 )
             }

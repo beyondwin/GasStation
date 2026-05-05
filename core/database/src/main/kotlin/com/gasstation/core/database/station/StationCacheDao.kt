@@ -43,14 +43,38 @@ abstract class StationCacheDao {
 
     @Query(
         """
-        SELECT * FROM station_cache
-        WHERE stationId IN (:stationIds)
-        ORDER BY stationId ASC,
-                 fetchedAtEpochMillis DESC,
-                 fuelType ASC,
-                 radiusMeters ASC,
-                 latitudeBucket ASC,
-                 longitudeBucket ASC
+        SELECT * FROM station_cache AS latest
+        WHERE latest.stationId IN (:stationIds)
+          AND NOT EXISTS (
+              SELECT 1 FROM station_cache AS candidate
+              WHERE candidate.stationId = latest.stationId
+                AND (
+                    candidate.fetchedAtEpochMillis > latest.fetchedAtEpochMillis
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.fuelType < latest.fuelType
+                    )
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.fuelType = latest.fuelType
+                        AND candidate.radiusMeters < latest.radiusMeters
+                    )
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.fuelType = latest.fuelType
+                        AND candidate.radiusMeters = latest.radiusMeters
+                        AND candidate.latitudeBucket < latest.latitudeBucket
+                    )
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.fuelType = latest.fuelType
+                        AND candidate.radiusMeters = latest.radiusMeters
+                        AND candidate.latitudeBucket = latest.latitudeBucket
+                        AND candidate.longitudeBucket < latest.longitudeBucket
+                    )
+                )
+          )
+        ORDER BY latest.stationId ASC
         """,
     )
     abstract fun observeLatestStationsByIds(

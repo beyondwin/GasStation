@@ -47,7 +47,7 @@
 
 - 위치 availability는 `domain:location.ObserveLocationAvailabilityUseCase`를 통해 ViewModel로 들어오고, route는 foreground 구간에서만 이 흐름을 수집합니다.
 - 현재 위치 조회는 평상시 구독이 아니라 새로고침 시점에만 `domain:location.GetCurrentLocationUseCase`를 호출합니다.
-- 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다.
+- 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다. API 33 이상 지오코더 callback 오류는 주소 조회 `Error`, 빈 성공 결과는 `Unavailable`로만 들어오고 cancellation은 상태로 저장하지 않고 전파합니다.
 - `demo`에서는 `DemoLocationOverride`가 availability를 항상 사용 가능으로 만들고, `AndroidForegroundLocationProvider`가 고정 좌표를 공급합니다. permission state는 별도 우회 없이 그대로 유지합니다. 대신 ViewModel이 `hasDeniedLocationAccess`로 demo/recovery 경로를 따로 추적합니다.
 - `prod`에서는 같은 저장소 구현이 Android 위치 provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
 - GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다.
@@ -61,6 +61,8 @@
 - `StationSearchResult`
 
 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
+
+`StationListViewModel`은 `StationSearchResult.stations` source list가 같고 freshness나 metadata만 바뀐 emission에서는 기존 `StationListItemUiModel` list identity를 재사용합니다. 이 최적화는 UI projection 내부 구현이며, 캐시 존재 여부나 blocking failure 의미를 바꾸지 않습니다.
 
 `StationSearchResult`의 의미:
 
@@ -124,10 +126,12 @@
 `StationEvent`는 화면 복원용 상태가 아니라 관찰과 진단을 위한 계약입니다.
 
 - `WatchToggled`는 북마크 저장/해제 액션에서 emit됩니다.
+- `SearchRefreshed`는 저장소 refresh가 성공적으로 스냅샷과 히스토리를 저장한 뒤 emit됩니다.
+- `CompareViewed`는 watchlist ViewModel 생존 동안 비교 데이터가 처음 표시될 때 한 번 emit됩니다.
+- `ExternalMapOpened`는 외부 지도 앱 handoff가 요청될 때 emit됩니다. 실제 외부 앱 실행 성공 여부가 아니라 요청 이벤트입니다.
 - `RefreshFailed`는 원격 refresh 최종 실패가 feature에 도착했을 때 emit됩니다.
 - `LocationFailed`는 위치 획득 실패 유형을 feature가 분류해 emit합니다.
 - `RetryAttempted`는 `data:station`의 retry 정책이 두 번째 시도를 마쳤을 때 emit합니다.
-- `SearchRefreshed`, `CompareViewed`, `ExternalMapOpened`는 계약과 Logcat 매핑은 있지만 현재 코드 경로에서는 emit되지 않습니다.
 
 ## 상태 경계 한 줄 요약
 

@@ -82,6 +82,7 @@ import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
+import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.core.model.BrandFilter
 
@@ -906,19 +907,7 @@ private fun com.gasstation.core.model.FuelType.toLabel(): String = when (this) {
     com.gasstation.core.model.FuelType.LPG -> "LPG"
 }
 
-private fun BrandFilter.toLabel(): String = when (this) {
-    BrandFilter.ALL -> "전체"
-    BrandFilter.SKE -> "SK에너지"
-    BrandFilter.GSC -> "GS칼텍스"
-    BrandFilter.HDO -> "현대오일뱅크"
-    BrandFilter.SOL -> "S-OIL"
-    BrandFilter.RTO -> "자영알뜰"
-    BrandFilter.RTX -> "고속도로알뜰"
-    BrandFilter.NHO -> "농협알뜰"
-    BrandFilter.ETC -> "자가상표"
-    BrandFilter.E1G -> "E1"
-    BrandFilter.SKG -> "SK가스"
-}
+private fun BrandFilter.toLabel(): String = gasStationBrandFilterLabel()
 
 private data class StationListFailureCardContent(
     val title: String,

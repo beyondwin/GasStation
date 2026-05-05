@@ -11,11 +11,14 @@ import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
+import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.logSafely
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
@@ -47,6 +50,7 @@ class DefaultStationRepository @Inject constructor(
     private val seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
     private val cachePolicy: StationCachePolicy,
     private val retryPolicy: StationRetryPolicy,
+    private val stationEventLogger: StationEventLogger,
     private val clock: Clock,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
@@ -122,7 +126,7 @@ class DefaultStationRepository @Inject constructor(
                 stationCacheDao.observeLatestStationsByIds(stationIds),
                 stationPriceHistoryDao.observeByStationIds(stationIds),
             ) { cachedStations, historyRows ->
-                val latestCacheByStationId = cachedStations.latestByStationId()
+                val latestCacheByStationId = cachedStations.associateBy { it.stationId }
                 val historyRowsByStationId = historyRows.groupByStationId()
                 watchedStations.mapNotNull { watchedStation ->
                     watchedStation.toWatchedSummary(
@@ -172,6 +176,15 @@ class DefaultStationRepository @Inject constructor(
                 fuelType = cacheKey.fuelType.name,
             )
         }
+        stationCacheDao.pruneOlderThan(cachePolicy.pruneCutoff(fetchedAt).toEpochMilli())
+        stationEventLogger.logSafely(
+            StationEvent.SearchRefreshed(
+                radius = query.radius,
+                fuelType = query.fuelType,
+                sortOrder = query.sortOrder,
+                stale = cachePolicy.freshnessOf(fetchedAt, clock.instant()) is StationFreshness.Stale,
+            ),
+        )
     }
 
     private suspend fun fetchRemoteStations(query: StationQuery): RemoteStationFetchResult =
@@ -298,18 +311,6 @@ class DefaultStationRepository @Inject constructor(
         return filter { it.fuelType == fuelType }
             .sortedByDescending { it.fetchedAtEpochMillis }
     }
-
-    private fun List<StationCacheEntity>.latestByStationId(): Map<String, StationCacheEntity> =
-        sortedWith(
-            compareBy<StationCacheEntity> { it.stationId }
-                .thenByDescending { it.fetchedAtEpochMillis }
-                .thenBy { it.fuelType }
-                .thenBy { it.radiusMeters }
-                .thenBy { it.latitudeBucket }
-                .thenBy { it.longitudeBucket },
-        ).groupBy { it.stationId }.mapValues { (_, rows) ->
-            rows.first()
-        }
 
     private fun historyRowsBefore(
         fetchedAtEpochMillis: Long,

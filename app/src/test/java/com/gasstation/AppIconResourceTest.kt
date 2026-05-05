@@ -12,7 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [26])
+@Config(sdk = [26], application = android.app.Application::class)
 class AppIconResourceTest {
     @Test
     fun `launcher icon resolves to an adaptive icon on android 8 and above`() {

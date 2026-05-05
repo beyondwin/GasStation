@@ -80,10 +80,10 @@ flowchart LR
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
 | `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약 |
 | `data:settings` | DataStore 기반 설정 저장소 구현 |
-| `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 일시적 refresh 실패 1회 재시도 |
+| `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
-| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스 매핑 |
-| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
+| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스와 표시 라벨 매핑 |
+| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | `UserPreferences` 전용 DataStore와 커스텀 serializer. 선호값 타입은 `core:model`의 유종/브랜드/정렬/지도 enum vocabulary를 직렬화 |
@@ -92,7 +92,7 @@ flowchart LR
 
 ## 의존성 해석 기준
 
-문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체와 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `core:designsystem`은 `Brand`를 리소스에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체와 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:datastore`, `core:network`, `core:designsystem`, `domain:settings`가 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `core:designsystem`은 `Brand`와 `BrandFilter`를 리소스/표시 라벨에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
 
 ## Presentation hierarchy
 
@@ -126,7 +126,7 @@ flowchart LR
 3. `demo`에서는 `DemoLocationOverride`가 좌표를 공급하고, 새로고침 자체는 seed 기반 `SeedStationRemoteDataSource`를 통해 같은 저장소 갱신 경로를 탑니다.
 4. `prod`에서는 `ForegroundLocationProvider`가 성공, timeout, unavailable, permission denied, 예외를 `LocationLookupResult`로 돌려줍니다.
 5. `refreshNearbyStations()`는 원격 조회를 `StationRetryPolicy`로 감싸고, `Timeout`/`Network` 실패만 500ms 뒤 한 번 재시도합니다. `InvalidPayload`, `Unknown`, cancellation은 재시도하지 않습니다.
-6. 성공 시 저장소는 스냅샷과 가격 히스토리를 갱신합니다.
+6. 성공 시 저장소는 스냅샷과 가격 히스토리를 갱신하고, `StationCachePolicy.retainFor` 기준 7일보다 오래된 캐시 행과 스냅샷 마커를 정리합니다.
 7. 최종 실패 시 `StationRefreshException(reason)`이 올라오고, 기존 캐시는 그대로 유지됩니다.
 8. 전면 실패 여부는 `StationListUiState.blockingFailure`와 `StationSearchResult.hasCachedSnapshot` 조합으로 결정합니다.
 
@@ -142,7 +142,7 @@ flowchart LR
 
 1. 목록 화면은 현재 좌표를 nav argument로 넘겨 `WatchlistRoute`로 이동합니다.
 2. `WatchlistViewModel`은 `SavedStateHandle`에서 기준 좌표를 읽고 `ObserveWatchlistUseCase`를 바로 구독합니다.
-3. 저장소는 `watched_station`, 최신 캐시, 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다.
+3. 저장소는 `watched_station`, station별 최신 캐시, 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다. 최신 캐시는 DAO가 stationId 선행 index와 deterministic tie-breaker로 station별 한 행만 반환합니다.
 4. 화면은 별도 세션 상태 없이 요약 카드만 렌더링합니다.
 
 ## flavor와 startup hook
@@ -150,7 +150,7 @@ flowchart LR
 | flavor | startup hook | 실제 동작 |
 | --- | --- | --- |
 | `demo` | `DemoSeedStartupHook` | DB 비우기 -> seed 적재 -> `UserPreferences.default()`로 재설정 |
-| `prod` | `ProdSecretsStartupHook` | `opinet.apikey` 존재 확인 |
+| `prod` | `ProdSecretsStartupHook` | 사용자 로컬 `opinet.apikey` 존재 확인 |
 
 추가로 `demo`는 다음 두 바인딩이 함께 들어갑니다.
 
@@ -165,6 +165,11 @@ flowchart LR
   브랜드 필터와 정렬은 읽기 모델에서 적용해 캐시 재사용률을 높입니다.
 - 위치 좌표는 앱 안에서 WGS84 -> KATEC으로 변환한 뒤 Opinet에 넘깁니다.
   별도 좌표 변환 API를 호출하지 않습니다.
+- Opinet base URL이 HTTP를 사용하므로 앱 network security config는 cleartext 예외를 `www.opinet.co.kr` 정확한 도메인에만 둡니다.
+- `prod` API key는 `BuildConfig`를 통해 클라이언트에 들어가므로 APK에서 완전히 숨길 수 있는 secret boundary가 아닙니다. 현재 포트폴리오/reference 범위에서는 수용하지만 공개 서비스 배포 전에는 backend proxy, key restriction, quota monitoring을 별도 설계합니다.
+- 로컬 Room/DataStore 상태는 재생성 가능한 캐시와 reference watchlist/settings로 보고 Android backup/data extraction을 비활성화합니다.
 - 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
+- API 33 이상 주소 조회는 지오코더 callback API를 coroutine으로 감싸고, pre-33은 기존 동기 API를 I/O dispatcher에서 fallback으로 사용합니다. callback error는 `LocationAddressLookupResult.Error`, 성공했지만 빈 결과는 `Unavailable`, cancellation은 그대로 전파됩니다.
 - `UserPreferences`는 Proto가 아니라 커스텀 key-value serializer를 쓰는 DataStore로 저장합니다.
-- `StationEvent` 계약은 `SearchRefreshed`, `WatchToggled`, `CompareViewed`, `ExternalMapOpened`, `RefreshFailed`, `LocationFailed`, `RetryAttempted`를 정의합니다. 현재 코드에서 실제로 emit하는 이벤트는 watch toggle, refresh 실패, 위치 실패, retry 결과이며, Logcat 구현은 모든 variant를 문자열로 매핑합니다.
+- `StationEvent` 계약은 `SearchRefreshed`, `WatchToggled`, `CompareViewed`, `ExternalMapOpened`, `RefreshFailed`, `LocationFailed`, `RetryAttempted`를 정의합니다. 실제 emit 경로는 저장소 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과이며, Logcat 구현은 모든 variant를 문자열로 매핑합니다. 이벤트 로깅 중 일반 예외는 사용자 흐름이나 저장소 성공을 실패로 바꾸지 않도록 격리하지만, cancellation과 fatal error는 삼키지 않습니다.
+- release build는 R8 minification을 켜지만, resource shrinking은 splash/icon/external map 리소스 확인 전까지 의도적으로 보류합니다.

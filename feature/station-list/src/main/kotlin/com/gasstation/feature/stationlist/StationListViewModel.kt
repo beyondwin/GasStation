@@ -10,11 +10,14 @@ import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,8 +27,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -66,13 +71,30 @@ class StationListViewModel @Inject constructor(
         searchOrchestrator.observe(queryFlow)
             .launchIn(viewModelScope)
 
+        val searchUiProjection = searchOrchestrator.searchResult
+            .runningFold(StationListSearchUiProjection()) { previous, result ->
+                val stationItems = if (previous.sourceStations == result.stations) {
+                    previous.stations
+                } else {
+                    result.stations.map(::StationListItemUiModel)
+                }
+                StationListSearchUiProjection(
+                    sourceStations = result.stations,
+                    stations = stationItems,
+                    freshness = result.freshness,
+                    fetchedAt = result.fetchedAt,
+                )
+            }
+            .drop(1)
+            .distinctUntilChanged()
+
         combine(
             preferences,
             locationStateMachine.state,
             transientState,
-            searchOrchestrator.searchResult,
+            searchUiProjection,
             searchOrchestrator.blockingFailure,
-        ) { prefs, location, transient, result, blockingFailure ->
+        ) { prefs, location, transient, resultProjection, blockingFailure ->
             StationListUiState(
                 currentCoordinates = location.currentCoordinates,
                 currentAddressLabel = location.currentAddressLabel,
@@ -83,14 +105,14 @@ class StationListViewModel @Inject constructor(
                 isAvailabilityKnown = location.isAvailabilityKnown,
                 isLoading = transient.isLoading,
                 isRefreshing = transient.isRefreshing,
-                isStale = result.freshness is StationFreshness.Stale,
+                isStale = resultProjection.freshness is StationFreshness.Stale,
                 blockingFailure = blockingFailure,
-                stations = result.stations.map(::StationListItemUiModel),
+                stations = resultProjection.stations,
                 selectedBrandFilter = prefs.brandFilter,
                 selectedRadius = prefs.searchRadius,
                 selectedFuelType = prefs.fuelType,
                 selectedSortOrder = prefs.sortOrder,
-                lastUpdatedAt = result.fetchedAt,
+                lastUpdatedAt = resultProjection.fetchedAt,
             )
         }.onEach { mutableUiState.value = it }
             .launchIn(viewModelScope)
@@ -120,9 +142,16 @@ class StationListViewModel @Inject constructor(
 
             is StationListAction.StationClicked -> viewModelScope.launch {
                 val currentCoordinates = locationStateMachine.state.value.currentCoordinates
+                val provider = preferences.value.mapProvider
+                stationEventLogger.logSafely(
+                    StationEvent.ExternalMapOpened(
+                        stationId = action.station.id,
+                        provider = provider,
+                    ),
+                )
                 mutableEffects.emit(
                     StationListEffect.OpenExternalMap(
-                        provider = preferences.value.mapProvider,
+                        provider = provider,
                         stationName = action.station.name,
                         originLatitude = currentCoordinates?.latitude,
                         originLongitude = currentCoordinates?.longitude,
@@ -231,7 +260,7 @@ class StationListViewModel @Inject constructor(
         if (searchOrchestrator.activeQueryState.value.query != query) return
 
         reason?.let {
-            stationEventLogger.log(StationEvent.RefreshFailed(reason = it))
+            stationEventLogger.logSafely(StationEvent.RefreshFailed(reason = it))
         }
         searchOrchestrator.onRefreshFailure(query = query, reason = reason)
         mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureMessage()))
@@ -247,7 +276,7 @@ class StationListViewModel @Inject constructor(
 
     private fun logLocationFailure(result: LocationAcquisitionResult) {
         result.failureEventType()?.let { resultType ->
-            stationEventLogger.log(StationEvent.LocationFailed(resultType = resultType))
+            stationEventLogger.logSafely(StationEvent.LocationFailed(resultType = resultType))
         }
     }
 
@@ -297,7 +326,7 @@ class StationListViewModel @Inject constructor(
                 .firstOrNull { it.station.id == stationId }
                 ?: return@launch
             updateWatchState(entry.station, watched)
-            stationEventLogger.log(
+            stationEventLogger.logSafely(
                 StationEvent.WatchToggled(
                     stationId = stationId,
                     watched = watched,
@@ -321,6 +350,13 @@ class StationListViewModel @Inject constructor(
 private data class StationListTransientState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+)
+
+private data class StationListSearchUiProjection(
+    val sourceStations: List<StationListEntry> = emptyList(),
+    val stations: List<StationListItemUiModel> = emptyList(),
+    val freshness: StationFreshness = StationFreshness.Stale,
+    val fetchedAt: Instant? = null,
 )
 
 private fun LocationState.usableCoordinates(): Coordinates? =

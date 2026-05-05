@@ -7,6 +7,8 @@ import com.gasstation.core.model.MoneyWon
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
@@ -61,6 +63,7 @@ class WatchlistViewModelTest {
                 ),
             ),
             savedStateHandle = savedStateHandle,
+            stationEventLogger = RecordingStationEventLogger(),
         )
 
         val collectionJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -73,6 +76,108 @@ class WatchlistViewModelTest {
 
         collectionJob.cancel()
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `watchlist logs compare viewed once after data is displayed`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        val analytics = RecordingStationEventLogger()
+        val station = Station(
+            id = "station-1",
+            name = "Gangnam First",
+            brand = Brand.GSC,
+            price = MoneyWon(1680),
+            distance = DistanceMeters(300),
+            coordinates = Coordinates(37.498095, 127.027610),
+        )
+        val viewModel = WatchlistViewModel(
+            observeWatchlist = ObserveWatchlistUseCase(
+                FakeWatchlistRepository(
+                    listOf(
+                        WatchedStationSummary(
+                            station = station,
+                            priceDelta = StationPriceDelta.Decreased(20),
+                            lastSeenAt = null,
+                        ),
+                    ),
+                ),
+            ),
+            savedStateHandle = SavedStateHandle(
+                mapOf(
+                    "latitude" to "37.498095",
+                    "longitude" to "127.027610",
+                ),
+            ),
+            stationEventLogger = analytics,
+        )
+
+        val collectionJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collectLatest { }
+        }
+
+        advanceUntilIdle()
+        collectionJob.cancel()
+        advanceUntilIdle()
+
+        assertEquals(listOf(StationEvent.CompareViewed(count = 1)), analytics.events)
+    }
+
+    @Test
+    fun `watchlist still displays summaries when compare viewed logging fails`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        val station = Station(
+            id = "station-1",
+            name = "Gangnam First",
+            brand = Brand.GSC,
+            price = MoneyWon(1680),
+            distance = DistanceMeters(300),
+            coordinates = Coordinates(37.498095, 127.027610),
+        )
+        val viewModel = WatchlistViewModel(
+            observeWatchlist = ObserveWatchlistUseCase(
+                FakeWatchlistRepository(
+                    listOf(
+                        WatchedStationSummary(
+                            station = station,
+                            priceDelta = StationPriceDelta.Decreased(20),
+                            lastSeenAt = null,
+                        ),
+                    ),
+                ),
+            ),
+            savedStateHandle = SavedStateHandle(
+                mapOf(
+                    "latitude" to "37.498095",
+                    "longitude" to "127.027610",
+                ),
+            ),
+            stationEventLogger = ThrowingStationEventLogger(),
+        )
+
+        val collectionJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collectLatest { }
+        }
+
+        advanceUntilIdle()
+
+        assertEquals("station-1", viewModel.uiState.value.stations.single().id)
+
+        collectionJob.cancel()
+        advanceUntilIdle()
+    }
+}
+
+private class RecordingStationEventLogger : StationEventLogger {
+    val events = mutableListOf<StationEvent>()
+
+    override fun log(event: StationEvent) {
+        events += event
+    }
+}
+
+private class ThrowingStationEventLogger : StationEventLogger {
+    override fun log(event: StationEvent) {
+        throw IllegalStateException("analytics failed")
     }
 }
 

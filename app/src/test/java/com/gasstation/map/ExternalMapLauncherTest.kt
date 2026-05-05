@@ -9,9 +9,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class)
 class ExternalMapLauncherTest {
 
     private val application = ApplicationProvider.getApplicationContext<Application>()

@@ -1,5 +1,6 @@
 package com.gasstation.feature.settings
 
+import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -110,32 +111,22 @@ private fun FuelType.toDescription(): String = when (this) {
     FuelType.LPG -> "LPG 충전 가격을 중심으로 목록을 맞춥니다."
 }
 
-private fun BrandFilter.toLabel(): String = when (this) {
-    BrandFilter.ALL -> "전체"
-    BrandFilter.SKE -> "SK에너지"
-    BrandFilter.GSC -> "GS칼텍스"
-    BrandFilter.HDO -> "현대오일뱅크"
-    BrandFilter.SOL -> "S-OIL"
-    BrandFilter.RTO -> "자영알뜰"
-    BrandFilter.RTX -> "고속도로알뜰"
-    BrandFilter.NHO -> "농협알뜰"
-    BrandFilter.ETC -> "자가상표"
-    BrandFilter.E1G -> "E1"
-    BrandFilter.SKG -> "SK가스"
-}
+private fun BrandFilter.toLabel(): String = gasStationBrandFilterLabel()
 
 private fun BrandFilter.toDescription(): String = when (this) {
     BrandFilter.ALL -> "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다."
-    BrandFilter.SKE -> "SK에너지 주유소만 골라 비교합니다."
-    BrandFilter.GSC -> "GS칼텍스 주유소만 골라 비교합니다."
-    BrandFilter.HDO -> "현대오일뱅크 주유소만 골라 비교합니다."
-    BrandFilter.SOL -> "S-OIL 주유소만 골라 비교합니다."
-    BrandFilter.RTO -> "자영알뜰 주유소만 골라 비교합니다."
-    BrandFilter.RTX -> "고속도로알뜰 주유소만 골라 비교합니다."
-    BrandFilter.NHO -> "농협알뜰 주유소만 골라 비교합니다."
-    BrandFilter.ETC -> "자가상표 주유소만 골라 비교합니다."
-    BrandFilter.E1G -> "E1 충전소만 골라 비교합니다."
-    BrandFilter.SKG -> "SK가스 충전소만 골라 비교합니다."
+    BrandFilter.SKE,
+    BrandFilter.GSC,
+    BrandFilter.HDO,
+    BrandFilter.SOL,
+    BrandFilter.RTO,
+    BrandFilter.RTX,
+    BrandFilter.NHO,
+    BrandFilter.ETC,
+    -> "${toLabel()} 주유소만 골라 비교합니다."
+    BrandFilter.E1G,
+    BrandFilter.SKG,
+    -> "${toLabel()} 충전소만 골라 비교합니다."
 }
 
 private fun SortOrder.toLabel(): String = when (this) {

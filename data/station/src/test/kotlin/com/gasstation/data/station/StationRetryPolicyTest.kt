@@ -72,6 +72,23 @@ class StationRetryPolicyTest {
     }
 
     @Test
+    fun `successful retry returns result when retry success logging fails`() = runTest {
+        val throwingPolicy = StationRetryPolicy(stationEventLogger = ThrowingStationEventLogger())
+        var callCount = 0
+
+        val result = throwingPolicy.withRetry {
+            callCount += 1
+            if (callCount == 1) {
+                throw StationRefreshException(StationRefreshFailureReason.Network)
+            }
+            "ok"
+        }
+
+        assertEquals("ok", result)
+        assertEquals(2, callCount)
+    }
+
+    @Test
     fun `retryable failure retries once then propagates second failure`() = runTest {
         var callCount = 0
 
@@ -87,6 +104,40 @@ class StationRetryPolicyTest {
         val event = assertIs<StationEvent.RetryAttempted>(logger.events.single())
         assertEquals(StationRefreshFailureReason.Timeout, event.originalReason)
         assertEquals(false, event.succeeded)
+    }
+
+    @Test
+    fun `failed retry propagates original station refresh exception when retry failure logging fails`() = runTest {
+        val throwingPolicy = StationRetryPolicy(stationEventLogger = ThrowingStationEventLogger())
+        var callCount = 0
+
+        val exception = assertFailsWith<StationRefreshException> {
+            throwingPolicy.withRetry {
+                callCount += 1
+                throw StationRefreshException(StationRefreshFailureReason.Timeout)
+            }
+        }
+
+        assertEquals(StationRefreshFailureReason.Timeout, exception.reason)
+        assertEquals(2, callCount)
+    }
+
+    @Test
+    fun `unexpected retry exception propagates without failed retry event`() = runTest {
+        var callCount = 0
+
+        assertFailsWith<IllegalStateException> {
+            policy.withRetry {
+                callCount += 1
+                if (callCount == 1) {
+                    throw StationRefreshException(StationRefreshFailureReason.Network)
+                }
+                throw IllegalStateException("unexpected")
+            }
+        }
+
+        assertEquals(2, callCount)
+        assertTrue(logger.events.isEmpty())
     }
 
     @Test
@@ -174,5 +225,11 @@ private class RecordingStationEventLogger : StationEventLogger {
 
     override fun log(event: StationEvent) {
         events += event
+    }
+}
+
+private class ThrowingStationEventLogger : StationEventLogger {
+    override fun log(event: StationEvent) {
+        throw IllegalStateException("analytics failed")
     }
 }

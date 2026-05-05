@@ -5,7 +5,7 @@
 ## 전제
 
 - Java 17 기준입니다.
-- `prod` 앱을 실제로 실행하려면 `opinet.apikey`가 필요합니다.
+- `prod` 앱을 실제로 실행하려면 사용자 로컬 `opinet.apikey`가 필요합니다. `demo` 실행과 assemble에는 키가 필요 없습니다.
 - benchmark 모듈은 `demo` 데이터를 대상으로 동작합니다.
 
 ## 문서/계약 설명 갱신 확인
@@ -13,14 +13,25 @@
 코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
 
 ```bash
-git diff --check
-./gradlew \
-  :domain:station:test \
-  :data:station:testDebugUnitTest \
-  :feature:station-list:testDebugUnitTest
+git diff --check -- README.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/improvement-analysis.md
 ```
 
-이 조합은 `StationEvent` 계약, retry 정책, station-list 상태 분리와 blocking failure 의미를 다시 확인합니다.
+문서 갱신이 이미 구현된 key handling, cleartext, backup, cache/event/state, location, brand label 계약을 설명한다면 아래 관련 테스트도 선택합니다.
+
+```bash
+./gradlew \
+  :domain:station:test \
+  :core:database:testDebugUnitTest \
+  :core:location:testDebugUnitTest \
+  :core:designsystem:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest
+```
+
+이 조합은 `StationEvent` 계약, retry/pruning 정책, station-list 상태 분리, watchlist event, 주소 lookup, 브랜드 label, cleartext resource, Android backup 비활성화, prod secret fail-fast 의미를 다시 확인합니다.
 
 ## 빠른 로컬 확인
 
@@ -34,6 +45,7 @@ git diff --check
   :feature:settings:testDebugUnitTest \
   :app:assembleDemoDebug \
   :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
   :benchmark:assemble
 ```
 
@@ -53,7 +65,7 @@ git diff --check
 
 ## 머지 전 권장 회귀 세트
 
-모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 enum 이동, settings dependency cleanup, station retry, station-list 상태 추출 회귀를 함께 막습니다.
+모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 enum/label 이동, settings dependency cleanup, station retry/pruning, station-list 상태 projection 회귀를 함께 막습니다.
 
 ```bash
 ./gradlew \

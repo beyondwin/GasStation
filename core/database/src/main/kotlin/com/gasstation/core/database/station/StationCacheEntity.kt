@@ -14,6 +14,17 @@ import androidx.room.Index
     ],
     indices = [
         Index(value = ["fetchedAtEpochMillis"]),
+        Index(
+            name = "index_station_cache_latest_by_station",
+            value = [
+                "stationId",
+                "fetchedAtEpochMillis",
+                "fuelType",
+                "radiusMeters",
+                "latitudeBucket",
+                "longitudeBucket",
+            ],
+        ),
     ],
 )
 data class StationCacheEntity(
