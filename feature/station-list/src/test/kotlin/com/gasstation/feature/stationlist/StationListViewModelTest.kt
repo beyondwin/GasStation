@@ -33,1247 +33,1112 @@ import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationListViewModelTest {
 
-    private val dispatcher = StandardTestDispatcher()
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private val dispatcher = mainDispatcherRule.dispatcher
 
     @Test
     fun `refresh with precise location builds query without map provider`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(1, repository.refreshedQueries.size)
-            assertEquals(SearchRadius.KM_3, repository.refreshedQueries.single().radius)
-            assertEquals(FuelType.GASOLINE, repository.refreshedQueries.single().fuelType)
-            assertEquals(BrandFilter.ALL, repository.refreshedQueries.single().brandFilter)
-            assertEquals(SortOrder.DISTANCE, repository.refreshedQueries.single().sortOrder)
-            assertEquals(LocationPermissionState.PreciseGranted, viewModel.uiState.value.permissionState)
-            assertFalse(viewModel.uiState.value.isRefreshing)
-            assertTrue(viewModel.uiState.value.isStale)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(SearchRadius.KM_3, repository.refreshedQueries.single().radius)
+        assertEquals(FuelType.GASOLINE, repository.refreshedQueries.single().fuelType)
+        assertEquals(BrandFilter.ALL, repository.refreshedQueries.single().brandFilter)
+        assertEquals(SortOrder.DISTANCE, repository.refreshedQueries.single().sortOrder)
+        assertEquals(LocationPermissionState.PreciseGranted, viewModel.uiState.value.permissionState)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+        assertTrue(viewModel.uiState.value.isStale)
+        assertEquals(1, viewModel.uiState.value.stations.size)
     }
 
     @Test
     fun `map provider preference update keeps mapped station item list instance`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
-                    hasCachedSnapshot = true,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
+                hasCachedSnapshot = true,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            val initialStations = viewModel.uiState.value.stations
-            assertEquals(1, initialStations.size)
+        val initialStations = viewModel.uiState.value.stations
+        assertEquals(1, initialStations.size)
 
-            settingsFixture.updatePreferences { it.copy(mapProvider = MapProvider.NAVER_MAP) }
-            advanceUntilIdle()
+        settingsFixture.updatePreferences { it.copy(mapProvider = MapProvider.NAVER_MAP) }
+        advanceUntilIdle()
 
-            assertSame(initialStations, viewModel.uiState.value.stations)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertSame(initialStations, viewModel.uiState.value.stations)
     }
 
     @Test
     fun `freshness update with same station entries keeps mapped station item list instance`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val firstResult = StationSearchResult(
-                stations = listOf(stationEntry()),
-                freshness = StationFreshness.Fresh,
-                fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
-                hasCachedSnapshot = true,
-            )
-            val repository = FakeStationRepository(
-                result = firstResult,
-                useObservedResultsFlow = true,
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
+        val firstResult = StationSearchResult(
+            stations = listOf(stationEntry()),
+            freshness = StationFreshness.Fresh,
+            fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
+            hasCachedSnapshot = true,
+        )
+        val repository = FakeStationRepository(
+            result = firstResult,
+            useObservedResultsFlow = true,
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-            val initialStations = viewModel.uiState.value.stations
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        val initialStations = viewModel.uiState.value.stations
 
-            repository.emitObservedResult(
-                firstResult.copy(
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = Instant.parse("2026-04-18T00:01:00Z"),
-                ),
-            )
-            advanceUntilIdle()
+        repository.emitObservedResult(
+            firstResult.copy(
+                freshness = StationFreshness.Stale,
+                fetchedAt = Instant.parse("2026-04-18T00:01:00Z"),
+            ),
+        )
+        advanceUntilIdle()
 
-            assertTrue(viewModel.uiState.value.isStale)
-            assertEquals(Instant.parse("2026-04-18T00:01:00Z"), viewModel.uiState.value.lastUpdatedAt)
-            assertSame(initialStations, viewModel.uiState.value.stations)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertTrue(viewModel.uiState.value.isStale)
+        assertEquals(Instant.parse("2026-04-18T00:01:00Z"), viewModel.uiState.value.lastUpdatedAt)
+        assertSame(initialStations, viewModel.uiState.value.stations)
     }
 
     @Test
     fun `freshness update with equal station entries keeps mapped station item list instance`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val firstResult = StationSearchResult(
+        val firstResult = StationSearchResult(
+            stations = listOf(stationEntry()),
+            freshness = StationFreshness.Fresh,
+            fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
+            hasCachedSnapshot = true,
+        )
+        val repository = FakeStationRepository(
+            result = firstResult,
+            useObservedResultsFlow = true,
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        val initialStations = viewModel.uiState.value.stations
+
+        repository.emitObservedResult(
+            firstResult.copy(
                 stations = listOf(stationEntry()),
-                freshness = StationFreshness.Fresh,
-                fetchedAt = Instant.parse("2026-04-18T00:00:00Z"),
-                hasCachedSnapshot = true,
-            )
-            val repository = FakeStationRepository(
-                result = firstResult,
-                useObservedResultsFlow = true,
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
+                freshness = StationFreshness.Stale,
+                fetchedAt = Instant.parse("2026-04-18T00:01:00Z"),
+            ),
+        )
+        advanceUntilIdle()
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-            val initialStations = viewModel.uiState.value.stations
-
-            repository.emitObservedResult(
-                firstResult.copy(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = Instant.parse("2026-04-18T00:01:00Z"),
-                ),
-            )
-            advanceUntilIdle()
-
-            assertTrue(viewModel.uiState.value.isStale)
-            assertEquals(Instant.parse("2026-04-18T00:01:00Z"), viewModel.uiState.value.lastUpdatedAt)
-            assertSame(initialStations, viewModel.uiState.value.stations)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertTrue(viewModel.uiState.value.isStale)
+        assertEquals(Instant.parse("2026-04-18T00:01:00Z"), viewModel.uiState.value.lastUpdatedAt)
+        assertSame(initialStations, viewModel.uiState.value.stations)
     }
 
     @Test
     fun `changing any station search criterion with a current location refreshes the new query`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val coordinates = Coordinates(37.498095, 127.027610)
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(coordinates),
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(coordinates),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            settingsFixture.updatePreferences { current ->
-                current.copy(searchRadius = SearchRadius.KM_5)
-            }
-            advanceUntilIdle()
-            settingsFixture.updatePreferences { current ->
-                current.copy(fuelType = FuelType.DIESEL)
-            }
-            advanceUntilIdle()
-            settingsFixture.updatePreferences { current ->
-                current.copy(brandFilter = BrandFilter.GSC)
-            }
-            advanceUntilIdle()
-            settingsFixture.updatePreferences { current ->
-                current.copy(sortOrder = SortOrder.PRICE)
-            }
-            advanceUntilIdle()
-
-            assertEquals(
-                listOf(
-                    UserPreferences.default(),
-                    UserPreferences.default().copy(searchRadius = SearchRadius.KM_5),
-                    UserPreferences.default().copy(
-                        searchRadius = SearchRadius.KM_5,
-                        fuelType = FuelType.DIESEL,
-                    ),
-                    UserPreferences.default().copy(
-                        searchRadius = SearchRadius.KM_5,
-                        fuelType = FuelType.DIESEL,
-                        brandFilter = BrandFilter.GSC,
-                    ),
-                    UserPreferences.default().copy(
-                        searchRadius = SearchRadius.KM_5,
-                        fuelType = FuelType.DIESEL,
-                        brandFilter = BrandFilter.GSC,
-                        sortOrder = SortOrder.PRICE,
-                    ),
-                ),
-                repository.refreshedQueries.map { query ->
-                    UserPreferences.default().copy(
-                        searchRadius = query.radius,
-                        fuelType = query.fuelType,
-                        brandFilter = query.brandFilter,
-                        sortOrder = query.sortOrder,
-                    )
-                },
-            )
-            assertTrue(repository.refreshedQueries.all { query -> query.coordinates == coordinates })
-        } finally {
-            Dispatchers.resetMain()
+        settingsFixture.updatePreferences { current ->
+            current.copy(searchRadius = SearchRadius.KM_5)
         }
+        advanceUntilIdle()
+        settingsFixture.updatePreferences { current ->
+            current.copy(fuelType = FuelType.DIESEL)
+        }
+        advanceUntilIdle()
+        settingsFixture.updatePreferences { current ->
+            current.copy(brandFilter = BrandFilter.GSC)
+        }
+        advanceUntilIdle()
+        settingsFixture.updatePreferences { current ->
+            current.copy(sortOrder = SortOrder.PRICE)
+        }
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                UserPreferences.default(),
+                UserPreferences.default().copy(searchRadius = SearchRadius.KM_5),
+                UserPreferences.default().copy(
+                    searchRadius = SearchRadius.KM_5,
+                    fuelType = FuelType.DIESEL,
+                ),
+                UserPreferences.default().copy(
+                    searchRadius = SearchRadius.KM_5,
+                    fuelType = FuelType.DIESEL,
+                    brandFilter = BrandFilter.GSC,
+                ),
+                UserPreferences.default().copy(
+                    searchRadius = SearchRadius.KM_5,
+                    fuelType = FuelType.DIESEL,
+                    brandFilter = BrandFilter.GSC,
+                    sortOrder = SortOrder.PRICE,
+                ),
+            ),
+            repository.refreshedQueries.map { query ->
+                UserPreferences.default().copy(
+                    searchRadius = query.radius,
+                    fuelType = query.fuelType,
+                    brandFilter = query.brandFilter,
+                    sortOrder = query.sortOrder,
+                )
+            },
+        )
+        assertTrue(repository.refreshedQueries.all { query -> query.coordinates == coordinates })
     }
 
     @Test
     fun `refresh success exposes current address label when address lookup succeeds`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val coordinates = Coordinates(37.498095, 127.027610)
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(coordinates),
-                    addressResult = LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(coordinates),
+                addressResult = LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
-            assertEquals(coordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+        assertEquals(coordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(1, viewModel.uiState.value.stations.size)
     }
 
     @Test
     fun `address lookup failure does not block station results`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                    addressResult = LocationAddressLookupResult.Error(IllegalStateException("geocoder unavailable")),
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                addressResult = LocationAddressLookupResult.Error(IllegalStateException("geocoder unavailable")),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(null, viewModel.uiState.value.currentAddressLabel)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-            assertEquals(null, viewModel.uiState.value.blockingFailure)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(null, viewModel.uiState.value.currentAddressLabel)
+        assertEquals(1, viewModel.uiState.value.stations.size)
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
     }
 
     @Test
     fun `new coordinates clear stale address before replacement address arrives`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val firstCoordinates = Coordinates(37.498095, 127.027610)
-            val secondCoordinates = Coordinates(37.497927, 127.027583)
-            val addressRequests = mutableListOf<Coordinates>()
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    resultForPermission = {
-                        if (repository.refreshedQueries.isEmpty()) {
-                            LocationLookupResult.Success(firstCoordinates)
-                        } else {
-                            LocationLookupResult.Success(secondCoordinates)
-                        }
-                    },
-                    addressResultForCoordinates = { coordinates ->
-                        addressRequests += coordinates
-                        if (coordinates == firstCoordinates) {
-                            LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32")
-                        } else {
-                            LocationAddressLookupResult.Unavailable
-                        }
-                    },
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val firstCoordinates = Coordinates(37.498095, 127.027610)
+        val secondCoordinates = Coordinates(37.497927, 127.027583)
+        val addressRequests = mutableListOf<Coordinates>()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                resultForPermission = {
+                    if (repository.refreshedQueries.isEmpty()) {
+                        LocationLookupResult.Success(firstCoordinates)
+                    } else {
+                        LocationLookupResult.Success(secondCoordinates)
+                    }
+                },
+                addressResultForCoordinates = { coordinates ->
+                    addressRequests += coordinates
+                    if (coordinates == firstCoordinates) {
+                        LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32")
+                    } else {
+                        LocationAddressLookupResult.Unavailable
+                    }
+                },
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-            assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
 
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(secondCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(null, viewModel.uiState.value.currentAddressLabel)
-            assertEquals(listOf(firstCoordinates, secondCoordinates), addressRequests)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(secondCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(null, viewModel.uiState.value.currentAddressLabel)
+        assertEquals(listOf(firstCoordinates, secondCoordinates), addressRequests)
     }
 
     @Test
     fun `station click emits external map effect with persisted provider`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val analytics = RecordingStationEventLogger()
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(
-                UserPreferences.default().copy(mapProvider = MapProvider.NAVER_MAP),
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-                analytics = analytics,
+        val analytics = RecordingStationEventLogger()
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(
+            UserPreferences.default().copy(mapProvider = MapProvider.NAVER_MAP),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = analytics,
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+
+        viewModel.effects.test {
+            viewModel.onAction(
+                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
             )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-
-            viewModel.effects.test {
-                viewModel.onAction(
-                    StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-                )
-
-                assertEquals(
-                    StationListEffect.OpenExternalMap(
-                        provider = MapProvider.NAVER_MAP,
-                        stationName = "강남주유소",
-                        originLatitude = 37.498095,
-                        originLongitude = 127.027610,
-                        latitude = 37.499095,
-                        longitude = 127.027610,
-                    ),
-                    awaitItem(),
-                )
-            }
             assertEquals(
-                listOf(
-                    StationEvent.ExternalMapOpened(
-                        stationId = "station-1",
-                        provider = MapProvider.NAVER_MAP,
-                    ),
+                StationListEffect.OpenExternalMap(
+                    provider = MapProvider.NAVER_MAP,
+                    stationName = "강남주유소",
+                    originLatitude = 37.498095,
+                    originLongitude = 127.027610,
+                    latitude = 37.499095,
+                    longitude = 127.027610,
                 ),
-                analytics.events,
+                awaitItem(),
             )
-        } finally {
-            Dispatchers.resetMain()
         }
+        assertEquals(
+            listOf(
+                StationEvent.ExternalMapOpened(
+                    stationId = "station-1",
+                    provider = MapProvider.NAVER_MAP,
+                ),
+            ),
+            analytics.events,
+        )
     }
 
     @Test
     fun `station click still emits external map effect when analytics logging fails`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(
+            UserPreferences.default().copy(mapProvider = MapProvider.NAVER_MAP),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = ThrowingStationEventLogger(),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+
+        viewModel.effects.test {
+            viewModel.onAction(
+                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+            )
+
+            assertEquals(
+                StationListEffect.OpenExternalMap(
+                    provider = MapProvider.NAVER_MAP,
+                    stationName = "강남주유소",
+                    originLatitude = 37.498095,
+                    originLongitude = 127.027610,
+                    latitude = 37.499095,
+                    longitude = 127.027610,
                 ),
+                awaitItem(),
             )
-            val settingsFixture = SettingsUseCaseTestFixture(
-                UserPreferences.default().copy(mapProvider = MapProvider.NAVER_MAP),
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-                analytics = ThrowingStationEventLogger(),
-            )
-
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-
-            viewModel.effects.test {
-                viewModel.onAction(
-                    StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-                )
-
-                assertEquals(
-                    StationListEffect.OpenExternalMap(
-                        provider = MapProvider.NAVER_MAP,
-                        stationName = "강남주유소",
-                        originLatitude = 37.498095,
-                        originLongitude = 127.027610,
-                        latitude = 37.499095,
-                        longitude = 127.027610,
-                    ),
-                    awaitItem(),
-                )
-            }
-        } finally {
-            Dispatchers.resetMain()
         }
     }
 
     @Test
     fun `title tap toggles persisted sort order through use case`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
 
-            viewModel.onAction(StationListAction.SortToggleRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.SortToggleRequested)
+        advanceUntilIdle()
 
-            assertEquals(SortOrder.PRICE, settingsFixture.currentPreferences.sortOrder)
-            assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(SortOrder.PRICE, settingsFixture.currentPreferences.sortOrder)
+        assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
     }
 
     @Test
     fun `collect location availability updates gps enabled state`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val availability = MutableSharedFlow<Boolean>(replay = 1)
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    availability = availability,
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
+        val availability = MutableSharedFlow<Boolean>(replay = 1)
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                availability = availability,
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
 
-            val collectionJob = launch { viewModel.collectLocationAvailability(availability) }
-            availability.emit(false)
-            advanceUntilIdle()
-            assertFalse(viewModel.uiState.value.isGpsEnabled)
+        val collectionJob = launch { viewModel.collectLocationAvailability(availability) }
+        availability.emit(false)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isGpsEnabled)
 
-            availability.emit(true)
-            advanceUntilIdle()
-            assertTrue(viewModel.uiState.value.isGpsEnabled)
+        availability.emit(true)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isGpsEnabled)
 
-            collectionJob.cancel()
-        } finally {
-            Dispatchers.resetMain()
-        }
+        collectionJob.cancel()
     }
 
     @Test
     fun `refresh success does not overwrite a newer gps off availability signal`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val availability = MutableSharedFlow<Boolean>(replay = 1)
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val locationLookupStarted = CompletableDeferred<Unit>()
-            val completeLocationLookup = CompletableDeferred<Unit>()
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = object : LocationRepository {
-                    override fun observeAvailability(): Flow<Boolean> = availability
+        val availability = MutableSharedFlow<Boolean>(replay = 1)
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val locationLookupStarted = CompletableDeferred<Unit>()
+        val completeLocationLookup = CompletableDeferred<Unit>()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = object : LocationRepository {
+                override fun observeAvailability(): Flow<Boolean> = availability
 
-                    override suspend fun getCurrentLocation(
-                        permissionState: LocationPermissionState,
-                    ): LocationLookupResult {
-                        locationLookupStarted.complete(Unit)
-                        completeLocationLookup.await()
-                        return LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
-                    }
+                override suspend fun getCurrentLocation(
+                    permissionState: LocationPermissionState,
+                ): LocationLookupResult {
+                    locationLookupStarted.complete(Unit)
+                    completeLocationLookup.await()
+                    return LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
+                }
 
-                    override suspend fun getCurrentAddress(
-                        coordinates: Coordinates,
-                    ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
-                },
-            )
+                override suspend fun getCurrentAddress(
+                    coordinates: Coordinates,
+                ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
+            },
+        )
 
-            val collectionJob = launch { viewModel.collectLocationAvailability(availability) }
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            availability.emit(true)
-            advanceUntilIdle()
-            viewModel.onAction(StationListAction.RefreshRequested)
-            locationLookupStarted.await()
+        val collectionJob = launch { viewModel.collectLocationAvailability(availability) }
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        availability.emit(true)
+        advanceUntilIdle()
+        viewModel.onAction(StationListAction.RefreshRequested)
+        locationLookupStarted.await()
 
-            availability.emit(false)
-            advanceUntilIdle()
-            assertEquals(false, viewModel.uiState.value.isGpsEnabled)
+        availability.emit(false)
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.isGpsEnabled)
 
-            completeLocationLookup.complete(Unit)
-            advanceUntilIdle()
+        completeLocationLookup.complete(Unit)
+        advanceUntilIdle()
 
-            assertEquals(1, repository.refreshedQueries.size)
-            assertEquals(false, viewModel.uiState.value.isGpsEnabled)
-            collectionJob.cancel()
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(false, viewModel.uiState.value.isGpsEnabled)
+        collectionJob.cancel()
     }
 
     @Test
     fun `auto refresh with denied permission stays silent until a demo style location succeeds`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val demoCoordinates = Coordinates(37.497927, 127.027583)
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    resultForPermission = { permissionState ->
-                        if (permissionState == LocationPermissionState.Denied) {
-                            LocationLookupResult.Success(demoCoordinates)
-                        } else {
-                            LocationLookupResult.Unavailable
-                        }
-                    },
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val demoCoordinates = Coordinates(37.497927, 127.027583)
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                resultForPermission = { permissionState ->
+                    if (permissionState == LocationPermissionState.Denied) {
+                        LocationLookupResult.Success(demoCoordinates)
+                    } else {
+                        LocationLookupResult.Unavailable
+                    }
+                },
+            ),
+        )
 
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.AutoRefreshRequested)
-                advanceUntilIdle()
-
-                expectNoEvents()
-            }
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.AutoRefreshRequested)
             advanceUntilIdle()
 
-            assertEquals(LocationPermissionState.Denied, viewModel.uiState.value.permissionState)
-            assertEquals(true, viewModel.uiState.value.isGpsEnabled)
-            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-            assertEquals(demoCoordinates, repository.refreshedQueries.single().coordinates)
-        } finally {
-            Dispatchers.resetMain()
+            expectNoEvents()
         }
+        advanceUntilIdle()
+
+        assertEquals(LocationPermissionState.Denied, viewModel.uiState.value.permissionState)
+        assertEquals(true, viewModel.uiState.value.isGpsEnabled)
+        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(demoCoordinates, repository.refreshedQueries.single().coordinates)
     }
 
     @Test
     fun `permission recovery keeps denied access flag until granted refresh succeeds`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val demoCoordinates = Coordinates(37.497927, 127.027583)
-            val realCoordinates = Coordinates(37.498095, 127.027610)
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    resultForPermission = { permissionState ->
-                        when (permissionState) {
-                            LocationPermissionState.Denied -> LocationLookupResult.Success(demoCoordinates)
-                            LocationPermissionState.PreciseGranted -> LocationLookupResult.Success(realCoordinates)
-                            LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
-                        }
-                    },
-                ),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val demoCoordinates = Coordinates(37.497927, 127.027583)
+        val realCoordinates = Coordinates(37.498095, 127.027610)
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                resultForPermission = { permissionState ->
+                    when (permissionState) {
+                        LocationPermissionState.Denied -> LocationLookupResult.Success(demoCoordinates)
+                        LocationPermissionState.PreciseGranted -> LocationLookupResult.Success(realCoordinates)
+                        LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
+                    }
+                },
+            ),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.AutoRefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.AutoRefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        advanceUntilIdle()
 
-            assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
 
-            viewModel.onAction(StationListAction.AutoRefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.AutoRefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(realCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
-            assertEquals(
-                listOf(demoCoordinates, realCoordinates),
-                repository.refreshedQueries.map(StationQuery::coordinates),
-            )
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(realCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(
+            listOf(demoCoordinates, realCoordinates),
+            repository.refreshedQueries.map(StationQuery::coordinates),
+        )
     }
 
     @Test
     fun `denied refresh failure after bypass keeps denied access active`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val demoCoordinates = Coordinates(37.497927, 127.027583)
-            var deniedLookupCount = 0
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    resultForPermission = { permissionState ->
-                        when (permissionState) {
-                            LocationPermissionState.Denied -> {
-                                deniedLookupCount += 1
-                                if (deniedLookupCount == 1) {
-                                    LocationLookupResult.Success(demoCoordinates)
-                                } else {
-                                    LocationLookupResult.PermissionDenied
-                                }
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val demoCoordinates = Coordinates(37.497927, 127.027583)
+        var deniedLookupCount = 0
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                resultForPermission = { permissionState ->
+                    when (permissionState) {
+                        LocationPermissionState.Denied -> {
+                            deniedLookupCount += 1
+                            if (deniedLookupCount == 1) {
+                                LocationLookupResult.Success(demoCoordinates)
+                            } else {
+                                LocationLookupResult.PermissionDenied
                             }
-
-                            LocationPermissionState.PreciseGranted,
-                            LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
                         }
-                    },
-                ),
-            )
 
+                        LocationPermissionState.PreciseGranted,
+                        LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
+                    }
+                },
+            ),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.AutoRefreshRequested)
+        advanceUntilIdle()
+
+        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(1, viewModel.uiState.value.stations.size)
+        assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
+                awaitItem(),
+            )
+            expectNoEvents()
+        }
+
+        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
+        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(1, viewModel.uiState.value.stations.size)
+        assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
+    }
+
+    @Test
+    fun `permission denied location result emits snackbar without refresh`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.PermissionDenied,
+            ),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
+                awaitItem(),
+            )
+        }
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
+    }
+
+    @Test
+    fun `location acquisition failure logs location failed event`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val analytics = RecordingStationEventLogger()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Unavailable,
+            ),
+            analytics = analytics,
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
+                awaitItem(),
+            )
+            expectNoEvents()
+        }
+
+        assertEquals(listOf(StationEvent.LocationFailed(resultType = "Unavailable")), analytics.events)
+        assertTrue(repository.refreshedQueries.isEmpty())
+    }
+
+    @Test
+    fun `manual refresh with gps disabled opens location settings when permission is granted`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
+            expectNoEvents()
+        }
+        assertTrue(repository.refreshedQueries.isEmpty())
+    }
+
+    @Test
+    fun `manual refresh with gps disabled and denied permission still opens location settings`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
+            expectNoEvents()
+        }
+        assertTrue(repository.refreshedQueries.isEmpty())
+    }
+
+    @Test
+    fun `auto refresh with denied permission and prod location denial stays silent without refresh`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.PermissionDenied,
+            ),
+        )
+
+        viewModel.effects.test {
             viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
             viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
             viewModel.onAction(StationListAction.AutoRefreshRequested)
             advanceUntilIdle()
 
-            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-            assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-
-            assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-            assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-            assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
-        } finally {
-            Dispatchers.resetMain()
+            expectNoEvents()
         }
-    }
-
-    @Test
-    fun `permission denied location result emits snackbar without refresh`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.PermissionDenied,
-                ),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
-                    awaitItem(),
-                )
-            }
-            assertTrue(repository.refreshedQueries.isEmpty())
-            assertEquals(null, viewModel.uiState.value.blockingFailure)
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `location acquisition failure logs location failed event`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val analytics = RecordingStationEventLogger()
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Unavailable,
-                ),
-                analytics = analytics,
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-
-            assertEquals(listOf(StationEvent.LocationFailed(resultType = "Unavailable")), analytics.events)
-            assertTrue(repository.refreshedQueries.isEmpty())
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `manual refresh with gps disabled opens location settings when permission is granted`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
-                expectNoEvents()
-            }
-            assertTrue(repository.refreshedQueries.isEmpty())
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `manual refresh with gps disabled and denied permission still opens location settings`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
-                expectNoEvents()
-            }
-            assertTrue(repository.refreshedQueries.isEmpty())
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `auto refresh with denied permission and prod location denial stays silent without refresh`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.PermissionDenied,
-                ),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.AutoRefreshRequested)
-                advanceUntilIdle()
-
-                expectNoEvents()
-            }
-            assertTrue(repository.refreshedQueries.isEmpty())
-            assertEquals(null, viewModel.uiState.value.currentCoordinates)
-            assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
-            assertEquals(null, viewModel.uiState.value.blockingFailure)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertEquals(null, viewModel.uiState.value.currentCoordinates)
+        assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
     }
 
     @Test
     fun `watch toggle updates repository when analytics logging fails`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Fresh,
-                    fetchedAt = null,
-                ),
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-                analytics = ThrowingStationEventLogger(),
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Fresh,
+                fetchedAt = null,
+            ),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = ThrowingStationEventLogger(),
+        )
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            viewModel.onAction(StationListAction.WatchToggled(stationId = "station-1", watched = true))
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.WatchToggled(stationId = "station-1", watched = true))
+        advanceUntilIdle()
 
-            assertEquals(listOf("station-1" to true), repository.watchStateUpdates)
-        } finally {
-            Dispatchers.resetMain()
-        }
+        assertEquals(listOf("station-1" to true), repository.watchStateUpdates)
     }
 
     @Test
     fun `refresh failure without cache shows snackbar and blocking failure`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                    hasCachedSnapshot = false,
-                ),
-                refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val analytics = RecordingStationEventLogger()
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-                analytics = analytics,
-            )
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+                hasCachedSnapshot = false,
+            ),
+            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val analytics = RecordingStationEventLogger()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = analytics,
+        )
 
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-            assertEquals(1, repository.refreshedQueries.size)
-            assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
-            assertEquals(
-                listOf(StationEvent.RefreshFailed(reason = StationRefreshFailureReason.Unknown)),
-                analytics.events,
-            )
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `refresh failure still shows snackbar and blocking failure when analytics logging fails`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                    hasCachedSnapshot = false,
-                ),
-                refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-            )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-                analytics = ThrowingStationEventLogger(),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-
-            assertEquals(1, repository.refreshedQueries.size)
-            assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
-        } finally {
-            Dispatchers.resetMain()
-        }
-    }
-
-    @Test
-    fun `cached refresh timeout keeps stale stations visible and only emits snackbar`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val cachedAt = Instant.parse("2026-04-18T01:00:00Z")
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = listOf(stationEntry()),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = cachedAt,
-                ),
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                ),
-            )
-
+        viewModel.effects.test {
             viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
             viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
             viewModel.onAction(StationListAction.RefreshRequested)
             advanceUntilIdle()
 
-            repository.refreshFailure = StationRefreshException(StationRefreshFailureReason.Timeout)
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("서버 응답이 늦어 가격을 새로고침하지 못했습니다."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-
-            assertEquals(2, repository.refreshedQueries.size)
-            assertEquals(1, viewModel.uiState.value.stations.size)
-            assertTrue(viewModel.uiState.value.isStale)
-            assertEquals(cachedAt, viewModel.uiState.value.lastUpdatedAt)
-            assertEquals(null, viewModel.uiState.value.blockingFailure)
-            assertFalse(viewModel.uiState.value.isRefreshing)
-        } finally {
-            Dispatchers.resetMain()
+            assertEquals(
+                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                awaitItem(),
+            )
+            expectNoEvents()
         }
+        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
+        assertEquals(
+            listOf(StationEvent.RefreshFailed(reason = StationRefreshFailureReason.Unknown)),
+            analytics.events,
+        )
+    }
+
+    @Test
+    fun `refresh failure still shows snackbar and blocking failure when analytics logging fails`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+                hasCachedSnapshot = false,
+            ),
+            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = ThrowingStationEventLogger(),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                awaitItem(),
+            )
+            expectNoEvents()
+        }
+
+        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
+    }
+
+    @Test
+    fun `cached refresh timeout keeps stale stations visible and only emits snackbar`() = runTest(dispatcher) {
+        val cachedAt = Instant.parse("2026-04-18T01:00:00Z")
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = listOf(stationEntry()),
+                freshness = StationFreshness.Stale,
+                fetchedAt = cachedAt,
+            ),
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+
+        repository.refreshFailure = StationRefreshException(StationRefreshFailureReason.Timeout)
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("서버 응답이 늦어 가격을 새로고침하지 못했습니다."),
+                awaitItem(),
+            )
+            expectNoEvents()
+        }
+
+        assertEquals(2, repository.refreshedQueries.size)
+        assertEquals(1, viewModel.uiState.value.stations.size)
+        assertTrue(viewModel.uiState.value.isStale)
+        assertEquals(cachedAt, viewModel.uiState.value.lastUpdatedAt)
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
+        assertFalse(viewModel.uiState.value.isRefreshing)
     }
 
     @Test
     fun `location failure still shows snackbar and blocking failure when analytics logging fails`() = runTest(dispatcher) {
-        Dispatchers.setMain(dispatcher)
-        try {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                    hasCachedSnapshot = false,
-                ),
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+                hasCachedSnapshot = false,
+            ),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Unavailable,
+            ),
+            analytics = ThrowingStationEventLogger(),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
+                awaitItem(),
             )
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Unavailable,
-                ),
-                analytics = ThrowingStationEventLogger(),
-            )
-
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
-                    awaitItem(),
-                )
-                expectNoEvents()
-            }
-
-            assertTrue(repository.refreshedQueries.isEmpty())
-            assertEquals(StationListFailureReason.LocationFailed, viewModel.uiState.value.blockingFailure)
-        } finally {
-            Dispatchers.resetMain()
+            expectNoEvents()
         }
+
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertEquals(StationListFailureReason.LocationFailed, viewModel.uiState.value.blockingFailure)
     }
 
     @Test
     fun `refresh failure promotes blocking failure after observed no-cache result resolves unknown cache state`() =
         runTest(dispatcher) {
-            Dispatchers.setMain(dispatcher)
-            try {
-                val repository = FakeStationRepository(
-                    result = StationSearchResult(
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = emptyList(),
+                    freshness = StationFreshness.Stale,
+                    fetchedAt = null,
+                ),
+                refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
+                useObservedResultsFlow = true,
+                initialObservedResult = null,
+            )
+            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = settingsFixture,
+                locationRepository = FakeLocationRepository(
+                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                ),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+                viewModel.onAction(StationListAction.RefreshRequested)
+                advanceUntilIdle()
+
+                assertEquals(
+                    StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                    awaitItem(),
+                )
+                assertEquals(null, viewModel.uiState.value.blockingFailure)
+
+                repository.emitObservedResult(
+                    StationSearchResult(
                         stations = emptyList(),
                         freshness = StationFreshness.Stale,
                         fetchedAt = null,
-                    ),
-                    refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-                    useObservedResultsFlow = true,
-                    initialObservedResult = null,
-                )
-                val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-                val viewModel = stationListViewModel(
-                    repository = repository,
-                    settingsFixture = settingsFixture,
-                    locationRepository = FakeLocationRepository(
-                        result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                        hasCachedSnapshot = false,
                     ),
                 )
+                advanceUntilIdle()
 
-                viewModel.effects.test {
-                    viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                    viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                    viewModel.onAction(StationListAction.RefreshRequested)
-                    advanceUntilIdle()
-
-                    assertEquals(
-                        StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
-                        awaitItem(),
-                    )
-                    assertEquals(null, viewModel.uiState.value.blockingFailure)
-
-                    repository.emitObservedResult(
-                        StationSearchResult(
-                            stations = emptyList(),
-                            freshness = StationFreshness.Stale,
-                            fetchedAt = null,
-                            hasCachedSnapshot = false,
-                        ),
-                    )
-                    advanceUntilIdle()
-
-                    expectNoEvents()
-                }
-
-                assertEquals(1, repository.refreshedQueries.size)
-                assertEquals(1, repository.observedQueries.size)
-                assertEquals(repository.refreshedQueries.single(), repository.observedQueries.single())
-                assertTrue(viewModel.uiState.value.stations.isEmpty())
-                assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
-            } finally {
-                Dispatchers.resetMain()
+                expectNoEvents()
             }
+
+            assertEquals(1, repository.refreshedQueries.size)
+            assertEquals(1, repository.observedQueries.size)
+            assertEquals(repository.refreshedQueries.single(), repository.observedQueries.single())
+            assertTrue(viewModel.uiState.value.stations.isEmpty())
+            assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
         }
 }
 
