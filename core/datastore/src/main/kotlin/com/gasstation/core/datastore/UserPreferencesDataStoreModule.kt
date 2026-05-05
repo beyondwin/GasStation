@@ -3,7 +3,6 @@ package com.gasstation.core.datastore
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
-import com.gasstation.domain.settings.model.UserPreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,7 +18,7 @@ object UserPreferencesDataStoreModule {
     @Singleton
     fun provideUserPreferencesDataStore(
         @ApplicationContext context: Context,
-    ): DataStore<UserPreferences> =
+    ): DataStore<StoredUserPreferences> =
         DataStoreFactory.create(
             serializer = UserPreferencesSerializer,
             produceFile = { context.filesDir.resolve(USER_PREFERENCES_FILE_NAME) },
@@ -28,7 +27,7 @@ object UserPreferencesDataStoreModule {
     @Provides
     @Singleton
     fun provideUserPreferencesDataSource(
-        dataStore: DataStore<UserPreferences>,
+        dataStore: DataStore<StoredUserPreferences>,
     ): UserPreferencesDataSource = AndroidUserPreferencesDataSource(dataStore)
 
     private const val USER_PREFERENCES_FILE_NAME = "user_preferences.pb"

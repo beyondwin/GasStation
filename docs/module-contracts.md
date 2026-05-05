@@ -19,7 +19,7 @@
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
-| `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` | DataStore 구현, Android 타입 |
+| `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` as public API | DataStore 구현, Android 타입 |
 | `domain:station` | `StationRepository`, 검색/비교 use case, `StationEvent`/`StationEventLogger` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics SDK 구현 |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
 | `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합, 일시적 refresh 실패 retry 정책 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현, snackbar/전면 실패 판단 |
@@ -28,14 +28,14 @@
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback/pre-33 fallback, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
 | `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model` | 캐시/Room 조합 |
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
-| `core:datastore` | DataStore data source, serializer | `core:model`, `domain:settings` | 화면 상태, 설정 정책 |
+| `core:datastore` | DataStore data source, serializer, storage-local settings DTO | Android DataStore | 화면 상태, 설정 정책, domain model |
 | `tools:demo-seed` | demo seed 재생성 CLI | `core:network`, `domain:station`, `core:model` | 앱 런타임 의존 |
 | `benchmark` | 매크로벤치마크와 baseline profile | `app` | 기능 구현 |
 
 ## 경계가 헷갈릴 때 보는 기준
 
 - 새 설정 항목 추가:
-  `domain/settings/model/UserPreferences.kt` -> `core/datastore/*` -> `feature/settings/*`
+  `domain/settings/model/UserPreferences.kt` -> `core/datastore/*` storage DTO/serializer -> `data/settings/DefaultSettingsRepository.kt` mapper -> `feature/settings/*`
 - 설정 변경 호출 경로 변경:
   `domain/settings/usecase/*` -> `feature/settings/*` 또는 `feature/station-list/*`
 - 목록 정렬/필터 규칙 변경:

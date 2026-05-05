@@ -7,9 +7,3 @@ plugins {
 android {
     namespace = "com.gasstation.core.database"
 }
-
-dependencies {
-    testImplementation(libs.junit)
-    testImplementation(libs.androidx.test.core)
-    testImplementation(libs.robolectric)
-}

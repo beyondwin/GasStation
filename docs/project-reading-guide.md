@@ -77,7 +77,9 @@
 10. `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/UpdateMapProviderUseCase.kt`
 11. `domain/settings/src/main/kotlin/com/gasstation/domain/settings/usecase/UpdatePreferredSortOrderUseCase.kt`
 12. `domain/settings/src/main/kotlin/com/gasstation/domain/settings/model/UserPreferences.kt`
-13. `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
+13. `core/datastore/src/main/kotlin/com/gasstation/core/datastore/StoredUserPreferences.kt`
+14. `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesSerializer.kt`
+15. `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
 
 핵심은 설정 요약 화면과 상세 선택 화면이 같은 ViewModel을 공유한다는 점입니다.
 
@@ -115,7 +117,7 @@ watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심�
 - watchlist 비교 규칙을 바꾸려면:
   `data/station/DefaultStationRepository.kt`, `feature/watchlist/*`
 - 설정 항목을 바꾸려면:
-  `domain/settings/model/UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `feature/settings/*`
+  `domain/settings/model/UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `data/settings/DefaultSettingsRepository.kt`, `feature/settings/*`
 - 위치 경계를 바꾸려면:
   `domain/location/*`, `core/location/*`, `feature/station-list/*`
 - demo 재현 데이터를 바꾸려면:

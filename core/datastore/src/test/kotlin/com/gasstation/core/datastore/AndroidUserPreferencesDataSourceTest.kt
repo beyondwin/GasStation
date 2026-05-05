@@ -1,8 +1,6 @@
 package com.gasstation.core.datastore
 
 import androidx.datastore.core.DataStoreFactory
-import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.core.model.MapProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +27,7 @@ class AndroidUserPreferencesDataSourceTest {
             ),
         )
 
-        assertEquals(UserPreferences.default(), dataSource.userPreferences.first())
+        assertEquals(StoredUserPreferences.Default, dataSource.userPreferences.first())
 
         scope.job.cancelAndJoin()
     }
@@ -47,7 +45,7 @@ class AndroidUserPreferencesDataSourceTest {
         )
 
         firstDataSource.update { current ->
-            current.copy(mapProvider = MapProvider.NAVER_MAP)
+            current.copy(mapProviderName = "NAVER_MAP")
         }
         firstScope.job.cancelAndJoin()
 
@@ -61,8 +59,8 @@ class AndroidUserPreferencesDataSourceTest {
         )
 
         assertEquals(
-            MapProvider.NAVER_MAP,
-            secondDataSource.userPreferences.first().mapProvider,
+            "NAVER_MAP",
+            secondDataSource.userPreferences.first().mapProviderName,
         )
 
         secondScope.job.cancelAndJoin()

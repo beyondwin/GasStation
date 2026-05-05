@@ -1,11 +1,5 @@
 package com.gasstation.core.datastore
 
-import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.MapProvider
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,11 +15,11 @@ class UserPreferencesSerializerTest {
             ByteArrayInputStream("KM_4|DIESEL|GSC".encodeToByteArray()),
         )
 
-        assertEquals(UserPreferences.default(), decoded)
+        assertEquals(StoredUserPreferences.Default, decoded)
     }
 
     @Test
-    fun `readFrom ignores unknown fields in evolvable key value format`() = runBlocking {
+    fun `readFrom returns stored enum names from evolvable key value format`() = runBlocking {
         val decoded = UserPreferencesSerializer.readFrom(
             ByteArrayInputStream(
                 """
@@ -38,9 +32,9 @@ class UserPreferencesSerializerTest {
         )
 
         assertEquals(
-            UserPreferences.default().copy(
-                searchRadius = SearchRadius.KM_5,
-                sortOrder = SortOrder.PRICE,
+            StoredUserPreferences.Default.copy(
+                searchRadiusName = "KM_5",
+                sortOrderName = "PRICE",
             ),
             decoded,
         )
@@ -51,12 +45,12 @@ class UserPreferencesSerializerTest {
         val output = ByteArrayOutputStream()
 
         UserPreferencesSerializer.writeTo(
-            UserPreferences.default().copy(
-                searchRadius = SearchRadius.KM_4,
-                fuelType = FuelType.DIESEL,
-                brandFilter = BrandFilter.GSC,
-                sortOrder = SortOrder.PRICE,
-                mapProvider = MapProvider.NAVER_MAP,
+            StoredUserPreferences.Default.copy(
+                searchRadiusName = "KM_4",
+                fuelTypeName = "DIESEL",
+                brandFilterName = "GSC",
+                sortOrderName = "PRICE",
+                mapProviderName = "NAVER_MAP",
             ),
             output,
         )
