@@ -13,7 +13,7 @@
 코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
 
 ```bash
-git diff --check -- README.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/improvement-analysis.md
+git diff --check -- README.md AGENTS.md .impeccable.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/improvement-analysis.md
 ```
 
 문서 갱신이 이미 구현된 key handling, cleartext, backup, cache/event/state, location, brand label 계약을 설명한다면 아래 관련 테스트도 선택합니다.
@@ -104,6 +104,15 @@ demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.
 - seed를 적재한 목록 화면 진입
 - 북마크 저장
 - watchlist 화면 이동
+
+## 위치 Geocoder 기기 smoke
+
+API 33+ Geocoder callback path를 실제 기기나 에뮬레이터에서 확인합니다. Provider 출력은 환경별로 달라질 수 있으므로 test는 주소 문자열이 아니라 terminal domain result만 검증합니다.
+
+```bash
+./gradlew :core:location:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.core.location.AndroidAddressResolverDeviceTest
+```
 
 ## 성능/프로파일 확인
 

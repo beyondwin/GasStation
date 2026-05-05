@@ -8,9 +8,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:model"))
-    implementation(project(":domain:settings"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.core)
-    testImplementation(libs.junit)
 }

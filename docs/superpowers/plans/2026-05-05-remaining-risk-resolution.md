@@ -127,14 +127,19 @@ Expected: `BUILD SUCCESSFUL`.
 - The repository owner explicitly chooses either "no history rewrite" or "history rewrite".
 - No raw key is written to any repo file or shared terminal transcript.
 
-- [ ] **Step 1: Verify current tracked config/source files are clean**
+**2026-05-05 checkpoint:** Step 1 completed with a tracked filename-only scan: `tracked_assignment_matches=0`. Step 2 completed with redacted user-local property output: no `~/.gradle/gradle.properties` file exists, so no local `daum.apikey` or `opinet.apikey` line was observed. Steps 3-5 remain deferred to the external operator because Opinet provider access/password-manager material is unavailable in this agent session. Step 6 was not run because no current local `opinet.apikey` is installed. Step 7 remains pending until the repository owner explicitly chooses `no history rewrite` or `history rewrite`; no history rewrite preparation, replacement-file generation, or force push was run.
+
+- [x] **Step 1: Verify current tracked config/source files are clean**
 
 Run:
 
 ```bash
-rg -n --glob '!docs/**' --glob '!README.md' --glob '!**/build/**' \
+rg -l --glob '!docs/**' --glob '!README.md' --glob '!**/build/**' \
   -e '^(daum|opinet)\.apikey=[^[:space:]<].+' .
 rc=$?
+if [ "$rc" -eq 0 ]; then
+  exit 1
+fi
 if [ "$rc" -eq 1 ]; then
   exit 0
 fi
@@ -143,13 +148,13 @@ exit "$rc"
 
 Expected: exit `0` after `rg` returns no matches.
 
-- [ ] **Step 2: Check whether local user Gradle properties still contain stale keys**
+- [x] **Step 2: Check whether local user Gradle properties still contain stale keys**
 
 Run:
 
 ```bash
 if [ -f "$HOME/.gradle/gradle.properties" ]; then
-  grep -nE '^(daum|opinet)\.apikey=' "$HOME/.gradle/gradle.properties" || true
+  awk -F= '/^(daum|opinet)\.apikey=/ { print FNR ":" $1 "=<present>" }' "$HOME/.gradle/gradle.properties"
 else
   echo "No user Gradle properties file"
 fi
@@ -158,7 +163,7 @@ fi
 Expected:
 - `daum.apikey` is absent.
 - `opinet.apikey` may exist only as the current locally issued key.
-- Do not print the value in any shared report.
+- Do not print the value in terminal output or any shared report.
 
 - [ ] **Step 3: Revoke the exposed Opinet key**
 
@@ -184,7 +189,7 @@ if [ -f "$HOME/.gradle/gradle.properties" ]; then
 fi
 ```
 
-Expected: `grep -n '^daum\.apikey=' "$HOME/.gradle/gradle.properties"` prints nothing.
+Expected: `grep -q '^daum\.apikey=' "$HOME/.gradle/gradle.properties"` exits non-zero without printing a value.
 
 - [ ] **Step 5: Install the new Opinet key locally without writing it to the repo**
 
@@ -279,8 +284,8 @@ Stop rule:
 Run:
 
 ```bash
-git grep -n 'opinet\.apikey=' $(git rev-list --all) -- gradle.properties || true
-git grep -n 'daum\.apikey=' $(git rev-list --all) -- gradle.properties || true
+git grep -l 'opinet\.apikey=' $(git rev-list --all) -- gradle.properties || true
+git grep -l 'daum\.apikey=' $(git rev-list --all) -- gradle.properties || true
 rm -f /tmp/gasstation-secret-replacements.txt
 ```
 
@@ -305,6 +310,7 @@ Expected: remote history is replaced and every active branch is reconciled.
 **Classification:** Repo-local code plus device-dependent verification.
 
 **Files:**
+- Modify: `gradle/libs.versions.toml`
 - Modify: `core/location/build.gradle.kts`
 - Create: `core/location/src/androidTest/kotlin/com/gasstation/core/location/AndroidAddressResolverDeviceTest.kt`
 - Modify: `docs/test-strategy.md`
@@ -317,7 +323,9 @@ Expected: remote history is replaced and every active branch is reconciled.
 - The test skips cleanly on API < 33 or when `Geocoder.isPresent()` is false.
 - Unit tests still cover exact callback success/error/cancellation behavior.
 
-- [ ] **Step 1: Add Android instrumented test dependencies**
+**2026-05-05 checkpoint:** Steps 1-7 completed. Step 5 initially failed before JUnit execution on connected API 33 device `SM-G986N - 13` because `androidx.test.runner.AndroidJUnitRunner` was not present in the test APK runtime classpath. `androidx.test:runner` was added as the minimal local androidTest runtime dependency, after which the connected smoke command completed with `BUILD SUCCESSFUL` on the same device.
+
+- [x] **Step 1: Add Android instrumented test dependencies**
 
 Patch `core/location/build.gradle.kts`:
 
@@ -333,13 +341,14 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
 }
 ```
 
-Expected: the new `androidTestImplementation` lines are the only dependency additions.
+Expected: the new `androidTestImplementation` lines and the `androidx-test-runner` version-catalog alias are the only dependency additions.
 
-- [ ] **Step 2: Add the device smoke test**
+- [x] **Step 2: Add the device smoke test**
 
 Create `core/location/src/androidTest/kotlin/com/gasstation/core/location/AndroidAddressResolverDeviceTest.kt`:
 
@@ -383,7 +392,7 @@ class AndroidAddressResolverDeviceTest {
 }
 ```
 
-- [ ] **Step 3: Verify unit behavior before device verification**
+- [x] **Step 3: Verify unit behavior before device verification**
 
 Run:
 
@@ -395,7 +404,7 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Verify the connected device task surface**
+- [x] **Step 4: Verify the connected device task surface**
 
 Run:
 
@@ -407,7 +416,7 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `connectedDebugAndroidTest` or an equivalent connected test task is listed.
 
-- [ ] **Step 5: Run the smoke test on API 33+**
+- [x] **Step 5: Run the smoke test on API 33+**
 
 Run with an emulator or device connected:
 
@@ -425,7 +434,7 @@ Expected:
 Stop rule:
 - If no device is connected, record `not run: requires connected API 33+ device/emulator` and keep the code behind unit tests until a device run is available.
 
-- [ ] **Step 6: Update docs**
+- [x] **Step 6: Update docs**
 
 Update `docs/test-strategy.md` under `core:location`:
 
@@ -440,12 +449,12 @@ Update `docs/verification-matrix.md` under 기기 기반 UI 확인 or a new loca
   -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.core.location.AndroidAddressResolverDeviceTest
 ```
 
-- [ ] **Step 7: Final verification**
+- [x] **Step 7: Final verification**
 
 Run:
 
 ```bash
-git diff --check -- core/location/build.gradle.kts core/location/src/androidTest/kotlin/com/gasstation/core/location/AndroidAddressResolverDeviceTest.kt docs/test-strategy.md docs/verification-matrix.md docs/improvement-analysis.md
+git diff --check -- gradle/libs.versions.toml core/location/build.gradle.kts core/location/src/androidTest/kotlin/com/gasstation/core/location/AndroidAddressResolverDeviceTest.kt docs/test-strategy.md docs/verification-matrix.md docs/improvement-analysis.md docs/superpowers/plans/2026-05-05-remaining-risk-resolution.md
 ANDROID_HOME="$HOME/Library/Android/sdk" \
 ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 ./gradlew :core:location:testDebugUnitTest
@@ -473,7 +482,9 @@ Expected: `git diff --check` passes and Gradle prints `BUILD SUCCESSFUL`.
 - No new third-party libraries are introduced.
 - All affected module tests pass.
 
-- [ ] **Step 1: Inventory current duplicated test dependencies**
+**2026-05-05 checkpoint:** Task-local branch creation was deferred because this worktree already contains uncommitted Task 0-2 integration changes and switching/stashing would risk disturbing that dirty integration state. Steps 1-9 completed. Verification completed with `:build-logic:convention:compileKotlin`, the affected module test set in Step 8, and `git diff --check`.
+
+- [x] **Step 1: Inventory current duplicated test dependencies**
 
 Run:
 
@@ -487,7 +498,7 @@ Expected current duplicate groups:
 - `libs.robolectric` in Android resource or Compose test modules.
 - Compose test BOM, `androidx-ui-test-junit4`, `androidx-ui-tooling`, `androidx-ui-test-manifest` in Compose feature modules.
 
-- [ ] **Step 2: Add Android library baseline test dependencies**
+- [x] **Step 2: Add Android library baseline test dependencies**
 
 Patch `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryConventionPlugin.kt` inside `dependencies { ... }`:
 
@@ -503,7 +514,7 @@ dependencies {
 
 Expected: non-Compose Android library modules no longer need local `junit`, `kotlinx-coroutines-test`, `androidx-test-core`, or `robolectric` declarations.
 
-- [ ] **Step 3: Add Compose library test dependencies**
+- [x] **Step 3: Add Compose library test dependencies**
 
 Patch `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryComposeConventionPlugin.kt`:
 
@@ -511,7 +522,6 @@ Patch `build-logic/convention/src/main/kotlin/GasStationAndroidLibraryComposeCon
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.platform
 ```
 
 Then update `apply`:
@@ -542,7 +552,7 @@ class GasStationAndroidLibraryComposeConventionPlugin : Plugin<Project> {
 
 Expected: feature Compose modules no longer need local Compose test/debug dependency declarations.
 
-- [ ] **Step 4: Remove duplicated Android library test dependencies**
+- [x] **Step 4: Remove duplicated Android library test dependencies**
 
 Remove these lines where present:
 
@@ -565,10 +575,10 @@ testImplementation(project(":core:model"))
 
 Expected:
 - `core/location/build.gradle.kts` keeps `app.cash.turbine`; removes duplicated baseline dependencies.
-- `core/network/build.gradle.kts` keeps `mockwebserver` and `kotlinx.coroutines.core`; removes `junit`.
+- `core/network/build.gradle.kts` is a JVM-only module and remains outside this Android library convention cleanup.
 - `data/station/build.gradle.kts` keeps `kotlin.test`; removes duplicated `junit` and `kotlinx.coroutines.test` if supplied by convention.
 
-- [ ] **Step 5: Remove duplicated Compose library test dependencies**
+- [x] **Step 5: Remove duplicated Compose library test dependencies**
 
 In `feature/station-list/build.gradle.kts`, `feature/settings/build.gradle.kts`, `feature/watchlist/build.gradle.kts`, and `core/designsystem/build.gradle.kts`, remove local declarations now supplied by the Compose library convention:
 
@@ -586,7 +596,7 @@ Keep `testImplementation(libs.app.cash.turbine)` in modules that use Turbine.
 
 Expected: feature modules retain implementation dependencies and module-specific test dependencies only.
 
-- [ ] **Step 6: Do not over-normalize app module dependencies**
+- [x] **Step 6: Do not over-normalize app module dependencies**
 
 Leave `app/build.gradle.kts` local test dependencies in place unless a second application convention task is explicitly created:
 
@@ -600,7 +610,7 @@ kspAndroidTest(libs.hilt.android.compiler)
 
 Reason: app has Hilt/flavor-specific test wiring and is the only application module.
 
-- [ ] **Step 7: Verify convention plugin compilation**
+- [x] **Step 7: Verify convention plugin compilation**
 
 Run:
 
@@ -612,7 +622,7 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 8: Verify all affected tests**
+- [x] **Step 8: Verify all affected tests**
 
 Run:
 
@@ -641,7 +651,7 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 9: Update backlog status**
+- [x] **Step 9: Update backlog status**
 
 In `docs/improvement-analysis.md`, mark `2-5 테스트 컨벤션 플러그인` complete only after Step 8 passes. Include the convention owner and the verification command.
 
@@ -664,7 +674,9 @@ In `docs/improvement-analysis.md`, mark `2-5 테스트 컨벤션 플러그인` c
 - `GasStationTheme` remains a theme provider and no longer mutates the Activity window.
 - Yellow/black/white identity and splash resources remain intact.
 
-- [ ] **Step 1: Write a source-level regression test**
+**Task 4 checkpoint:** Task-local branch creation was deferred because the integration worktree already had uncommitted completed Task 0-3 changes. No branch switch, stash, reset, or revert was performed.
+
+- [x] **Step 1: Write a source-level regression test**
 
 Create `app/src/test/java/com/gasstation/SystemBarPolicyTest.kt`:
 
@@ -684,6 +696,9 @@ class SystemBarPolicyTest {
 
         assertTrue(mainActivity.contains("enableEdgeToEdge("))
         assertTrue(mainActivity.contains("SystemBarStyle"))
+        assertTrue(mainActivity.contains("useDarkIcons"))
+        assertTrue(mainActivity.contains("SystemBarStyle.light("))
+        assertTrue(mainActivity.contains("SystemBarStyle.dark("))
     }
 
     @Test
@@ -695,9 +710,13 @@ class SystemBarPolicyTest {
         assertFalse(theme.contains("@Suppress(\"DEPRECATION\")"))
     }
 
-    private fun projectFile(path: String): File =
-        File(path).takeIf(File::exists)
-            ?: error("Could not find project file: $path")
+    private fun projectFile(path: String): File {
+        val workingDirectory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        return generateSequence(workingDirectory) { it.parentFile }
+            .map { File(it, path) }
+            .firstOrNull(File::exists)
+            ?: error("Could not find project file: $path from $workingDirectory")
+    }
 }
 ```
 
@@ -711,7 +730,9 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected before implementation: failure because `MainActivity` does not call `enableEdgeToEdge` and `Theme.kt` still contains `statusBarColor`.
 
-- [ ] **Step 2: Move system bar setup to MainActivity**
+Actual before implementation: after making the file lookup robust for Gradle's test working directory, `:app:testDemoDebugUnitTest --tests com.gasstation.SystemBarPolicyTest` failed on the intended assertions: `MainActivity` lacked `enableEdgeToEdge`/`SystemBarStyle`, and `Theme.kt` still contained `statusBarColor`.
+
+- [x] **Step 2: Move system bar setup to MainActivity**
 
 Patch `app/src/main/java/com/gasstation/MainActivity.kt`:
 
@@ -725,6 +746,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.graphics.toArgb
 import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.GasStationStatusBarStyle
 import com.gasstation.core.designsystem.GasStationThemeDefaults
 import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.navigation.GasStationNavHost
@@ -752,16 +774,28 @@ class MainActivity : ComponentActivity() {
     private fun applySystemBars() {
         val statusBarStyle = GasStationThemeDefaults.statusBarStyle
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(statusBarStyle.backgroundColor.toArgb()),
-            navigationBarStyle = SystemBarStyle.dark(statusBarStyle.backgroundColor.toArgb()),
+            statusBarStyle = statusBarStyle.toSystemBarStyle(),
+            navigationBarStyle = statusBarStyle.toSystemBarStyle(),
         )
+    }
+
+    private fun GasStationStatusBarStyle.toSystemBarStyle(): SystemBarStyle {
+        val backgroundColor = backgroundColor.toArgb()
+        return if (useDarkIcons) {
+            SystemBarStyle.light(
+                scrim = backgroundColor,
+                darkScrim = backgroundColor,
+            )
+        } else {
+            SystemBarStyle.dark(backgroundColor)
+        }
     }
 }
 ```
 
 Expected: system chrome policy is app-owned.
 
-- [ ] **Step 3: Remove window mutation from GasStationTheme**
+- [x] **Step 3: Remove window mutation from GasStationTheme**
 
 Patch `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/Theme.kt` by removing these imports:
 
@@ -787,7 +821,7 @@ Delete the `LocalView` and `SideEffect` block that writes `window.statusBarColor
 
 Expected: `GasStationTheme` only computes and provides Material/designsystem theme values.
 
-- [ ] **Step 4: Verify tests and resources**
+- [x] **Step 4: Verify tests and resources**
 
 Run:
 
@@ -804,7 +838,9 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Visual smoke check**
+Actual verification: `ANDROID_HOME="$HOME/Library/Android/sdk" ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" ./gradlew :app:testDemoDebugUnitTest --tests com.gasstation.SystemBarPolicyTest :core:designsystem:testDebugUnitTest :app:testDemoDebugUnitTest :app:assembleDemoDebug :app:assembleProdDebug` returned `BUILD SUCCESSFUL`.
+
+- [x] **Step 5: Visual smoke check**
 
 Install `demoDebug` on an emulator and open the station list:
 
@@ -818,6 +854,8 @@ Expected:
 - Status bar text/icons remain readable.
 - Splash and first screen keep yellow/black/white identity.
 - Price remains the first station-card reading target.
+
+Actual smoke: `Pixel_9` emulator booted, `./gradlew :app:installDemoDebug` returned `BUILD SUCCESSFUL`, `com.gasstation.demo/com.gasstation.MainActivity` launched, and screenshot smoke confirmed readable white status-bar icons on black chrome, yellow/black/white first screen, and price-first station cards. Screenshot: `app/build/reports/task4-system-bars-smoke.png`.
 
 Stop rule:
 - If edge-to-edge changes cause content overlap with status/navigation bars, revert Task 4 and create a separate UI layout padding task.
@@ -844,7 +882,20 @@ Stop rule:
 - UI semantics and test tags are preserved.
 - No broad visual redesign is bundled into this cleanup.
 
-- [ ] **Step 1: Inventory user-visible strings**
+**Task 5 checkpoint:** Task-local branch creation was deferred because this
+worktree already contains uncommitted completed Task 0-4 integration changes on
+`codex/improvement-backlog`; no branch switch, stash, reset, revert, or commit
+was performed. Steps 1-7 completed as cleanup/review. No app string, feature
+copy, or visual token was moved: `app_name` was already app-owned in
+`app/src/main/res/values/strings.xml`, feature-local Compose copy has no feature
+resource strategy yet, shared brand/filter labels remain in `core:designsystem`,
+and app XML launcher/splash colors remain app-owned Android launch chrome.
+`9-1/9-2` are marked partially handled for Task 5 cleanup/review only because
+the broader dark-mode semantic-role migration and feature resource strategy
+remain separate work. Verification completed with the required UI test command
+and `git diff --check`.
+
+- [x] **Step 1: Inventory user-visible strings**
 
 Run:
 
@@ -866,7 +917,7 @@ Classify each hit:
 | log/debug text | No | Not user-visible UI. |
 | `core:designsystem` generic component copy | Only if generic | Do not add feature-specific copy. |
 
-- [ ] **Step 2: Inventory duplicated theme/token values**
+- [x] **Step 2: Inventory duplicated theme/token values**
 
 Run:
 
@@ -887,7 +938,7 @@ Classify each hit:
 | Color tokens used by Compose UI | `core:designsystem` owns. |
 | Feature spacing/layout values | Feature owns unless already shared as a primitive. |
 
-- [ ] **Step 3: Move only app-owned strings**
+- [x] **Step 3: Move only app-owned strings**
 
 Patch `app/src/main/res/values/strings.xml` only for app-level strings:
 
@@ -899,7 +950,7 @@ Patch `app/src/main/res/values/strings.xml` only for app-level strings:
 
 Expected: do not add station-list, settings, or watchlist screen copy here unless Android resource ownership for that feature is introduced in the same task.
 
-- [ ] **Step 4: Preserve feature-local UI copy**
+- [x] **Step 4: Preserve feature-local UI copy**
 
 If `rg` finds feature strings such as button labels, empty states, or guidance text, leave them in the feature module unless the feature already has a resource strategy. Add a note to `docs/improvement-analysis.md` for any remaining feature-local copy:
 
@@ -909,11 +960,11 @@ Feature-local Compose strings remain in feature modules until each feature owns 
 
 Expected: module boundaries stay intact.
 
-- [ ] **Step 5: Preserve visual token ownership**
+- [x] **Step 5: Preserve visual token ownership**
 
 Do not move `ColorYellow`, spacing, typography, or corner/stroke values out of `core:designsystem`. If duplicate XML theme colors exist only for launcher/splash resources, keep them in app resources and document that they are Android launch chrome, not Compose tokens.
 
-- [ ] **Step 6: Verify UI tests**
+- [x] **Step 6: Verify UI tests**
 
 Run:
 
@@ -930,7 +981,7 @@ ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Update docs**
+- [x] **Step 7: Update docs**
 
 In `docs/test-strategy.md`, add a short rule under UI regression risk:
 
@@ -938,7 +989,7 @@ In `docs/test-strategy.md`, add a short rule under UI regression risk:
 Theme/string cleanup must not move feature-owned user copy into `app` or `core:designsystem`; screen semantics and test tags remain the regression guard.
 ```
 
-Mark `9-1/9-2` complete in `docs/improvement-analysis.md` only if Step 6 passes and every moved string/token has an owner rationale.
+Record `9-1/9-2` as complete only if this task actually moves every in-scope string/token and verifies the broader dark-mode/resource ownership criteria. If the task only inventories and preserves current ownership, leave `9-1/9-2` as partial cleanup/review with the remaining work stated explicitly.
 
 ---
 
@@ -948,6 +999,7 @@ Mark `9-1/9-2` complete in `docs/improvement-analysis.md` only if Step 6 passes 
 
 **Files:**
 - Modify: `core/datastore/build.gradle.kts`
+- Modify: `domain/settings/build.gradle.kts`
 - Create: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/StoredUserPreferences.kt`
 - Modify: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`
 - Modify: `core/datastore/src/main/kotlin/com/gasstation/core/datastore/AndroidUserPreferencesDataSource.kt`
@@ -967,7 +1019,9 @@ Mark `9-1/9-2` complete in `docs/improvement-analysis.md` only if Step 6 passes 
 - `domain:settings` public model and use cases stay unchanged.
 - Settings tests pass across domain, datastore, data, and feature modules.
 
-- [ ] **Step 1: Verify current dependency direction**
+**Task 6 checkpoint:** Task-local branch creation was deferred because the integration worktree already had uncommitted completed Task 0-5 changes. Baseline dependency verification showed `core:datastore` had `project :domain:settings` in `debugRuntimeClasspath`. Steps 1-9 completed. During verification, `data:settings` mapping initially failed to compile because `domain:settings` exposed `UserPreferences` enum types from `core:model` while declaring `core:model` as an implementation dependency. The fix was to publish `core:model` as `domain:settings` API, preserving the `data:settings -> domain:settings + core:datastore` contract without adding a direct production `data:settings -> core:model` dependency. Dependency verification now finds no `domain:settings` in `core:datastore`, and settings tests pass.
+
+- [x] **Step 1: Verify current dependency direction**
 
 Run:
 
@@ -980,7 +1034,7 @@ rg -n 'domain:settings|project :domain:settings' /tmp/core-datastore-deps.txt
 
 Expected before refactor: `domain:settings` appears in `core:datastore` dependencies.
 
-- [ ] **Step 2: Create storage DTO**
+- [x] **Step 2: Create storage DTO**
 
 Create `core/datastore/src/main/kotlin/com/gasstation/core/datastore/StoredUserPreferences.kt`:
 
@@ -1008,7 +1062,7 @@ data class StoredUserPreferences(
 
 Expected: DTO has no dependency on `domain:settings`.
 
-- [ ] **Step 3: Change DataStore type to storage DTO**
+- [x] **Step 3: Change DataStore type to storage DTO**
 
 Patch `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataSource.kt`:
 
@@ -1045,7 +1099,7 @@ class AndroidUserPreferencesDataSource(
 }
 ```
 
-- [ ] **Step 4: Update serializer**
+- [x] **Step 4: Update serializer**
 
 Patch `UserPreferencesSerializer.kt` to serialize `StoredUserPreferences`:
 
@@ -1116,7 +1170,7 @@ object UserPreferencesSerializer : Serializer<StoredUserPreferences> {
 }
 ```
 
-- [ ] **Step 5: Update Hilt module and Gradle dependencies**
+- [x] **Step 5: Update Hilt module and Gradle dependencies**
 
 Patch `core/datastore/src/main/kotlin/com/gasstation/core/datastore/UserPreferencesDataStoreModule.kt`:
 
@@ -1163,13 +1217,14 @@ Patch `core/datastore/build.gradle.kts` so the dependency block becomes:
 dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.core)
-    testImplementation(libs.junit)
 }
 ```
 
 Expected: `core:datastore` no longer depends on `core:model` or `domain:settings`.
 
-- [ ] **Step 6: Map in data settings**
+Also patch `domain/settings/build.gradle.kts` so `core:model` is an `api` dependency, because `UserPreferences` exposes `core:model` enum types as part of the domain settings public model.
+
+- [x] **Step 6: Map in data settings**
 
 Patch `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`:
 
@@ -1230,7 +1285,7 @@ private inline fun <reified T : Enum<T>> enumOrDefault(value: String, default: T
 
 Expected: storage decode accepts unknown enum names by falling back at the data repository boundary.
 
-- [ ] **Step 7: Update tests**
+- [x] **Step 7: Update tests**
 
 Update `UserPreferencesSerializerTest` to assert `StoredUserPreferences.Default` and raw stored names.
 
@@ -1272,7 +1327,7 @@ private class FakeUserPreferencesDataSource(
 }
 ```
 
-- [ ] **Step 8: Verify dependency direction and settings tests**
+- [x] **Step 8: Verify dependency direction and settings tests**
 
 Run:
 
@@ -1288,7 +1343,7 @@ Expected:
 - `rg` finds no `domain:settings` dependency in `core:datastore`.
 - Gradle prints `BUILD SUCCESSFUL`.
 
-- [ ] **Step 9: Update module docs**
+- [x] **Step 9: Update module docs**
 
 Patch `docs/module-contracts.md`:
 
@@ -1312,9 +1367,12 @@ Run after any two or more tasks from this plan are integrated:
 
 ```bash
 git diff --check
-rg -n --glob '!docs/**' --glob '!README.md' --glob '!**/build/**' \
+rg -l --glob '!docs/**' --glob '!README.md' --glob '!**/build/**' \
   -e '^(daum|opinet)\.apikey=[^[:space:]<].+' .
 rc=$?
+if [ "$rc" -eq 0 ]; then
+  exit 1
+fi
 if [ "$rc" -eq 1 ]; then
   true
 else

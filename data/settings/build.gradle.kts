@@ -11,5 +11,4 @@ dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":domain:settings"))
     testImplementation(project(":core:model"))
-    testImplementation(libs.junit)
 }

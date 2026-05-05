@@ -1,10 +1,9 @@
 package com.gasstation.core.datastore
 
-import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
 interface UserPreferencesDataSource {
-    val userPreferences: Flow<UserPreferences>
+    val userPreferences: Flow<StoredUserPreferences>
 
-    suspend fun update(transform: (UserPreferences) -> UserPreferences)
+    suspend fun update(transform: (StoredUserPreferences) -> StoredUserPreferences)
 }

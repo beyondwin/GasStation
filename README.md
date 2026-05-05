@@ -66,9 +66,8 @@ flowchart LR
     dstation --> cdb["core:database"]
     dstation --> cnet["core:network"]
     dstation --> cmodel["core:model"]
+    dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
-    cstore --> domSettings
-    cstore --> cmodel
     cnet --> cmodel
     cdesign --> cmodel
     clocation --> domLocation
@@ -121,12 +120,14 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 - [디자인 컨텍스트](.impeccable.md): 포트폴리오/review 성격, yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 - [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
+- [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
 - [모듈 계약](docs/module-contracts.md): 각 모듈의 소유 범위와 변경 경계를 고정합니다.
 - [상태 모델](docs/state-model.md): 영속 상태, 세션 상태, 읽기 모델, UI effect를 구분해 설명합니다.
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
+- [개선 분석](docs/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
 - `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다.
 
 ## 검증

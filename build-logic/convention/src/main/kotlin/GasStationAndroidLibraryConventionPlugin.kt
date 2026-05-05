@@ -48,6 +48,10 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
 
         dependencies {
             add("coreLibraryDesugaring", libs.findLibrary("android-desugarJdkLibs").get())
+            add("testImplementation", libs.findLibrary("junit").get())
+            add("testImplementation", libs.findLibrary("kotlinx-coroutines-test").get())
+            add("testImplementation", libs.findLibrary("androidx-test-core").get())
+            add("testImplementation", libs.findLibrary("robolectric").get())
         }
     }
 }

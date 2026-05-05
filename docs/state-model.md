@@ -23,6 +23,8 @@
 - 저장소 구현: `data:settings`
 - 사용 위치: 목록 조회 파이프라인, 설정 화면, 외부 지도 선택
 
+`core:datastore`는 domain model을 직접 저장하지 않고 `StoredUserPreferences` string DTO를 직렬화합니다. `data:settings`가 이 storage DTO를 domain `UserPreferences`로 매핑하고, 알 수 없는 enum name은 domain default로 되돌립니다.
+
 포함하는 값:
 
 - `searchRadius`
