@@ -36,6 +36,8 @@
 | prod는 어디서 달라지나 | `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`, `app/build.gradle.kts` |
 | 외부 지도 연동은 어디 있나 | `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt` |
 | 이벤트 로그 계약은 어디 있나 | `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt` |
+| 현재 완료된 개선과 조건부 backlog는 어디서 보나 | `docs/deep-analysis-report.md`, `docs/improvement-analysis.md` |
+| CI와 로컬 검증 명령의 기준은 어디서 보나 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
 
 ## 권장 코드 읽기 순서
 
