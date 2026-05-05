@@ -20,7 +20,7 @@ GasStation은 17개 활성 Gradle 모듈로 구성된 Android 멀티모듈 refer
 - Kotlin `2.3.20`, KSP `2.3.7`, AGP `9.1.1`, Compose BOM `2026.03.01`, Java 17 toolchain
 - `compileSdk 35`, `minSdk 24`, `targetSdk 35`
 - Room DB version 5, 4개의 explicit migration
-- `docs/improvement-analysis.md` 항목 26개 중 19개 완료, 7개 남은 backlog
+- 이번 pass 이후 `docs/improvement-analysis.md`의 즉시/단기 backlog는 줄었고, 조건부 항목은 별도 판단 대상으로 남아 있습니다.
 
 ### 강점 요약
 
@@ -38,10 +38,10 @@ GasStation은 17개 활성 Gradle 모듈로 구성된 Android 멀티모듈 refer
 
 | 판정 | 항목 | 이유 |
 | --- | --- | --- |
-| 실행 필요 | `proj4j` version catalog 등록 | 실제 코드에 하드코딩 의존성이 남아 있고, 변경 범위가 작으며 dependency 감사 일관성이 좋아집니다. |
-| 실행 필요 | CI workflow와 `verification-matrix.md` 동기화 | 현재 CI는 `:core:model:test`, `:app:testProdDebugUnitTest`는 이미 포함하지만 `:domain:location:test`, `:tools:demo-seed:test`는 빠져 있습니다. release assemble 추가는 별도 비용 판단이 필요합니다. |
-| 실행 필요 | `MainDispatcherRule` 도입 | `feature:station-list` 테스트에 `Dispatchers.setMain/resetMain` 반복이 매우 많아 유지보수 비용이 실제로 큽니다. `feature:settings`, `feature:watchlist`에도 같은 패턴이 있습니다. |
-| 실행 필요 | watchlist ASCII test tag 분리 | `WATCHLIST_DISTANCE_METRIC_TAG = "관심 주유소 거리 지표"`가 실제로 남아 있어 selector와 접근성 텍스트가 섞입니다. 작은 변경으로 테스트 안정성이 좋아집니다. |
+| 완료됨 | `proj4j` version catalog 등록 | `proj4j`는 `gradle/libs.versions.toml`의 version/library alias로 이동했고 `core/network/build.gradle.kts`는 `implementation(libs.proj4j)`를 사용합니다. 검증: `:core:network:test` 통과. |
+| 완료됨 | CI workflow와 `verification-matrix.md` 동기화 | GitHub Actions `Verification Matrix`가 live source of truth인 `docs/verification-matrix.md`의 머지 전 범위에 맞춰 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`를 포함합니다. aggregate `:app:assembleDebug`와 release assemble은 포함하지 않습니다. 검증: workflow-equivalent Gradle command 통과. |
+| 완료됨 | `MainDispatcherRule` 도입 | `feature:station-list` 테스트의 `Dispatchers.setMain/resetMain` 반복을 `MainDispatcherRule`로 중앙화했습니다. 검증: `:feature:station-list:testDebugUnitTest` 통과. |
+| 완료됨 | watchlist ASCII test tag 분리 | watchlist selector는 `watchlist-card`, `watchlist-distance-metric` ASCII tag를 사용하고 한글 accessibility content description은 유지합니다. 검증: `:feature:watchlist:testDebugUnitTest` 통과. |
 | 조건부 실행 | `values-night-v31/themes.xml` splash 추가 | 다크 모드 품질을 포트폴리오 평가 범위로 본다면 필요합니다. 앱이 light-only를 명시적으로 선택한다면 필수는 아닙니다. |
 | 조건부 실행 | Gradle parallel/build cache 활성화 | correctness 문제가 아니라 개발 속도 문제입니다. 먼저 baseline 시간을 재고, 실패 task가 없을 때만 켭니다. `configuration-cache`는 별도 검증 전까지 보류합니다. |
 | 조건부 실행 | backend proxy | 공개 배포, quota 비용, key abuse 리스크를 감수하는 순간 필요합니다. 현재 portfolio/reference 앱으로만 유지한다면 문서화된 한계 수용으로 충분합니다. |
@@ -122,7 +122,7 @@ ViewModel은 `combine(...)`만 호출하고 reducer를 그대로 위임합니다
 
 ### 개선점
 
-1. **한글 test tag.** `WatchlistSemantics.kt`의 `WATCHLIST_DISTANCE_METRIC_TAG = "관심 주유소 거리 지표"`처럼 content description과 test tag가 섞여 있어 selector 안정성이 약합니다. 이 항목은 작고 명확하므로 실행 가치가 있습니다.
+1. **한글 test tag 분리 완료.** `WatchlistSemantics.kt`는 `watchlist-card`, `watchlist-distance-metric` ASCII selector와 `WATCHLIST_CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"` 접근성 텍스트를 분리합니다. `:feature:watchlist:testDebugUnitTest`가 통과했습니다.
 2. **`LegacyCloseIcon`/`WatchlistCloseIcon` 중복 Canvas 코드.** 두 feature가 동일한 close 아이콘을 보유합니다. 중복은 사실이지만 화면 수가 둘뿐이라 test tag 정리보다 우선순위는 낮습니다.
 3. **`StationListScreen.kt` 950+ 라인.** 읽기 비용은 있지만 제품 결함은 아닙니다. 화면 변경이 생길 때 card/state block 단위로 점진 분리하는 정도가 적절합니다.
 4. **`DefaultStationRepository.toBrand()` 내부 fallback이 silent.** `String.toBrand(): Brand = Brand.entries.firstOrNull { it.name == this } ?: Brand.ETC`. Opinet 응답 코드 변경 감지를 강화할 수 있지만, 지금 이를 위해 새 logging 의존성을 data 계층에 넣을 필요는 없습니다.
@@ -131,23 +131,18 @@ ViewModel은 `combine(...)`만 호출하고 reducer를 그대로 위임합니다
 
 ### 구체적 제안
 
-`WatchlistSemantics.kt`에 ASCII test tag 분리:
+`WatchlistSemantics.kt`의 ASCII test tag 분리 결과:
 
 ```kotlin
 // feature/watchlist/src/main/kotlin/.../WatchlistSemantics.kt
-object WatchlistSemantics {
-    const val CARD_TEST_TAG = "watchlist-card"
-    const val DISTANCE_METRIC_TEST_TAG = "watchlist-distance-metric"
-    const val PRICE_METRIC_TEST_TAG = "watchlist-price-metric"
-
-    // 접근성 텍스트는 별도 const로 유지
-    const val CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"
-}
+const val WATCHLIST_CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"
+const val WATCHLIST_CARD_TEST_TAG = "watchlist-card"
+const val WATCHLIST_DISTANCE_METRIC_TAG = "watchlist-distance-metric"
 ```
 
 `Brand.fromCode()` factory는 지금 필수 작업이 아닙니다. 구현한다면 `Brand` enum에 companion object를 명시적으로 추가하거나 data 계층의 mapper 함수로 유지해야 합니다. unknown brand 관측이 필요해지는 시점에는 `domain:station`의 event/logger 계약을 통해 알리고, 단순히 `data:station`에 새 logging 의존성을 추가하지 않습니다.
 
-**비즈니스 임팩트:** UI test selector를 한글에서 ASCII로 바꾸면 IDE 검색·refactor 도구 안정성이 좋아지고, 접근성 텍스트 변경과 테스트 selector 변경을 분리할 수 있습니다.
+**비즈니스 임팩트:** UI test selector를 한글에서 ASCII로 바꿔 IDE 검색·refactor 도구 안정성이 좋아지고, 접근성 텍스트 변경과 테스트 selector 변경을 분리했습니다.
 
 ---
 
@@ -172,15 +167,15 @@ object WatchlistSemantics {
 
 ### 개선점
 
-1. **`StationListViewModelTest`의 `Dispatchers.setMain`/`resetMain` 반복.** JUnit4 `MainDispatcherRule` 부재.
-2. **CI workflow와 verification-matrix 권장 세트 불일치.** 현재 CI에는 `:core:model:test`, `:app:testProdDebugUnitTest`가 이미 포함되어 있습니다. 실제 누락은 `:domain:location:test`, `:tools:demo-seed:test`이고, release assemble은 비용 대비 효과를 별도로 판단해야 합니다.
+1. **`StationListViewModelTest`의 `Dispatchers.setMain`/`resetMain` 반복 해소.** JUnit4 `MainDispatcherRule`이 `feature:station-list` test infra에 추가됐고 `:feature:station-list:testDebugUnitTest`가 통과했습니다.
+2. **CI workflow와 verification-matrix 권장 세트 동기화.** 현재 CI에는 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`가 포함되어 있습니다. workflow-equivalent Gradle command가 통과했고, release assemble은 비용 대비 효과를 별도로 판단해야 합니다.
 3. **`prodRelease`/`demoRelease` assemble이 CI에 없음.** `isMinifyEnabled = true` 활성화 후 R8 회귀를 자동으로 잡고 싶다면 필요합니다. 모든 PR에서 돌릴지, release/minify 관련 변경에서만 돌릴지는 CI 시간 기준으로 결정합니다.
 4. **screenshot/UI snapshot 테스트 미도입.** station card price-first hierarchy를 시각적으로 보호할 수 있지만, 현재 단위/Compose 테스트가 이미 넓어 즉시 필수는 아닙니다.
 5. **watchlist silent-discard 경로는 이미 테스트가 있음.** `WatchlistRepositoryTest`에 `observeWatchlist drops watched entries with no last known snapshot or history`가 존재하므로 새 P1 작업이 아닙니다.
 
 ### 구체적 제안
 
-CI 강화 (`.github/workflows/android.yml`):
+CI 강화 (`.github/workflows/android.yml`) 결과:
 
 ```yaml
 - name: Verification Matrix
@@ -208,12 +203,12 @@ CI 강화 (`.github/workflows/android.yml`):
       :benchmark:assemble
 ```
 
-`demoRelease`/`prodRelease` assemble은 R8 검증을 CI 기본값으로 끌어올릴지 결정한 뒤 추가합니다. 빠른 PR feedback을 우선하면 기본 CI에는 위 누락분만 보강하고, release assemble은 머지 전 또는 release 관련 변경에서만 실행해도 됩니다.
+이 matrix는 live source of truth인 `docs/verification-matrix.md`의 머지 전 권장 회귀 세트에 맞춰졌습니다. `:app:testProdDebugUnitTest`는 포함하고, aggregate `:app:assembleDebug`와 `demoRelease`/`prodRelease` assemble은 포함하지 않습니다. release assemble은 R8 검증을 CI 기본값으로 끌어올릴지 결정한 뒤 추가합니다.
 
-`MainDispatcherRule` 도입:
+`MainDispatcherRule` 도입 결과:
 
 ```kotlin
-// feature/station-list/src/test/.../testing/MainDispatcherRule.kt
+// feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/MainDispatcherRule.kt
 class MainDispatcherRule(
     val dispatcher: TestDispatcher = StandardTestDispatcher(),
 ) : TestWatcher() {
@@ -222,7 +217,7 @@ class MainDispatcherRule(
 }
 ```
 
-**비즈니스 임팩트:** CI는 문서가 약속한 demo/prod 회귀 범위와 맞아지고, dispatcher rule은 테스트의 반복 boilerplate를 줄입니다. 이미 존재하는 watchlist silent-discard 테스트는 유지 대상으로만 봅니다.
+**비즈니스 임팩트:** CI는 문서가 약속한 demo/prod 회귀 범위와 맞아졌고, dispatcher rule은 테스트의 반복 boilerplate를 줄였습니다. 이미 존재하는 watchlist silent-discard 테스트는 유지 대상으로만 봅니다.
 
 ---
 
@@ -342,7 +337,7 @@ internal class RedactingLoggingInterceptor : Interceptor {
 ### 개선점
 
 1. **`core/common`, `core/ui` 비활성 디렉터리.** `settings.gradle.kts`에 include되지 않고 `git ls-files core/common core/ui` 결과도 비어 있습니다. 현재 남은 것은 build 산출물뿐이므로 repo commit 대상이 아니라 로컬 workspace hygiene입니다.
-2. **`proj4j` 하드코딩 의존성.** `core/network/build.gradle.kts`에서 직접 명시 — version catalog 미등록.
+2. **`proj4j` catalog 등록 완료.** `proj4j`는 `gradle/libs.versions.toml`의 version/library alias로 등록됐고 `core/network/build.gradle.kts`는 `implementation(libs.proj4j)`를 사용합니다. 검증은 `:core:network:test`가 통과했습니다.
 3. **`docs/superpowers/specs/`, `docs/superpowers/plans/` 이력 문서가 현재 기준과 어긋날 수 있음.** `docs/project-reading-guide.md`가 이미 live 문서 우선 원칙을 설명하므로 새 AGENTS 섹션은 불필요합니다.
 4. **Hilt Module의 의존성 wire 지점이 5–6개 파일에 분산** — dependency map 다이어그램이 README에 있으면 신규 기여자 온보딩에 도움.
 
@@ -358,7 +353,7 @@ git ls-files core/common core/ui
 
 위 명령에서 tracked 파일이 없으면 commit을 만들지 않습니다. 로컬 build 산출물만 남은 상태라면 `clean` 또는 수동 workspace 청소로 충분합니다.
 
-`proj4j` version catalog 등록:
+`proj4j` version catalog 등록 결과:
 
 ```toml
 # gradle/libs.versions.toml
@@ -397,7 +392,7 @@ implementation(libs.proj4j)
 
 ### 개선점
 
-1. **`proj4j` 카탈로그 미등록** (6절에서 논의).
+1. **`proj4j` 카탈로그 등록 완료** (6절에서 완료 상태와 검증을 기록).
 2. **`accompanist-permissions`는 Google이 이미 AndroidX Compose permissions API로 이전 권고.** deprecation path 모니터링 필요.
 3. **`Gson` converter** — `kotlinx.serialization` 또는 `Moshi` 같은 reflection-less JSON 라이브러리 검토 가치. R8 + Gson은 reflection rule 작성 부담이 있음.
 4. **release build R8 활성화 후 Hilt/Room/Retrofit/Gson ProGuard 규칙 검증 필요.**
@@ -528,21 +523,21 @@ val surfaceColor = MaterialTheme.colorScheme.surface
 - 완료 기준과 검증 명령이 명확하다.
 - 이미 `docs/improvement-analysis.md`나 `docs/superpowers/plans/2026-05-05-remaining-risk-resolution.md`에서 완료된 작업을 중복하지 않는다.
 
-### 실행 필요
+### 완료됨
 
 | 순서 | 작업 | 파일 | 왜 필요한가 | 검증 |
 | --- | --- | --- | --- | --- |
-| 1 | `proj4j` version catalog 등록 | `gradle/libs.versions.toml`, `core/network/build.gradle.kts` | 실제 하드코딩 의존성이 남아 있고, dependency 감사/업데이트 경로에서 빠져 있습니다. | `./gradlew :core:network:test` |
-| 2 | CI matrix 누락분 보강 | `.github/workflows/android.yml` | 현재 CI는 `:domain:location:test`, `:tools:demo-seed:test`가 `docs/verification-matrix.md`의 머지 전 세트와 다릅니다. | CI run 또는 동일 Gradle command |
-| 3 | `MainDispatcherRule` 도입 | `feature/station-list/src/test/...`, 가능하면 `feature:settings`, `feature:watchlist` test infra | `StationListViewModelTest`에 Main dispatcher setup 반복이 매우 많아 테스트 수정 비용이 높습니다. | `./gradlew :feature:station-list:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:watchlist:testDebugUnitTest` |
-| 4 | watchlist test tag ASCII 분리 | `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistSemantics.kt`, `WatchlistScreen.kt`, `WatchlistScreenTest.kt` | 접근성 한글 텍스트와 테스트 selector가 섞여 있습니다. 작고 회귀 위험이 낮은 개선입니다. | `./gradlew :feature:watchlist:testDebugUnitTest` |
+| 1 | `proj4j` version catalog 등록 | `gradle/libs.versions.toml`, `core/network/build.gradle.kts` | `proj4j`가 version/library alias로 이동했고 `implementation(libs.proj4j)`로 참조됩니다. | `./gradlew :core:network:test` 통과 |
+| 2 | CI matrix 누락분 보강 | `.github/workflows/android.yml` | CI가 `docs/verification-matrix.md`의 머지 전 범위에 맞춰 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`를 포함합니다. aggregate `:app:assembleDebug`와 release assemble은 제외했습니다. | workflow-equivalent Gradle command 통과 |
+| 3 | `MainDispatcherRule` 도입 | `feature/station-list/src/test/...` | `StationListViewModelTest`의 Main dispatcher setup 반복을 rule로 중앙화했습니다. | `./gradlew :feature:station-list:testDebugUnitTest` 통과 |
+| 4 | watchlist test tag ASCII 분리 | `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistSemantics.kt`, `WatchlistScreen.kt`, `WatchlistScreenTest.kt` | 접근성 한글 텍스트와 테스트 selector를 분리했습니다. | `./gradlew :feature:watchlist:testDebugUnitTest` 통과 |
 
-실행 상세:
+구현 결과:
 
-1. `proj4j`는 `[versions] proj4j = "1.4.1"`와 `[libraries] proj4j = { module = "org.locationtech.proj4j:proj4j", version.ref = "proj4j" }`를 추가하고 `implementation(libs.proj4j)`로 교체합니다.
-2. CI는 먼저 `:domain:location:test`, `:tools:demo-seed:test`만 추가합니다. `:app:assembleDemoRelease`, `:app:assembleProdRelease`는 CI 시간과 R8 회귀 필요성을 보고 별도 결정합니다.
-3. dispatcher rule은 `StandardTestDispatcher` 기본 rule을 만들고, 기존 테스트가 `UnconfinedTestDispatcher` 의미를 요구하는지 확인한 뒤 공통 test utility로 옮깁니다.
-4. watchlist는 `WATCHLIST_DISTANCE_METRIC_TAG = "watchlist-distance-metric"` 같은 selector와 `WATCHLIST_CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"` 같은 접근성 텍스트를 분리합니다.
+1. `proj4j`는 `[versions] proj4j = "1.4.1"`와 `[libraries] proj4j = { module = "org.locationtech.proj4j:proj4j", version.ref = "proj4j" }`로 등록됐고 `implementation(libs.proj4j)`로 교체됐습니다.
+2. CI는 `:domain:location:test`, `:app:testProdDebugUnitTest`, `:tools:demo-seed:test`를 포함합니다. `:app:assembleDemoRelease`, `:app:assembleProdRelease`, aggregate `:app:assembleDebug`는 live verification matrix 기준에서 제외했습니다.
+3. dispatcher rule은 `StandardTestDispatcher` 기본 rule로 `Dispatchers.setMain/resetMain`을 중앙화했습니다.
+4. watchlist는 `WATCHLIST_DISTANCE_METRIC_TAG = "watchlist-distance-metric"` 같은 selector와 `WATCHLIST_CARD_CONTENT_DESCRIPTION = "관심 주유소 카드"` 같은 접근성 텍스트를 분리했습니다.
 
 ### 조건부 실행
 
@@ -574,6 +569,6 @@ val surfaceColor = MaterialTheme.colorScheme.surface
 
 GasStation 1.0.1은 portfolio/reference 앱이라는 목표에 부합하는 production-grade 멀티모듈 Android 구조를 갖추고 있습니다. **clean architecture가 문서로 강제되고 코드로 일치**한다는 점이 가장 큰 강점이며, 캐시/오프라인/retry/event logging 같은 회귀 위험 영역이 정책 객체와 단위 테스트로 분리되어 있습니다.
 
-현재 기준으로 "정말 필요한" 작업은 많지 않습니다. 바로 실행할 항목은 **`proj4j` catalog 등록, CI matrix 누락 보강, Main dispatcher test rule, watchlist test tag 분리** 네 가지입니다. 다크 splash, release assemble CI, Gradle parallel/build cache, dark semantic migration은 조건부 작업입니다.
+현재 기준으로 "정말 필요한" 네 가지 작업인 **`proj4j` catalog 등록, CI matrix 누락 보강, Main dispatcher test rule, watchlist test tag 분리**는 완료됐습니다. 다크 splash, release assemble CI, Gradle parallel/build cache, dark semantic migration은 조건부 작업입니다.
 
 이 프로젝트가 production 배포로 확장한다면, **backend proxy, key restriction, quota monitoring**을 가장 먼저 설계해야 하며, 그 외 영역은 현재의 module-contracts/test-strategy/verification-matrix 문서 체계 위에서 점진 개선이 가능합니다.
