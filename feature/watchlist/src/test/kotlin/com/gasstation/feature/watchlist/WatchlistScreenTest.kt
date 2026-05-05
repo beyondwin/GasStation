@@ -86,7 +86,7 @@ class WatchlistScreenTest {
         }
 
         composeRule.onAllNodesWithTag(
-            WATCHLIST_CARD_CONTENT_DESCRIPTION,
+            WATCHLIST_CARD_TEST_TAG,
             useUnmergedTree = true,
         )
             .assertCountEquals(1)
@@ -263,7 +263,7 @@ class WatchlistScreenTest {
         }
 
         val cardBounds = composeRule
-            .onNodeWithTag(WATCHLIST_CARD_CONTENT_DESCRIPTION, useUnmergedTree = true)
+            .onNodeWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
         val distanceMetricBounds = composeRule
