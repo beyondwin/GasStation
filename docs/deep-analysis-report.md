@@ -3,7 +3,7 @@
 작성일: 2026-05-05
 원본 분석 기준 커밋: `40cb155` (`main`)
 리뷰/보완 기준 커밋: `3629816` (`main`)
-기준 버전: `1.0.1` (`versionCode 2`)
+기준 버전: `1.0.2` (`versionCode 3`)
 
 리뷰 기준 문서: `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md`, `docs/improvement-analysis.md`, `docs/verification-matrix.md`
 
@@ -567,7 +567,7 @@ val surfaceColor = MaterialTheme.colorScheme.surface
 
 ## 결론
 
-GasStation 1.0.1은 portfolio/reference 앱이라는 목표에 부합하는 production-grade 멀티모듈 Android 구조를 갖추고 있습니다. **clean architecture가 문서로 강제되고 코드로 일치**한다는 점이 가장 큰 강점이며, 캐시/오프라인/retry/event logging 같은 회귀 위험 영역이 정책 객체와 단위 테스트로 분리되어 있습니다.
+GasStation 1.0.2는 portfolio/reference 앱이라는 목표에 부합하는 production-grade 멀티모듈 Android 구조를 갖추고 있습니다. **clean architecture가 문서로 강제되고 코드로 일치**한다는 점이 가장 큰 강점이며, 캐시/오프라인/retry/event logging 같은 회귀 위험 영역이 정책 객체와 단위 테스트로 분리되어 있습니다.
 
 현재 기준으로 "정말 필요한" 네 가지 작업인 **`proj4j` catalog 등록, CI matrix 누락 보강, Main dispatcher test rule, watchlist test tag 분리**는 완료됐습니다. 다크 splash, release assemble CI, Gradle parallel/build cache, dark semantic migration은 조건부 작업입니다.
 
