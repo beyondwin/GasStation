@@ -25,4 +25,22 @@ plugins {
     alias(libs.plugins.jetbrainsKotlinJvm) apply false
     alias(libs.plugins.googleDevtoolsKsp) apply false
     alias(libs.plugins.googleDaggerHiltAndroid) apply false
+    alias(libs.plugins.kover)
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "*Hilt_*",
+                    "*_HiltModules*",
+                    "*_Factory*",
+                    "*_Provide*",
+                    "*ComposableSingletons*",
+                    "*Preview*Kt",
+                )
+            }
+        }
+    }
 }
