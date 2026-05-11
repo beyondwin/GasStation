@@ -19,7 +19,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Spotless + Lint
         run: ./gradlew spotlessCheck lint --continue
 
@@ -31,7 +31,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Unit Tests
         run: |
           ./gradlew \
@@ -61,7 +61,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Roborazzi Screenshot Verification
         run: ./gradlew verifyRoborazziDebug
       - name: Upload screenshot diffs on failure
@@ -79,7 +79,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Assemble
         run: |
           ./gradlew \
@@ -97,7 +97,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Kover XML Report
         run: ./gradlew koverXmlReport
       - name: Upload to Codecov
