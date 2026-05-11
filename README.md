@@ -125,7 +125,7 @@ flowchart LR
 
 `prod` 앱을 실제로 실행하려면 발급받은 `opinet.apikey`가 필요합니다. `demo` 실행에는 키가 필요 없고, `prod` 빌드는 빈 값으로도 가능하지만 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다. 키는 버전 관리되는 프로젝트 루트 `gradle.properties`에 쓰지 말고 사용자별 `~/.gradle/gradle.properties`에 두거나 Gradle 실행 시 `-Popinet.apikey=<issued-key>`로 전달합니다. 참고할 공식 페이지는 [오피넷 홈페이지](https://www.opinet.co.kr)와 [오피넷 Open API 소개](https://www.opinet.co.kr/user/custapi/openApiIntro.do)입니다.
 
-현재 `prod` 키는 Android 클라이언트 `BuildConfig`로 주입되므로 APK 내부의 완전한 비밀 경계가 아닙니다. 이 단순화를 수용하지만, 공개 배포나 quota 비용이 큰 운영 환경에서는 backend proxy, key restriction, quota monitoring을 먼저 설계해야 합니다. 앱은 로컬 캐시, 가격 히스토리, watchlist, 설정을 Android backup/data extraction 대상으로 내보내지 않도록 backup을 비활성화합니다.
+> `prod` 키는 Android 클라이언트 `BuildConfig`로 주입되며, 그 한계와 승격 조건은 [`docs/security-trade-offs.md`](docs/security-trade-offs.md)에 정리되어 있습니다. 앱은 로컬 캐시/설정을 Android backup 대상으로 내보내지 않습니다.
 
 ```properties
 # ~/.gradle/gradle.properties
