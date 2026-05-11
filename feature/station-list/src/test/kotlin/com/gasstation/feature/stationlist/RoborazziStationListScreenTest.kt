@@ -7,7 +7,6 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
 import com.gasstation.domain.location.LocationPermissionState
 import com.github.takahirom.roborazzi.captureRoboImage
-import java.util.TimeZone
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -16,6 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
