@@ -43,11 +43,7 @@ internal const val SETTINGS_GROUP_TAG_PREFIX = "settings-group-"
 internal const val SETTINGS_ROW_TAG_PREFIX = "settings-row-"
 
 @Composable
-fun SettingsScreen(
-    uiState: SettingsUiState,
-    onCloseClick: () -> Unit,
-    onSectionClick: (SettingsSection) -> Unit,
-) {
+fun SettingsScreen(uiState: SettingsUiState, onCloseClick: () -> Unit, onSectionClick: (SettingsSection) -> Unit) {
     GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -132,11 +128,7 @@ private fun SettingsGroupHeader(group: SettingsSectionGroup) {
 }
 
 @Composable
-private fun SettingsMenuRow(
-    section: SettingsSection,
-    selectedLabel: String,
-    onClick: () -> Unit,
-) {
+private fun SettingsMenuRow(section: SettingsSection, selectedLabel: String, onClick: () -> Unit) {
     GasStationRow(
         title = section.title,
         value = selectedLabel,
@@ -159,11 +151,7 @@ private fun SettingsMenuDivider() {
 }
 
 @Composable
-private fun SettingsTopBarAction(
-    contentDescription: String,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit,
-) {
+private fun SettingsTopBarAction(contentDescription: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)

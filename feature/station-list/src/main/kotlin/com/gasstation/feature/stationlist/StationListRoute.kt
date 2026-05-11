@@ -105,13 +105,12 @@ fun StationListRoute(
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-private fun rememberLocationPermissionsState(): MultiplePermissionsState =
-    rememberMultiplePermissionsState(
-        permissions = listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        ),
-    )
+private fun rememberLocationPermissionsState(): MultiplePermissionsState = rememberMultiplePermissionsState(
+    permissions = listOf(
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+    ),
+)
 
 @OptIn(ExperimentalPermissionsApi::class)
 private fun MultiplePermissionsState.toPermissionState(): LocationPermissionState {

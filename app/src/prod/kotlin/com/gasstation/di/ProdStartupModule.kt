@@ -13,7 +13,5 @@ import dagger.multibindings.IntoSet
 abstract class ProdStartupModule {
     @Binds
     @IntoSet
-    abstract fun bindProdStartupHook(
-        hook: ProdSecretsStartupHook,
-    ): AppStartupHook
+    abstract fun bindProdStartupHook(hook: ProdSecretsStartupHook): AppStartupHook
 }

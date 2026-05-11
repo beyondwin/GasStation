@@ -94,9 +94,7 @@ class DefaultSettingsRepositoryTest {
     }
 }
 
-private class InMemoryUserPreferencesDataSource(
-    initial: StoredUserPreferences,
-) : UserPreferencesDataSource {
+private class InMemoryUserPreferencesDataSource(initial: StoredUserPreferences) : UserPreferencesDataSource {
     private val state = MutableStateFlow(initial)
 
     override val userPreferences: Flow<StoredUserPreferences> = state

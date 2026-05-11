@@ -25,7 +25,6 @@ sealed interface GasStationDestination {
     data object Watchlist : GasStationDestination {
         override val route: String = "watchlist/{latitude}/{longitude}"
 
-        fun createRoute(coordinates: Coordinates): String =
-            "watchlist/${coordinates.latitude}/${coordinates.longitude}"
+        fun createRoute(coordinates: Coordinates): String = "watchlist/${coordinates.latitude}/${coordinates.longitude}"
     }
 }

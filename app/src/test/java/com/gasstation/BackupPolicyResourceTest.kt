@@ -33,10 +33,8 @@ class BackupPolicyResourceTest {
         )
     }
 
-    private fun projectFile(vararg candidates: String): File =
-        candidates.map(::File).firstOrNull(File::exists)
-            ?: error("Could not find any project file candidate: ${candidates.joinToString()}")
+    private fun projectFile(vararg candidates: String): File = candidates.map(::File).firstOrNull(File::exists)
+        ?: error("Could not find any project file candidate: ${candidates.joinToString()}")
 
-    private fun projectFileExists(vararg candidates: String): Boolean =
-        candidates.any { File(it).exists() }
+    private fun projectFileExists(vararg candidates: String): Boolean = candidates.any { File(it).exists() }
 }

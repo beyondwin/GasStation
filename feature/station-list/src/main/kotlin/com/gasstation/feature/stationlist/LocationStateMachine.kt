@@ -7,11 +7,11 @@ import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
 
 class LocationStateMachine @Inject constructor(
     private val getCurrentLocation: GetCurrentLocationUseCase,
@@ -39,38 +39,37 @@ class LocationStateMachine @Inject constructor(
         }
     }
 
-    suspend fun acquireLocation(): LocationAcquisitionResult =
-        when (val result = getCurrentLocation(state.value.permissionState)) {
-            is LocationLookupResult.Success -> {
-                val coordinates = result.coordinates
-                val previousCoordinates = state.value.currentCoordinates
-                mutableState.update {
-                    it.copy(
-                        currentCoordinates = coordinates,
-                        currentAddressLabel = if (previousCoordinates == coordinates) {
-                            it.currentAddressLabel
-                        } else {
-                            null
-                        },
-                        hasDeniedLocationAccess = it.permissionState == LocationPermissionState.Denied,
-                        needsRecoveryRefresh = false,
-                    )
-                }
-                LocationAcquisitionResult.Success(coordinates)
+    suspend fun acquireLocation(): LocationAcquisitionResult = when (val result = getCurrentLocation(state.value.permissionState)) {
+        is LocationLookupResult.Success -> {
+            val coordinates = result.coordinates
+            val previousCoordinates = state.value.currentCoordinates
+            mutableState.update {
+                it.copy(
+                    currentCoordinates = coordinates,
+                    currentAddressLabel = if (previousCoordinates == coordinates) {
+                        it.currentAddressLabel
+                    } else {
+                        null
+                    },
+                    hasDeniedLocationAccess = it.permissionState == LocationPermissionState.Denied,
+                    needsRecoveryRefresh = false,
+                )
             }
-
-            LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
-            LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
-            LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
-            is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
+            LocationAcquisitionResult.Success(coordinates)
         }
 
-    suspend fun resolveAddressLabel(coordinates: Coordinates): String? =
-        when (val result = getCurrentAddress(coordinates)) {
-            is LocationAddressLookupResult.Success -> result.addressLabel
-            LocationAddressLookupResult.Unavailable,
-            is LocationAddressLookupResult.Error -> null
-        }
+        LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
+        LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
+        LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
+        is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
+    }
+
+    suspend fun resolveAddressLabel(coordinates: Coordinates): String? = when (val result = getCurrentAddress(coordinates)) {
+        is LocationAddressLookupResult.Success -> result.addressLabel
+        LocationAddressLookupResult.Unavailable,
+        is LocationAddressLookupResult.Error,
+        -> null
+    }
 
     fun onAddressResolved(coordinates: Coordinates, addressLabel: String?) {
         mutableState.update { current ->
@@ -120,9 +119,8 @@ private fun LocationState.withLocationRecoveryState(
     )
 }
 
-private fun LocationState.isLocationUsable(): Boolean =
-    isGpsEnabled &&
-        (
-            permissionState != LocationPermissionState.Denied ||
-                hasDeniedLocationAccess
-            )
+private fun LocationState.isLocationUsable(): Boolean = isGpsEnabled &&
+    (
+        permissionState != LocationPermissionState.Denied ||
+            hasDeniedLocationAccess
+        )

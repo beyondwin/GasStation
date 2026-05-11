@@ -6,8 +6,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.graphics.toArgb
-import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.GasStationStatusBarStyle
+import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.GasStationThemeDefaults
 import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.navigation.GasStationNavHost

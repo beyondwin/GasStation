@@ -1,17 +1,17 @@
 package com.gasstation.feature.watchlist
 
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.WatchedStationSummary
-import java.time.Instant
-import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.Instant
+import java.util.TimeZone
 
 class WatchlistItemUiModelTest {
     @Test

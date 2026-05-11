@@ -56,10 +56,7 @@ internal const val WATCHLIST_CHANGE_VALUE_TAG = "watchlist-change-value"
 internal const val WATCHLIST_DELTA_INDICATOR_TAG = "watchlist-delta-indicator"
 
 @Composable
-fun WatchlistScreen(
-    uiState: WatchlistUiState,
-    onCloseClick: () -> Unit,
-) {
+fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
     val spacing = GasStationTheme.spacing
 
     GasStationBackground(modifier = Modifier.fillMaxSize()) {
@@ -201,11 +198,7 @@ fun WatchlistScreen(
 }
 
 @Composable
-private fun WatchlistTopBarAction(
-    contentDescription: String,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit,
-) {
+private fun WatchlistTopBarAction(contentDescription: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -244,11 +237,7 @@ private fun WatchlistCloseIcon() {
 }
 
 @Composable
-private fun WatchlistDeltaIndicator(
-    label: String,
-    tone: WatchlistPriceDeltaTone,
-    modifier: Modifier = Modifier,
-) {
+private fun WatchlistDeltaIndicator(label: String, tone: WatchlistPriceDeltaTone, modifier: Modifier = Modifier) {
     val typography = GasStationTheme.typography
     val color = tone.toColor()
 
@@ -284,9 +273,7 @@ private fun WatchlistDeltaIndicator(
 }
 
 @Composable
-private fun EmptyWatchlist(
-    modifier: Modifier = Modifier,
-) {
+private fun EmptyWatchlist(modifier: Modifier = Modifier) {
     val spacing = GasStationTheme.spacing
     Column(
         modifier = modifier

@@ -1,5 +1,11 @@
 package com.gasstation.domain.settings
 
+import app.cash.turbine.test
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
@@ -7,12 +13,6 @@ import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
 import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
-import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.MapProvider
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
-import app.cash.turbine.test
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -61,9 +61,7 @@ class UpdateSettingsUseCasesTest {
     }
 }
 
-private class FakeSettingsRepository(
-    initial: UserPreferences,
-) : SettingsRepository {
+private class FakeSettingsRepository(initial: UserPreferences) : SettingsRepository {
     private val state = MutableStateFlow(initial)
 
     val current: UserPreferences

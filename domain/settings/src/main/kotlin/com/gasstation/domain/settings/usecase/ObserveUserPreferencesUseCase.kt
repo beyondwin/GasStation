@@ -5,9 +5,7 @@ import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
-class ObserveUserPreferencesUseCase private constructor(
-    private val observer: Observer,
-) {
+class ObserveUserPreferencesUseCase private constructor(private val observer: Observer) {
     @Inject
     constructor(settingsRepository: SettingsRepository) : this(
         observer = Observer(settingsRepository::observeUserPreferences),

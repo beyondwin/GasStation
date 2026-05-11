@@ -3,17 +3,17 @@ package com.gasstation.core.location
 import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
 import com.google.android.gms.tasks.CancellationTokenSource
-import java.util.Optional
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Optional
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AndroidForegroundLocationProviderTest {

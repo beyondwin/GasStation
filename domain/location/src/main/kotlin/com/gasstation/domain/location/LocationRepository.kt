@@ -6,11 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface LocationRepository {
     fun observeAvailability(): Flow<Boolean>
 
-    suspend fun getCurrentLocation(
-        permissionState: LocationPermissionState,
-    ): LocationLookupResult
+    suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult
 
-    suspend fun getCurrentAddress(
-        coordinates: Coordinates,
-    ): LocationAddressLookupResult
+    suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult
 }

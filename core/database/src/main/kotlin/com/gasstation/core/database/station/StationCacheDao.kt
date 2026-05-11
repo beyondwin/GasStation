@@ -77,9 +77,7 @@ abstract class StationCacheDao {
         ORDER BY latest.stationId ASC
         """,
     )
-    abstract fun observeLatestStationsByIds(
-        stationIds: List<String>,
-    ): Flow<List<StationCacheEntity>>
+    abstract fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(entities: List<StationCacheEntity>)
@@ -96,12 +94,7 @@ abstract class StationCacheDao {
           AND fuelType = :fuelType
         """,
     )
-    protected abstract suspend fun deleteStations(
-        latitudeBucket: Int,
-        longitudeBucket: Int,
-        radiusMeters: Int,
-        fuelType: String,
-    )
+    protected abstract suspend fun deleteStations(latitudeBucket: Int, longitudeBucket: Int, radiusMeters: Int, fuelType: String)
 
     @Transaction
     open suspend fun replaceSnapshot(

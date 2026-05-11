@@ -16,19 +16,15 @@ object UserPreferencesDataStoreModule {
 
     @Provides
     @Singleton
-    fun provideUserPreferencesDataStore(
-        @ApplicationContext context: Context,
-    ): DataStore<StoredUserPreferences> =
-        DataStoreFactory.create(
-            serializer = UserPreferencesSerializer,
-            produceFile = { context.filesDir.resolve(USER_PREFERENCES_FILE_NAME) },
-        )
+    fun provideUserPreferencesDataStore(@ApplicationContext context: Context): DataStore<StoredUserPreferences> = DataStoreFactory.create(
+        serializer = UserPreferencesSerializer,
+        produceFile = { context.filesDir.resolve(USER_PREFERENCES_FILE_NAME) },
+    )
 
     @Provides
     @Singleton
-    fun provideUserPreferencesDataSource(
-        dataStore: DataStore<StoredUserPreferences>,
-    ): UserPreferencesDataSource = AndroidUserPreferencesDataSource(dataStore)
+    fun provideUserPreferencesDataSource(dataStore: DataStore<StoredUserPreferences>): UserPreferencesDataSource =
+        AndroidUserPreferencesDataSource(dataStore)
 
     private const val USER_PREFERENCES_FILE_NAME = "user_preferences.pb"
 }

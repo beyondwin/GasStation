@@ -2,29 +2,27 @@ package com.gasstation.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.gasstation.feature.settings.SettingsDetailRoute
-import com.gasstation.feature.watchlist.WatchlistRoute
 import com.gasstation.feature.settings.SettingsRoute
 import com.gasstation.feature.settings.SettingsSection
 import com.gasstation.feature.stationlist.StationListRoute
+import com.gasstation.feature.watchlist.WatchlistRoute
 import com.gasstation.map.ExternalMapLauncher
 
 @Composable
-fun GasStationNavHost(
-    externalMapLauncher: ExternalMapLauncher,
-) {
+fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher) {
     val navController = rememberNavController()
 
     NavHost(

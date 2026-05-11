@@ -1,15 +1,14 @@
 package com.gasstation.demo.seed
 
 import android.content.Context
-import javax.inject.Inject
 import org.json.JSONArray
 import org.json.JSONObject
+import javax.inject.Inject
 
 class DemoSeedAssetLoader @Inject constructor() {
-    fun load(context: Context): DemoSeedDocument =
-        context.assets.open(ASSET_FILE_NAME).bufferedReader().use { reader ->
-            parse(reader.readText())
-        }
+    fun load(context: Context): DemoSeedDocument = context.assets.open(ASSET_FILE_NAME).bufferedReader().use { reader ->
+        parse(reader.readText())
+    }
 
     fun parse(rawJson: String): DemoSeedDocument {
         val root = JSONObject(rawJson)

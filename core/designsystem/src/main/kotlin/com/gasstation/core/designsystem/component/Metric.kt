@@ -2,9 +2,9 @@ package com.gasstation.core.designsystem.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,16 +25,9 @@ enum class SupportingInfoSlot {
     Trailing,
 }
 
-data class SupportingInfoSlotRole(
-    val slot: SupportingInfoSlot,
-    val role: ChromeTextRole,
-)
+data class SupportingInfoSlotRole(val slot: SupportingInfoSlot, val role: ChromeTextRole)
 
-data class SupportingInfoContent(
-    val label: String,
-    val value: String,
-    val hasTrailingContent: Boolean = false,
-) {
+data class SupportingInfoContent(val label: String, val value: String, val hasTrailingContent: Boolean = false) {
     init {
         require(label.isNotBlank()) { "Supporting info label is required." }
         require(value.isNotBlank()) { "Supporting info value is required." }
@@ -64,10 +57,7 @@ data class SupportingInfoContent(
     }
 }
 
-enum class GasStationMetricEmphasis(
-    val numberRole: ChromeTextRole,
-    val unitBottomPadding: Dp,
-) {
+enum class GasStationMetricEmphasis(val numberRole: ChromeTextRole, val unitBottomPadding: Dp) {
     Primary(
         numberRole = ChromeTextRole.PriceHero,
         unitBottomPadding = 4.dp,

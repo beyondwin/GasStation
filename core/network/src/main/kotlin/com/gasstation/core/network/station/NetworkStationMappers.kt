@@ -1,8 +1,8 @@
 package com.gasstation.core.network.station
 
 import com.gasstation.core.model.Coordinates
-import com.gasstation.core.network.model.OpinetStationDto
 import com.gasstation.core.model.FuelType
+import com.gasstation.core.network.model.OpinetStationDto
 
 internal fun OpinetStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
     val stationId = stationId?.takeIf(String::isNotBlank) ?: return null
@@ -24,10 +24,7 @@ internal fun OpinetStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
     )
 }
 
-internal fun rawCoordinatesToWgs84(
-    rawX: Double,
-    rawY: Double,
-): Coordinates? {
+internal fun rawCoordinatesToWgs84(rawX: Double, rawY: Double): Coordinates? {
     if (rawY in -90.0..90.0 && rawX in -180.0..180.0) {
         return Coordinates(latitude = rawY, longitude = rawX)
     }

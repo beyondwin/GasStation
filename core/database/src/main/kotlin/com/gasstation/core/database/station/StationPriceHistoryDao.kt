@@ -31,10 +31,7 @@ interface StationPriceHistoryDao {
         ORDER BY stationId ASC, fuelType ASC, fetchedAtEpochMillis DESC
         """,
     )
-    fun observeByStationIdsAndFuelType(
-        stationIds: List<String>,
-        fuelType: String,
-    ): Flow<List<StationPriceHistoryEntity>>
+    fun observeByStationIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationPriceHistoryEntity>>
 
     @Query(
         """
@@ -51,8 +48,5 @@ interface StationPriceHistoryDao {
           )
         """,
     )
-    suspend fun keepLatestTenByStationAndFuelType(
-        stationId: String,
-        fuelType: String,
-    )
+    suspend fun keepLatestTenByStationAndFuelType(stationId: String, fuelType: String)
 }

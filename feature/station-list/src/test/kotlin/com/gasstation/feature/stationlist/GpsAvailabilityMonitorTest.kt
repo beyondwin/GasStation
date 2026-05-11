@@ -1,8 +1,8 @@
 package com.gasstation.feature.stationlist
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.lifecycle.Lifecycle
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.GetCurrentAddressUseCase
@@ -366,13 +366,11 @@ private fun stationListViewModelForRouteTest(
     val locationRepository = object : LocationRepository {
         override fun observeAvailability(): Flow<Boolean> = availability
 
-        override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
-            return resultForPermission(permissionState)
-        }
+        override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult =
+            resultForPermission(permissionState)
 
-        override suspend fun getCurrentAddress(
-            coordinates: Coordinates,
-        ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
+        override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+            LocationAddressLookupResult.Unavailable
     }
 
     val locationStateMachine = LocationStateMachine(
@@ -399,25 +397,20 @@ private fun stationListViewModelForRouteTest(
     )
 }
 
-private data class RouteTestFixture(
-    val viewModel: StationListViewModel,
-    val repository: RecordingRouteStationRepository,
-)
+private data class RouteTestFixture(val viewModel: StationListViewModel, val repository: RecordingRouteStationRepository)
 
 private class RecordingRouteStationRepository : StationRepository {
     val refreshedQueries = mutableListOf<StationQuery>()
 
-    override fun observeNearbyStations(query: StationQuery):
-            Flow<StationSearchResult> = MutableStateFlow(
-            StationSearchResult(
-                stations = emptyList(),
-                freshness = StationFreshness.Stale,
-                fetchedAt = null,
-            ),
-        )
+    override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> = MutableStateFlow(
+        StationSearchResult(
+            stations = emptyList(),
+            freshness = StationFreshness.Stale,
+            fetchedAt = null,
+        ),
+    )
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
-        MutableStateFlow(emptyList())
+    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query

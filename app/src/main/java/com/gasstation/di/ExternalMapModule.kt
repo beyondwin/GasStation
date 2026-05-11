@@ -13,7 +13,5 @@ import javax.inject.Singleton
 object ExternalMapModule {
     @Provides
     @Singleton
-    fun provideExternalMapLauncher(
-        launcher: IntentExternalMapLauncher,
-    ): ExternalMapLauncher = launcher
+    fun provideExternalMapLauncher(launcher: IntentExternalMapLauncher): ExternalMapLauncher = launcher
 }

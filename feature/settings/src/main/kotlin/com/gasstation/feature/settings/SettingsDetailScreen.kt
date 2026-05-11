@@ -16,14 +16,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -103,11 +103,7 @@ fun SettingsDetailScreen(
 }
 
 @Composable
-private fun SettingsDetailOptionRow(
-    section: SettingsSection,
-    option: SettingOptionUiModel,
-    onClick: () -> Unit,
-) {
+private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOptionUiModel, onClick: () -> Unit) {
     GasStationRow(
         title = option.label,
         body = option.subtitle,
@@ -154,12 +150,7 @@ private fun AllBrandFilterIcon() {
         val iconSize = size.minDimension
         val strokeWidth = iconSize * 0.065f
 
-        fun drawPump(
-            topLeft: Offset,
-            bodySize: Size,
-            fill: Color,
-            windowColor: Color,
-        ) {
+        fun drawPump(topLeft: Offset, bodySize: Size, fill: Color, windowColor: Color) {
             val cornerRadius = CornerRadius(iconSize * 0.045f, iconSize * 0.045f)
             drawRoundRect(
                 color = fill,
@@ -240,11 +231,7 @@ private fun SettingsDetailDivider() {
 }
 
 @Composable
-private fun SettingsDetailTopBarAction(
-    contentDescription: String,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit,
-) {
+private fun SettingsDetailTopBarAction(contentDescription: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)

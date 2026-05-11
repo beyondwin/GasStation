@@ -1,7 +1,13 @@
 package com.gasstation.feature.stationlist
 
 import app.cash.turbine.test
+import com.gasstation.core.model.Brand
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.location.GetCurrentAddressUseCase
 import com.gasstation.domain.location.GetCurrentLocationUseCase
 import com.gasstation.domain.location.LocationAddressLookupResult
@@ -14,12 +20,6 @@ import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.StationRepository
-import com.gasstation.core.model.Brand
-import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.MapProvider
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
@@ -31,7 +31,6 @@ import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
-import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -46,6 +45,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationListViewModelTest {
@@ -554,17 +554,14 @@ class StationListViewModelTest {
             locationRepository = object : LocationRepository {
                 override fun observeAvailability(): Flow<Boolean> = availability
 
-                override suspend fun getCurrentLocation(
-                    permissionState: LocationPermissionState,
-                ): LocationLookupResult {
+                override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
                     locationLookupStarted.complete(Unit)
                     completeLocationLookup.await()
                     return LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
                 }
 
-                override suspend fun getCurrentAddress(
-                    coordinates: Coordinates,
-                ): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
+                override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+                    LocationAddressLookupResult.Unavailable
             },
         )
 
@@ -707,7 +704,8 @@ class StationListViewModelTest {
                         }
 
                         LocationPermissionState.PreciseGranted,
-                        LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
+                        LocationPermissionState.ApproximateGranted,
+                        -> LocationLookupResult.Unavailable
                     }
                 },
             ),
@@ -1088,58 +1086,57 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `refresh failure promotes blocking failure after observed no-cache result resolves unknown cache state`() =
-        runTest(dispatcher) {
-            val repository = FakeStationRepository(
-                result = StationSearchResult(
+    fun `refresh failure promotes blocking failure after observed no-cache result resolves unknown cache state`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+            ),
+            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
+            useObservedResultsFlow = true,
+            initialObservedResult = null,
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+
+            assertEquals(
+                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                awaitItem(),
+            )
+            assertEquals(null, viewModel.uiState.value.blockingFailure)
+
+            repository.emitObservedResult(
+                StationSearchResult(
                     stations = emptyList(),
                     freshness = StationFreshness.Stale,
                     fetchedAt = null,
-                ),
-                refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-                useObservedResultsFlow = true,
-                initialObservedResult = null,
-            )
-            val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-            val viewModel = stationListViewModel(
-                repository = repository,
-                settingsFixture = settingsFixture,
-                locationRepository = FakeLocationRepository(
-                    result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+                    hasCachedSnapshot = false,
                 ),
             )
+            advanceUntilIdle()
 
-            viewModel.effects.test {
-                viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-                viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-                viewModel.onAction(StationListAction.RefreshRequested)
-                advanceUntilIdle()
-
-                assertEquals(
-                    StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
-                    awaitItem(),
-                )
-                assertEquals(null, viewModel.uiState.value.blockingFailure)
-
-                repository.emitObservedResult(
-                    StationSearchResult(
-                        stations = emptyList(),
-                        freshness = StationFreshness.Stale,
-                        fetchedAt = null,
-                        hasCachedSnapshot = false,
-                    ),
-                )
-                advanceUntilIdle()
-
-                expectNoEvents()
-            }
-
-            assertEquals(1, repository.refreshedQueries.size)
-            assertEquals(1, repository.observedQueries.size)
-            assertEquals(repository.refreshedQueries.single(), repository.observedQueries.single())
-            assertTrue(viewModel.uiState.value.stations.isEmpty())
-            assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
+            expectNoEvents()
         }
+
+        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(1, repository.observedQueries.size)
+        assertEquals(repository.refreshedQueries.single(), repository.observedQueries.single())
+        assertTrue(viewModel.uiState.value.stations.isEmpty())
+        assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
+    }
 }
 
 private fun stationListViewModel(
@@ -1199,8 +1196,7 @@ private class FakeStationRepository(
         return observedResults ?: state
     }
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
-        MutableStateFlow(emptyList())
+    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
@@ -1223,13 +1219,11 @@ private class FakeLocationRepository(
 ) : LocationRepository {
     override fun observeAvailability(): Flow<Boolean> = availability
 
-    override suspend fun getCurrentLocation(
-        permissionState: LocationPermissionState,
-    ): LocationLookupResult = resultForPermission?.invoke(permissionState) ?: result
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult =
+        resultForPermission?.invoke(permissionState) ?: result
 
-    override suspend fun getCurrentAddress(
-        coordinates: Coordinates,
-    ): LocationAddressLookupResult = addressResultForCoordinates?.invoke(coordinates) ?: addressResult
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+        addressResultForCoordinates?.invoke(coordinates) ?: addressResult
 }
 
 private class RecordingStationEventLogger : StationEventLogger {
@@ -1241,9 +1235,7 @@ private class RecordingStationEventLogger : StationEventLogger {
 }
 
 private class ThrowingStationEventLogger : StationEventLogger {
-    override fun log(event: StationEvent) {
-        throw IllegalStateException("analytics failed")
-    }
+    override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
 }
 
 private fun stationEntry(

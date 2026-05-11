@@ -17,8 +17,6 @@ import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +31,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import javax.inject.Inject
 
 @HiltViewModel
 class StationListViewModel @Inject constructor(
@@ -125,7 +125,8 @@ class StationListViewModel @Inject constructor(
             )
 
             StationListAction.RefreshRequested,
-            StationListAction.RetryClicked -> refresh(
+            StationListAction.RetryClicked,
+            -> refresh(
                 showPermissionDeniedFeedback = true,
             )
 
@@ -216,47 +217,43 @@ class StationListViewModel @Inject constructor(
         }
     }
 
-    private suspend fun handleLocationResult(
-        result: LocationAcquisitionResult,
-        showPermissionDeniedFeedback: Boolean,
-    ): Coordinates? = when (result) {
-        is LocationAcquisitionResult.Success -> {
-            searchOrchestrator.clearBlockingFailure()
-            result.coordinates
-        }
-
-        LocationAcquisitionResult.PermissionDenied -> {
-            logLocationFailure(result)
-            if (showPermissionDeniedFeedback) {
-                mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
+    private suspend fun handleLocationResult(result: LocationAcquisitionResult, showPermissionDeniedFeedback: Boolean): Coordinates? =
+        when (result) {
+            is LocationAcquisitionResult.Success -> {
+                searchOrchestrator.clearBlockingFailure()
+                result.coordinates
             }
-            null
+
+            LocationAcquisitionResult.PermissionDenied -> {
+                logLocationFailure(result)
+                if (showPermissionDeniedFeedback) {
+                    mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
+                }
+                null
+            }
+
+            LocationAcquisitionResult.TimedOut -> {
+                logLocationFailure(result)
+                onBlockingFailure(
+                    reason = StationListFailureReason.LocationTimedOut,
+                    message = "현재 위치 확인이 지연되고 있습니다.",
+                )
+                null
+            }
+
+            LocationAcquisitionResult.Unavailable,
+            is LocationAcquisitionResult.Error,
+            -> {
+                logLocationFailure(result)
+                onBlockingFailure(
+                    reason = StationListFailureReason.LocationFailed,
+                    message = "현재 위치를 확인하지 못했습니다.",
+                )
+                null
+            }
         }
 
-        LocationAcquisitionResult.TimedOut -> {
-            logLocationFailure(result)
-            onBlockingFailure(
-                reason = StationListFailureReason.LocationTimedOut,
-                message = "현재 위치 확인이 지연되고 있습니다.",
-            )
-            null
-        }
-
-        LocationAcquisitionResult.Unavailable,
-        is LocationAcquisitionResult.Error -> {
-            logLocationFailure(result)
-            onBlockingFailure(
-                reason = StationListFailureReason.LocationFailed,
-                message = "현재 위치를 확인하지 못했습니다.",
-            )
-            null
-        }
-    }
-
-    private suspend fun handleRefreshFailure(
-        query: StationQuery,
-        reason: StationRefreshFailureReason?,
-    ) {
+    private suspend fun handleRefreshFailure(query: StationQuery, reason: StationRefreshFailureReason?) {
         if (searchOrchestrator.activeQueryState.value.query != query) return
 
         reason?.let {
@@ -266,10 +263,7 @@ class StationListViewModel @Inject constructor(
         mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureMessage()))
     }
 
-    private suspend fun onBlockingFailure(
-        reason: StationListFailureReason,
-        message: String,
-    ) {
+    private suspend fun onBlockingFailure(reason: StationListFailureReason, message: String) {
         searchOrchestrator.onBlockingFailure(reason = reason)
         mutableEffects.emit(StationListEffect.ShowSnackbar(message))
     }
@@ -317,10 +311,7 @@ class StationListViewModel @Inject constructor(
         }
     }
 
-    private fun toggleWatchState(
-        stationId: String,
-        watched: Boolean,
-    ) {
+    private fun toggleWatchState(stationId: String, watched: Boolean) {
         viewModelScope.launch {
             val entry = searchOrchestrator.searchResult.value.stations
                 .firstOrNull { it.station.id == stationId }
@@ -335,10 +326,7 @@ class StationListViewModel @Inject constructor(
         }
     }
 
-    private fun buildQuery(
-        preferences: UserPreferences,
-        coordinates: Coordinates,
-    ): StationQuery = StationQuery(
+    private fun buildQuery(preferences: UserPreferences, coordinates: Coordinates): StationQuery = StationQuery(
         coordinates = coordinates,
         radius = preferences.searchRadius,
         fuelType = preferences.fuelType,
@@ -347,10 +335,7 @@ class StationListViewModel @Inject constructor(
     )
 }
 
-private data class StationListTransientState(
-    val isLoading: Boolean = false,
-    val isRefreshing: Boolean = false,
-)
+private data class StationListTransientState(val isLoading: Boolean = false, val isRefreshing: Boolean = false)
 
 private data class StationListSearchUiProjection(
     val sourceStations: List<StationListEntry> = emptyList(),
@@ -359,14 +344,13 @@ private data class StationListSearchUiProjection(
     val fetchedAt: Instant? = null,
 )
 
-private fun LocationState.usableCoordinates(): Coordinates? =
-    currentCoordinates?.takeIf {
-        isGpsEnabled &&
-            (
-                permissionState != LocationPermissionState.Denied ||
-                    hasDeniedLocationAccess
-                )
-    }
+private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
+    isGpsEnabled &&
+        (
+            permissionState != LocationPermissionState.Denied ||
+                hasDeniedLocationAccess
+            )
+}
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null
@@ -381,5 +365,6 @@ private fun StationRefreshFailureReason?.refreshFailureMessage(): String = when 
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
     StationRefreshFailureReason.Unknown,
-    null -> "주유소 목록을 새로고침하지 못했습니다."
+    null,
+    -> "주유소 목록을 새로고침하지 못했습니다."
 }

@@ -125,10 +125,7 @@ fun GasStationRow(
 }
 
 @Composable
-fun GasStationRowDivider(
-    modifier: Modifier = Modifier,
-    color: Color = ColorGray,
-) {
+fun GasStationRowDivider(modifier: Modifier = Modifier, color: Color = ColorGray) {
     Box(
         modifier = modifier
             .fillMaxWidth()
