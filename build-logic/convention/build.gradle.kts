@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.findLibrary("hilt-gradlePlugin").get())
     implementation(libs.findLibrary("spotless-gradlePlugin").get())
     implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
+    implementation(libs.findLibrary("kover-gradlePlugin").get())
 }
 
 gradlePlugin {
@@ -57,6 +58,10 @@ gradlePlugin {
         register("roborazzi") {
             id = "gasstation.roborazzi"
             implementationClass = "GasStationRoborazziConventionPlugin"
+        }
+        register("kover") {
+            id = "gasstation.kover"
+            implementationClass = "GasStationKoverConventionPlugin"
         }
     }
 }

@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginE
 class GasStationAndroidLibraryComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("gasstation.spotless")
+        pluginManager.apply("gasstation.kover")
         pluginManager.apply("gasstation.android.library")
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 

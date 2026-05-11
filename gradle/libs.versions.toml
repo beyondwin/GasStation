@@ -34,6 +34,7 @@ robolectric = "4.16.1"
 spotless = "7.0.2"
 ktlint = "1.5.0"
 javaxInject = "1"
+kover = "0.9.1"
 
 [libraries]
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -92,6 +93,7 @@ roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose"
 roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
 roborazzi-gradlePlugin = { module = "io.github.takahirom.roborazzi:roborazzi-gradle-plugin", version.ref = "roborazzi" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
+kover-gradlePlugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -102,3 +104,4 @@ googleDevtoolsKsp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 googleDaggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
