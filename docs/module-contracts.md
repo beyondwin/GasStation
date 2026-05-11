@@ -20,7 +20,7 @@
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` as public API | DataStore 구현, Android 타입 |
-| `domain:station` | `StationRepository`, 검색/비교 use case, `StationEvent`/`StationEventLogger` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics SDK 구현 |
+| `domain:station` | `StationRepository`, 검색/비교 use case, `StationEvent`/`StationEventLogger` 계약, `CrashReporter` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics/Crashlytics SDK 구현 |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
 | `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합, 일시적 refresh 실패 retry 정책 | `domain:station`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현, snackbar/전면 실패 판단 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary | 없음 | 앱 정책 |

@@ -24,7 +24,7 @@
 
 ## Android Backup Disabled
 
-**현재 선택:** `AndroidManifest.xml`에서 `android:allowBackup="false"`, `android:fullBackupContent="false"` 설정으로 Android cloud backup을 비활성화합니다.
+**현재 선택:** `AndroidManifest.xml`에서 `android:allowBackup="false"` 설정으로 Android cloud backup을 비활성화합니다.
 
 **보호 범위:** 로컬 캐시(`station_cache`, `station_cache_snapshot`, `station_price_history`), watchlist(`watched_station`), 설정(DataStore)이 Android backup/data extraction 대상으로 내보내지지 않습니다.
 
@@ -42,7 +42,7 @@
 
 ## CrashReporter Abstraction
 
-**현재 선택:** `CrashReporter` 인터페이스를 `app` 모듈에 두고, `feature`/`domain`/`data`/`core` 모듈은 이 인터페이스에만 의존합니다. 프로덕션 구현은 Hilt로 주입하며, 현재 기본 구현은 Timber 기반입니다.
+**현재 선택:** `CrashReporter` 인터페이스를 `domain:station` 모듈에 두고, `app` 모듈이 flavor별 구현(`NoOpCrashReporter`/`LogcatCrashReporter`)을 Hilt `@Binds`로 주입합니다. `feature`/`data`/`core` 모듈은 인터페이스에만 의존합니다. 현재 prod 구현은 Timber 기반 Logcat 리포터입니다.
 
 **보안 관련성:** 크래시 리포터가 사용자 데이터나 민감 정보를 원격 서버로 전송하는 경우, 인터페이스 교체만으로 전송 범위를 제어할 수 있습니다.
 

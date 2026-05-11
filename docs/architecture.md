@@ -70,13 +70,13 @@ flowchart LR
 
 | 모듈 | 책임 |
 | --- | --- |
-| `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결 |
+| `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결, flavor별 `CrashReporter` 구현(NoOp/Logcat) Hilt 바인딩 |
 | `feature:station-list` | 권한/GPS/위치/새로고침을 포함한 목록 화면 상태와 effect 처리 |
 | `feature:settings` | 설정 요약 목록과 상세 선택 화면 렌더링, 같은 `SettingsViewModel` 공유 |
 | `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability 유스케이스 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
-| `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약 |
+| `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약, `CrashReporter` 계약 |
 | `data:settings` | DataStore data source를 domain `UserPreferences`로 매핑하는 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |

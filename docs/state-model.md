@@ -117,7 +117,7 @@
 
 영속 상태나 세션 상태로 저장하지 않는 반응도 있습니다.
 
-- `StationListEffect.ShowSnackbar`
+- `StationListEffect.ShowSnackbar(message: StringResource)` — i18n을 위해 `String`이 아닌 `StringResource`를 보유. Compose 레이어에서 `message.resolve(context)`로 표시.
 - `StationListEffect.OpenLocationSettings`
 - `StationListEffect.OpenExternalMap`
 

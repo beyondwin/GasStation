@@ -21,14 +21,21 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 
 ## 머지 전 검증
 
-`docs/verification-matrix.md`의 머지 전 회귀 세트를 통과해야 합니다.
+`docs/verification-matrix.md`의 머지 전 회귀 세트가 단일 출처입니다. 요약:
 
 ```bash
-./gradlew spotlessCheck ktlintCheck lint \
+./gradlew \
+  spotlessCheck lint \
   :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
-  :app:assembleDemoDebug :app:assembleProdDebug :app:assembleProdRelease \
-  verifyRoborazziDebug koverXmlReport
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  verifyRoborazziDebug \
+  koverXmlReport \
+  :app:assembleProdRelease
 ```
+
+명령 변경/확장 시 `docs/verification-matrix.md`를 먼저 갱신한 뒤 위 블록을 같이 동기화합니다.
 
 ## 커밋 메시지
 
@@ -43,7 +50,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 
 ## 코드 스타일
 
-`./gradlew spotlessApply ktlintFormat`을 커밋 전에 실행합니다.
+`./gradlew spotlessApply`를 커밋 전에 실행합니다. Spotless convention plugin이 ktlint를 내부적으로 호출하므로 별도 `ktlintFormat` 태스크를 실행할 필요는 없습니다.
 
 ## 행동 강령
 

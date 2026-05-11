@@ -2,12 +2,6 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
-## Unreleased
-
-### 개발자 영향
-
-- CI: PR에서는 debug assemble과 benchmark assemble만 실행하고, `prodRelease` assemble과 Kover coverage는 `main`/`v*` tag push에서만 실행하도록 분리했습니다. 릴리스 안전성은 유지하면서 PR 피드백 시간을 줄입니다.
-
 ## 1.1.0 - 2026-05-11
 
 ### 사용자 영향
@@ -20,11 +14,11 @@
 - Spotless + ktlint: 전 모듈 코드 스타일 일관성 강제 (convention plugin 적용).
 - Lint strict: `warningsAsErrors` 대신 `abortOnError = true`, `checkDependencies = true` 기준으로 전환.
 - Roborazzi: 화면 회귀 골든 테스트 9개 추가 (designsystem 5개, station-list 상태 4개). Stale 상태 스냅샷은 CI와 로컬이 같은 기준으로 비교되도록 timezone을 고정합니다.
-- CrashReporter: `app` 모듈에 추상화 인터페이스 도입, feature/domain/data/core는 구현에 직접 의존하지 않음.
+- CrashReporter: `domain:station` 모듈에 추상화 인터페이스 도입, `app` 모듈이 flavor별 구현(NoOp/Logcat)을 Hilt 바인딩. feature/data/core는 구현에 직접 의존하지 않음.
 - Kover 0.9.1: 전 모듈 코드 커버리지 수집 활성화, Hilt/Compose 생성 코드 제외.
 - Compose stability metrics: `compose-reports` / `compose-metrics` 출력 4개 모듈 설정.
 - Baseline profile: AGP 9.1.1 인프라 호환성 대기 중 (deferred). 준비되면 이 항목을 갱신합니다.
-- CI: GitHub Actions workflow를 5개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`. Codecov 업로드는 `CODECOV_TOKEN`이 있을 때만 실행되도록 env gate를 사용해 secret 미설정 상태에서도 workflow 파일이 유효합니다.
+- CI: GitHub Actions workflow를 6개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`(debug + benchmark), `release-assemble`(prodRelease — `main`/`v*` push only), `coverage`. Codecov 업로드는 `CODECOV_TOKEN`이 있을 때만 실행되도록 env gate를 사용해 secret 미설정 상태에서도 workflow 파일이 유효합니다.
 - i18n: `StringResource` 래퍼 + `en/strings.xml` 추가.
 - Repository hygiene: 로컬 `.orchestrator` 실행 산출물을 추적 대상에서 제거하고 `.gitignore`에 추가했습니다.
 
