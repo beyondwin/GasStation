@@ -17,6 +17,7 @@ val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 dependencies {
     implementation(libs.findLibrary("android-gradlePlugin").get())
     implementation(libs.findLibrary("kotlin-gradlePlugin").get())
+    implementation(libs.findLibrary("kotlin-compose-gradlePlugin").get())
     implementation(libs.findLibrary("ksp-gradlePlugin").get())
     implementation(libs.findLibrary("hilt-gradlePlugin").get())
     implementation(libs.findLibrary("spotless-gradlePlugin").get())
