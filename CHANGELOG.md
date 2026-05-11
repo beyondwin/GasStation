@@ -2,6 +2,49 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## 1.1.0 - 2026-05-11
+
+### 사용자 영향
+
+- 시스템 locale이 영어일 때 주요 UI 문자열이 올바르게 표시됩니다 (i18n: StringResource + en strings 추가).
+- 시작 속도 향상은 후속 작업으로 표기합니다. Baseline profile 수집은 AGP 9.1.1과 `androidx.baselineprofile` 1.4.1 인프라 호환성 문제로 이번 릴리즈에서 제외됩니다. 수집 후 적용 시 startup metric이 README의 placeholder 표에 반영됩니다.
+
+### 개발자 영향
+
+- Spotless + ktlint: 전 모듈 코드 스타일 일관성 강제 (convention plugin 적용).
+- Lint strict: `warningsAsErrors` 대신 `abortOnError = true`, `checkDependencies = true` 기준으로 전환.
+- Roborazzi: 화면 회귀 골든 테스트 9개 추가 (designsystem 5개, station-list 상태 4개).
+- CrashReporter: `app` 모듈에 추상화 인터페이스 도입, feature/domain/data/core는 구현에 직접 의존하지 않음.
+- Kover 0.9.1: 전 모듈 코드 커버리지 수집 활성화, Hilt/Compose 생성 코드 제외.
+- Compose stability metrics: `compose-reports` / `compose-metrics` 출력 4개 모듈 설정.
+- Baseline profile: AGP 9.1.1 인프라 호환성 대기 중 (deferred). 준비되면 이 항목을 갱신합니다.
+- CI: GitHub Actions workflow를 5개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`.
+- i18n: `StringResource` 래퍼 + `en/strings.xml` 추가.
+
+### 문서
+
+- `docs/security-trade-offs.md` 신설: API key, cleartext HTTP, Android backup, 인증서 피닝, CrashReporter 결정 단일 출처.
+- README / AGENTS.md: 인라인 보안 단락을 `docs/security-trade-offs.md` 링크로 대체.
+- README: 영문 elevator pitch + 5분 투어 구조로 정돈.
+- 설계/계획 문서 `docs/history/`로 이동 (단일 계획 참조 구조).
+- 제품 정의 단일화 및 모든 포트폴리오/reviewer 지시 문구 제거.
+
+### 검증
+
+```bash
+./gradlew \
+  spotlessCheck lint \
+  :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  verifyRoborazziDebug \
+  koverXmlReport \
+  :app:assembleProdRelease
+```
+
+상세 릴리즈 노트는 [docs/release-notes/2026-05-11-v1.1.0.md](docs/release-notes/2026-05-11-v1.1.0.md)를 봅니다.
+
 ## 1.0.2 - 2026-05-05
 
 ### 개발자 영향
