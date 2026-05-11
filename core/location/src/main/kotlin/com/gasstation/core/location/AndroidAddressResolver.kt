@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationAddressLookupResult
+import com.gasstation.domain.station.CrashReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
@@ -19,7 +20,10 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-internal class AndroidAddressResolver @Inject constructor(@param:ApplicationContext private val context: Context) : AddressResolver {
+internal class AndroidAddressResolver @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val crashReporter: CrashReporter,
+) : AddressResolver {
     override suspend fun addressFor(coordinates: Coordinates): LocationAddressLookupResult = try {
         val address = Geocoder(context, Locale.KOREA)
             .firstAddressFor(
@@ -35,7 +39,13 @@ internal class AndroidAddressResolver @Inject constructor(@param:ApplicationCont
         }
     } catch (exception: CancellationException) {
         throw exception
+    } catch (exception: IOException) {
+        LocationAddressLookupResult.Error(exception)
     } catch (exception: Exception) {
+        crashReporter.recordNonFatal(
+            exception,
+            mapOf("module" to "core:location", "operation" to "resolveAddress"),
+        )
         LocationAddressLookupResult.Error(exception)
     }
 
