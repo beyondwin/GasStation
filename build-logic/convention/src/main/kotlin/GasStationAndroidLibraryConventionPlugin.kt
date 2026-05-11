@@ -41,6 +41,15 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
             packaging {
                 resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
             }
+
+            lint {
+                warningsAsErrors = false
+                abortOnError = true
+                checkDependencies = true
+                sarifReport = true
+                htmlReport = true
+                xmlReport = false
+            }
         }
 
         tasks.withType<KotlinCompile>().configureEach {
