@@ -46,4 +46,4 @@
 
 ## 1.0.0 - 2026-04-18
 
-- 현재 위치 기반 주유소 탐색, stale cache fallback, watchlist 비교, 외부 지도 handoff, demo/prod flavor 경로를 갖춘 초기 reference 앱 기준선입니다.
+- 현재 위치 기반 주유소 탐색, stale cache fallback, watchlist 비교, 외부 지도 handoff, demo/prod flavor 경로를 갖춘 1.0 기준선입니다.
