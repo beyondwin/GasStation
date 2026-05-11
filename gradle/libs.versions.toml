@@ -29,6 +29,7 @@ turbine = "1.2.1"
 benchmark = "1.4.1"
 uiautomator = "2.3.0"
 timber = "5.0.1"
+roborazzi = "1.43.1"
 robolectric = "4.16.1"
 spotless = "7.0.2"
 ktlint = "1.5.0"
@@ -86,6 +87,10 @@ androidx-macrobenchmark-junit4 = { module = "androidx.benchmark:benchmark-macro-
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi-core = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
+roborazzi-gradlePlugin = { module = "io.github.takahirom.roborazzi:roborazzi-gradle-plugin", version.ref = "roborazzi" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
 
 [plugins]
@@ -96,3 +101,4 @@ jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 googleDevtoolsKsp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 googleDaggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
