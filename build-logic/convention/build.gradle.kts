@@ -20,6 +20,7 @@ dependencies {
     implementation(libs.findLibrary("ksp-gradlePlugin").get())
     implementation(libs.findLibrary("hilt-gradlePlugin").get())
     implementation(libs.findLibrary("spotless-gradlePlugin").get())
+    implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
 }
 
 gradlePlugin {
