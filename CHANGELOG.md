@@ -27,7 +27,7 @@
 - README / AGENTS.md: 인라인 보안 단락을 `docs/security-trade-offs.md` 링크로 대체.
 - README: 영문 elevator pitch + 5분 투어 구조로 정돈.
 - 설계/계획 문서 `docs/history/`로 이동 (단일 계획 참조 구조).
-- 제품 정의 단일화 및 모든 포트폴리오/reviewer 지시 문구 제거.
+- 제품 정의 단일화 및 작업 지시 문구를 운영 계약 문서로 이동.
 
 ### 검증
 
