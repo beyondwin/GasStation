@@ -6,8 +6,12 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  static-analysis:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,9 +20,21 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Verification Matrix
+      - name: Spotless + Lint
+        run: ./gradlew spotlessCheck lint --continue
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit Tests
         run: |
-          JAVA_HOME="${JAVA_HOME}" PATH="${JAVA_HOME}/bin:${PATH}" ./gradlew \
+          ./gradlew \
             :domain:location:test \
             :core:model:test \
             :domain:station:test \
@@ -35,7 +51,58 @@ jobs:
             :feature:watchlist:testDebugUnitTest \
             :app:testDemoDebugUnitTest \
             :app:testProdDebugUnitTest \
-            :tools:demo-seed:test \
+            :tools:demo-seed:test
+
+  screenshot-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Roborazzi Screenshot Verification
+        run: ./gradlew verifyRoborazziDebug
+      - name: Upload screenshot diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roborazzi-diffs
+          path: "**/build/outputs/roborazzi/**"
+
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Assemble
+        run: |
+          ./gradlew \
             :app:assembleDemoDebug \
             :app:assembleProdDebug \
+            :app:assembleProdRelease \
             :benchmark:assemble
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kover XML Report
+        run: ./gradlew koverXmlReport
+      - name: Upload to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/reports/kover/report.xml
