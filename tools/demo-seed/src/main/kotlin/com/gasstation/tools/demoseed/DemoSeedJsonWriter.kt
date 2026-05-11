@@ -11,17 +11,9 @@ data class DemoSeedDocument(
     val history: List<DemoSeedStationHistory>,
 )
 
-data class DemoSeedOriginJson(
-    val label: String,
-    val latitude: Double,
-    val longitude: Double,
-)
+data class DemoSeedOriginJson(val label: String, val latitude: Double, val longitude: Double)
 
-data class DemoSeedSnapshot(
-    val radiusMeters: Int,
-    val fuelType: String,
-    val stations: List<DemoSeedStation>,
-)
+data class DemoSeedSnapshot(val radiusMeters: Int, val fuelType: String, val stations: List<DemoSeedStation>)
 
 data class DemoSeedStation(
     val stationId: String,
@@ -32,11 +24,7 @@ data class DemoSeedStation(
     val longitude: Double,
 )
 
-data class DemoSeedStationHistory(
-    val stationId: String,
-    val fuelType: String,
-    val entries: List<DemoSeedHistoryEntry>,
-)
+data class DemoSeedStationHistory(val stationId: String, val fuelType: String, val entries: List<DemoSeedHistoryEntry>)
 
 object DemoSeedJsonWriter {
     val gson: Gson = GsonBuilder()

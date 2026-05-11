@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,9 +49,7 @@ enum class MaterialTypographySlot {
     LabelSmall,
 }
 
-enum class ChromeTextRole(
-    val fallbackMaterialSlot: MaterialTypographySlot,
-) {
+enum class ChromeTextRole(val fallbackMaterialSlot: MaterialTypographySlot) {
     TopBarTitle(MaterialTypographySlot.TitleLarge),
     SectionTitle(MaterialTypographySlot.TitleMedium),
     CardTitle(MaterialTypographySlot.TitleMedium),
@@ -72,10 +70,7 @@ enum class StructuredTextSlot {
     Body,
 }
 
-data class TextSlotRole(
-    val slot: StructuredTextSlot,
-    val role: ChromeTextRole,
-)
+data class TextSlotRole(val slot: StructuredTextSlot, val role: ChromeTextRole)
 
 enum class ChromeCardSection {
     Header,
@@ -98,10 +93,7 @@ data class ChromeCardStructure(
     }
 }
 
-data class StatusBannerContent(
-    val title: String,
-    val body: String? = null,
-) {
+data class StatusBannerContent(val title: String, val body: String? = null) {
     init {
         require(title.isNotBlank()) { "Status banner title is required." }
         require(body == null || body.isNotBlank()) { "Status banner body must not be blank when provided." }
@@ -133,10 +125,7 @@ internal data class StatusBannerToneVisual(
 )
 
 @Composable
-fun GasStationBackground(
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
-) {
+fun GasStationBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(
         modifier = modifier.background(ColorYellow),
         content = content,
@@ -202,11 +191,7 @@ fun GasStationCard(
 }
 
 @Composable
-fun GasStationSectionHeading(
-    title: String,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
-) {
+fun GasStationSectionHeading(title: String, modifier: Modifier = Modifier, subtitle: String? = null) {
     val spacing = GasStationTheme.spacing
 
     Column(
@@ -296,10 +281,7 @@ fun GasStationStatusBanner(
 }
 
 @Composable
-private fun StatusBannerSymbol(
-    visual: StatusBannerToneVisual,
-    modifier: Modifier = Modifier,
-) {
+private fun StatusBannerSymbol(visual: StatusBannerToneVisual, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(16.dp)) {
         val markColor = visual.symbolContentColor
         val strokeWidth = size.minDimension * 0.16f

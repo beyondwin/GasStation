@@ -13,7 +13,5 @@ import dagger.multibindings.IntoSet
 abstract class DemoStartupModule {
     @Binds
     @IntoSet
-    abstract fun bindDemoSeedStartupHook(
-        hook: DemoSeedStartupHook,
-    ): AppStartupHook
+    abstract fun bindDemoSeedStartupHook(hook: DemoSeedStartupHook): AppStartupHook
 }

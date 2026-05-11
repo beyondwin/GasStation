@@ -1,9 +1,9 @@
 package com.gasstation.feature.stationlist
 
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
@@ -60,22 +60,20 @@ class StationListItemUiModelTest {
     }
 }
 
-private fun stationEntry(
-    priceDelta: StationPriceDelta = StationPriceDelta.Unchanged,
-    brand: Brand = Brand.GSC,
-): StationListEntry = StationListEntry(
-    station = Station(
-        id = "station-1",
-        name = "테스트 주유소",
-        brand = brand,
-        price = MoneyWon(1689),
-        distance = DistanceMeters(320),
-        coordinates = Coordinates(
-            latitude = 37.498095,
-            longitude = 127.02761,
+private fun stationEntry(priceDelta: StationPriceDelta = StationPriceDelta.Unchanged, brand: Brand = Brand.GSC): StationListEntry =
+    StationListEntry(
+        station = Station(
+            id = "station-1",
+            name = "테스트 주유소",
+            brand = brand,
+            price = MoneyWon(1689),
+            distance = DistanceMeters(320),
+            coordinates = Coordinates(
+                latitude = 37.498095,
+                longitude = 127.02761,
+            ),
         ),
-    ),
-    priceDelta = priceDelta,
-    isWatched = false,
-    lastSeenAt = null,
-)
+        priceDelta = priceDelta,
+        isWatched = false,
+        lastSeenAt = null,
+    )

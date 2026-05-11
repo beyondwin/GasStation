@@ -10,7 +10,6 @@ import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.WatchedStationEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +17,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class GasStationDatabaseMigrationTest {
@@ -43,11 +43,7 @@ class GasStationDatabaseMigrationTest {
                     object : SupportSQLiteOpenHelper.Callback(1) {
                         override fun onCreate(db: SupportSQLiteDatabase) = Unit
 
-                        override fun onUpgrade(
-                            db: SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) = Unit
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                     },
                 )
                 .build(),
@@ -223,11 +219,7 @@ class GasStationDatabaseMigrationTest {
                     object : SupportSQLiteOpenHelper.Callback(3) {
                         override fun onCreate(db: SupportSQLiteDatabase) = Unit
 
-                        override fun onUpgrade(
-                            db: SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) = Unit
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                     },
                 )
                 .build(),
@@ -497,10 +489,7 @@ class GasStationDatabaseMigrationTest {
         watchedAtEpochMillis = 1_744_947_260_000L,
     )
 
-    private fun tableExists(
-        db: SupportSQLiteDatabase,
-        tableName: String,
-    ): Boolean = db.query(
+    private fun tableExists(db: SupportSQLiteDatabase, tableName: String): Boolean = db.query(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
         arrayOf(tableName),
     ).use { cursor ->
@@ -524,25 +513,20 @@ class GasStationDatabaseMigrationTest {
         )
     }
 
-    private fun indexExists(
-        db: SupportSQLiteDatabase,
-        indexName: String,
-    ): Boolean = db.query(
+    private fun indexExists(db: SupportSQLiteDatabase, indexName: String): Boolean = db.query(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
         arrayOf(indexName),
     ).use { cursor ->
         cursor.moveToFirst()
     }
 
-    private fun indexColumns(
-        db: SupportSQLiteDatabase,
-        indexName: String,
-    ): List<String> = db.query("PRAGMA index_info(`$indexName`)").use { cursor ->
-        val nameIndex = cursor.getColumnIndexOrThrow("name")
-        buildList {
-            while (cursor.moveToNext()) {
-                add(cursor.getString(nameIndex))
+    private fun indexColumns(db: SupportSQLiteDatabase, indexName: String): List<String> =
+        db.query("PRAGMA index_info(`$indexName`)").use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(cursor.getString(nameIndex))
+                }
             }
         }
-    }
 }

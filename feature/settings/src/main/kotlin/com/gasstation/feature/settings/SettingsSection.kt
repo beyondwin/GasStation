@@ -1,9 +1,6 @@
 package com.gasstation.feature.settings
 
-enum class SettingsSectionGroup(
-    val title: String,
-    val subtitle: String,
-) {
+enum class SettingsSectionGroup(val title: String, val subtitle: String) {
     Explore(
         title = "탐색 설정",
         subtitle = "주변 주유소를 어떤 기준으로 좁혀볼지 정합니다.",
@@ -18,12 +15,7 @@ enum class SettingsSectionGroup(
     ),
 }
 
-enum class SettingsSection(
-    val routeSegment: String,
-    val group: SettingsSectionGroup,
-    val title: String,
-    val subtitle: String,
-) {
+enum class SettingsSection(val routeSegment: String, val group: SettingsSectionGroup, val title: String, val subtitle: String) {
     SearchRadius(
         routeSegment = "search-radius",
         group = SettingsSectionGroup.Explore,
@@ -53,7 +45,8 @@ enum class SettingsSection(
         group = SettingsSectionGroup.Connection,
         title = "연동지도 서비스",
         subtitle = "길찾기 버튼에서 열 지도를 정합니다.",
-    );
+    ),
+    ;
 
     val overline: String
         get() = group.title
@@ -62,9 +55,8 @@ enum class SettingsSection(
         fun fromRouteSegment(routeSegment: String): SettingsSection? =
             entries.firstOrNull { section -> section.routeSegment == routeSegment }
 
-        fun requireFromRouteSegment(routeSegment: String): SettingsSection =
-            requireNotNull(fromRouteSegment(routeSegment)) {
-                "Unknown settings section route segment: $routeSegment"
-            }
+        fun requireFromRouteSegment(routeSegment: String): SettingsSection = requireNotNull(fromRouteSegment(routeSegment)) {
+            "Unknown settings section route segment: $routeSegment"
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.gasstation
 
 import com.gasstation.core.location.DemoLocationOverride
-import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.demo.seed.DemoSeedOrigin
 import dagger.Module
 import dagger.Provides

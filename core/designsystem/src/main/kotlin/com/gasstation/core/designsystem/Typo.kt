@@ -24,33 +24,16 @@ data class GasStationTypography(
 )
 
 @Immutable
-data class GasStationSpacing(
-    val space4: Dp,
-    val space8: Dp,
-    val space12: Dp,
-    val space16: Dp,
-    val space24: Dp,
-)
+data class GasStationSpacing(val space4: Dp, val space8: Dp, val space12: Dp, val space16: Dp, val space24: Dp)
 
 @Immutable
-data class GasStationCorner(
-    val small: Dp,
-    val medium: Dp,
-    val large: Dp,
-)
+data class GasStationCorner(val small: Dp, val medium: Dp, val large: Dp)
 
 @Immutable
-data class GasStationStroke(
-    val default: Dp,
-    val emphasis: Dp,
-)
+data class GasStationStroke(val default: Dp, val emphasis: Dp)
 
 @Immutable
-data class GasStationIconSize(
-    val topBarAction: Dp,
-    val trailingAction: Dp,
-    val status: Dp,
-)
+data class GasStationIconSize(val topBarAction: Dp, val trailingAction: Dp, val status: Dp)
 
 private val DefaultFontFamily = FontFamily.Default
 

@@ -1,11 +1,11 @@
 package com.gasstation.tools.demoseed
 
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.network.di.NetworkModule
 import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.core.network.station.NetworkStationFetcher
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.SearchRadius
 import java.io.File
 
 data class DemoSeedRemoteStation(
@@ -17,21 +17,15 @@ data class DemoSeedRemoteStation(
 )
 
 interface DemoSeedStationFetcher {
-    suspend fun fetchStations(
-        origin: Coordinates,
-        radius: SearchRadius,
-        fuelType: FuelType,
-    ): List<DemoSeedRemoteStation>
+    suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): List<DemoSeedRemoteStation>
 }
 
-class DemoSeedGenerator(
-    private val fetcher: DemoSeedStationFetcher,
-) {
+class DemoSeedGenerator(private val fetcher: DemoSeedStationFetcher) {
     suspend fun generate(
         outputFile: File,
         origin: Coordinates,
         generatedAtEpochMillis: Long,
-        originLabel: String = GangnamStationExit2Label,
+        originLabel: String = GANGNAM_STATION_EXIT_2_LABEL,
     ) {
         val document = createDocument(
             origin = origin,
@@ -46,7 +40,7 @@ class DemoSeedGenerator(
     suspend fun createDocument(
         origin: Coordinates,
         generatedAtEpochMillis: Long,
-        originLabel: String = GangnamStationExit2Label,
+        originLabel: String = GANGNAM_STATION_EXIT_2_LABEL,
     ): DemoSeedDocument {
         val snapshots = DemoSeedQueryMatrix.all().map { query ->
             DemoSeedSnapshot(
@@ -104,40 +98,33 @@ class DemoSeedGenerator(
     }
 
     companion object {
-        const val GangnamStationExit2Label: String = "Gangnam Station Exit 2"
+        const val GANGNAM_STATION_EXIT_2_LABEL: String = "Gangnam Station Exit 2"
 
-        fun fromSystemProperties(): DemoSeedGenerator {
-            return DemoSeedGenerator(
-                fetcher = SharedNetworkSeedStationFetcher(
-                    fetcher = NetworkStationFetcher(
-                        opinetService = NetworkModule.provideOpinetService(NetworkModule.provideOpinetBaseUrl()),
-                        opinetApiKey = System.getProperty("opinet.apikey").orEmpty(),
-                    ),
+        fun fromSystemProperties(): DemoSeedGenerator = DemoSeedGenerator(
+            fetcher = SharedNetworkSeedStationFetcher(
+                fetcher = NetworkStationFetcher(
+                    opinetService = NetworkModule.provideOpinetService(NetworkModule.provideOpinetBaseUrl()),
+                    opinetApiKey = System.getProperty("opinet.apikey").orEmpty(),
                 ),
-            )
-        }
+            ),
+        )
     }
 }
 
-private class SharedNetworkSeedStationFetcher(
-    private val fetcher: NetworkStationFetcher,
-) : DemoSeedStationFetcher {
-    override suspend fun fetchStations(
-        origin: Coordinates,
-        radius: SearchRadius,
-        fuelType: FuelType,
-    ): List<DemoSeedRemoteStation> = when (val result = fetcher.fetchStations(origin, radius, fuelType)) {
-        is NetworkStationFetchResult.Success -> result.stations.map { station ->
-            DemoSeedRemoteStation(
-                stationId = station.stationId,
-                name = station.name,
-                brandCode = station.brandCode,
-                priceWon = station.priceWon,
-                coordinates = station.coordinates,
+private class SharedNetworkSeedStationFetcher(private val fetcher: NetworkStationFetcher) : DemoSeedStationFetcher {
+    override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): List<DemoSeedRemoteStation> =
+        when (val result = fetcher.fetchStations(origin, radius, fuelType)) {
+            is NetworkStationFetchResult.Success -> result.stations.map { station ->
+                DemoSeedRemoteStation(
+                    stationId = station.stationId,
+                    name = station.name,
+                    brandCode = station.brandCode,
+                    priceWon = station.priceWon,
+                    coordinates = station.coordinates,
+                )
+            }
+            NetworkStationFetchResult.Failure -> error(
+                "Shared network fetcher failed for ${radius.name}/${fuelType.name}.",
             )
         }
-        NetworkStationFetchResult.Failure -> error(
-            "Shared network fetcher failed for ${radius.name}/${fuelType.name}.",
-        )
-    }
 }

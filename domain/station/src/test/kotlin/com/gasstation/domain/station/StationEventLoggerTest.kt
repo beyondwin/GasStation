@@ -33,12 +33,8 @@ class StationEventLoggerTest {
         }
     }
 
-    private class ThrowingStationEventLogger(
-        private val throwable: Throwable,
-    ) : StationEventLogger {
-        override fun log(event: StationEvent) {
-            throw throwable
-        }
+    private class ThrowingStationEventLogger(private val throwable: Throwable) : StationEventLogger {
+        override fun log(event: StationEvent): Unit = throw throwable
     }
 
     private companion object {

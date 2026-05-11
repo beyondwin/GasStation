@@ -1,5 +1,6 @@
 package com.gasstation.feature.watchlist
 
+import androidx.compose.ui.graphics.Color
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
@@ -12,7 +13,6 @@ import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.graphics.Color
 
 data class WatchlistItemUiModel(
     val id: String,
@@ -69,8 +69,7 @@ private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
 
 private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
 
-private fun DistanceMeters.toDistanceNumberLabel(): String =
-    DecimalFormat("#,##0.0").format(value / 1000.0)
+private fun DistanceMeters.toDistanceNumberLabel(): String = DecimalFormat("#,##0.0").format(value / 1000.0)
 
 private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unavailable -> "-"

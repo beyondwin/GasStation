@@ -1,10 +1,10 @@
 package com.gasstation.feature.stationlist
 
 import com.gasstation.domain.location.LocationPermissionState
-import java.time.Instant
-import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.Instant
+import java.util.TimeZone
 
 class StationListBannerModelTest {
 

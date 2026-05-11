@@ -33,17 +33,13 @@ object AppConfigModule {
 
     @Provides
     @Singleton
-    fun provideOpinetService(
-        @Named("opinetBaseUrl") baseUrl: String,
-    ): OpinetService = NetworkModule.provideOpinetService(baseUrl)
+    fun provideOpinetService(@Named("opinetBaseUrl") baseUrl: String): OpinetService = NetworkModule.provideOpinetService(baseUrl)
 
     @Provides
     @Singleton
-    fun provideNetworkStationFetcher(
-        opinetService: OpinetService,
-        @Named("opinetApiKey") opinetApiKey: String,
-    ): NetworkStationFetcher = NetworkStationFetcher(
-        opinetService = opinetService,
-        opinetApiKey = opinetApiKey,
-    )
+    fun provideNetworkStationFetcher(opinetService: OpinetService, @Named("opinetApiKey") opinetApiKey: String): NetworkStationFetcher =
+        NetworkStationFetcher(
+            opinetService = opinetService,
+            opinetApiKey = opinetApiKey,
+        )
 }

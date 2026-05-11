@@ -55,8 +55,7 @@ private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
 
 private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
 
-private fun DistanceMeters.toDistanceNumberLabel(): String =
-    DecimalFormat("#,##0.0").format(value / 1000.0)
+private fun DistanceMeters.toDistanceNumberLabel(): String = DecimalFormat("#,##0.0").format(value / 1000.0)
 
 private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unavailable -> "-"

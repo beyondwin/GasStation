@@ -160,10 +160,9 @@ class GasStationThemeTokensTest {
         return getter.invoke(this) as TextStyle
     }
 
-    private fun Any.dpValue(getterName: String): Float =
-        javaClass.methods
-            .single { method -> method.name == getterName || method.name.startsWith("$getterName-") }
-            .invoke(this) as Float
+    private fun Any.dpValue(getterName: String): Float = javaClass.methods
+        .single { method -> method.name == getterName || method.name.startsWith("$getterName-") }
+        .invoke(this) as Float
 
     companion object {
         private val expectedRoleGetterNames = setOf(

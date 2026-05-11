@@ -14,13 +14,12 @@ data class UserPreferences(
     val mapProvider: MapProvider,
 ) {
     companion object {
-        fun default(): UserPreferences =
-            UserPreferences(
-                searchRadius = SearchRadius.KM_3,
-                fuelType = FuelType.GASOLINE,
-                brandFilter = BrandFilter.ALL,
-                sortOrder = SortOrder.DISTANCE,
-                mapProvider = MapProvider.TMAP,
-            )
+        fun default(): UserPreferences = UserPreferences(
+            searchRadius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+            brandFilter = BrandFilter.ALL,
+            sortOrder = SortOrder.DISTANCE,
+            mapProvider = MapProvider.TMAP,
+        )
     }
 }

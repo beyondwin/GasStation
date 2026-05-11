@@ -2,8 +2,8 @@ package com.gasstation.startup
 
 import android.app.Application
 import com.gasstation.BuildConfig
-import javax.inject.Inject
 import timber.log.Timber
+import javax.inject.Inject
 
 class ProdSecretsStartupHook @Inject constructor() : AppStartupHook {
     override fun run(application: Application) {

@@ -1,12 +1,12 @@
 package com.gasstation.feature.settings
 
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
-import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.settings.model.UserPreferences
 
 data class SettingsUiState(
     val searchRadius: SearchRadius,

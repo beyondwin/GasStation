@@ -1,13 +1,11 @@
 package com.gasstation.domain.settings.usecase
 
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.core.model.SortOrder
 import javax.inject.Inject
 
-class UpdatePreferredSortOrderUseCase private constructor(
-    private val updater: Updater,
-) {
+class UpdatePreferredSortOrderUseCase private constructor(private val updater: Updater) {
     @Inject
     constructor(settingsRepository: SettingsRepository) : this(
         updater = Updater(settingsRepository::updateUserPreferences),

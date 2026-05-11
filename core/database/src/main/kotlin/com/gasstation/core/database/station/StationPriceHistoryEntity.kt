@@ -11,9 +11,4 @@ import androidx.room.Index
         Index(value = ["fetchedAtEpochMillis"]),
     ],
 )
-data class StationPriceHistoryEntity(
-    val stationId: String,
-    val fuelType: String,
-    val priceWon: Int,
-    val fetchedAtEpochMillis: Long,
-)
+data class StationPriceHistoryEntity(val stationId: String, val fuelType: String, val priceWon: Int, val fetchedAtEpochMillis: Long)

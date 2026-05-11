@@ -2,14 +2,14 @@ package com.gasstation.core.location
 
 import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
-import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
-import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
-import java.util.Optional
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.Optional
+import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
+import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
 
 class DefaultLocationRepositoryTest {
     @Test
@@ -143,9 +143,7 @@ class DefaultLocationRepositoryTest {
     }
 }
 
-private class FakeForegroundLocationProvider(
-    private val result: LocationLookupResult,
-) : ForegroundLocationProvider {
+private class FakeForegroundLocationProvider(private val result: LocationLookupResult) : ForegroundLocationProvider {
     var lastPermissionState: LocationPermissionState? = null
 
     override suspend fun currentLocation(permissionState: LocationPermissionState): LocationLookupResult {
@@ -154,9 +152,7 @@ private class FakeForegroundLocationProvider(
     }
 }
 
-private class FakeAddressResolver(
-    private val result: DomainLocationAddressLookupResult,
-) : AddressResolver {
+private class FakeAddressResolver(private val result: DomainLocationAddressLookupResult) : AddressResolver {
     var lastCoordinates: Coordinates? = null
 
     override suspend fun addressFor(coordinates: Coordinates): DomainLocationAddressLookupResult {

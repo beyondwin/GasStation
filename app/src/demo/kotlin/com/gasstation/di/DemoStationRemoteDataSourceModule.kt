@@ -13,7 +13,5 @@ import javax.inject.Singleton
 abstract class DemoStationRemoteDataSourceModule {
     @Binds
     @Singleton
-    abstract fun bindSeedStationRemoteDataSource(
-        dataSource: DemoSeedStationRemoteDataSource,
-    ): SeedStationRemoteDataSource
+    abstract fun bindSeedStationRemoteDataSource(dataSource: DemoSeedStationRemoteDataSource): SeedStationRemoteDataSource
 }

@@ -2,10 +2,10 @@ package com.gasstation.core.location
 
 import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
-import java.util.Optional
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.Optional
 
 class AndroidForegroundLocationProviderSurfaceTest {
     @Test
