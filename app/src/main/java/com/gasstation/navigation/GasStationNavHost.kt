@@ -72,7 +72,7 @@ fun GasStationNavHost(
         composable(
             route = GasStationDestination.SettingsDetail.route,
             arguments = listOf(
-                navArgument(GasStationDestination.SettingsDetail.sectionArg) {
+                navArgument(GasStationDestination.SettingsDetail.SECTION_ARG) {
                     type = NavType.StringType
                 },
             ),
@@ -82,7 +82,7 @@ fun GasStationNavHost(
             popExitTransition = { backwardExitTransition() },
         ) { backStackEntry ->
             val routeSegment = requireNotNull(
-                backStackEntry.arguments?.getString(GasStationDestination.SettingsDetail.sectionArg),
+                backStackEntry.arguments?.getString(GasStationDestination.SettingsDetail.SECTION_ARG),
             )
             val section = SettingsSection.requireFromRouteSegment(routeSegment)
             val settingsBackStackEntry = remember(backStackEntry) {

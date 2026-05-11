@@ -5,20 +5,20 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.demo.seed.DemoSeedAssetLoader
 import com.gasstation.demo.seed.DemoSeedDocument
 import com.gasstation.demo.seed.DemoSeedOrigin
 import com.gasstation.demo.seed.DemoSeedQueryDocument
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
-import com.gasstation.domain.station.model.StationQueryCacheKey
-import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.StationQuery
-import javax.inject.Inject
+import com.gasstation.domain.station.model.StationQueryCacheKey
 import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
 class DemoSeedStartupHook @Inject constructor(
     private val assetLoader: DemoSeedAssetLoader,
@@ -47,10 +47,7 @@ class DemoSeedStartupHook @Inject constructor(
         }
     }
 
-    fun seedDatabase(
-        database: GasStationDatabase,
-        document: DemoSeedDocument,
-    ) {
+    fun seedDatabase(database: GasStationDatabase, document: DemoSeedDocument) {
         document.requireSharedOrigin()
         runBlocking {
             database.withTransaction {
@@ -113,7 +110,7 @@ class DemoSeedStartupHook @Inject constructor(
     }
 
     private fun DemoSeedDocument.requireSharedOrigin() {
-        require(origin.label == DemoSeedOrigin.label) {
+        require(origin.label == DemoSeedOrigin.LABEL) {
             "Demo seed origin label must stay aligned with the demo location override."
         }
         require(
