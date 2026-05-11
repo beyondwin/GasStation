@@ -18,14 +18,15 @@
 - Kover 0.9.1: 전 모듈 코드 커버리지 수집 활성화, Hilt/Compose 생성 코드 제외.
 - Compose stability metrics: `compose-reports` / `compose-metrics` 출력 4개 모듈 설정.
 - Baseline profile: AGP 9.1.1 인프라 호환성 대기 중 (deferred). 준비되면 이 항목을 갱신합니다.
-- CI: GitHub Actions workflow를 5개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`.
+- CI: GitHub Actions workflow를 5개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`. Codecov 업로드는 `CODECOV_TOKEN`이 있을 때만 실행되도록 env gate를 사용해 secret 미설정 상태에서도 workflow 파일이 유효합니다.
 - i18n: `StringResource` 래퍼 + `en/strings.xml` 추가.
+- Repository hygiene: 로컬 `.orchestrator` 실행 산출물을 추적 대상에서 제거하고 `.gitignore`에 추가했습니다.
 
 ### 문서
 
 - `docs/security-trade-offs.md` 신설: API key, cleartext HTTP, Android backup, 인증서 피닝, CrashReporter 결정 단일 출처.
 - README / AGENTS.md: 인라인 보안 단락을 `docs/security-trade-offs.md` 링크로 대체.
-- README: 영문 elevator pitch + 5분 투어 구조로 정돈.
+- README: 영문 elevator pitch + 5분 투어 구조로 정돈하고, 현재 버전/릴리즈 노트/CI badge를 v1.1.0 발행 기준으로 맞췄습니다.
 - 설계/계획 문서 `docs/history/`로 이동 (단일 계획 참조 구조).
 - 제품 정의 단일화 및 작업 지시 문구를 운영 계약 문서로 이동.
 

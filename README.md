@@ -1,6 +1,6 @@
 # 주유주유소 (GasStation)
 
-[![CI](https://github.com/kws/GasStation/actions/workflows/android.yml/badge.svg)](https://github.com/kws/GasStation/actions/workflows/android.yml)
+[![CI](https://github.com/beyondwin/GasStation/actions/workflows/android.yml/badge.svg)](https://github.com/beyondwin/GasStation/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-7F52FF.svg?logo=kotlin)](https://kotlinlang.org)
 [![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.03.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
@@ -29,7 +29,7 @@
 | 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
-| 현재 앱 버전 | `1.0.2` (`versionCode` 3) |
+| 현재 앱 버전 | `1.1.0` (`versionCode` 4) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 | 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
@@ -143,6 +143,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 ## 릴리즈
 
 - [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
+- [1.1.0 릴리즈 노트](docs/release-notes/2026-05-11-v1.1.0.md): production baseline, CI, i18n, screenshot regression, coverage 기반 변경과 검증 결과를 정리합니다.
 - [1.0.2 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.2.md): 2026-05-05 deep analysis required fixes와 검증 결과를 정리합니다.
 - [1.0.1 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.1.md): 2026-05-05 backlog risk resolution 변경의 상세 내용과 검증 결과를 정리합니다.
 
@@ -210,4 +211,4 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 ```
 
 전체 명령과 상황별 기준은 [검증 매트릭스](docs/verification-matrix.md)를 따릅니다.
-GitHub Actions `Verification Matrix`는 머지 전 권장 회귀 세트를 기준으로 하며, release assemble은 R8/minify 회귀를 CI 기본값으로 올리기로 결정할 때 별도로 추가합니다.
+GitHub Actions `Android CI`는 `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage` 5개 job으로 실행되며, assemble job은 demo/prod debug, prod release, benchmark assemble을 확인합니다.
