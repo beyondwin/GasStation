@@ -1,6 +1,7 @@
 package com.gasstation.feature.stationlist
 
 import app.cash.turbine.test
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
@@ -31,6 +32,7 @@ import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
+import com.gasstation.feature.stationlist.R
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -726,7 +728,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -763,7 +765,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
                 awaitItem(),
             )
         }
@@ -798,7 +800,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -954,7 +956,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -994,7 +996,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -1035,7 +1037,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("서버 응답이 늦어 가격을 새로고침하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_timeout)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -1075,7 +1077,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("현재 위치를 확인하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
                 awaitItem(),
             )
             expectNoEvents()
@@ -1113,7 +1115,7 @@ class StationListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                StationListEffect.ShowSnackbar("주유소 목록을 새로고침하지 못했습니다."),
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
                 awaitItem(),
             )
             assertEquals(null, viewModel.uiState.value.blockingFailure)

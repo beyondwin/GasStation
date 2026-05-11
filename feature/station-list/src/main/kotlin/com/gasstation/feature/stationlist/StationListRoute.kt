@@ -75,7 +75,7 @@ fun StationListRoute(
                 StationListEffect.OpenLocationSettings -> {
                     context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 }
-                is StationListEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
+                is StationListEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message.resolve(context))
             }
         }
     }
