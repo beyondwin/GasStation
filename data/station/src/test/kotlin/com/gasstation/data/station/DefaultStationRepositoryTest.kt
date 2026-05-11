@@ -8,6 +8,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
@@ -506,6 +507,42 @@ class DefaultStationRepositoryTest {
         assertEquals(StationFreshness.Fresh, result.freshness)
     }
 
+    @Test
+    fun `refreshNearbyStations records unexpected throwable via crashReporter and rethrows as StationRefreshException`() = runTest {
+        val crashReporter = FakeCrashReporter()
+        val query = stationQuery()
+        val boom = IllegalStateException("unexpected boom")
+        val repository = repository(
+            remoteDataSource = ThrowingStationRemoteDataSource(boom),
+            crashReporter = crashReporter,
+        )
+
+        assertThrows(StationRefreshException::class.java) {
+            runBlocking { repository.refreshNearbyStations(query) }
+        }
+
+        assertEquals(1, crashReporter.records.size)
+        assertEquals(boom, crashReporter.records.first().throwable)
+    }
+
+    @Test
+    fun `refreshNearbyStations does not record StationRefreshException via crashReporter`() = runTest {
+        val crashReporter = FakeCrashReporter()
+        val query = stationQuery()
+        val repository = repository(
+            remoteDataSource = FakeStationRemoteDataSource(
+                RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network),
+            ),
+            crashReporter = crashReporter,
+        )
+
+        assertThrows(StationRefreshException::class.java) {
+            runBlocking { repository.refreshNearbyStations(query) }
+        }
+
+        assertEquals(0, crashReporter.records.size)
+    }
+
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
         stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
@@ -515,6 +552,7 @@ class DefaultStationRepositoryTest {
         ),
         seedRemoteDataSource: Optional<SeedStationRemoteDataSource> = Optional.empty(),
         analytics: StationEventLogger = RecordingStationEventLogger(),
+        crashReporter: CrashReporter = FakeCrashReporter(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationPriceHistoryDao = stationPriceHistoryDao,
@@ -524,6 +562,7 @@ class DefaultStationRepositoryTest {
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(analytics),
         stationEventLogger = analytics,
+        crashReporter = crashReporter,
         clock = clock,
     )
 
@@ -579,6 +618,10 @@ class DefaultStationRepositoryTest {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
     }
 
+    private class ThrowingStationRemoteDataSource(private val throwable: Throwable) : StationRemoteDataSource {
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = throw throwable
+    }
+
     private class FakeSeedStationRemoteDataSource(private val result: RemoteStationFetchResult) : SeedStationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
     }
@@ -597,6 +640,18 @@ class DefaultStationRepositoryTest {
 
     private class ThrowingStationEventLogger : StationEventLogger {
         override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
+    }
+
+    private class FakeCrashReporter : CrashReporter {
+        data class Record(val throwable: Throwable, val metadata: Map<String, String>)
+        val records = mutableListOf<Record>()
+        val logs = mutableListOf<String>()
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) {
+            records += Record(throwable, metadata)
+        }
+        override fun log(message: String) {
+            logs += message
+        }
     }
 
     private class RecordingStationCacheDao : StationCacheDao() {

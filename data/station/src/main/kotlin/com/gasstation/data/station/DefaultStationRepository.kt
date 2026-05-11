@@ -13,8 +13,10 @@ import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SortOrder
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.Station
@@ -25,6 +27,7 @@ import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -51,6 +54,7 @@ class DefaultStationRepository @Inject constructor(
     private val cachePolicy: StationCachePolicy,
     private val retryPolicy: StationRetryPolicy,
     private val stationEventLogger: StationEventLogger,
+    private val crashReporter: CrashReporter,
     private val clock: Clock,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
@@ -139,6 +143,22 @@ class DefaultStationRepository @Inject constructor(
         }
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
+        try {
+            refreshNearbyStationsInternal(query)
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (exception: StationRefreshException) {
+            throw exception
+        } catch (throwable: Throwable) {
+            crashReporter.recordNonFatal(
+                throwable,
+                mapOf("module" to "data:station", "operation" to "refreshNearbyStations"),
+            )
+            throw StationRefreshException(reason = StationRefreshFailureReason.Unknown, cause = throwable)
+        }
+    }
+
+    private suspend fun refreshNearbyStationsInternal(query: StationQuery) {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
         val fetchedAt = clock.instant()
         val remoteStations = retryPolicy.withRetry {

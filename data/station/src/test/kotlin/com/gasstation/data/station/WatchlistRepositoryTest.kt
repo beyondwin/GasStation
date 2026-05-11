@@ -7,6 +7,7 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
@@ -288,6 +289,7 @@ class WatchlistRepositoryTest {
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         stationEventLogger = RecordingStationEventLogger(),
+        crashReporter = NoOpCrashReporter,
         clock = clock,
     )
 
@@ -295,6 +297,11 @@ class WatchlistRepositoryTest {
         override suspend fun fetchStations(query: com.gasstation.domain.station.model.StationQuery): RemoteStationFetchResult {
             error("refreshNearbyStations is not used in watchlist repository tests")
         }
+    }
+
+    private object NoOpCrashReporter : CrashReporter {
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) = Unit
+        override fun log(message: String) = Unit
     }
 
     private class RecordingStationEventLogger : StationEventLogger {
