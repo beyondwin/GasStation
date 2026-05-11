@@ -48,5 +48,9 @@ gradlePlugin {
             id = "gasstation.android.room"
             implementationClass = "GasStationAndroidRoomConventionPlugin"
         }
+        register("androidSpotless") {
+            id = "gasstation.spotless"
+            implementationClass = "GasStationSpotlessConventionPlugin"
+        }
     }
 }
