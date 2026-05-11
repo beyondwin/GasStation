@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
+        pluginManager.apply("gasstation.spotless")
         pluginManager.apply("com.android.library")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
