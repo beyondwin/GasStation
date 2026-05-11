@@ -16,6 +16,7 @@
 local.properties
 .idea
 .gstack/
+.orchestrator/
 .kotlin
 
 # signing and local secrets
