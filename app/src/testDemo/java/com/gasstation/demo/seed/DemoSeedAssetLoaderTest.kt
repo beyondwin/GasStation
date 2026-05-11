@@ -69,7 +69,7 @@ class DemoSeedAssetLoaderTest {
         }.toSet()
         val actualMatrix = document.queries.map { it.radiusMeters to it.fuelType }.toSet()
 
-        assertEquals(DemoSeedOrigin.label, document.origin.label)
+        assertEquals(DemoSeedOrigin.LABEL, document.origin.label)
         assertEquals(DemoSeedOrigin.coordinates.latitude, document.origin.latitude, 0.0)
         assertEquals(DemoSeedOrigin.coordinates.longitude, document.origin.longitude, 0.0)
         assertEquals(expectedMatrix, actualMatrix)

@@ -15,9 +15,9 @@ sealed interface GasStationDestination {
     }
 
     data object SettingsDetail : GasStationDestination {
-        const val sectionArg: String = "section"
+        const val SECTION_ARG: String = "section"
 
-        override val route: String = "settings/{$sectionArg}"
+        override val route: String = "settings/{$SECTION_ARG}"
 
         fun createRoute(section: SettingsSection): String = "settings/${section.routeSegment}"
     }

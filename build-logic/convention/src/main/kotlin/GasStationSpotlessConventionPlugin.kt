@@ -18,6 +18,7 @@ class GasStationSpotlessConventionPlugin : Plugin<Project> {
                         mapOf(
                             "android" to "true",
                             "ktlint_standard_filename" to "disabled",
+                            "ktlint_standard_function-naming" to "disabled",
                         ),
                     )
                 trimTrailingWhitespace()
@@ -27,6 +28,12 @@ class GasStationSpotlessConventionPlugin : Plugin<Project> {
             kotlinGradle {
                 target("*.gradle.kts", "src/**/*.gradle.kts")
                 ktlint(ktlintVersion)
+                    .editorConfigOverride(
+                        mapOf(
+                            "ktlint_standard_filename" to "disabled",
+                            "ktlint_standard_function-naming" to "disabled",
+                        ),
+                    )
             }
 
             format("misc") {
