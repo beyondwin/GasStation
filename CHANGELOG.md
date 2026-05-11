@@ -2,6 +2,12 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## Unreleased
+
+### 개발자 영향
+
+- CI: PR에서는 debug assemble과 benchmark assemble만 실행하고, `prodRelease` assemble과 Kover coverage는 `main`/`v*` tag push에서만 실행하도록 분리했습니다. 릴리스 안전성은 유지하면서 PR 피드백 시간을 줄입니다.
+
 ## 1.1.0 - 2026-05-11
 
 ### 사용자 영향

@@ -211,4 +211,4 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 ```
 
 전체 명령과 상황별 기준은 [검증 매트릭스](docs/verification-matrix.md)를 따릅니다.
-GitHub Actions `Android CI`는 `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage` 5개 job으로 실행되며, assemble job은 demo/prod debug, prod release, benchmark assemble을 확인합니다.
+GitHub Actions `Android CI`는 PR에서 `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`을 실행합니다. `assemble`은 demo/prod debug와 benchmark를 확인하고, `main`/`v*` tag push에서만 `release-assemble`과 `coverage`를 추가 실행합니다.
