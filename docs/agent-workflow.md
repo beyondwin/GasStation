@@ -84,7 +84,7 @@ UI 작업은 station list를 기준 화면으로 본다. 이 화면이 가격, �
 7. semantics, content description, test tag를 제거할 때는 대체 테스트를 함께 만든다.
 8. Compose `testTag`는 도구용 selector이므로 안정적인 ASCII 값을 쓰고, 사용자/스크린 리더 문구는 `contentDescription` 같은 접근성 semantics로 분리한다.
 
-UI 변경 후에는 screenshot/readme story가 portfolio-review speed에서 여전히 읽히는지 확인한다.
+UI 변경 후에는 screenshot/readme story가 glanceable speed에서 여전히 읽히는지 확인한다.
 
 ## Settings Changes
 
