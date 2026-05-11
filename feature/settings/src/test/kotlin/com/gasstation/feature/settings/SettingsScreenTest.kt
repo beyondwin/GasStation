@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -33,6 +35,10 @@ class SettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    private fun StringResource.resolve(): String = resolve(context)
+
     @Test
     fun `settings menu rows are laid out vertically`() {
         val uiState = SettingsUiState.from(UserPreferences.default())
@@ -45,12 +51,15 @@ class SettingsScreenTest {
             )
         }
 
+        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
+        val fuelTypeLabel = uiState.selectedLabelFor(SettingsSection.FuelType).resolve()
+
         val searchRadiusTop = composeRule
-            .onNodeWithText("찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}")
+            .onNodeWithText("찾기 범위 : $searchRadiusLabel")
             .fetchSemanticsNode()
             .boundsInRoot.top
         val fuelTypeTop = composeRule
-            .onNodeWithText("오일 타입 : ${uiState.selectedLabelFor(SettingsSection.FuelType)}")
+            .onNodeWithText("오일 타입 : $fuelTypeLabel")
             .fetchSemanticsNode()
             .boundsInRoot.top
 
@@ -75,9 +84,10 @@ class SettingsScreenTest {
             .onNodeWithText("탐색 설정", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
+        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
         val searchRadiusBounds = composeRule
             .onNodeWithText(
-                "찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}",
+                "찾기 범위 : $searchRadiusLabel",
                 useUnmergedTree = true,
             )
             .fetchSemanticsNode()
@@ -91,9 +101,10 @@ class SettingsScreenTest {
             .onNodeWithText("표시 설정", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
+        val sortOrderLabel = uiState.selectedLabelFor(SettingsSection.SortOrder).resolve()
         val sortOrderBounds = composeRule
             .onNodeWithText(
-                "정렬기준 : ${uiState.selectedLabelFor(SettingsSection.SortOrder)}",
+                "정렬기준 : $sortOrderLabel",
                 useUnmergedTree = true,
             )
             .fetchSemanticsNode()
@@ -171,11 +182,13 @@ class SettingsScreenTest {
             )
         }
 
+        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
+
         composeRule.onNodeWithText(
-            "찾기 범위 : ${uiState.selectedLabelFor(SettingsSection.SearchRadius)}",
+            "찾기 범위 : $searchRadiusLabel",
         ).assertExists()
         composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(0)
-        composeRule.onAllNodesWithText(uiState.selectedLabelFor(SettingsSection.SearchRadius)).assertCountEquals(0)
+        composeRule.onAllNodesWithText(searchRadiusLabel).assertCountEquals(0)
     }
 
     @Test
@@ -187,7 +200,8 @@ class SettingsScreenTest {
             sortOrder = SortOrder.PRICE,
             mapProvider = MapProvider.KAKAO_NAVI,
         )
-        val brandRowText = "주유소 브랜드 : ${uiState.selectedLabelFor(SettingsSection.BrandFilter)}"
+        val brandLabel = uiState.selectedLabelFor(SettingsSection.BrandFilter).resolve()
+        val brandRowText = "주유소 브랜드 : $brandLabel"
 
         composeRule.setContent {
             Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
@@ -213,7 +227,7 @@ class SettingsScreenTest {
             .boundsInRoot
 
         assertTrue("Expected long settings value to stay inside its row.", textBounds.right <= rowBounds.right)
-        composeRule.onAllNodesWithText(uiState.selectedLabelFor(SettingsSection.BrandFilter)).assertCountEquals(0)
+        composeRule.onAllNodesWithText(brandLabel).assertCountEquals(0)
     }
 
     @Test
@@ -223,15 +237,15 @@ class SettingsScreenTest {
                 section = SettingsSection.SearchRadius,
                 options = listOf(
                     SettingOptionUiModel(
-                        label = "3km",
-                        subtitle = "가장 촘촘하게 주변 가격을 비교합니다.",
-                        meta = "현재 선택",
+                        label = StringResource.raw("3km"),
+                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
+                        meta = StringResource.fromId(R.string.settings_selected_meta),
                         action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
                         isSelected = true,
                     ),
                     SettingOptionUiModel(
-                        label = "4km",
-                        subtitle = "도심과 외곽 사이의 균형을 맞춥니다.",
+                        label = StringResource.raw("4km"),
+                        subtitle = StringResource.fromId(R.string.settings_radius_km4_desc),
                         meta = null,
                         action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_4),
                         isSelected = false,
@@ -255,9 +269,9 @@ class SettingsScreenTest {
                 section = SettingsSection.SearchRadius,
                 options = listOf(
                     SettingOptionUiModel(
-                        label = "3km",
-                        subtitle = "가장 촘촘하게 주변 가격을 비교합니다.",
-                        meta = "현재 선택",
+                        label = StringResource.raw("3km"),
+                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
+                        meta = StringResource.fromId(R.string.settings_selected_meta),
                         action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
                         isSelected = true,
                     ),
@@ -280,9 +294,9 @@ class SettingsScreenTest {
                 section = SettingsSection.SearchRadius,
                 options = listOf(
                     SettingOptionUiModel(
-                        label = "3km",
-                        subtitle = "가장 촘촘하게 주변 가격을 비교합니다.",
-                        meta = "현재 선택",
+                        label = StringResource.raw("3km"),
+                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
+                        meta = StringResource.fromId(R.string.settings_selected_meta),
                         action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
                         isSelected = true,
                     ),
@@ -320,16 +334,16 @@ class SettingsScreenTest {
                 section = SettingsSection.BrandFilter,
                 options = listOf(
                     SettingOptionUiModel(
-                        label = "전체",
-                        subtitle = "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다.",
-                        meta = "현재 선택",
+                        label = StringResource.raw("전체"),
+                        subtitle = StringResource.fromId(R.string.settings_brand_all_desc),
+                        meta = StringResource.fromId(R.string.settings_selected_meta),
                         action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
                         isSelected = true,
                         brandIconBrand = null,
                     ),
                     SettingOptionUiModel(
-                        label = "GS칼텍스",
-                        subtitle = "GS칼텍스 주유소만 골라 비교합니다.",
+                        label = StringResource.raw("GS칼텍스"),
+                        subtitle = StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf("GS칼텍스")),
                         meta = null,
                         action = SettingsAction.BrandFilterSelected(BrandFilter.GSC),
                         isSelected = false,
@@ -352,16 +366,16 @@ class SettingsScreenTest {
                 section = SettingsSection.BrandFilter,
                 options = listOf(
                     SettingOptionUiModel(
-                        label = "전체",
-                        subtitle = "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다.",
-                        meta = "현재 선택",
+                        label = StringResource.raw("전체"),
+                        subtitle = StringResource.fromId(R.string.settings_brand_all_desc),
+                        meta = StringResource.fromId(R.string.settings_selected_meta),
                         action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
                         isSelected = true,
                         brandIconBrand = null,
                     ),
                     SettingOptionUiModel(
-                        label = "SK에너지",
-                        subtitle = "SK에너지 주유소만 골라 비교합니다.",
+                        label = StringResource.raw("SK에너지"),
+                        subtitle = StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf("SK에너지")),
                         meta = null,
                         action = SettingsAction.BrandFilterSelected(BrandFilter.SKE),
                         isSelected = false,

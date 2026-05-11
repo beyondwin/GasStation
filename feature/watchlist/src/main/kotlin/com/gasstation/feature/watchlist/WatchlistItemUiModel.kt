@@ -45,7 +45,7 @@ data class WatchlistItemUiModel(
         brandLabel = summary.station.brand.gasStationBrandLabel(),
         priceLabel = summary.station.price.value.toPriceLabel(),
         priceNumberLabel = summary.station.price.value.toGroupedDigits(),
-        priceUnitLabel = "원",
+        priceUnitLabel = "\uC6D0",
         distanceLabel = summary.station.distance.toDistanceLabel(),
         distanceNumberLabel = summary.station.distance.toDistanceNumberLabel(),
         distanceUnitLabel = "km",
@@ -63,7 +63,7 @@ enum class WatchlistPriceDeltaTone {
     Neutral,
 }
 
-private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
+private fun Int.toPriceLabel(): String = "${toGroupedDigits()}\uC6D0"
 
 private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
 
@@ -74,8 +74,8 @@ private fun DistanceMeters.toDistanceNumberLabel(): String = DecimalFormat("#,##
 private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unavailable -> "-"
     StationPriceDelta.Unchanged -> "-"
-    is StationPriceDelta.Increased -> "${amountWon}원"
-    is StationPriceDelta.Decreased -> "${amountWon}원"
+    is StationPriceDelta.Increased -> "${amountWon}\uC6D0"
+    is StationPriceDelta.Decreased -> "${amountWon}\uC6D0"
 }
 
 internal fun StationPriceDelta.toTone(): WatchlistPriceDeltaTone = when (this) {
@@ -93,9 +93,9 @@ internal fun WatchlistPriceDeltaTone.toColor(): Color = when (this) {
 }
 
 private fun Instant?.toLabel(): String {
-    if (this == null) return "마지막 확인 기록 없음"
+    if (this == null) return "\uB9C8\uC9C0\uB9C9 \uD655\uC778 \uAE30\uB85D \uC5C6\uC74C"
 
-    return DateTimeFormatter.ofPattern("M월 d일 HH:mm")
+    return DateTimeFormatter.ofPattern("M\uC6D4 d\uC77C HH:mm")
         .withZone(ZoneId.systemDefault())
         .format(this)
 }

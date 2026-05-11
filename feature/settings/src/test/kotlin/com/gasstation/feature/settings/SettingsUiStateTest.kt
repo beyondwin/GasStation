@@ -1,5 +1,6 @@
 package com.gasstation.feature.settings
 
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
@@ -19,9 +20,11 @@ class SettingsUiStateTest {
             mapProvider = MapProvider.TMAP,
         )
 
-        assertEquals("고속도로알뜰", uiState.selectedLabelFor(SettingsSection.BrandFilter))
+        val expectedLabel = StringResource.raw("고속도로알뜰")
+
+        assertEquals(expectedLabel, uiState.selectedLabelFor(SettingsSection.BrandFilter))
         assertEquals(
-            "고속도로알뜰",
+            expectedLabel,
             uiState.optionsFor(SettingsSection.BrandFilter)
                 .single { it.action == SettingsAction.BrandFilterSelected(BrandFilter.RTX) }
                 .label,

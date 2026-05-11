@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -37,6 +39,7 @@ import com.gasstation.core.designsystem.component.GasStationCard
 import com.gasstation.core.designsystem.component.GasStationRow
 import com.gasstation.core.designsystem.component.GasStationRowDivider
 import com.gasstation.core.designsystem.component.GasStationTopBar
+import com.gasstation.core.designsystem.string.StringResource
 
 internal const val SETTINGS_SCREEN_LIST_TAG = "settings-screen-list"
 internal const val SETTINGS_GROUP_TAG_PREFIX = "settings-group-"
@@ -49,10 +52,10 @@ fun SettingsScreen(uiState: SettingsUiState, onCloseClick: () -> Unit, onSection
             containerColor = Color.Transparent,
             topBar = {
                 GasStationTopBar(
-                    title = { Text(text = "찾기 설정") },
+                    title = { Text(text = stringResource(R.string.settings_title)) },
                     actions = {
                         SettingsTopBarAction(
-                            contentDescription = "닫기",
+                            contentDescription = stringResource(R.string.settings_close),
                             onClick = onCloseClick,
                         ) {
                             LegacyCloseIcon()
@@ -115,12 +118,12 @@ private fun SettingsSectionGroupBlock(
 private fun SettingsGroupHeader(group: SettingsSectionGroup) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            text = group.title,
+            text = stringResource(group.titleResId),
             style = GasStationTheme.typography.sectionTitle,
             color = ColorBlack,
         )
         Text(
-            text = group.subtitle,
+            text = stringResource(group.subtitleResId),
             style = GasStationTheme.typography.bannerBody,
             color = ColorGray2,
         )
@@ -128,11 +131,12 @@ private fun SettingsGroupHeader(group: SettingsSectionGroup) {
 }
 
 @Composable
-private fun SettingsMenuRow(section: SettingsSection, selectedLabel: String, onClick: () -> Unit) {
+private fun SettingsMenuRow(section: SettingsSection, selectedLabel: StringResource, onClick: () -> Unit) {
+    val context = LocalContext.current
     GasStationRow(
-        title = section.title,
-        value = selectedLabel,
-        body = section.subtitle,
+        title = stringResource(section.titleResId),
+        value = selectedLabel.resolve(context),
+        body = stringResource(section.subtitleResId),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}")
