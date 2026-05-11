@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -64,10 +65,10 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
             containerColor = Color.Transparent,
             topBar = {
                 GasStationTopBar(
-                    title = { Text(text = "북마크") },
+                    title = { Text(text = stringResource(R.string.watchlist_title)) },
                     actions = {
                         WatchlistTopBarAction(
-                            contentDescription = "닫기",
+                            contentDescription = stringResource(R.string.watchlist_close),
                             onClick = onCloseClick,
                         ) {
                             WatchlistCloseIcon()
@@ -108,13 +109,16 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(spacing.space12),
                     ) {
                         items(uiState.stations, key = WatchlistItemUiModel::id) { station ->
+                            val cardContentDescription = stringResource(R.string.watchlist_card_content_description)
+                            val brandContentDescription =
+                                stringResource(R.string.watchlist_brand_icon_content_description, station.brandLabel)
                             GasStationCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .animateContentSize()
                                     .testTag(WATCHLIST_CARD_TEST_TAG)
                                     .semantics {
-                                        contentDescription = WATCHLIST_CARD_CONTENT_DESCRIPTION
+                                        contentDescription = cardContentDescription
                                     },
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(spacing.space12)) {
@@ -124,7 +128,7 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                                     ) {
                                         GasStationMetricBlock(
                                             modifier = Modifier.weight(1f),
-                                            label = "가격",
+                                            label = stringResource(R.string.watchlist_label_price),
                                             number = station.priceNumberLabel,
                                             unit = station.priceUnitLabel,
                                             emphasis = GasStationMetricEmphasis.Primary,
@@ -133,7 +137,7 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .testTag(WATCHLIST_DISTANCE_METRIC_TAG),
-                                            label = "거리",
+                                            label = stringResource(R.string.watchlist_label_distance),
                                             number = station.distanceNumberLabel,
                                             unit = station.distanceUnitLabel,
                                             emphasis = GasStationMetricEmphasis.Secondary,
@@ -153,7 +157,7 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                                         ) {
                                             GasStationBrandIcon(
                                                 brand = station.brand,
-                                                contentDescription = "${station.brandLabel} 브랜드",
+                                                contentDescription = brandContentDescription,
                                             )
                                             Text(
                                                 text = station.brandLabel,
@@ -170,7 +174,7 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                                     ) {
                                         GasStationSupportingInfo(
                                             modifier = Modifier.weight(1f),
-                                            label = "변동",
+                                            label = stringResource(R.string.watchlist_label_change),
                                             value = station.priceLabel,
                                             valueModifier = Modifier.testTag(WATCHLIST_CHANGE_VALUE_TAG),
                                             trailingContent = {
@@ -183,7 +187,7 @@ fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
                                         )
                                         GasStationSupportingInfo(
                                             modifier = Modifier.weight(1f),
-                                            label = "확인",
+                                            label = stringResource(R.string.watchlist_label_checked),
                                             value = station.lastSeenLabel,
                                         )
                                     }
@@ -283,17 +287,17 @@ private fun EmptyWatchlist(modifier: Modifier = Modifier) {
     ) {
         GasStationCard(modifier = Modifier.fillMaxWidth()) {
             GasStationSectionHeading(
-                title = "저장한 주유소가 없습니다.",
-                subtitle = "주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.",
+                title = stringResource(R.string.watchlist_empty_title),
+                subtitle = stringResource(R.string.watchlist_empty_subtitle),
             )
             Column(verticalArrangement = Arrangement.spacedBy(spacing.space8)) {
                 GasStationSupportingInfo(
-                    label = "다음 단계",
-                    value = "목록 화면에서 북마크를 눌러 바로 추가하세요.",
+                    label = stringResource(R.string.watchlist_empty_next_step_label),
+                    value = stringResource(R.string.watchlist_empty_next_step_value),
                 )
                 GasStationSupportingInfo(
-                    label = "화면 목적",
-                    value = "저장한 주유소의 가격과 거리를 한 번에 비교합니다.",
+                    label = stringResource(R.string.watchlist_empty_purpose_label),
+                    value = stringResource(R.string.watchlist_empty_purpose_value),
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.gasstation.feature.settings
 
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
@@ -26,7 +27,7 @@ data class SettingsUiState(
     }
 }
 
-fun SettingsUiState.selectedLabelFor(section: SettingsSection): String = when (section) {
+fun SettingsUiState.selectedLabelFor(section: SettingsSection): StringResource = when (section) {
     SettingsSection.SearchRadius -> searchRadius.toLabel()
     SettingsSection.FuelType -> fuelType.toLabel()
     SettingsSection.BrandFilter -> brandFilter.toLabel()
@@ -83,38 +84,38 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
     }
 }
 
-private fun SearchRadius.toLabel(): String = when (this) {
-    SearchRadius.KM_3 -> "3km"
-    SearchRadius.KM_4 -> "4km"
-    SearchRadius.KM_5 -> "5km"
+internal fun SearchRadius.toLabel(): StringResource = when (this) {
+    SearchRadius.KM_3 -> StringResource.raw("3km")
+    SearchRadius.KM_4 -> StringResource.raw("4km")
+    SearchRadius.KM_5 -> StringResource.raw("5km")
 }
 
-private fun SearchRadius.toDescription(): String = when (this) {
-    SearchRadius.KM_3 -> "가장 촘촘하게 주변 가격을 비교합니다."
-    SearchRadius.KM_4 -> "도심과 외곽 사이의 균형을 맞춥니다."
-    SearchRadius.KM_5 -> "더 넓은 범위에서 최저가를 찾습니다."
+private fun SearchRadius.toDescription(): StringResource = when (this) {
+    SearchRadius.KM_3 -> StringResource.fromId(R.string.settings_radius_km3_desc)
+    SearchRadius.KM_4 -> StringResource.fromId(R.string.settings_radius_km4_desc)
+    SearchRadius.KM_5 -> StringResource.fromId(R.string.settings_radius_km5_desc)
 }
 
-private fun FuelType.toLabel(): String = when (this) {
-    FuelType.GASOLINE -> "휘발유"
-    FuelType.DIESEL -> "경유"
-    FuelType.PREMIUM_GASOLINE -> "고급휘발유"
-    FuelType.KEROSENE -> "등유"
-    FuelType.LPG -> "LPG"
+internal fun FuelType.toLabel(): StringResource = when (this) {
+    FuelType.GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_gasoline)
+    FuelType.DIESEL -> StringResource.fromId(R.string.settings_fuel_type_diesel)
+    FuelType.PREMIUM_GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_premium_gasoline)
+    FuelType.KEROSENE -> StringResource.fromId(R.string.settings_fuel_type_kerosene)
+    FuelType.LPG -> StringResource.raw("LPG")
 }
 
-private fun FuelType.toDescription(): String = when (this) {
-    FuelType.GASOLINE -> "일반 승용차 기준으로 가장 넓게 비교합니다."
-    FuelType.DIESEL -> "디젤 차량 기준 가격만 빠르게 추립니다."
-    FuelType.PREMIUM_GASOLINE -> "고급휘발유 취급 주유소만 우선 보여줍니다."
-    FuelType.KEROSENE -> "등유 가격 비교가 필요한 주유소를 찾습니다."
-    FuelType.LPG -> "LPG 충전 가격을 중심으로 목록을 맞춥니다."
+private fun FuelType.toDescription(): StringResource = when (this) {
+    FuelType.GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_gasoline_desc)
+    FuelType.DIESEL -> StringResource.fromId(R.string.settings_fuel_type_diesel_desc)
+    FuelType.PREMIUM_GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_premium_gasoline_desc)
+    FuelType.KEROSENE -> StringResource.fromId(R.string.settings_fuel_type_kerosene_desc)
+    FuelType.LPG -> StringResource.fromId(R.string.settings_fuel_type_lpg_desc)
 }
 
-private fun BrandFilter.toLabel(): String = gasStationBrandFilterLabel()
+internal fun BrandFilter.toLabel(): StringResource = StringResource.raw(gasStationBrandFilterLabel())
 
-private fun BrandFilter.toDescription(): String = when (this) {
-    BrandFilter.ALL -> "브랜드 제한 없이 가까운 가격을 한 번에 확인합니다."
+private fun BrandFilter.toDescription(): StringResource = when (this) {
+    BrandFilter.ALL -> StringResource.fromId(R.string.settings_brand_all_desc)
     BrandFilter.SKE,
     BrandFilter.GSC,
     BrandFilter.HDO,
@@ -123,32 +124,33 @@ private fun BrandFilter.toDescription(): String = when (this) {
     BrandFilter.RTX,
     BrandFilter.NHO,
     BrandFilter.ETC,
-    -> "${toLabel()} 주유소만 골라 비교합니다."
+    -> StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf(gasStationBrandFilterLabel()))
     BrandFilter.E1G,
     BrandFilter.SKG,
-    -> "${toLabel()} 충전소만 골라 비교합니다."
+    -> StringResource.fromId(R.string.settings_brand_charger_filter_desc, listOf(gasStationBrandFilterLabel()))
 }
 
-private fun SortOrder.toLabel(): String = when (this) {
-    SortOrder.DISTANCE -> "거리순 보기"
-    SortOrder.PRICE -> "가격순 보기"
+internal fun SortOrder.toLabel(): StringResource = when (this) {
+    SortOrder.DISTANCE -> StringResource.fromId(R.string.settings_sort_distance_label)
+    SortOrder.PRICE -> StringResource.fromId(R.string.settings_sort_price_label)
 }
 
-private fun SortOrder.toDescription(): String = when (this) {
-    SortOrder.DISTANCE -> "가장 가까운 주유소부터 차례대로 읽습니다."
-    SortOrder.PRICE -> "가장 저렴한 가격부터 빠르게 스캔합니다."
+private fun SortOrder.toDescription(): StringResource = when (this) {
+    SortOrder.DISTANCE -> StringResource.fromId(R.string.settings_sort_distance_desc)
+    SortOrder.PRICE -> StringResource.fromId(R.string.settings_sort_price_desc)
 }
 
-private fun MapProvider.toLabel(): String = when (this) {
-    MapProvider.TMAP -> "티맵"
-    MapProvider.KAKAO_NAVI -> "카카오네비"
-    MapProvider.NAVER_MAP -> "네이버지도"
+internal fun MapProvider.toLabel(): StringResource = when (this) {
+    MapProvider.TMAP -> StringResource.fromId(R.string.settings_map_tmap)
+    MapProvider.KAKAO_NAVI -> StringResource.fromId(R.string.settings_map_kakao)
+    MapProvider.NAVER_MAP -> StringResource.fromId(R.string.settings_map_naver)
 }
 
-private fun MapProvider.toDescription(): String = when (this) {
-    MapProvider.TMAP -> "티맵으로 바로 길찾기를 시작합니다."
-    MapProvider.KAKAO_NAVI -> "카카오네비로 바로 길찾기를 시작합니다."
-    MapProvider.NAVER_MAP -> "네이버지도로 바로 길찾기를 시작합니다."
+private fun MapProvider.toDescription(): StringResource = when (this) {
+    MapProvider.TMAP -> StringResource.fromId(R.string.settings_map_tmap_desc)
+    MapProvider.KAKAO_NAVI -> StringResource.fromId(R.string.settings_map_kakao_desc)
+    MapProvider.NAVER_MAP -> StringResource.fromId(R.string.settings_map_naver_desc)
 }
 
-private fun Any.selectedMeta(isSelected: Boolean): String? = if (isSelected) "현재 선택" else null
+private fun Any.selectedMeta(isSelected: Boolean): StringResource? =
+    if (isSelected) StringResource.fromId(R.string.settings_selected_meta) else null
