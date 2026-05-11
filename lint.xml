@@ -4,7 +4,7 @@
     <issue id="GradleDependency" severity="ignore" />
     <issue id="AndroidGradlePluginVersion" severity="ignore" />
     <issue id="IconLauncherShape" severity="ignore" />
-    <issue id="HardcodedText" severity="warning" />
+    <issue id="HardcodedText" severity="error" />
     <issue id="MissingTranslation" severity="warning" />
     <issue id="UnusedResources" severity="warning" />
     <issue id="UnknownNullness" severity="ignore" />
