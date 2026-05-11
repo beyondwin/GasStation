@@ -164,7 +164,7 @@ flowchart LR
 - 위치 좌표는 앱 안에서 WGS84 -> KATEC으로 변환한 뒤 Opinet에 넘깁니다.
   별도 좌표 변환 API를 호출하지 않습니다.
 - Opinet base URL이 HTTP를 사용하므로 앱 network security config는 cleartext 예외를 `www.opinet.co.kr` 정확한 도메인에만 둡니다.
-- `prod` API key는 `BuildConfig`를 통해 클라이언트에 들어가므로 APK에서 완전히 숨길 수 있는 secret boundary가 아닙니다. 현재 포트폴리오/reference 범위에서는 수용하지만 공개 서비스 배포 전에는 backend proxy, key restriction, quota monitoring을 별도 설계합니다.
+- `prod` API key는 `BuildConfig`를 통해 클라이언트에 들어가므로 APK에서 완전히 숨길 수 있는 secret boundary가 아닙니다. 현재 범위에서는 수용하지만 공개 서비스 배포 전에는 backend proxy, key restriction, quota monitoring을 별도 설계합니다.
 - 로컬 Room/DataStore 상태는 재생성 가능한 캐시와 reference watchlist/settings로 보고 Android backup/data extraction을 비활성화합니다.
 - 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
 - API 33 이상 주소 조회는 지오코더 callback API를 coroutine으로 감싸고, pre-33은 기존 동기 API를 I/O dispatcher에서 fallback으로 사용합니다. callback error는 `LocationAddressLookupResult.Error`, 성공했지만 빈 결과는 `Unavailable`, cancellation은 그대로 전파됩니다.
