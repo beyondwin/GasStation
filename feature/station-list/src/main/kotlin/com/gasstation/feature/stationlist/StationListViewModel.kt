@@ -2,6 +2,7 @@ package com.gasstation.feature.stationlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.location.LocationPermissionState
@@ -16,6 +17,7 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
+import com.gasstation.feature.stationlist.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -227,7 +229,11 @@ class StationListViewModel @Inject constructor(
             LocationAcquisitionResult.PermissionDenied -> {
                 logLocationFailure(result)
                 if (showPermissionDeniedFeedback) {
-                    mutableEffects.emit(StationListEffect.ShowSnackbar("위치 권한을 허용해주세요."))
+                    mutableEffects.emit(
+                        StationListEffect.ShowSnackbar(
+                            StringResource.fromId(R.string.station_list_permission_denied),
+                        ),
+                    )
                 }
                 null
             }
@@ -236,7 +242,7 @@ class StationListViewModel @Inject constructor(
                 logLocationFailure(result)
                 onBlockingFailure(
                     reason = StationListFailureReason.LocationTimedOut,
-                    message = "현재 위치 확인이 지연되고 있습니다.",
+                    message = StringResource.fromId(R.string.station_list_location_timeout),
                 )
                 null
             }
@@ -247,7 +253,7 @@ class StationListViewModel @Inject constructor(
                 logLocationFailure(result)
                 onBlockingFailure(
                     reason = StationListFailureReason.LocationFailed,
-                    message = "현재 위치를 확인하지 못했습니다.",
+                    message = StringResource.fromId(R.string.station_list_location_failed),
                 )
                 null
             }
@@ -260,10 +266,10 @@ class StationListViewModel @Inject constructor(
             stationEventLogger.logSafely(StationEvent.RefreshFailed(reason = it))
         }
         searchOrchestrator.onRefreshFailure(query = query, reason = reason)
-        mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureMessage()))
+        mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureResource()))
     }
 
-    private suspend fun onBlockingFailure(reason: StationListFailureReason, message: String) {
+    private suspend fun onBlockingFailure(reason: StationListFailureReason, message: StringResource) {
         searchOrchestrator.onBlockingFailure(reason = reason)
         mutableEffects.emit(StationListEffect.ShowSnackbar(message))
     }
@@ -360,11 +366,11 @@ private fun LocationAcquisitionResult.failureEventType(): String? = when (this) 
     is LocationAcquisitionResult.Error -> "Error"
 }
 
-private fun StationRefreshFailureReason?.refreshFailureMessage(): String = when (this) {
-    StationRefreshFailureReason.Timeout -> "서버 응답이 늦어 가격을 새로고침하지 못했습니다."
+private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = when (this) {
+    StationRefreshFailureReason.Timeout -> StringResource.fromId(R.string.station_list_refresh_timeout)
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
     StationRefreshFailureReason.Unknown,
     null,
-    -> "주유소 목록을 새로고침하지 못했습니다."
+    -> StringResource.fromId(R.string.station_list_refresh_failed)
 }
