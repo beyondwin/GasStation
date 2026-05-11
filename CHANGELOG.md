@@ -13,7 +13,7 @@
 
 - Spotless + ktlint: 전 모듈 코드 스타일 일관성 강제 (convention plugin 적용).
 - Lint strict: `warningsAsErrors` 대신 `abortOnError = true`, `checkDependencies = true` 기준으로 전환.
-- Roborazzi: 화면 회귀 골든 테스트 9개 추가 (designsystem 5개, station-list 상태 4개).
+- Roborazzi: 화면 회귀 골든 테스트 9개 추가 (designsystem 5개, station-list 상태 4개). Stale 상태 스냅샷은 CI와 로컬이 같은 기준으로 비교되도록 timezone을 고정합니다.
 - CrashReporter: `app` 모듈에 추상화 인터페이스 도입, feature/domain/data/core는 구현에 직접 의존하지 않음.
 - Kover 0.9.1: 전 모듈 코드 커버리지 수집 활성화, Hilt/Compose 생성 코드 제외.
 - Compose stability metrics: `compose-reports` / `compose-metrics` 출력 4개 모듈 설정.
