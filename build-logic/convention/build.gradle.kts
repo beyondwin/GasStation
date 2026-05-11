@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.findLibrary("kotlin-gradlePlugin").get())
     implementation(libs.findLibrary("ksp-gradlePlugin").get())
     implementation(libs.findLibrary("hilt-gradlePlugin").get())
+    implementation(libs.findLibrary("spotless-gradlePlugin").get())
 }
 
 gradlePlugin {
