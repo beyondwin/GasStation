@@ -1,6 +1,4 @@
 package com.gasstation.domain.station
 
-class StationRefreshException(
-    val reason: StationRefreshFailureReason,
-    cause: Throwable? = null,
-) : IllegalStateException("Failed to refresh nearby stations: $reason", cause)
+class StationRefreshException(val reason: StationRefreshFailureReason, cause: Throwable? = null) :
+    IllegalStateException("Failed to refresh nearby stations: $reason", cause)

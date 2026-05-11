@@ -3,8 +3,6 @@ package com.gasstation.core.location
 import android.location.Address
 import android.location.Geocoder
 import android.os.Build
-import java.io.IOException
-import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -14,6 +12,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.annotation.Config
+import java.io.IOException
+import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
@@ -107,20 +107,13 @@ class GeocoderAsyncLookupTest {
     }
 }
 
-private class FakeGeocoderAsyncLookup(
-    private val onLookup: (Geocoder.GeocodeListener) -> Unit = {},
-) : GeocoderAsyncLookup {
+private class FakeGeocoderAsyncLookup(private val onLookup: (Geocoder.GeocodeListener) -> Unit = {}) : GeocoderAsyncLookup {
     var lastLatitude: Double = Double.NaN
     var lastLongitude: Double = Double.NaN
     var lastMaxResults: Int = -1
     var listener: Geocoder.GeocodeListener? = null
 
-    override fun getFromLocation(
-        latitude: Double,
-        longitude: Double,
-        maxResults: Int,
-        listener: Geocoder.GeocodeListener,
-    ) {
+    override fun getFromLocation(latitude: Double, longitude: Double, maxResults: Int, listener: Geocoder.GeocodeListener) {
         lastLatitude = latitude
         lastLongitude = longitude
         lastMaxResults = maxResults

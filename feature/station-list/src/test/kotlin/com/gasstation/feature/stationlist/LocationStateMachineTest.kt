@@ -151,13 +151,12 @@ class LocationStateMachineTest {
     }
 }
 
-private fun createMachine(
-    repository: LocationRepository = FakeLocationStateMachineRepository(),
-): LocationStateMachine = LocationStateMachine(
-    getCurrentLocation = GetCurrentLocationUseCase(repository),
-    getCurrentAddress = GetCurrentAddressUseCase(repository),
-    observeAvailability = ObserveLocationAvailabilityUseCase(repository),
-)
+private fun createMachine(repository: LocationRepository = FakeLocationStateMachineRepository()): LocationStateMachine =
+    LocationStateMachine(
+        getCurrentLocation = GetCurrentLocationUseCase(repository),
+        getCurrentAddress = GetCurrentAddressUseCase(repository),
+        observeAvailability = ObserveLocationAvailabilityUseCase(repository),
+    )
 
 private class FakeLocationStateMachineRepository(
     private val availability: Flow<Boolean> = MutableStateFlow(true),
@@ -168,11 +167,7 @@ private class FakeLocationStateMachineRepository(
 ) : LocationRepository {
     override fun observeAvailability(): Flow<Boolean> = availability
 
-    override suspend fun getCurrentLocation(
-        permissionState: LocationPermissionState,
-    ): LocationLookupResult = result
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult = result
 
-    override suspend fun getCurrentAddress(
-        coordinates: Coordinates,
-    ): LocationAddressLookupResult = addressResult
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = addressResult
 }

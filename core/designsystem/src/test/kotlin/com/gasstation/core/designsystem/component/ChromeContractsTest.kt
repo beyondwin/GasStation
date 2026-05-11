@@ -296,10 +296,7 @@ class ChromeContractsTest {
         )
     }
 
-    private fun assertRendererColor(
-        name: String,
-        color: Color,
-    ) {
+    private fun assertRendererColor(name: String, color: Color) {
         assertTrue("$name should be nontransparent.", color.alpha > 0f)
     }
 }

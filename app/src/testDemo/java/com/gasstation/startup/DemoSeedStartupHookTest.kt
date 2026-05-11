@@ -4,14 +4,14 @@ import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.database.GasStationDatabase
-import com.gasstation.demo.seed.DemoSeedAssetLoader
-import com.gasstation.domain.settings.SettingsRepository
-import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.demo.seed.DemoSeedAssetLoader
+import com.gasstation.domain.settings.SettingsRepository
+import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -142,9 +142,7 @@ class DemoSeedStartupHookTest {
     }
 }
 
-private class FakeSettingsRepository(
-    initial: UserPreferences,
-) : SettingsRepository {
+private class FakeSettingsRepository(initial: UserPreferences) : SettingsRepository {
     private val state = MutableStateFlow(initial)
 
     override fun observeUserPreferences(): Flow<UserPreferences> = state

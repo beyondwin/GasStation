@@ -1,12 +1,10 @@
 package com.gasstation.domain.settings.usecase
 
-import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.domain.settings.SettingsRepository
 import javax.inject.Inject
 
-class UpdateBrandFilterUseCase @Inject constructor(
-    private val settingsRepository: SettingsRepository,
-) {
+class UpdateBrandFilterUseCase @Inject constructor(private val settingsRepository: SettingsRepository) {
     suspend operator fun invoke(brandFilter: BrandFilter) {
         settingsRepository.updateUserPreferences { current ->
             current.copy(brandFilter = brandFilter)

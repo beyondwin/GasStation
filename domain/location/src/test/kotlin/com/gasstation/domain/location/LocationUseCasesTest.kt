@@ -64,16 +64,12 @@ private class FakeLocationRepository(
 
     override fun observeAvailability(): Flow<Boolean> = availability
 
-    override suspend fun getCurrentLocation(
-        permissionState: LocationPermissionState,
-    ): LocationLookupResult {
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
         lastRequestedPermissionState = permissionState
         return result
     }
 
-    override suspend fun getCurrentAddress(
-        coordinates: Coordinates,
-    ): LocationAddressLookupResult {
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult {
         lastRequestedAddressCoordinates = coordinates
         return addressResult
     }

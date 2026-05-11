@@ -1,9 +1,9 @@
 package com.gasstation.core.designsystem
 
-import java.lang.reflect.Modifier
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Modifier
 
 class GasStationThemeSurfaceTest {
     @Test

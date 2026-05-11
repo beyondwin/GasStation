@@ -5,12 +5,12 @@ import android.content.Context
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.Optional
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Optional
+import javax.inject.Inject
 import kotlin.coroutines.resume
 
 class AndroidForegroundLocationProvider @Inject constructor(

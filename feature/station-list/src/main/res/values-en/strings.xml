@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Snackbar / blocking-failure messages emitted by ViewModel -->
+    <string name="station_list_permission_denied">Please allow location permission.</string>
+    <string name="station_list_location_timeout">Location check is taking longer than expected.</string>
+    <string name="station_list_location_failed">Could not determine current location.</string>
+    <string name="station_list_refresh_timeout">Server is slow — price refresh failed.</string>
+    <string name="station_list_refresh_failed">Could not refresh the station list.</string>
+
+    <!-- Top bar actions -->
+    <string name="station_list_action_bookmark">Bookmarks</string>
+    <string name="station_list_action_refresh">Refresh</string>
+    <string name="station_list_action_settings">Settings</string>
+
+    <!-- Sort toggle -->
+    <string name="station_list_sort_by_distance">By distance</string>
+    <string name="station_list_sort_by_price">By price</string>
+    <string name="station_list_sort_state_distance">Sorted by distance</string>
+    <string name="station_list_sort_state_price">Sorted by price</string>
+    <string name="station_list_sort_action_to_price">Sort by price</string>
+    <string name="station_list_sort_action_to_distance">Sort by distance</string>
+
+    <!-- Metric labels -->
+    <string name="station_list_label_price">Price</string>
+    <string name="station_list_label_distance">Distance</string>
+    <string name="station_list_price_unit">₩</string>
+    <string name="station_list_price_format">₩%1$s</string>
+
+    <!-- Watch toggle -->
+    <string name="station_list_watch_saved">Saved</string>
+    <string name="station_list_watch_not_saved">Not saved</string>
+    <string name="station_list_watch_action">Save</string>
+
+    <!-- Permission required state -->
+    <string name="station_list_permission_required_title">Location permission required.</string>
+    <string name="station_list_permission_required_body">Allow location access to find nearby stations and use distance/price sorting.</string>
+    <string name="station_list_permission_action">Request permission</string>
+
+    <!-- GPS required state -->
+    <string name="station_list_gps_required_title">Location services must be enabled.</string>
+    <string name="station_list_gps_required_body">Enable GPS or network location to accurately load nearby stations and bookmarks.</string>
+    <string name="station_list_gps_settings_action">Open location settings</string>
+
+    <!-- Loading state -->
+    <string name="station_list_loading_title">Loading nearby stations…</string>
+    <string name="station_list_loading_body">Checking latest prices for your current criteria.</string>
+
+    <!-- Failure states -->
+    <string name="station_list_retry_action">Try again</string>
+    <string name="station_list_location_timeout_title">Location check is taking a long time.</string>
+    <string name="station_list_location_timeout_body">Check your GPS signal and network, then try again.</string>
+    <string name="station_list_location_failed_title">Could not determine current location.</string>
+    <string name="station_list_location_failed_body">Check location permissions and location services, then try again.</string>
+    <string name="station_list_refresh_timeout_title">Could not load nearby stations.</string>
+    <string name="station_list_refresh_timeout_body">Server is slow. Try again shortly with the same criteria.</string>
+    <string name="station_list_refresh_failed_title">Could not load nearby stations.</string>
+    <string name="station_list_refresh_failed_body">Check your network or server status, then try again.</string>
+
+    <!-- Empty state -->
+    <string name="station_list_empty_title">No nearby stations match your criteria.</string>
+    <string name="station_list_empty_body">Try adjusting the search radius, fuel type, or brand filter.</string>
+
+    <!-- Refreshing rail -->
+    <string name="station_list_refresh_rail_title">Updating prices</string>
+    <string name="station_list_refresh_rail_body">Checking latest prices for your current criteria.</string>
+
+    <!-- Query context -->
+    <string name="station_list_query_context_condition">%1$s · %2$s</string>
+
+    <!-- Fuel type labels -->
+    <string name="station_list_fuel_type_gasoline">Gasoline</string>
+    <string name="station_list_fuel_type_diesel">Diesel</string>
+    <string name="station_list_fuel_type_premium_gasoline">Premium gasoline</string>
+    <string name="station_list_fuel_type_kerosene">Kerosene</string>
+
+    <!-- Banner messages -->
+    <string name="station_list_banner_approx_location_title">Showing approximate location.</string>
+    <string name="station_list_banner_approx_location_detail">For accurate distance comparison, switch location permission to precise.</string>
+    <string name="station_list_banner_stale_title">Showing cached results.</string>
+    <string name="station_list_banner_stale_detail">Last updated %1$s</string>
+</resources>

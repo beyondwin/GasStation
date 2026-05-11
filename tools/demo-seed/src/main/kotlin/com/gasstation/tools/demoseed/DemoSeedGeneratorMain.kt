@@ -1,8 +1,8 @@
 package com.gasstation.tools.demoseed
 
 import com.gasstation.core.model.Coordinates
-import java.io.File
 import kotlinx.coroutines.runBlocking
+import java.io.File
 
 fun main(args: Array<String>) {
     require(args.isNotEmpty()) { "Expected output file path argument." }

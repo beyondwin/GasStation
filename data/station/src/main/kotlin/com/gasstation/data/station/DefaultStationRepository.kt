@@ -6,17 +6,19 @@ import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.database.station.WatchedStationDao
 import com.gasstation.core.database.station.WatchedStationEntity
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
+import com.gasstation.core.model.SortOrder
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
-import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
+import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.logSafely
-import com.gasstation.core.model.Brand
-import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
@@ -25,16 +27,17 @@ import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
-import java.time.Clock
-import java.time.Instant
-import java.util.Optional
-import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import java.time.Clock
+import java.time.Instant
+import java.util.Optional
+import javax.inject.Inject
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -51,6 +54,7 @@ class DefaultStationRepository @Inject constructor(
     private val cachePolicy: StationCachePolicy,
     private val retryPolicy: StationRetryPolicy,
     private val stationEventLogger: StationEventLogger,
+    private val crashReporter: CrashReporter,
     private val clock: Clock,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
@@ -139,6 +143,22 @@ class DefaultStationRepository @Inject constructor(
         }
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
+        try {
+            refreshNearbyStationsInternal(query)
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (exception: StationRefreshException) {
+            throw exception
+        } catch (throwable: Throwable) {
+            crashReporter.recordNonFatal(
+                throwable,
+                mapOf("module" to "data:station", "operation" to "refreshNearbyStations"),
+            )
+            throw StationRefreshException(reason = StationRefreshFailureReason.Unknown, cause = throwable)
+        }
+    }
+
+    private suspend fun refreshNearbyStationsInternal(query: StationQuery) {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
         val fetchedAt = clock.instant()
         val remoteStations = retryPolicy.withRetry {
@@ -187,17 +207,13 @@ class DefaultStationRepository @Inject constructor(
         )
     }
 
-    private suspend fun fetchRemoteStations(query: StationQuery): RemoteStationFetchResult =
-        if (seedRemoteDataSource.isPresent) {
-            seedRemoteDataSource.get().fetchStations(query)
-        } else {
-            remoteDataSource.fetchStations(query)
-        }
+    private suspend fun fetchRemoteStations(query: StationQuery): RemoteStationFetchResult = if (seedRemoteDataSource.isPresent) {
+        seedRemoteDataSource.get().fetchStations(query)
+    } else {
+        remoteDataSource.fetchStations(query)
+    }
 
-    override suspend fun updateWatchState(
-        station: Station,
-        watched: Boolean,
-    ) {
+    override suspend fun updateWatchState(station: Station, watched: Boolean) {
         if (watched) {
             watchedStationDao.upsert(
                 WatchedStationEntity(
@@ -289,20 +305,17 @@ class DefaultStationRepository @Inject constructor(
         )
     }
 
-    private fun Map<String, List<StationPriceHistoryEntity>>.previousPriceFor(cacheRow: StationCacheEntity): Int? =
-        get(cacheRow.stationId)
-            .orEmpty()
-            .firstOrNull { it.fetchedAtEpochMillis < cacheRow.fetchedAtEpochMillis }
-            ?.priceWon
+    private fun Map<String, List<StationPriceHistoryEntity>>.previousPriceFor(cacheRow: StationCacheEntity): Int? = get(cacheRow.stationId)
+        .orEmpty()
+        .firstOrNull { it.fetchedAtEpochMillis < cacheRow.fetchedAtEpochMillis }
+        ?.priceWon
 
     private fun List<StationPriceHistoryEntity>.groupByStationId(): Map<String, List<StationPriceHistoryEntity>> =
         groupBy { it.stationId }.mapValues { (_, rows) ->
             rows.sortedByDescending { it.fetchedAtEpochMillis }
         }
 
-    private fun List<StationPriceHistoryEntity>.historyForWatchlistContext(
-        cachedFuelType: String?,
-    ): List<StationPriceHistoryEntity> {
+    private fun List<StationPriceHistoryEntity>.historyForWatchlistContext(cachedFuelType: String?): List<StationPriceHistoryEntity> {
         if (isEmpty()) return emptyList()
 
         val fuelType = cachedFuelType
@@ -312,10 +325,8 @@ class DefaultStationRepository @Inject constructor(
             .sortedByDescending { it.fetchedAtEpochMillis }
     }
 
-    private fun historyRowsBefore(
-        fetchedAtEpochMillis: Long,
-        history: List<StationPriceHistoryEntity>,
-    ): List<StationPriceHistoryEntity> = history.filter { it.fetchedAtEpochMillis < fetchedAtEpochMillis }
+    private fun historyRowsBefore(fetchedAtEpochMillis: Long, history: List<StationPriceHistoryEntity>): List<StationPriceHistoryEntity> =
+        history.filter { it.fetchedAtEpochMillis < fetchedAtEpochMillis }
 
     private fun List<StationListEntry>.sortedFor(sortOrder: SortOrder): List<StationListEntry> = when (sortOrder) {
         SortOrder.DISTANCE -> sortedBy { it.station.distance.value }
@@ -329,10 +340,7 @@ class DefaultStationRepository @Inject constructor(
     }
 }
 
-private fun distanceBetween(
-    origin: Coordinates,
-    destination: Coordinates,
-): Int {
+private fun distanceBetween(origin: Coordinates, destination: Coordinates): Int {
     val earthRadiusMeters = 6_371_000.0
     val latitudeDelta = Math.toRadians(destination.latitude - origin.latitude)
     val longitudeDelta = Math.toRadians(destination.longitude - origin.longitude)

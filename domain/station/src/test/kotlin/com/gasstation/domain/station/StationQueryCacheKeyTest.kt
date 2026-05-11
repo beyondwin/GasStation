@@ -1,7 +1,7 @@
 package com.gasstation.domain.station
 
-import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder

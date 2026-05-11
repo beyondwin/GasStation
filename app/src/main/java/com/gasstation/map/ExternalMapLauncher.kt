@@ -7,9 +7,9 @@ import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import com.gasstation.core.model.MapProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.net.URLEncoder
 
 interface ExternalMapLauncher {
     fun open(
@@ -23,9 +23,7 @@ interface ExternalMapLauncher {
 }
 
 @Singleton
-class IntentExternalMapLauncher @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-) : ExternalMapLauncher {
+class IntentExternalMapLauncher @Inject constructor(@param:ApplicationContext private val context: Context) : ExternalMapLauncher {
     override fun open(
         provider: MapProvider,
         stationName: String,

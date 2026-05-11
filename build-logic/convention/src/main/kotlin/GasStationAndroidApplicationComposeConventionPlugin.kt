@@ -7,11 +7,14 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
+        pluginManager.apply("gasstation.spotless")
+        pluginManager.apply("gasstation.kover")
         pluginManager.apply("com.android.application")
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
@@ -47,6 +50,20 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                     it.jvmArgs("--enable-native-access=ALL-UNNAMED")
                 }
             }
+
+            lint {
+                warningsAsErrors = false
+                abortOnError = true
+                checkDependencies = true
+                sarifReport = true
+                htmlReport = true
+                xmlReport = false
+            }
+        }
+
+        extensions.configure<ComposeCompilerGradlePluginExtension> {
+            reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+            metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
         }
 
         tasks.withType<KotlinCompile>().configureEach {

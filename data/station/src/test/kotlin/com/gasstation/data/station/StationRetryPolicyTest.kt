@@ -229,7 +229,5 @@ private class RecordingStationEventLogger : StationEventLogger {
 }
 
 private class ThrowingStationEventLogger : StationEventLogger {
-    override fun log(event: StationEvent) {
-        throw IllegalStateException("analytics failed")
-    }
+    override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
 }

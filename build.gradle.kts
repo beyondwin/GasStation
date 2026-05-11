@@ -25,4 +25,41 @@ plugins {
     alias(libs.plugins.jetbrainsKotlinJvm) apply false
     alias(libs.plugins.googleDevtoolsKsp) apply false
     alias(libs.plugins.googleDaggerHiltAndroid) apply false
+    alias(libs.plugins.kover)
+}
+
+dependencies {
+    kover(project(":app"))
+    kover(project(":core:model"))
+    kover(project(":core:designsystem"))
+    kover(project(":core:location"))
+    kover(project(":core:network"))
+    kover(project(":core:database"))
+    kover(project(":core:datastore"))
+    kover(project(":domain:location"))
+    kover(project(":domain:settings"))
+    kover(project(":domain:station"))
+    kover(project(":data:settings"))
+    kover(project(":data:station"))
+    kover(project(":feature:settings"))
+    kover(project(":feature:station-list"))
+    kover(project(":feature:watchlist"))
+    kover(project(":tools:demo-seed"))
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "*Hilt_*",
+                    "*_HiltModules*",
+                    "*_Factory*",
+                    "*_Provide*",
+                    "*ComposableSingletons*",
+                    "*Preview*Kt",
+                )
+            }
+        }
+    }
 }

@@ -2,9 +2,9 @@ package com.gasstation.core.designsystem
 
 import android.os.Build
 import androidx.annotation.ChecksSdkIntAtLeast
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 
 object GasStationThemeDefaults {
@@ -24,10 +24,7 @@ object GasStationThemeDefaults {
     val materialTypography: Typography = DefaultMaterialTypography
 
     @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
-    fun shouldUseDynamicColor(
-        dynamicColor: Boolean,
-        sdkInt: Int,
-    ): Boolean = dynamicColor && sdkInt >= Build.VERSION_CODES.S
+    fun shouldUseDynamicColor(dynamicColor: Boolean, sdkInt: Int): Boolean = dynamicColor && sdkInt >= Build.VERSION_CODES.S
 
     val lightColorScheme = lightColorScheme(
         primary = ColorYellow,
@@ -90,7 +87,4 @@ object GasStationThemeDefaults {
     )
 }
 
-data class GasStationStatusBarStyle(
-    val backgroundColor: Color,
-    val useDarkIcons: Boolean,
-)
+data class GasStationStatusBarStyle(val backgroundColor: Color, val useDarkIcons: Boolean)

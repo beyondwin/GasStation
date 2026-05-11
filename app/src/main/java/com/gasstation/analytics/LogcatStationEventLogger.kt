@@ -2,9 +2,9 @@ package com.gasstation.analytics
 
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.StationEvent
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-import timber.log.Timber
 
 @Singleton
 class LogcatStationEventLogger @Inject constructor() : StationEventLogger {

@@ -1,13 +1,13 @@
 package com.gasstation.feature.watchlist
 
 import androidx.lifecycle.SavedStateHandle
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.domain.station.StationRepository
-import com.gasstation.core.model.Brand
-import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.StationEventLogger
+import com.gasstation.domain.station.StationRepository
+import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
@@ -176,22 +176,17 @@ private class RecordingStationEventLogger : StationEventLogger {
 }
 
 private class ThrowingStationEventLogger : StationEventLogger {
-    override fun log(event: StationEvent) {
-        throw IllegalStateException("analytics failed")
-    }
+    override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
 }
 
-private class FakeWatchlistRepository(
-    private val summaries: List<WatchedStationSummary>,
-) : StationRepository {
-    override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> =
-        flowOf(
-            StationSearchResult(
-                stations = emptyList(),
-                freshness = StationFreshness.Stale,
-                fetchedAt = null,
-            ),
-        )
+private class FakeWatchlistRepository(private val summaries: List<WatchedStationSummary>) : StationRepository {
+    override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> = flowOf(
+        StationSearchResult(
+            stations = emptyList(),
+            freshness = StationFreshness.Stale,
+            fetchedAt = null,
+        ),
+    )
 
     override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = flowOf(summaries)
 

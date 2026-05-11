@@ -11,7 +11,5 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 abstract class AnalyticsModule {
     @Binds
-    abstract fun bindStationEventLogger(
-        impl: LogcatStationEventLogger,
-    ): StationEventLogger
+    abstract fun bindStationEventLogger(impl: LogcatStationEventLogger): StationEventLogger
 }

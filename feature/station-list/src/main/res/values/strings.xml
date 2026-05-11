@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Snackbar / blocking-failure messages emitted by ViewModel -->
+    <string name="station_list_permission_denied">위치 권한을 허용해주세요.</string>
+    <string name="station_list_location_timeout">현재 위치 확인이 지연되고 있습니다.</string>
+    <string name="station_list_location_failed">현재 위치를 확인하지 못했습니다.</string>
+    <string name="station_list_refresh_timeout">서버 응답이 늦어 가격을 새로고침하지 못했습니다.</string>
+    <string name="station_list_refresh_failed">주유소 목록을 새로고침하지 못했습니다.</string>
+
+    <!-- Top bar actions -->
+    <string name="station_list_action_bookmark">북마크</string>
+    <string name="station_list_action_refresh">새로고침</string>
+    <string name="station_list_action_settings">설정</string>
+
+    <!-- Sort toggle -->
+    <string name="station_list_sort_by_distance">거리순</string>
+    <string name="station_list_sort_by_price">가격순</string>
+    <string name="station_list_sort_state_distance">현재 거리순 정렬</string>
+    <string name="station_list_sort_state_price">현재 가격순 정렬</string>
+    <string name="station_list_sort_action_to_price">가격순으로 정렬</string>
+    <string name="station_list_sort_action_to_distance">거리순으로 정렬</string>
+
+    <!-- Metric labels -->
+    <string name="station_list_label_price">가격</string>
+    <string name="station_list_label_distance">거리</string>
+    <string name="station_list_price_unit">원</string>
+    <string name="station_list_price_format">%1$s원</string>
+
+    <!-- Watch toggle -->
+    <string name="station_list_watch_saved">저장됨</string>
+    <string name="station_list_watch_not_saved">저장되지 않음</string>
+    <string name="station_list_watch_action">저장</string>
+
+    <!-- Permission required state -->
+    <string name="station_list_permission_required_title">위치 권한이 필요합니다.</string>
+    <string name="station_list_permission_required_body">주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.</string>
+    <string name="station_list_permission_action">권한 요청</string>
+
+    <!-- GPS required state -->
+    <string name="station_list_gps_required_title">위치 서비스를 켜야 합니다.</string>
+    <string name="station_list_gps_required_body">GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 북마크를 정확하게 불러올 수 있습니다.</string>
+    <string name="station_list_gps_settings_action">위치 설정 열기</string>
+
+    <!-- Loading state -->
+    <string name="station_list_loading_title">주변 주유소를 불러오는 중입니다.</string>
+    <string name="station_list_loading_body">현재 조건으로 최신 가격을 확인하고 있습니다.</string>
+
+    <!-- Failure states -->
+    <string name="station_list_retry_action">다시 시도</string>
+    <string name="station_list_location_timeout_title">위치를 확인하는 데 시간이 오래 걸리고 있습니다.</string>
+    <string name="station_list_location_timeout_body">GPS 신호와 네트워크 상태를 확인한 뒤 다시 시도해주세요.</string>
+    <string name="station_list_location_failed_title">현재 위치를 확인하지 못했습니다.</string>
+    <string name="station_list_location_failed_body">위치 권한과 위치 서비스 상태를 확인한 뒤 다시 시도해주세요.</string>
+    <string name="station_list_refresh_timeout_title">주변 주유소를 불러오지 못했습니다.</string>
+    <string name="station_list_refresh_timeout_body">서버 응답이 늦습니다. 잠시 후 같은 조건으로 다시 시도해주세요.</string>
+    <string name="station_list_refresh_failed_title">주변 주유소를 불러오지 못했습니다.</string>
+    <string name="station_list_refresh_failed_body">네트워크 또는 서버 상태를 확인한 뒤 다시 시도해주세요.</string>
+
+    <!-- Empty state -->
+    <string name="station_list_empty_title">조건에 맞는 주변 주유소가 없습니다.</string>
+    <string name="station_list_empty_body">반경, 유종, 브랜드 조건을 조정하거나 다시 조회해보세요.</string>
+
+    <!-- Refreshing rail -->
+    <string name="station_list_refresh_rail_title">가격 갱신 중</string>
+    <string name="station_list_refresh_rail_body">현재 조건으로 최신 가격을 확인하고 있습니다.</string>
+
+    <!-- Query context -->
+    <string name="station_list_query_context_condition">%1$s · %2$s 기준</string>
+
+    <!-- Fuel type labels -->
+    <string name="station_list_fuel_type_gasoline">휘발유</string>
+    <string name="station_list_fuel_type_diesel">경유</string>
+    <string name="station_list_fuel_type_premium_gasoline">고급휘발유</string>
+    <string name="station_list_fuel_type_kerosene">등유</string>
+
+    <!-- Banner messages -->
+    <string name="station_list_banner_approx_location_title">대략적인 위치 기준입니다.</string>
+    <string name="station_list_banner_approx_location_detail">정확한 거리 비교가 필요하면 위치 권한을 정확도로 바꿔주세요.</string>
+    <string name="station_list_banner_stale_title">저장된 결과를 표시 중입니다.</string>
+    <string name="station_list_banner_stale_detail">마지막 갱신 %1$s</string>
+</resources>

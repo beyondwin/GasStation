@@ -3,11 +3,11 @@ package com.gasstation.tools.demoseed
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
+import kotlinx.coroutines.test.runTest
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.coroutines.test.runTest
 
 class DemoSeedGeneratorTest {
     @Test

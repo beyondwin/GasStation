@@ -10,7 +10,6 @@ import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(

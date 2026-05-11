@@ -32,7 +32,7 @@ data class StationListItemUiModel(
         priceLabel = entry.station.price.value.toPriceLabel(),
         distanceLabel = entry.station.distance.toDistanceLabel(),
         priceNumberLabel = entry.station.price.value.toGroupedDigits(),
-        priceUnitLabel = "원",
+        priceUnitLabel = PRICE_UNIT_WON,
         distanceNumberLabel = entry.station.distance.toDistanceNumberLabel(),
         distanceUnitLabel = "km",
         priceDeltaLabel = entry.priceDelta.toLabel(),
@@ -49,20 +49,23 @@ enum class PriceDeltaTone {
     Neutral,
 }
 
-private fun Int.toPriceLabel(): String = "${toGroupedDigits()}원"
+// Korean Won currency unit (U+C6D0 = 원), stored as Unicode escape
+@Suppress("UnusedPrivateMember")
+internal const val PRICE_UNIT_WON = "\uC6D0"
+
+private fun Int.toPriceLabel(): String = "${toGroupedDigits()}$PRICE_UNIT_WON"
 
 private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
 
 private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
 
-private fun DistanceMeters.toDistanceNumberLabel(): String =
-    DecimalFormat("#,##0.0").format(value / 1000.0)
+private fun DistanceMeters.toDistanceNumberLabel(): String = DecimalFormat("#,##0.0").format(value / 1000.0)
 
 private fun StationPriceDelta.toLabel(): String = when (this) {
     StationPriceDelta.Unavailable -> "-"
     StationPriceDelta.Unchanged -> "-"
-    is StationPriceDelta.Increased -> "${amountWon}원"
-    is StationPriceDelta.Decreased -> "${amountWon}원"
+    is StationPriceDelta.Increased -> "$amountWon$PRICE_UNIT_WON"
+    is StationPriceDelta.Decreased -> "$amountWon$PRICE_UNIT_WON"
 }
 
 private fun StationPriceDelta.toTone(): PriceDeltaTone = when (this) {

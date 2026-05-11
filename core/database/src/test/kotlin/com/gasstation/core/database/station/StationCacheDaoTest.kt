@@ -317,45 +317,34 @@ class StationCacheDaoTest {
         assertEquals(cutoff, dao.snapshotFor(emptyCurrentKey)?.fetchedAtEpochMillis)
     }
 
-    private fun station(
-        cacheKey: CacheKey,
-        stationId: String,
-        priceWon: Int = 1_699,
-        fetchedAtEpochMillis: Long = 1_744_947_200_000,
-    ) = StationCacheEntity(
+    private fun station(cacheKey: CacheKey, stationId: String, priceWon: Int = 1_699, fetchedAtEpochMillis: Long = 1_744_947_200_000) =
+        StationCacheEntity(
+            latitudeBucket = cacheKey.latitudeBucket,
+            longitudeBucket = cacheKey.longitudeBucket,
+            radiusMeters = cacheKey.radiusMeters,
+            fuelType = cacheKey.fuelType,
+            stationId = stationId,
+            brandCode = "GSC",
+            name = "Station $stationId",
+            priceWon = priceWon,
+            latitude = 37.498095,
+            longitude = 127.027610,
+            fetchedAtEpochMillis = fetchedAtEpochMillis,
+        )
+
+    private suspend fun StationCacheDao.stationsFor(cacheKey: CacheKey): List<StationCacheEntity> = observeStations(
         latitudeBucket = cacheKey.latitudeBucket,
         longitudeBucket = cacheKey.longitudeBucket,
         radiusMeters = cacheKey.radiusMeters,
         fuelType = cacheKey.fuelType,
-        stationId = stationId,
-        brandCode = "GSC",
-        name = "Station $stationId",
-        priceWon = priceWon,
-        latitude = 37.498095,
-        longitude = 127.027610,
-        fetchedAtEpochMillis = fetchedAtEpochMillis,
-    )
+    ).first()
 
-    private suspend fun StationCacheDao.stationsFor(cacheKey: CacheKey): List<StationCacheEntity> =
-        observeStations(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType,
-        ).first()
+    private suspend fun StationCacheDao.snapshotFor(cacheKey: CacheKey): StationCacheSnapshotEntity? = observeSnapshot(
+        latitudeBucket = cacheKey.latitudeBucket,
+        longitudeBucket = cacheKey.longitudeBucket,
+        radiusMeters = cacheKey.radiusMeters,
+        fuelType = cacheKey.fuelType,
+    ).first()
 
-    private suspend fun StationCacheDao.snapshotFor(cacheKey: CacheKey): StationCacheSnapshotEntity? =
-        observeSnapshot(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType,
-        ).first()
-
-    private data class CacheKey(
-        val latitudeBucket: Int,
-        val longitudeBucket: Int,
-        val radiusMeters: Int,
-        val fuelType: String,
-    )
+    private data class CacheKey(val latitudeBucket: Int, val longitudeBucket: Int, val radiusMeters: Int, val fuelType: String)
 }

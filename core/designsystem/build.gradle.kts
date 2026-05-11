@@ -1,5 +1,6 @@
 plugins {
     id("gasstation.android.library.compose")
+    id("gasstation.roborazzi")
 }
 
 android {

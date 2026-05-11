@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top bar -->
+    <string name="watchlist_title">북마크</string>
+    <string name="watchlist_close">닫기</string>
+
+    <!-- Card and icon semantic descriptions -->
+    <string name="watchlist_card_content_description">관심 주유소 카드</string>
+    <!-- "%1$s 브랜드" -->
+    <string name="watchlist_brand_icon_content_description">%1$s 브랜드</string>
+
+    <!-- Metric labels -->
+    <string name="watchlist_label_price">가격</string>
+    <string name="watchlist_label_distance">거리</string>
+    <string name="watchlist_label_change">변동</string>
+    <string name="watchlist_label_checked">확인</string>
+
+    <!-- Price unit -->
+    <string name="watchlist_price_unit">원</string>
+    <string name="watchlist_price_format">%1$s원</string>
+    <string name="watchlist_price_delta_format">%1$s원</string>
+
+    <!-- Last seen label -->
+    <string name="watchlist_no_last_seen">마지막 확인 기록 없음</string>
+
+    <!-- Empty state -->
+    <string name="watchlist_empty_title">저장한 주유소가 없습니다.</string>
+    <string name="watchlist_empty_subtitle">주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.</string>
+    <string name="watchlist_empty_next_step_label">다음 단계</string>
+    <string name="watchlist_empty_next_step_value">목록 화면에서 북마크를 눌러 바로 추가하세요.</string>
+    <string name="watchlist_empty_purpose_label">화면 목적</string>
+    <string name="watchlist_empty_purpose_value">저장한 주유소의 가격과 거리를 한 번에 비교합니다.</string>
+</resources>

@@ -3,23 +3,19 @@ package com.gasstation.data.station
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationCacheSnapshotEntity
-import com.gasstation.core.model.Coordinates
-import com.gasstation.domain.station.StationRefreshException
-import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
-import com.gasstation.domain.station.model.StationFreshness
+import com.gasstation.domain.station.StationRefreshException
+import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationEvent
+import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
-import java.util.Optional
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +26,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+import java.util.Optional
 import kotlin.math.roundToInt
 
 class DefaultStationRepositoryTest {
@@ -507,6 +507,42 @@ class DefaultStationRepositoryTest {
         assertEquals(StationFreshness.Fresh, result.freshness)
     }
 
+    @Test
+    fun `refreshNearbyStations records unexpected throwable via crashReporter and rethrows as StationRefreshException`() = runTest {
+        val crashReporter = FakeCrashReporter()
+        val query = stationQuery()
+        val boom = IllegalStateException("unexpected boom")
+        val repository = repository(
+            remoteDataSource = ThrowingStationRemoteDataSource(boom),
+            crashReporter = crashReporter,
+        )
+
+        assertThrows(StationRefreshException::class.java) {
+            runBlocking { repository.refreshNearbyStations(query) }
+        }
+
+        assertEquals(1, crashReporter.records.size)
+        assertEquals(boom, crashReporter.records.first().throwable)
+    }
+
+    @Test
+    fun `refreshNearbyStations does not record StationRefreshException via crashReporter`() = runTest {
+        val crashReporter = FakeCrashReporter()
+        val query = stationQuery()
+        val repository = repository(
+            remoteDataSource = FakeStationRemoteDataSource(
+                RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network),
+            ),
+            crashReporter = crashReporter,
+        )
+
+        assertThrows(StationRefreshException::class.java) {
+            runBlocking { repository.refreshNearbyStations(query) }
+        }
+
+        assertEquals(0, crashReporter.records.size)
+    }
+
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
         stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
@@ -516,6 +552,7 @@ class DefaultStationRepositoryTest {
         ),
         seedRemoteDataSource: Optional<SeedStationRemoteDataSource> = Optional.empty(),
         analytics: StationEventLogger = RecordingStationEventLogger(),
+        crashReporter: CrashReporter = FakeCrashReporter(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationPriceHistoryDao = stationPriceHistoryDao,
@@ -525,6 +562,7 @@ class DefaultStationRepositoryTest {
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(analytics),
         stationEventLogger = analytics,
+        crashReporter = crashReporter,
         clock = clock,
     )
 
@@ -562,10 +600,7 @@ class DefaultStationRepositoryTest {
         fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
     )
 
-    private fun expectedDistanceMeters(
-        origin: Coordinates,
-        destination: Coordinates,
-    ): Int {
+    private fun expectedDistanceMeters(origin: Coordinates, destination: Coordinates): Int {
         val earthRadiusMeters = 6_371_000.0
         val latitudeDelta = Math.toRadians(destination.latitude - origin.latitude)
         val longitudeDelta = Math.toRadians(destination.longitude - origin.longitude)
@@ -579,23 +614,20 @@ class DefaultStationRepositoryTest {
         return (earthRadiusMeters * centralAngle).roundToInt()
     }
 
-    private class FakeStationRemoteDataSource(
-        private val result: RemoteStationFetchResult,
-    ) : StationRemoteDataSource {
+    private class FakeStationRemoteDataSource(private val result: RemoteStationFetchResult) : StationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
     }
 
-    private class FakeSeedStationRemoteDataSource(
-        private val result: RemoteStationFetchResult,
-    ) : SeedStationRemoteDataSource {
+    private class ThrowingStationRemoteDataSource(private val throwable: Throwable) : StationRemoteDataSource {
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = throw throwable
+    }
+
+    private class FakeSeedStationRemoteDataSource(private val result: RemoteStationFetchResult) : SeedStationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result
     }
 
-    private class QueueStationRemoteDataSource(
-        private val results: ArrayDeque<RemoteStationFetchResult>,
-    ) : StationRemoteDataSource {
-        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult =
-            results.removeFirst()
+    private class QueueStationRemoteDataSource(private val results: ArrayDeque<RemoteStationFetchResult>) : StationRemoteDataSource {
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = results.removeFirst()
     }
 
     private class RecordingStationEventLogger : StationEventLogger {
@@ -607,8 +639,18 @@ class DefaultStationRepositoryTest {
     }
 
     private class ThrowingStationEventLogger : StationEventLogger {
-        override fun log(event: StationEvent) {
-            throw IllegalStateException("analytics failed")
+        override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
+    }
+
+    private class FakeCrashReporter : CrashReporter {
+        data class Record(val throwable: Throwable, val metadata: Map<String, String>)
+        val records = mutableListOf<Record>()
+        val logs = mutableListOf<String>()
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) {
+            records += Record(throwable, metadata)
+        }
+        override fun log(message: String) {
+            logs += message
         }
     }
 
@@ -632,9 +674,7 @@ class DefaultStationRepositoryTest {
             }
         }
 
-        override fun observeLatestStationsByIds(
-            stationIds: List<String>,
-        ): Flow<List<StationCacheEntity>> = entities.map { current ->
+        override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = entities.map { current ->
             current
                 .filter { it.stationId in stationIds }
                 .groupBy { it.stationId }
@@ -660,12 +700,7 @@ class DefaultStationRepositoryTest {
             this.entities.value = this.entities.value + entities
         }
 
-        override suspend fun deleteStations(
-            latitudeBucket: Int,
-            longitudeBucket: Int,
-            radiusMeters: Int,
-            fuelType: String,
-        ) {
+        override suspend fun deleteStations(latitudeBucket: Int, longitudeBucket: Int, radiusMeters: Int, fuelType: String) {
             entities.value = entities.value.filterNot {
                 it.latitudeBucket == latitudeBucket &&
                     it.longitudeBucket == longitudeBucket &&
@@ -733,14 +768,13 @@ class DefaultStationRepositoryTest {
                 }
         }
 
-        suspend fun snapshotFor(
-            cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey,
-        ): List<StationCacheEntity> = observeStations(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType.name,
-        ).first()
+        suspend fun snapshotFor(cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey): List<StationCacheEntity> =
+            observeStations(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType.name,
+            ).first()
     }
 
     private companion object {

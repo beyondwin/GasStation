@@ -29,8 +29,12 @@ turbine = "1.2.1"
 benchmark = "1.4.1"
 uiautomator = "2.3.0"
 timber = "5.0.1"
+roborazzi = "1.60.0"
 robolectric = "4.16.1"
+spotless = "7.0.2"
+ktlint = "1.5.0"
 javaxInject = "1"
+kover = "0.9.1"
 
 [libraries]
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -39,6 +43,7 @@ kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", ve
 kotlin-compose-gradlePlugin = { module = "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
 hilt-gradlePlugin = { module = "com.google.dagger:hilt-android-gradle-plugin", version.ref = "hilt" }
+spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
@@ -83,7 +88,12 @@ androidx-macrobenchmark-junit4 = { module = "androidx.benchmark:benchmark-macro-
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi-core = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
+roborazzi-gradlePlugin = { module = "io.github.takahirom.roborazzi:roborazzi-gradle-plugin", version.ref = "roborazzi" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
+kover-gradlePlugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -92,3 +102,6 @@ androidTest = { id = "com.android.test", version.ref = "agp" }
 jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 googleDevtoolsKsp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 googleDaggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

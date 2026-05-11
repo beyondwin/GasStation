@@ -26,12 +26,7 @@ fun Brand.gasStationBrandIconResource(): Int = when (this) {
 }
 
 @Composable
-fun GasStationBrandIcon(
-    brand: Brand,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    size: Dp = 30.dp,
-) {
+fun GasStationBrandIcon(brand: Brand, contentDescription: String?, modifier: Modifier = Modifier, size: Dp = 30.dp) {
     Image(
         painter = painterResource(id = brand.gasStationBrandIconResource()),
         contentDescription = contentDescription,

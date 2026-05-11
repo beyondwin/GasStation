@@ -7,7 +7,6 @@ import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationSearchOrchestrator @Inject constructor(
@@ -33,17 +33,16 @@ class StationSearchOrchestrator @Inject constructor(
     val searchResult = mutableSearchResult.asStateFlow()
     val blockingFailure = mutableBlockingFailure.asStateFlow()
 
-    fun observe(queryFlow: Flow<StationQuery?>): Flow<StationSearchResult> =
-        queryFlow.distinctUntilChanged()
-            .onEach(::onQueryChanged)
-            .flatMapLatest { query ->
-                if (query == null) {
-                    flowOf(emptySearchResult())
-                } else {
-                    observeNearbyStations(query)
-                }
+    fun observe(queryFlow: Flow<StationQuery?>): Flow<StationSearchResult> = queryFlow.distinctUntilChanged()
+        .onEach(::onQueryChanged)
+        .flatMapLatest { query ->
+            if (query == null) {
+                flowOf(emptySearchResult())
+            } else {
+                observeNearbyStations(query)
             }
-            .onEach(::onObservedResult)
+        }
+        .onEach(::onObservedResult)
 
     suspend fun refresh(query: StationQuery): RefreshOutcome {
         if (activeQueryState.value.query != query) {
@@ -69,10 +68,7 @@ class StationSearchOrchestrator @Inject constructor(
         )
     }
 
-    fun onBlockingFailure(
-        query: StationQuery? = activeQueryState.value.query,
-        reason: StationListFailureReason,
-    ) {
+    fun onBlockingFailure(query: StationQuery? = activeQueryState.value.query, reason: StationListFailureReason) {
         if (query != null && activeQueryState.value.query != query) return
 
         when (activeQueryState.value.cacheState) {
@@ -93,16 +89,15 @@ class StationSearchOrchestrator @Inject constructor(
         mutableBlockingFailure.value = null
     }
 
-    fun shouldRefreshForCriteriaChange(previous: StationQuery?, next: StationQuery?): Boolean =
-        previous != null &&
-            next != null &&
-            previous.coordinates == next.coordinates &&
-            (
-                previous.radius != next.radius ||
-                    previous.fuelType != next.fuelType ||
-                    previous.brandFilter != next.brandFilter ||
-                    previous.sortOrder != next.sortOrder
-                )
+    fun shouldRefreshForCriteriaChange(previous: StationQuery?, next: StationQuery?): Boolean = previous != null &&
+        next != null &&
+        previous.coordinates == next.coordinates &&
+        (
+            previous.radius != next.radius ||
+                previous.fuelType != next.fuelType ||
+                previous.brandFilter != next.brandFilter ||
+                previous.sortOrder != next.sortOrder
+            )
 
     private fun onQueryChanged(query: StationQuery?) {
         val previousQuery = activeQueryState.value.query
@@ -145,15 +140,9 @@ class StationSearchOrchestrator @Inject constructor(
     }
 }
 
-data class ActiveStationQueryState(
-    val query: StationQuery? = null,
-    val cacheState: CachedSnapshotState = CachedSnapshotState.Absent,
-)
+data class ActiveStationQueryState(val query: StationQuery? = null, val cacheState: CachedSnapshotState = CachedSnapshotState.Absent)
 
-private data class PendingBlockingFailure(
-    val query: StationQuery,
-    val reason: StationListFailureReason,
-)
+private data class PendingBlockingFailure(val query: StationQuery, val reason: StationListFailureReason)
 
 enum class CachedSnapshotState {
     Unknown,
@@ -171,7 +160,8 @@ private fun StationRefreshFailureReason?.toStationListFailureReason(): StationLi
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
     StationRefreshFailureReason.Unknown,
-    null -> StationListFailureReason.RefreshFailed
+    null,
+    -> StationListFailureReason.RefreshFailed
 }
 
 private fun emptySearchResult(): StationSearchResult = StationSearchResult(
