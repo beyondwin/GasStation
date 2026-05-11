@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -85,11 +87,24 @@ jobs:
           ./gradlew \
             :app:assembleDemoDebug \
             :app:assembleProdDebug \
-            :app:assembleProdRelease \
             :benchmark:assemble
+
+  release-assemble:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Release Assemble
+        run: ./gradlew :app:assembleProdRelease
 
   coverage:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     needs: [unit-tests]
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

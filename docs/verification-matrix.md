@@ -83,9 +83,15 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md docs/agent-w
 
 ## CI 연결
 
-GitHub Actions는 v1.1 기준 5개 job으로 분리됩니다: `static-analysis` (spotlessCheck + lint), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug+release), `coverage` (koverXmlReport, unit-tests 완료 후 실행). 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.
+GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격의 push를 다르게 검증합니다. 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.
 
-`demoRelease`/`prodRelease` assemble은 기본 CI matrix에 포함하지 않습니다. R8/minify 회귀를 모든 PR에서 잡아야 하거나 CI 시간이 감당 가능하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
+| Trigger | 실행 범위 |
+| --- | --- |
+| `pull_request` | `static-analysis` (spotlessCheck + lint), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`koverXmlReport`, unit-tests 완료 후 실행) |
+| `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
+
+`prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
 
 ## 기기 기반 UI 확인
 
