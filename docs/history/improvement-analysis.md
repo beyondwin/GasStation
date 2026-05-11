@@ -1,3 +1,5 @@
+> 이 문서는 1.0.2 시점의 분석 history입니다. 1.1.0 이후의 baseline 결정은 `docs/superpowers/specs/2026-05-11-production-baseline-design.md`가 단일 출처입니다.
+
 # GasStation 개선 분석
 
 > 작성일: 2026-05-05
