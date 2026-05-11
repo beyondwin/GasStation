@@ -1,4 +1,14 @@
-# 주유주유소
+# 주유주유소 (GasStation)
+
+[![CI](https://github.com/kws/GasStation/actions/workflows/android.yml/badge.svg)](https://github.com/kws/GasStation/actions/workflows/android.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-7F52FF.svg?logo=kotlin)](https://kotlinlang.org)
+[![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.03.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
+[![minSdk](https://img.shields.io/badge/minSdk-24-3DDC84.svg)](https://developer.android.com/about/versions)
+
+> GasStation is a Korean Android app that helps drivers compare nearby gas stations by current location, price, distance, brand, fuel type, and watchlist state, then hands off to the user's preferred external map for turn-by-turn navigation. The codebase ships a 17-module Clean Architecture setup with Jetpack Compose, Hilt, Room, and a deterministic `demo` flavor that mirrors the real Opinet API path.
+
+---
 
 주유주유소는 Jetpack Compose, Hilt, Coroutines, Flow, Room, ViewModel, Material Design, MVVM 아키텍처를 활용해 현재 위치 기반 주유소 탐색부터 stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동까지 하나의 흐름으로 구현한 멀티모듈 Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet Open API 연동 경로를 제공합니다.
 
@@ -150,6 +160,20 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [심층 분석 리포트](docs/history/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
 - [개선 분석](docs/history/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
 - `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다. 현재 구조와 실행 명령의 기준은 위 live 문서와 코드입니다.
+
+## 5분 코드 투어
+
+처음 보는 사람이 코드 흐름을 빠르게 따라가는 권장 경로입니다.
+
+1. `app/src/main/java/com/gasstation/App.kt` — Hilt 진입과 startup hook.
+2. `app/src/main/java/com/gasstation/MainActivity.kt` — Compose host와 system bar 정책.
+3. `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt` — destination 그래프.
+4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt` → `StationListViewModel.kt` — 화면 진입과 ViewModel.
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt` — 쿼리/캐시/실패 책임 분리.
+6. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt` — Room snapshot + remote fetch 조합과 재시도.
+7. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
+
+각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
 
 ## 검증
 
