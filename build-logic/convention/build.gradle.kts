@@ -53,5 +53,9 @@ gradlePlugin {
             id = "gasstation.spotless"
             implementationClass = "GasStationSpotlessConventionPlugin"
         }
+        register("roborazzi") {
+            id = "gasstation.roborazzi"
+            implementationClass = "GasStationRoborazziConventionPlugin"
+        }
     }
 }
