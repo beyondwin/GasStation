@@ -175,6 +175,18 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
 
+## Startup metric (참고)
+
+| 시나리오 | p50 | p95 |
+| --- | --- | --- |
+| Cold start | TBD (measure on hardware) | TBD (measure on hardware) |
+| Warm start | n/a (single-mode run) | n/a (single-mode run) |
+| Hot start | n/a (single-mode run) | n/a (single-mode run) |
+
+측정 환경: Pixel 9 emulator / Android 35 / `demo` flavor / 2026-05-11 기준.
+
+> 참고: `androidx.baselineprofile` 플러그인 1.4.1이 AGP 9.1.1과 호환되지 않아(지원 최대 버전: 9.0.0-alpha1) 에뮬레이터 기반 macrobenchmark 실행이 차단되었습니다. 실제 하드웨어나 AGP 호환 환경에서 `:benchmark:connectedDebugAndroidTest`를 통해 측정하세요.
+
 ## 검증
 
 빠른 로컬 확인:
