@@ -53,6 +53,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 - 상태 변경: `docs/state-model.md`
 - 캐시, stale, refresh 실패, watchlist fallback: `docs/offline-strategy.md`
 - 테스트 선택과 검증 명령: `docs/test-strategy.md`, `docs/verification-matrix.md`
+- 보안 결정과 승격 조건: [`docs/security-trade-offs.md`](docs/security-trade-offs.md)
 - 기능 변경 전: 관련 feature, domain, data, core 테스트
 
 ## Documentation Ownership
