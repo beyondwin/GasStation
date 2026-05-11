@@ -48,6 +48,15 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                     it.jvmArgs("--enable-native-access=ALL-UNNAMED")
                 }
             }
+
+            lint {
+                warningsAsErrors = false
+                abortOnError = true
+                checkDependencies = true
+                sarifReport = true
+                htmlReport = true
+                xmlReport = false
+            }
         }
 
         tasks.withType<KotlinCompile>().configureEach {
