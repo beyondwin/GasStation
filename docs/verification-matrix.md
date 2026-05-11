@@ -71,31 +71,19 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md docs/agent-w
 
 ```bash
 ./gradlew \
-  :domain:location:test \
-  :core:model:test \
-  :domain:station:test \
-  :domain:settings:test \
-  :core:database:testDebugUnitTest \
-  :core:datastore:testDebugUnitTest \
-  :core:designsystem:testDebugUnitTest \
-  :core:location:testDebugUnitTest \
-  :core:network:test \
-  :data:settings:testDebugUnitTest \
-  :data:station:testDebugUnitTest \
-  :feature:settings:testDebugUnitTest \
+  spotlessCheck lint \
+  :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \
-  :app:testDemoDebugUnitTest \
-  :app:testProdDebugUnitTest \
-  :tools:demo-seed:test \
-  :app:assembleDemoDebug \
-  :app:assembleProdDebug \
-  :benchmark:assemble
+  :feature:settings:testDebugUnitTest \
+  verifyRoborazziDebug \
+  koverXmlReport \
+  :app:assembleProdRelease
 ```
 
 ## CI 연결
 
-GitHub Actions의 `Verification Matrix` job은 위 머지 전 권장 회귀 세트를 기준으로 합니다. `:app:testProdDebugUnitTest`와 `:tools:demo-seed:test`를 포함해 `demo`/`prod` 그래프와 seed 도구를 함께 확인하고, aggregate `:app:assembleDebug`는 사용하지 않습니다.
+GitHub Actions는 v1.1 기준 5개 job으로 분리됩니다: `static-analysis` (spotlessCheck + lint), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug+release), `coverage` (koverXmlReport, unit-tests 완료 후 실행). 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.
 
 `demoRelease`/`prodRelease` assemble은 기본 CI matrix에 포함하지 않습니다. R8/minify 회귀를 모든 PR에서 잡아야 하거나 CI 시간이 감당 가능하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
 
