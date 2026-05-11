@@ -147,8 +147,8 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
-- [심층 분석 리포트](docs/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
-- [개선 분석](docs/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
+- [심층 분석 리포트](docs/history/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
+- [개선 분석](docs/history/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
 - `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다. 현재 구조와 실행 명령의 기준은 위 live 문서와 코드입니다.
 
 ## 검증
