@@ -17,9 +17,7 @@ import javax.inject.Singleton
 object DatabaseModule {
     @Provides
     @Singleton
-    fun provideGasStationDatabase(
-        @ApplicationContext context: Context,
-    ): GasStationDatabase = Room.databaseBuilder(
+    fun provideGasStationDatabase(@ApplicationContext context: Context): GasStationDatabase = Room.databaseBuilder(
         context,
         GasStationDatabase::class.java,
         GasStationDatabase.DATABASE_NAME,
@@ -32,17 +30,11 @@ object DatabaseModule {
         .build()
 
     @Provides
-    fun provideStationCacheDao(
-        database: GasStationDatabase,
-    ): StationCacheDao = database.stationCacheDao()
+    fun provideStationCacheDao(database: GasStationDatabase): StationCacheDao = database.stationCacheDao()
 
     @Provides
-    fun provideStationPriceHistoryDao(
-        database: GasStationDatabase,
-    ): StationPriceHistoryDao = database.stationPriceHistoryDao()
+    fun provideStationPriceHistoryDao(database: GasStationDatabase): StationPriceHistoryDao = database.stationPriceHistoryDao()
 
     @Provides
-    fun provideWatchedStationDao(
-        database: GasStationDatabase,
-    ): WatchedStationDao = database.watchedStationDao()
+    fun provideWatchedStationDao(database: GasStationDatabase): WatchedStationDao = database.watchedStationDao()
 }

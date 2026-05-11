@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top bar -->
+    <string name="watchlist_title">Bookmarks</string>
+    <string name="watchlist_close">Close</string>
+
+    <!-- Card and icon semantic descriptions -->
+    <string name="watchlist_card_content_description">Saved station card</string>
+    <!-- "%1$s brand" -->
+    <string name="watchlist_brand_icon_content_description">%1$s brand</string>
+
+    <!-- Metric labels -->
+    <string name="watchlist_label_price">Price</string>
+    <string name="watchlist_label_distance">Distance</string>
+    <string name="watchlist_label_change">Change</string>
+    <string name="watchlist_label_checked">Checked</string>
+
+    <!-- Price unit -->
+    <string name="watchlist_price_unit">₩</string>
+    <string name="watchlist_price_format">₩%1$s</string>
+    <string name="watchlist_price_delta_format">%1$s ₩</string>
+
+    <!-- Last seen label -->
+    <string name="watchlist_no_last_seen">No check record</string>
+
+    <!-- Empty state -->
+    <string name="watchlist_empty_title">No saved stations yet.</string>
+    <string name="watchlist_empty_subtitle">Bookmark stations from the list to track prices and distances in one place.</string>
+    <string name="watchlist_empty_next_step_label">Next step</string>
+    <string name="watchlist_empty_next_step_value">Tap a bookmark on the list screen to add one immediately.</string>
+    <string name="watchlist_empty_purpose_label">Purpose</string>
+    <string name="watchlist_empty_purpose_value">Compare prices and distances for your saved stations at a glance.</string>
+</resources>

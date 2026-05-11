@@ -9,10 +9,10 @@ import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import javax.inject.Inject
 
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(

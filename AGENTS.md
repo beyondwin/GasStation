@@ -11,7 +11,7 @@ GasStation 작업자는 이 파일을 먼저 읽는다. 이 파일은 모든 변
 
 ## Product And UI Invariants
 
-GasStation은 포트폴리오/reference 성격의 Android 앱이며, 실제 운전자가 가까운 주유소를 가격, 거리, 브랜드, 유종, watchlist 상태, 외부 지도 연결 기준으로 빠르게 비교할 수 있어야 한다.
+GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소를 가격, 거리, 브랜드, 유종, 북마크 상태, 외부 지도 연결 기준으로 빠르게 비교하는 Android 앱이다.
 
 - `demo`와 `prod`는 모두 정식 실행 경로다. `demo`는 mock 예외 경로가 아니라 문서, 테스트, benchmark가 기대는 재현 가능한 경로다.
 - Price is the hero. 가격은 station card의 첫 번째 읽기 대상이다.
@@ -53,6 +53,7 @@ GasStation은 포트폴리오/reference 성격의 Android 앱이며, 실제 운�
 - 상태 변경: `docs/state-model.md`
 - 캐시, stale, refresh 실패, watchlist fallback: `docs/offline-strategy.md`
 - 테스트 선택과 검증 명령: `docs/test-strategy.md`, `docs/verification-matrix.md`
+- 보안 결정과 승격 조건: [`docs/security-trade-offs.md`](docs/security-trade-offs.md)
 - 기능 변경 전: 관련 feature, domain, data, core 테스트
 
 ## Documentation Ownership

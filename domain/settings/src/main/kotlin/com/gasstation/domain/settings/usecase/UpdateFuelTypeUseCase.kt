@@ -1,12 +1,10 @@
 package com.gasstation.domain.settings.usecase
 
-import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.core.model.FuelType
+import com.gasstation.domain.settings.SettingsRepository
 import javax.inject.Inject
 
-class UpdateFuelTypeUseCase @Inject constructor(
-    private val settingsRepository: SettingsRepository,
-) {
+class UpdateFuelTypeUseCase @Inject constructor(private val settingsRepository: SettingsRepository) {
     suspend operator fun invoke(fuelType: FuelType) {
         settingsRepository.updateUserPreferences { current ->
             current.copy(fuelType = fuelType)

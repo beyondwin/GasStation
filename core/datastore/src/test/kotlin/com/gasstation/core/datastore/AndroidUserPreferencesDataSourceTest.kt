@@ -66,11 +66,10 @@ class AndroidUserPreferencesDataSourceTest {
         secondScope.job.cancelAndJoin()
     }
 
-    private fun createTempStoreFile(): File =
-        Files.createTempFile("user-preferences", ".preferences_pb").toFile().apply {
-            deleteOnExit()
-            delete()
-        }
+    private fun createTempStoreFile(): File = Files.createTempFile("user-preferences", ".preferences_pb").toFile().apply {
+        deleteOnExit()
+        delete()
+    }
 
     private fun testScope(): TestScopeHandle {
         val job = SupervisorJob()
@@ -80,8 +79,5 @@ class AndroidUserPreferencesDataSourceTest {
         )
     }
 
-    private data class TestScopeHandle(
-        val scope: CoroutineScope,
-        val job: Job,
-    )
+    private data class TestScopeHandle(val scope: CoroutineScope, val job: Job)
 }

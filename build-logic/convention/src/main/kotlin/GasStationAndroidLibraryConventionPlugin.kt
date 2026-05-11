@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
+        pluginManager.apply("gasstation.spotless")
+        pluginManager.apply("gasstation.kover")
         pluginManager.apply("com.android.library")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -39,6 +41,15 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
 
             packaging {
                 resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            }
+
+            lint {
+                warningsAsErrors = false
+                abortOnError = true
+                checkDependencies = true
+                sarifReport = true
+                htmlReport = true
+                xmlReport = false
             }
         }
 

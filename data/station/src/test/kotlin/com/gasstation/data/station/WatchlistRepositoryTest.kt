@@ -3,18 +3,15 @@ package com.gasstation.data.station
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationCacheSnapshotEntity
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.core.model.Brand
+import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationPriceDelta
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
-import java.util.Optional
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +19,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+import java.util.Optional
 
 class WatchlistRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
@@ -288,6 +289,7 @@ class WatchlistRepositoryTest {
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         stationEventLogger = RecordingStationEventLogger(),
+        crashReporter = NoOpCrashReporter,
         clock = clock,
     )
 
@@ -295,6 +297,11 @@ class WatchlistRepositoryTest {
         override suspend fun fetchStations(query: com.gasstation.domain.station.model.StationQuery): RemoteStationFetchResult {
             error("refreshNearbyStations is not used in watchlist repository tests")
         }
+    }
+
+    private object NoOpCrashReporter : CrashReporter {
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) = Unit
+        override fun log(message: String) = Unit
     }
 
     private class RecordingStationEventLogger : StationEventLogger {
@@ -320,32 +327,21 @@ class WatchlistRepositoryTest {
             fuelType: String,
         ): Flow<StationCacheSnapshotEntity?> = flowOf(null)
 
-        override fun observeLatestStationsByIds(
-            stationIds: List<String>,
-        ): Flow<List<StationCacheEntity>> = flowOf(emptyList())
+        override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = flowOf(emptyList())
 
         override suspend fun upsertAll(entities: List<StationCacheEntity>) = Unit
 
         override suspend fun upsertSnapshot(snapshot: StationCacheSnapshotEntity) = Unit
 
-        override suspend fun deleteStations(
-            latitudeBucket: Int,
-            longitudeBucket: Int,
-            radiusMeters: Int,
-            fuelType: String,
-        ) = Unit
+        override suspend fun deleteStations(latitudeBucket: Int, longitudeBucket: Int, radiusMeters: Int, fuelType: String) = Unit
 
         override suspend fun pruneStationsOlderThan(cutoffEpochMillis: Long) = Unit
 
         override suspend fun pruneSnapshotsOlderThan(cutoffEpochMillis: Long) = Unit
     }
 
-    private class RecordingWatchlistStationCacheDao(
-        private val cachedStations: List<StationCacheEntity>,
-    ) : EmptyStationCacheDao() {
-        override fun observeLatestStationsByIds(
-            stationIds: List<String>,
-        ): Flow<List<StationCacheEntity>> = flowOf(
+    private class RecordingWatchlistStationCacheDao(private val cachedStations: List<StationCacheEntity>) : EmptyStationCacheDao() {
+        override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = flowOf(
             cachedStations.filter { it.stationId in stationIds },
         )
     }

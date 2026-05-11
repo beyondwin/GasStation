@@ -9,9 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 
-internal class RecordingStationPriceHistoryDao(
-    history: List<StationPriceHistoryEntity> = emptyList(),
-) : StationPriceHistoryDao {
+internal class RecordingStationPriceHistoryDao(history: List<StationPriceHistoryEntity> = emptyList()) : StationPriceHistoryDao {
     private val entities = MutableStateFlow(history.sortedHistory())
 
     val insertAllCalls = mutableListOf<List<StationPriceHistoryEntity>>()
@@ -32,19 +30,14 @@ internal class RecordingStationPriceHistoryDao(
             .sortedHistory()
     }
 
-    override fun observeByStationIdsAndFuelType(
-        stationIds: List<String>,
-        fuelType: String,
-    ): Flow<List<StationPriceHistoryEntity>> = entities.map { current ->
-        current
-            .filter { it.stationId in stationIds && it.fuelType == fuelType }
-            .sortedHistory()
-    }
+    override fun observeByStationIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationPriceHistoryEntity>> =
+        entities.map { current ->
+            current
+                .filter { it.stationId in stationIds && it.fuelType == fuelType }
+                .sortedHistory()
+        }
 
-    override suspend fun keepLatestTenByStationAndFuelType(
-        stationId: String,
-        fuelType: String,
-    ) {
+    override suspend fun keepLatestTenByStationAndFuelType(stationId: String, fuelType: String) {
         keepLatestTenCalls += stationId to fuelType
         val retained = entities.value
             .filter { it.stationId == stationId && it.fuelType == fuelType }
@@ -54,17 +47,12 @@ internal class RecordingStationPriceHistoryDao(
         entities.value = (others + retained).sortedHistory()
     }
 
-    fun entriesFor(
-        stationId: String,
-        fuelType: String? = null,
-    ): List<StationPriceHistoryEntity> = entities.value
+    fun entriesFor(stationId: String, fuelType: String? = null): List<StationPriceHistoryEntity> = entities.value
         .filter { it.stationId == stationId && (fuelType == null || it.fuelType == fuelType) }
         .sortedByDescending { it.fetchedAtEpochMillis }
 }
 
-internal class RecordingWatchedStationDao(
-    watchedStations: List<WatchedStationEntity> = emptyList(),
-) : WatchedStationDao {
+internal class RecordingWatchedStationDao(watchedStations: List<WatchedStationEntity> = emptyList()) : WatchedStationDao {
     private val entities = MutableStateFlow(watchedStations.sortedWatched())
 
     val upsertedEntities = mutableListOf<WatchedStationEntity>()
@@ -91,12 +79,7 @@ internal class RecordingWatchedStationDao(
     fun currentWatchedStations(): List<WatchedStationEntity> = entities.value.sortedWatched()
 }
 
-internal fun history(
-    stationId: String,
-    fuelType: String = "GASOLINE",
-    priceWon: Int,
-    fetchedAt: Instant,
-) = StationPriceHistoryEntity(
+internal fun history(stationId: String, fuelType: String = "GASOLINE", priceWon: Int, fetchedAt: Instant) = StationPriceHistoryEntity(
     stationId = stationId,
     fuelType = fuelType,
     priceWon = priceWon,

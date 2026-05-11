@@ -5,9 +5,7 @@ import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 
-internal class SettingsUseCaseTestFixture(
-    initialPreferences: UserPreferences = UserPreferences.default(),
-) {
+internal class SettingsUseCaseTestFixture(initialPreferences: UserPreferences = UserPreferences.default()) {
     private val state = MutableStateFlow(initialPreferences)
 
     val observeUserPreferences = ObserveUserPreferencesUseCase { state }

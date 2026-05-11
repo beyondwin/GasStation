@@ -1,5 +1,6 @@
 package com.gasstation.feature.stationlist
 
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.MapProvider
 
 sealed interface StationListEffect {
@@ -14,5 +15,5 @@ sealed interface StationListEffect {
 
     data object OpenLocationSettings : StationListEffect
 
-    data class ShowSnackbar(val message: String) : StationListEffect
+    data class ShowSnackbar(val message: StringResource) : StationListEffect
 }

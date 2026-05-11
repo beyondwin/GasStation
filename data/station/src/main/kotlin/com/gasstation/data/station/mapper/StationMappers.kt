@@ -1,14 +1,14 @@
 package com.gasstation.data.station.mapper
 
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
+import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.network.model.OpinetStationDto
 import com.gasstation.core.network.station.LocalKoreanCoordinateTransform
 import com.gasstation.data.station.RemoteStation
-import com.gasstation.core.model.Brand
-import com.gasstation.core.model.FuelType
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationQueryCacheKey
 import java.time.Instant
@@ -38,10 +38,7 @@ internal fun OpinetStationDto.toRemoteStation(): RemoteStation? {
     )
 }
 
-internal fun rawCoordinatesToWgs84(
-    rawX: Double,
-    rawY: Double,
-): Coordinates? {
+internal fun rawCoordinatesToWgs84(rawX: Double, rawY: Double): Coordinates? {
     if (rawY in -90.0..90.0 && rawX in -180.0..180.0) {
         return Coordinates(latitude = rawY, longitude = rawX)
     }
@@ -49,10 +46,7 @@ internal fun rawCoordinatesToWgs84(
     return LocalKoreanCoordinateTransform.ktmToWgs84(x = rawX, y = rawY)
 }
 
-internal fun RemoteStation.toEntity(
-    cacheKey: StationQueryCacheKey,
-    fetchedAt: Instant,
-): StationCacheEntity = StationCacheEntity(
+internal fun RemoteStation.toEntity(cacheKey: StationQueryCacheKey, fetchedAt: Instant): StationCacheEntity = StationCacheEntity(
     latitudeBucket = cacheKey.latitudeBucket,
     longitudeBucket = cacheKey.longitudeBucket,
     radiusMeters = cacheKey.radiusMeters,
@@ -66,9 +60,7 @@ internal fun RemoteStation.toEntity(
     fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
 )
 
-internal fun StationCacheEntity.toDomainStation(
-    queryCoordinates: Coordinates,
-): Station = Station(
+internal fun StationCacheEntity.toDomainStation(queryCoordinates: Coordinates): Station = Station(
     id = stationId,
     name = name,
     brand = brandCode.toBrand(),
@@ -87,10 +79,7 @@ internal fun FuelType.toFuelProductCode(): String = when (this) {
 
 private fun String.toBrand(): Brand = Brand.entries.firstOrNull { it.name == this } ?: Brand.ETC
 
-private fun distanceBetween(
-    origin: Coordinates,
-    destination: Coordinates,
-): Int {
+private fun distanceBetween(origin: Coordinates, destination: Coordinates): Int {
     val earthRadiusMeters = 6_371_000.0
     val latitudeDelta = Math.toRadians(destination.latitude - origin.latitude)
     val longitudeDelta = Math.toRadians(destination.longitude - origin.longitude)

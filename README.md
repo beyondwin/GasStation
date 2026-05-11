@@ -1,4 +1,14 @@
-# 주유주유소
+# 주유주유소 (GasStation)
+
+[![CI](https://github.com/kws/GasStation/actions/workflows/android.yml/badge.svg)](https://github.com/kws/GasStation/actions/workflows/android.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-7F52FF.svg?logo=kotlin)](https://kotlinlang.org)
+[![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.03.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
+[![minSdk](https://img.shields.io/badge/minSdk-24-3DDC84.svg)](https://developer.android.com/about/versions)
+
+> GasStation is a Korean Android app that helps drivers compare nearby gas stations by current location, price, distance, brand, fuel type, and watchlist state, then hands off to the user's preferred external map for turn-by-turn navigation. The codebase ships a 17-module Clean Architecture setup with Jetpack Compose, Hilt, Room, and a deterministic `demo` flavor that mirrors the real Opinet API path.
+
+---
 
 주유주유소는 Jetpack Compose, Hilt, Coroutines, Flow, Room, ViewModel, Material Design, MVVM 아키텍처를 활용해 현재 위치 기반 주유소 탐색부터 stale 캐시 fallback, watchlist(북마크) 비교, 외부 지도 연동까지 하나의 흐름으로 구현한 멀티모듈 Android 프로젝트입니다. `demo`는 재현 가능한 고정 실행 경로를, `prod`는 실제 Opinet Open API 연동 경로를 제공합니다.
 
@@ -115,7 +125,7 @@ flowchart LR
 
 `prod` 앱을 실제로 실행하려면 발급받은 `opinet.apikey`가 필요합니다. `demo` 실행에는 키가 필요 없고, `prod` 빌드는 빈 값으로도 가능하지만 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다. 키는 버전 관리되는 프로젝트 루트 `gradle.properties`에 쓰지 말고 사용자별 `~/.gradle/gradle.properties`에 두거나 Gradle 실행 시 `-Popinet.apikey=<issued-key>`로 전달합니다. 참고할 공식 페이지는 [오피넷 홈페이지](https://www.opinet.co.kr)와 [오피넷 Open API 소개](https://www.opinet.co.kr/user/custapi/openApiIntro.do)입니다.
 
-현재 `prod` 키는 Android 클라이언트 `BuildConfig`로 주입되므로 APK 내부의 완전한 비밀 경계가 아닙니다. 포트폴리오/reference 앱에서는 이 단순화를 수용하지만, 공개 배포나 quota 비용이 큰 운영 환경에서는 backend proxy, key restriction, quota monitoring을 먼저 설계해야 합니다. 앱은 로컬 캐시, 가격 히스토리, watchlist, 설정을 Android backup/data extraction 대상으로 내보내지 않도록 backup을 비활성화합니다.
+> `prod` 키는 Android 클라이언트 `BuildConfig`로 주입되며, 그 한계와 승격 조건은 [`docs/security-trade-offs.md`](docs/security-trade-offs.md)에 정리되어 있습니다. 앱은 로컬 캐시/설정을 Android backup 대상으로 내보내지 않습니다.
 
 ```properties
 # ~/.gradle/gradle.properties
@@ -138,7 +148,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 ## 문서 지도
 
-- [디자인 컨텍스트](.impeccable.md): 포트폴리오/review 성격, yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
+- [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 - [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
 - [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
@@ -147,9 +157,35 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
-- [심층 분석 리포트](docs/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
-- [개선 분석](docs/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
+- [심층 분석 리포트](docs/history/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
+- [개선 분석](docs/history/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
 - `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다. 현재 구조와 실행 명령의 기준은 위 live 문서와 코드입니다.
+
+## 5분 코드 투어
+
+처음 보는 사람이 코드 흐름을 빠르게 따라가는 권장 경로입니다.
+
+1. `app/src/main/java/com/gasstation/App.kt` — Hilt 진입과 startup hook.
+2. `app/src/main/java/com/gasstation/MainActivity.kt` — Compose host와 system bar 정책.
+3. `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt` — destination 그래프.
+4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt` → `StationListViewModel.kt` — 화면 진입과 ViewModel.
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt` — 쿼리/캐시/실패 책임 분리.
+6. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt` — Room snapshot + remote fetch 조합과 재시도.
+7. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
+
+각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
+
+## Startup metric (참고)
+
+| 시나리오 | p50 | p95 |
+| --- | --- | --- |
+| Cold start | TBD (measure on hardware) | TBD (measure on hardware) |
+| Warm start | n/a (single-mode run) | n/a (single-mode run) |
+| Hot start | n/a (single-mode run) | n/a (single-mode run) |
+
+측정 환경: Pixel 9 emulator / Android 35 / `demo` flavor / 2026-05-11 기준.
+
+> 참고: `androidx.baselineprofile` 플러그인 1.4.1이 AGP 9.1.1과 호환되지 않아(지원 최대 버전: 9.0.0-alpha1) 에뮬레이터 기반 macrobenchmark 실행이 차단되었습니다. 실제 하드웨어나 AGP 호환 환경에서 `:benchmark:connectedDebugAndroidTest`를 통해 측정하세요.
 
 ## 검증
 

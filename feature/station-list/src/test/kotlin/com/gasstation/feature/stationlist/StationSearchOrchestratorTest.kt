@@ -16,7 +16,6 @@ import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
-import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,6 +28,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationSearchOrchestratorTest {
@@ -190,16 +190,12 @@ class StationSearchOrchestratorTest {
     }
 }
 
-private fun stationSearchOrchestrator(
-    repository: StationRepository,
-): StationSearchOrchestrator = StationSearchOrchestrator(
+private fun stationSearchOrchestrator(repository: StationRepository): StationSearchOrchestrator = StationSearchOrchestrator(
     observeNearbyStations = ObserveNearbyStationsUseCase(repository),
     refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
 )
 
-private class FakeOrchestratorStationRepository(
-    var refreshFailure: Throwable? = null,
-) : StationRepository {
+private class FakeOrchestratorStationRepository(var refreshFailure: Throwable? = null) : StationRepository {
     private val resultFlows = mutableMapOf<StationQuery, MutableSharedFlow<StationSearchResult>>()
 
     val observedQueries = mutableListOf<StationQuery>()
@@ -214,8 +210,7 @@ private class FakeOrchestratorStationRepository(
         return resultFlow(query)
     }
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
-        MutableStateFlow(emptyList())
+    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
@@ -224,15 +219,12 @@ private class FakeOrchestratorStationRepository(
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
 
-    private fun resultFlow(query: StationQuery): MutableSharedFlow<StationSearchResult> =
-        resultFlows.getOrPut(query) {
-            MutableSharedFlow(replay = 1, extraBufferCapacity = 1)
-        }
+    private fun resultFlow(query: StationQuery): MutableSharedFlow<StationSearchResult> = resultFlows.getOrPut(query) {
+        MutableSharedFlow(replay = 1, extraBufferCapacity = 1)
+    }
 }
 
-private fun stationQuery(
-    coordinates: Coordinates = Coordinates(37.498095, 127.027610),
-): StationQuery = StationQuery(
+private fun stationQuery(coordinates: Coordinates = Coordinates(37.498095, 127.027610)): StationQuery = StationQuery(
     coordinates = coordinates,
     radius = SearchRadius.KM_3,
     fuelType = FuelType.GASOLINE,

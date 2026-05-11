@@ -15,15 +15,11 @@ abstract class StationDataModule {
 
     @Binds
     @Singleton
-    abstract fun bindStationRepository(
-        repository: DefaultStationRepository,
-    ): StationRepository
+    abstract fun bindStationRepository(repository: DefaultStationRepository): StationRepository
 
     @Binds
     @Singleton
-    abstract fun bindStationRemoteDataSource(
-        remoteDataSource: DefaultStationRemoteDataSource,
-    ): StationRemoteDataSource
+    abstract fun bindStationRemoteDataSource(remoteDataSource: DefaultStationRemoteDataSource): StationRemoteDataSource
 
     companion object {
         @Provides

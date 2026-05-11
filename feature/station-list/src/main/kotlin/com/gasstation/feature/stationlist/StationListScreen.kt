@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -13,14 +14,13 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,14 +42,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,22 +57,22 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.animation.core.tween
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
-import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.ColorYellow
+import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationBrandIcon
 import com.gasstation.core.designsystem.component.GasStationCard
@@ -83,8 +83,9 @@ import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
-import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.feature.stationlist.R
 
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
@@ -115,6 +116,7 @@ fun StationListScreen(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (() -> Unit)? = null,
 ) {
+    val bookmarkLabel = stringResource(R.string.station_list_action_bookmark)
     GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -130,7 +132,7 @@ fun StationListScreen(
                         if (onWatchlistClick != null) {
                             IconButton(
                                 modifier = Modifier.semantics {
-                                    contentDescription = "북마크"
+                                    contentDescription = bookmarkLabel
                                 },
                                 onClick = onWatchlistClick,
                             ) {
@@ -141,10 +143,10 @@ fun StationListScreen(
                             }
                         }
                         IconButton(onClick = { onAction(StationListAction.RefreshRequested) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "새로고침")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.station_list_action_refresh))
                         }
                         IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Default.Settings, contentDescription = "설정")
+                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.station_list_action_settings))
                         }
                     },
                 )
@@ -192,13 +194,12 @@ fun StationListScreen(
 }
 
 @Composable
-private fun SortToggleTitle(
-    sortOrder: com.gasstation.core.model.SortOrder,
-    onClick: () -> Unit,
-) {
+private fun SortToggleTitle(sortOrder: com.gasstation.core.model.SortOrder, onClick: () -> Unit) {
     val corner = GasStationTheme.corner
     val stroke = GasStationTheme.stroke
     val shape = RoundedCornerShape(corner.small)
+    val stateDesc = sortOrder.toStateDescription()
+    val nextActionLabel = sortOrder.toNextSortActionLabel()
 
     Row(
         modifier = Modifier
@@ -209,17 +210,17 @@ private fun SortToggleTitle(
                 shape = shape,
             )
             .semantics {
-                stateDescription = sortOrder.toStateDescription()
+                stateDescription = stateDesc
             }
             .clickable(
                 role = Role.Button,
-                onClickLabel = sortOrder.toNextSortActionLabel(),
+                onClickLabel = nextActionLabel,
                 onClick = onClick,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SortToggleSegment(
-            label = "거리순",
+            label = stringResource(R.string.station_list_sort_by_distance),
             selected = sortOrder == com.gasstation.core.model.SortOrder.DISTANCE,
         )
         Box(
@@ -229,17 +230,14 @@ private fun SortToggleTitle(
                 .background(ColorYellow),
         )
         SortToggleSegment(
-            label = "가격순",
+            label = stringResource(R.string.station_list_sort_by_price),
             selected = sortOrder == com.gasstation.core.model.SortOrder.PRICE,
         )
     }
 }
 
 @Composable
-private fun SortToggleSegment(
-    label: String,
-    selected: Boolean,
-) {
+private fun SortToggleSegment(label: String, selected: Boolean) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
 
@@ -259,11 +257,7 @@ private fun SortToggleSegment(
 }
 
 @Composable
-private fun StationListContent(
-    uiState: StationListUiState,
-    onAction: (StationListAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun StationListContent(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     val banners = StationListBannerModel.from(uiState)
     val spacing = GasStationTheme.spacing
 
@@ -277,12 +271,19 @@ private fun StationListContent(
     ) {
         items(
             items = banners,
-            key = { banner -> banner.title + (banner.detail ?: "") },
+            key = { banner -> "${banner.titleResId}_${banner.detailResId ?: 0}_${banner.detailArg ?: ""}" },
         ) { banner ->
+            val bannerDetail = banner.detailResId?.let { resId ->
+                if (banner.detailArg != null) {
+                    stringResource(resId, banner.detailArg)
+                } else {
+                    stringResource(resId)
+                }
+            }
             GasStationStatusBanner(
                 modifier = Modifier.animateContentSize(),
-                text = banner.title,
-                detail = banner.detail,
+                text = stringResource(banner.titleResId),
+                detail = bannerDetail,
                 tone = banner.tone.toStatusTone(),
             )
         }
@@ -321,17 +322,18 @@ private fun StationListContent(
 }
 
 @Composable
-private fun QueryContextSummary(
-    uiState: StationListUiState,
-    modifier: Modifier = Modifier,
-) {
+private fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier = Modifier) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
     val addressLabel = uiState.currentAddressLabel
         ?.trim()
         ?.takeIf(String::isNotEmpty)
         ?.toDongLevelAddressLabel()
-    val conditionLabel = "${uiState.selectedRadius.toLabel()} · ${uiState.selectedFuelType.toLabel()} 기준"
+    val conditionLabel = stringResource(
+        R.string.station_list_query_context_condition,
+        uiState.selectedRadius.toLabel(),
+        uiState.selectedFuelType.toLabel(),
+    )
 
     Column(
         modifier = modifier
@@ -403,7 +405,7 @@ private fun StationCard(
                         modifier = Modifier
                             .weight(1.35f)
                             .fillMaxHeight(),
-                        label = "가격",
+                        label = stringResource(R.string.station_list_label_price),
                         number = station.priceNumberLabel,
                         unit = station.priceUnitLabel,
                         emphasis = GasStationMetricEmphasis.Primary,
@@ -412,7 +414,7 @@ private fun StationCard(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight(),
-                        label = "거리",
+                        label = stringResource(R.string.station_list_label_distance),
                         number = station.distanceNumberLabel,
                         unit = station.distanceUnitLabel,
                         emphasis = GasStationMetricEmphasis.Secondary,
@@ -460,11 +462,7 @@ private fun StationCard(
 }
 
 @Composable
-private fun PriceDeltaIndicator(
-    label: String,
-    tone: PriceDeltaTone,
-    modifier: Modifier = Modifier,
-) {
+private fun PriceDeltaIndicator(label: String, tone: PriceDeltaTone, modifier: Modifier = Modifier) {
     val typography = GasStationTheme.typography
     val color = tone.toColor()
 
@@ -504,10 +502,7 @@ private fun PriceDeltaIndicator(
 }
 
 @Composable
-private fun FuelChip(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
+private fun FuelChip(text: String, modifier: Modifier = Modifier) {
     val spacing = GasStationTheme.spacing
     val corner = GasStationTheme.corner
     val stroke = GasStationTheme.stroke
@@ -529,7 +524,7 @@ private fun FuelChip(
                 .padding(
                     horizontal = spacing.space8,
                     vertical = spacing.space4,
-            ),
+                ),
             style = typography.chip,
             color = ColorBlack,
             maxLines = 1,
@@ -539,30 +534,30 @@ private fun FuelChip(
 }
 
 @Composable
-private fun WatchToggleButton(
-    watched: Boolean,
-    onClick: () -> Unit,
-) {
+private fun WatchToggleButton(watched: Boolean, onClick: () -> Unit) {
     val iconTint = animateColorAsState(
         targetValue = if (watched) ColorYellow else ColorGray2,
         label = "watch-toggle-icon",
     )
+    val watchSavedLabel = stringResource(R.string.station_list_watch_saved)
+    val watchNotSavedLabel = stringResource(R.string.station_list_watch_not_saved)
+    val watchActionLabel = stringResource(R.string.station_list_watch_action)
 
     IconButton(
         modifier = Modifier
             .semantics {
                 selected = watched
                 stateDescription = if (watched) {
-                    "저장됨"
+                    watchSavedLabel
                 } else {
-                    "저장되지 않음"
+                    watchNotSavedLabel
                 }
             },
         onClick = onClick,
     ) {
         Icon(
             imageVector = if (watched) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-            contentDescription = "저장",
+            contentDescription = watchActionLabel,
             modifier = Modifier.size(26.dp),
             tint = iconTint.value,
         )
@@ -570,43 +565,35 @@ private fun WatchToggleButton(
 }
 
 @Composable
-private fun PermissionRequired(
-    modifier: Modifier = Modifier,
-    onRequestPermissions: () -> Unit,
-) {
+private fun PermissionRequired(modifier: Modifier = Modifier, onRequestPermissions: () -> Unit) {
     BrandedStateContainer(modifier = modifier) {
         GasStationGuidanceCard(
-            title = "위치 권한이 필요합니다.",
-            body = "주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.",
-            actionLabel = "권한 요청",
+            title = stringResource(R.string.station_list_permission_required_title),
+            body = stringResource(R.string.station_list_permission_required_body),
+            actionLabel = stringResource(R.string.station_list_permission_action),
             onAction = onRequestPermissions,
         )
     }
 }
 
 @Composable
-private fun GpsRequired(
-    modifier: Modifier = Modifier,
-    onOpenLocationSettings: () -> Unit,
-) {
+private fun GpsRequired(modifier: Modifier = Modifier, onOpenLocationSettings: () -> Unit) {
     BrandedStateContainer(modifier = modifier) {
         GasStationGuidanceCard(
-            title = "위치 서비스를 켜야 합니다.",
-            body = "GPS 또는 네트워크 위치를 활성화해야 주변 주유소와 북마크를 정확하게 불러올 수 있습니다.",
-            actionLabel = "위치 설정 열기",
+            title = stringResource(R.string.station_list_gps_required_title),
+            body = stringResource(R.string.station_list_gps_required_body),
+            actionLabel = stringResource(R.string.station_list_gps_settings_action),
             onAction = onOpenLocationSettings,
         )
     }
 }
 
 @Composable
-private fun LoadingState(
-    modifier: Modifier = Modifier,
-) {
+private fun LoadingState(modifier: Modifier = Modifier) {
     BrandedStateContainer(modifier = modifier) {
         GasStationGuidanceCard(
-            title = "주변 주유소를 불러오는 중입니다.",
-            body = "현재 조건으로 최신 가격을 확인하고 있습니다.",
+            title = stringResource(R.string.station_list_loading_title),
+            body = stringResource(R.string.station_list_loading_body),
             leadingContent = {
                 CircularProgressIndicator(
                     modifier = Modifier.size(28.dp),
@@ -619,42 +606,32 @@ private fun LoadingState(
 }
 
 @Composable
-private fun FailureState(
-    reason: StationListFailureReason,
-    onAction: (StationListAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun FailureState(reason: StationListFailureReason, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     val content = reason.toFailureCardContent()
 
     BrandedStateContainer(modifier = modifier) {
         GasStationGuidanceCard(
             title = content.title,
             body = content.body,
-            actionLabel = "다시 시도",
+            actionLabel = stringResource(R.string.station_list_retry_action),
             onAction = { onAction(StationListAction.RetryClicked) },
         )
     }
 }
 
 @Composable
-private fun EmptyState(
-    onAction: (StationListAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun EmptyState(onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     GasStationGuidanceCard(
         modifier = modifier,
-        title = "조건에 맞는 주변 주유소가 없습니다.",
-        body = "반경, 유종, 브랜드 조건을 조정하거나 다시 조회해보세요.",
-        actionLabel = "다시 시도",
+        title = stringResource(R.string.station_list_empty_title),
+        body = stringResource(R.string.station_list_empty_body),
+        actionLabel = stringResource(R.string.station_list_retry_action),
         onAction = { onAction(StationListAction.RetryClicked) },
     )
 }
 
 @Composable
-private fun BrandedStateContainer(
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
-) {
+private fun BrandedStateContainer(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val spacing = GasStationTheme.spacing
     Box(
         modifier = modifier.padding(spacing.space24),
@@ -664,11 +641,7 @@ private fun BrandedStateContainer(
 }
 
 @Composable
-private fun StationListResultsPane(
-    uiState: StationListUiState,
-    onAction: (StationListAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun StationListResultsPane(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     val pullToRefreshState = rememberPullToRefreshState()
     val showTopLoadingRail = uiState.isRefreshing || uiState.isLoading
     val refreshRailInset = if (showTopLoadingRail) 58.dp else 0.dp
@@ -722,9 +695,7 @@ private fun StationListResultsPane(
 }
 
 @Composable
-private fun RefreshingStatusRail(
-    modifier: Modifier = Modifier,
-) {
+private fun RefreshingStatusRail(modifier: Modifier = Modifier) {
     val spacing = GasStationTheme.spacing
     val corner = GasStationTheme.corner
     val typography = GasStationTheme.typography
@@ -754,13 +725,13 @@ private fun RefreshingStatusRail(
                         .background(ColorYellow),
                 )
                 Text(
-                    text = "가격 갱신 중",
+                    text = stringResource(R.string.station_list_refresh_rail_title),
                     style = typography.chip.copy(fontWeight = FontWeight.Bold),
                     color = ColorYellow,
                 )
             }
             Text(
-                text = "현재 조건으로 최신 가격을 확인하고 있습니다.",
+                text = stringResource(R.string.station_list_refresh_rail_body),
                 style = typography.meta,
                 color = ColorYellow.copy(alpha = 0.78f),
             )
@@ -785,23 +756,20 @@ private fun StationListUiState.toBodyState(): StationListBodyState = when {
     else -> StationListBodyState.Results
 }
 
-private fun String.toDongLevelAddressLabel(): String {
-    return toAddressTokens().toAdministrativeDongLabel() ?: this
-}
+private fun String.toDongLevelAddressLabel(): String = toAddressTokens().toAdministrativeDongLabel() ?: this
 
 private fun String.isAdministrativeDongPart(): Boolean {
     val normalized = trim('(', ')', '[', ']', ',', '.')
-    return normalized.endsWith("동") && normalized.dropLast(1).any { it in '가'..'힣' }
+    return normalized.endsWith("\uB3D9") && normalized.dropLast(1).any { it in '가'..'힣' }
 }
 
-private fun String.toAddressTokens(): List<String> =
-    split(Regex("\\s+"))
-        .asSequence()
-        .map { it.trim('(', ')', '[', ']', ',', '.') }
-        .filter(String::isNotBlank)
-        .filterNot { it == "대한민국" || it.equals("KR", ignoreCase = true) }
-        .toList()
-        .joinSplitAdministrativeTokens()
+private fun String.toAddressTokens(): List<String> = split(Regex("\\s+"))
+    .asSequence()
+    .map { it.trim('(', ')', '[', ']', ',', '.') }
+    .filter(String::isNotBlank)
+    .filterNot { it == "\uB300\uD55C\uBBFC\uAD6D" || it.equals("KR", ignoreCase = true) }
+    .toList()
+    .joinSplitAdministrativeTokens()
 
 private fun List<String>.joinSplitAdministrativeTokens(): List<String> {
     val result = mutableListOf<String>()
@@ -809,7 +777,7 @@ private fun List<String>.joinSplitAdministrativeTokens(): List<String> {
     while (index < size) {
         val current = this[index]
         val next = getOrNull(index + 1)
-        if (next in setOf("특별시", "광역시", "특별자치시", "특별자치도")) {
+        if (next in setOf("\uD2B9\uBCC4\uC2DC", "\uAD11\uC5ED\uC2DC", "\uD2B9\uBCC4\uC790\uCE58\uC2DC", "\uD2B9\uBCC4\uC790\uCE58\uB3C4")) {
             result += current + next
             index += 2
         } else {
@@ -824,12 +792,12 @@ private fun List<String>.toAdministrativeDongLabel(): String? {
     val dongIndex = indexOfLast(String::isAdministrativeDongPart)
     if (dongIndex < 0) return null
 
-    val districtIndex = findLastAdminIndexBefore(dongIndex, suffixes = listOf("구", "군"))
+    val districtIndex = findLastAdminIndexBefore(dongIndex, suffixes = listOf("\uAD6C", "\uAD70"))
     val regionIndex = if (districtIndex >= 0) {
-        findLastAdminIndexBefore(districtIndex, suffixes = listOf("시", "도"))
+        findLastAdminIndexBefore(districtIndex, suffixes = listOf("\uC2DC", "\uB3C4"))
             .takeIf { it >= 0 } ?: findFallbackRegionIndexBefore(districtIndex)
     } else {
-        findLastAdminIndexBefore(dongIndex, suffixes = listOf("시", "도"))
+        findLastAdminIndexBefore(dongIndex, suffixes = listOf("\uC2DC", "\uB3C4"))
     }
 
     return listOf(regionIndex, districtIndex, dongIndex)
@@ -840,23 +808,31 @@ private fun List<String>.toAdministrativeDongLabel(): String? {
         .takeIf(String::isNotBlank)
 }
 
-private fun List<String>.findLastAdminIndexBefore(
-    endExclusive: Int,
-    suffixes: List<String>,
-): Int = asSequence()
+private fun List<String>.findLastAdminIndexBefore(endExclusive: Int, suffixes: List<String>): Int = asSequence()
     .take(endExclusive)
     .withIndex()
     .filter { (_, token) -> suffixes.any(token::endsWith) && token.dropLast(1).any { it in '가'..'힣' } }
     .lastOrNull()
     ?.index ?: -1
 
-private fun List<String>.findFallbackRegionIndexBefore(endExclusive: Int): Int =
-    asSequence()
-        .take(endExclusive)
-        .withIndex()
-        .filter { (_, token) -> token in setOf("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종") }
-        .lastOrNull()
-        ?.index ?: -1
+private fun List<String>.findFallbackRegionIndexBefore(endExclusive: Int): Int = asSequence()
+    .take(endExclusive)
+    .withIndex()
+    .filter { (_, token) ->
+        token in
+            setOf(
+                "\uC11C\uC6B8",
+                "\uBD80\uC0B0",
+                "\uB300\uAD6C",
+                "\uC778\uCC9C",
+                "\uAD11\uC8FC",
+                "\uB300\uC804",
+                "\uC6B8\uC0B0",
+                "\uC138\uC885",
+            )
+    }
+    .lastOrNull()
+    ?.index ?: -1
 
 private fun subtleContentTransform(): ContentTransform = fadeIn(
     animationSpec = tween(durationMillis = 180),
@@ -883,14 +859,16 @@ private fun StationListBannerTone.toStatusTone(): GasStationStatusTone = when (t
     StationListBannerTone.Error -> GasStationStatusTone.Error
 }
 
+@Composable
 private fun com.gasstation.core.model.SortOrder.toStateDescription(): String = when (this) {
-    com.gasstation.core.model.SortOrder.DISTANCE -> "현재 거리순 정렬"
-    com.gasstation.core.model.SortOrder.PRICE -> "현재 가격순 정렬"
+    com.gasstation.core.model.SortOrder.DISTANCE -> stringResource(R.string.station_list_sort_state_distance)
+    com.gasstation.core.model.SortOrder.PRICE -> stringResource(R.string.station_list_sort_state_price)
 }
 
+@Composable
 private fun com.gasstation.core.model.SortOrder.toNextSortActionLabel(): String = when (this) {
-    com.gasstation.core.model.SortOrder.DISTANCE -> "가격순으로 정렬"
-    com.gasstation.core.model.SortOrder.PRICE -> "거리순으로 정렬"
+    com.gasstation.core.model.SortOrder.DISTANCE -> stringResource(R.string.station_list_sort_action_to_price)
+    com.gasstation.core.model.SortOrder.PRICE -> stringResource(R.string.station_list_sort_action_to_distance)
 }
 
 private fun com.gasstation.core.model.SearchRadius.toLabel(): String = when (this) {
@@ -899,39 +877,38 @@ private fun com.gasstation.core.model.SearchRadius.toLabel(): String = when (thi
     com.gasstation.core.model.SearchRadius.KM_5 -> "5km"
 }
 
+@Composable
 private fun com.gasstation.core.model.FuelType.toLabel(): String = when (this) {
-    com.gasstation.core.model.FuelType.GASOLINE -> "휘발유"
-    com.gasstation.core.model.FuelType.DIESEL -> "경유"
-    com.gasstation.core.model.FuelType.PREMIUM_GASOLINE -> "고급휘발유"
-    com.gasstation.core.model.FuelType.KEROSENE -> "등유"
+    com.gasstation.core.model.FuelType.GASOLINE -> stringResource(R.string.station_list_fuel_type_gasoline)
+    com.gasstation.core.model.FuelType.DIESEL -> stringResource(R.string.station_list_fuel_type_diesel)
+    com.gasstation.core.model.FuelType.PREMIUM_GASOLINE -> stringResource(R.string.station_list_fuel_type_premium_gasoline)
+    com.gasstation.core.model.FuelType.KEROSENE -> stringResource(R.string.station_list_fuel_type_kerosene)
     com.gasstation.core.model.FuelType.LPG -> "LPG"
 }
 
 private fun BrandFilter.toLabel(): String = gasStationBrandFilterLabel()
 
-private data class StationListFailureCardContent(
-    val title: String,
-    val body: String,
-)
+private data class StationListFailureCardContent(val title: String, val body: String)
 
+@Composable
 private fun StationListFailureReason.toFailureCardContent(): StationListFailureCardContent = when (this) {
     StationListFailureReason.LocationTimedOut -> StationListFailureCardContent(
-        title = "위치를 확인하는 데 시간이 오래 걸리고 있습니다.",
-        body = "GPS 신호와 네트워크 상태를 확인한 뒤 다시 시도해주세요.",
+        title = stringResource(R.string.station_list_location_timeout_title),
+        body = stringResource(R.string.station_list_location_timeout_body),
     )
 
     StationListFailureReason.LocationFailed -> StationListFailureCardContent(
-        title = "현재 위치를 확인하지 못했습니다.",
-        body = "위치 권한과 위치 서비스 상태를 확인한 뒤 다시 시도해주세요.",
+        title = stringResource(R.string.station_list_location_failed_title),
+        body = stringResource(R.string.station_list_location_failed_body),
     )
 
     StationListFailureReason.RefreshTimedOut -> StationListFailureCardContent(
-        title = "주변 주유소를 불러오지 못했습니다.",
-        body = "서버 응답이 늦습니다. 잠시 후 같은 조건으로 다시 시도해주세요.",
+        title = stringResource(R.string.station_list_refresh_timeout_title),
+        body = stringResource(R.string.station_list_refresh_timeout_body),
     )
 
     StationListFailureReason.RefreshFailed -> StationListFailureCardContent(
-        title = "주변 주유소를 불러오지 못했습니다.",
-        body = "네트워크 또는 서버 상태를 확인한 뒤 다시 시도해주세요.",
+        title = stringResource(R.string.station_list_refresh_failed_title),
+        body = stringResource(R.string.station_list_refresh_failed_body),
     )
 }
