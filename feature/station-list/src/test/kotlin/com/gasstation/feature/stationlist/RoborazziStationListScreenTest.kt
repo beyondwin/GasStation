@@ -7,6 +7,9 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
 import com.gasstation.domain.location.LocationPermissionState
 import com.github.takahirom.roborazzi.captureRoboImage
+import java.util.TimeZone
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +23,19 @@ import org.robolectric.annotation.GraphicsMode
 class RoborazziStationListScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private lateinit var originalTimeZone: TimeZone
+
+    @Before
+    fun setUp() {
+        originalTimeZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"))
+    }
+
+    @After
+    fun tearDown() {
+        TimeZone.setDefault(originalTimeZone)
+    }
 
     // Four UI states: empty, loading-with-cache, stale, error
 
