@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx:*"
+      compose:
+        patterns:
+          - "androidx.compose:*"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
