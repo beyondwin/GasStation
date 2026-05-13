@@ -59,13 +59,13 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 
 - 정렬/필터: `domain:station` 모델과 `data:station/DefaultStationRepository.kt`
 - 위치 조회: `domain:location` 계약과 `core:location` 구현
-- 주소 표시: `core:location` 정규화와 `feature:station-list` 표시 정책
+- 주소 표시: `domain:location/AddressLabelNormalizer.kt` 정규화, `core:location` Android 주소 후보 변환, `feature:station-list` 표시 정책
 - 설정 저장: `domain:settings` use case, `data:settings`, `core:datastore`
 - cache/stale: `data:station/StationCachePolicy.kt`, `core:database`
 - refresh retry: `data:station/StationRetryPolicy.kt`, `data:station/DefaultStationRepository.kt`
 - watchlist 비교: `data:station/DefaultStationRepository.kt`, `feature:watchlist`
-- station event 계약/로그: `domain:station/model/StationEvent.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`
-- 외부 지도: `app/map/ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`
+- station event/관찰 계약: `domain:station/model/StationEvent.kt`, `domain:station/StationEventLogger.kt`, `core:observability/CrashReporter.kt`, 앱의 flavor별 analytics/observability 바인딩
+- 외부 지도: `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`
 
 소유자가 둘 이상이면 "정책은 domain/data, 표시와 interaction은 feature" 기준으로 나눈다.
 
@@ -114,7 +114,7 @@ feature가 `SettingsRepository`를 직접 호출하지 않게 유지한다. 설�
 - availability는 foreground 구간에서 `ObserveLocationAvailabilityUseCase`로 관찰한다.
 - demo override는 `core:location` 내부 구현 세부사항이어야 한다.
 
-주소 라벨은 검색 입력이 아니라 표시용 context다. 지오코더 정규화는 `core:location`, 목록 상단 배치는 `feature:station-list`가 담당한다.
+주소 라벨은 검색 입력이 아니라 표시용 context다. 행정동 정규화 규칙은 `domain:location`, Android 지오코더 후보 변환은 `core:location`, 목록 상단 배치는 `feature:station-list`가 담당한다.
 
 ## Station Search And Cache Changes
 
@@ -136,11 +136,14 @@ feature가 `SettingsRepository`를 직접 호출하지 않게 유지한다. 설�
 - `domain/station/model/StationQueryCacheKey.kt`
 - `domain/station/model/StationSearchResult.kt`
 - `data/station/DefaultStationRepository.kt`
+- `data/station/StationSearchResultAssembler.kt`
+- `data/station/WatchlistSummaryAssembler.kt`
 - `data/station/StationCachePolicy.kt`
 - `data/station/StationRetryPolicy.kt`
 - `core/database/src/main/kotlin/com/gasstation/core/database/station/*`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
 
 테스트는 repository, cache policy, retry policy, orchestrator, ViewModel을 함께 본다.
 
@@ -161,6 +164,7 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 - `feature/watchlist/WatchlistScreen.kt`
 - `domain/station/usecase/ObserveWatchlistUseCase.kt`
 - `data/station/DefaultStationRepository.kt`
+- `data/station/WatchlistSummaryAssembler.kt`
 - `data/station/*Watchlist*Test.kt`
 
 ## Demo And Prod
@@ -179,6 +183,7 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 작은 변경도 관련 계층의 테스트를 고른다.
 
 - 값 객체/도메인 규칙: `domain:*:test`, `core:model:test`
+- 비치명 예외 보고 계약: `core:observability:test`
 - 저장소/캐시/watchlist: `data:station:testDebugUnitTest`
 - 설정 저장: `domain:settings:test`, `data:settings:testDebugUnitTest`, `core:datastore:testDebugUnitTest`
 - 위치: `domain:location:test`, `core:location:testDebugUnitTest`

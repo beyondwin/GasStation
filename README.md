@@ -6,7 +6,7 @@
 [![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.03.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
 [![minSdk](https://img.shields.io/badge/minSdk-24-3DDC84.svg)](https://developer.android.com/about/versions)
 
-> GasStation is a Korean Android app that helps drivers compare nearby gas stations by current location, price, distance, brand, fuel type, and watchlist state, then hands off to the user's preferred external map for turn-by-turn navigation. The codebase ships a 17-module Clean Architecture setup with Jetpack Compose, Hilt, Room, and a deterministic `demo` flavor that mirrors the real Opinet API path.
+> GasStation is a Korean Android app that helps drivers compare nearby gas stations by current location, price, distance, brand, fuel type, and watchlist state, then hands off to the user's preferred external map for turn-by-turn navigation. The codebase ships an 18-module Clean Architecture setup with Jetpack Compose, Hilt, Room, and a deterministic `demo` flavor that mirrors the real Opinet API path.
 
 ---
 
@@ -38,13 +38,13 @@
 
 - `app`은 조립만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공유 인프라는 `core`에 둡니다.
 - 위치 경계는 `domain:location` 계약과 `core:location` 구현으로 나눠, `feature:station-list`가 Android 위치 인프라를 직접 알지 않게 유지합니다.
-- 현재 위치 주소는 지오코더가 반환한 전체 주소를 그대로 노출하지 않고, 행정동 단위의 짧은 라벨로 정규화해 목록 상단에 표시합니다.
+- 현재 위치 주소는 지오코더가 반환한 전체 주소를 그대로 노출하지 않고, `domain:location`의 순수 정규화 규칙으로 행정동 단위의 짧은 라벨을 만들어 목록 상단에 표시합니다.
 - `station_cache_snapshot`과 `StationSearchResult.hasCachedSnapshot`으로 "성공한 빈 결과"와 "캐시 자체가 없음"을 구분합니다.
 - 목록은 stale 결과를 유지하고, 일시적 `Timeout`/`Network` 실패는 `data:station`에서 1회 재시도합니다. 성공한 refresh는 7일 보관 기준으로 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
 - `StationListViewModel`은 최종 UI state/effect 조합에 집중하고, 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, refresh retry는 `StationRetryPolicy`가 맡습니다.
-- `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. 로깅 중 일반 예외는 사용자 흐름을 실패로 바꾸지 않게 격리하지만, cancellation과 fatal error는 삼키지 않습니다.
+- `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. `CrashReporter` 같은 비치명 예외 보고 계약은 `core:observability`가 소유하고, 앱이 flavor별 구현을 바인딩합니다.
 - 주유소 목록 카드는 가격과 거리 가독성을 우선하고, 유종 chip 옆에는 브랜드 텍스트 없이 브랜드 아이콘만 배치합니다.
-- `Brand`, `FuelType`, `SearchRadius` 같은 공유 enum vocabulary는 `core:model`에 두어 settings, network, designsystem이 `domain:station`을 거치지 않고 사용합니다.
+- `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `FuelType`, `SearchRadius` 같은 값 객체 행동과 공유 vocabulary는 `core:model`에 두어 data, settings, network, designsystem이 `domain:station`을 거치지 않고 사용합니다.
 - `core:designsystem`의 metric, supporting-info, row, guidance primitive와 브랜드 표시 라벨을 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다.
 - 설정 메인 화면과 상세 선택 화면은 route는 다르지만 같은 `SettingsViewModel` 상태를 공유하고, 쓰기는 explicit domain use case로만 흘립니다.
 - `prod` 검색 파이프라인은 로컬 KATEC 좌표 변환 + Opinet 호출만 사용하고, `demo`는 같은 규칙을 seed 데이터로 재현합니다.
@@ -65,6 +65,7 @@ flowchart LR
     app --> cnetwork["core:network"]
     app --> cdatabase["core:database"]
     app --> cmodel["core:model"]
+    app --> cobserve["core:observability"]
     app --> domSettings["domain:settings"]
     app --> domStation["domain:station"]
 
@@ -87,6 +88,7 @@ flowchart LR
     dstation --> cnetwork
     dstation --> cdatabase
     dstation --> cmodel
+    dstation --> cobserve
 
     dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
@@ -95,6 +97,7 @@ flowchart LR
 
     clocation --> domLocation
     clocation --> cmodel
+    clocation --> cobserve
     domSettings --> cmodel
     domLocation --> cmodel
     domStation --> cmodel
@@ -111,7 +114,7 @@ flowchart LR
 
 1. `StationListRoute`가 권한 상태를 전달하고 foreground 구간에서 위치 availability를 수집해 `StationListViewModel`에 반영합니다.
 2. ViewModel은 `domain:location` 유스케이스와 `UserPreferences`를 조합해 검색 입력만 담는 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
-3. 현재 주소 라벨은 `core:location`에서 행정동 중심으로 정규화하고, 목록 화면은 `대한민국`, `KR`, 건물 동 같은 지오코더 잡음을 다시 걸러 짧게 보여줍니다.
+3. 현재 주소 라벨은 `domain:location`의 `AddressLabelNormalizer`가 행정동 중심으로 정규화하고, `core:location`은 Android 지오코더 후보를 그 규칙에 통과시킵니다.
 4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷은 유지됩니다. `Timeout`/`Network` 실패는 500ms 뒤 한 번 재시도하고, `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
 5. 목록에서 저장한 주유소는 watchlist 화면에서 가격 변화와 거리 기준으로 다시 비교할 수 있습니다.
 6. 주유소 카드 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다.
@@ -149,6 +152,8 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 ## 문서 지도
 
+- [작업자 운영 계약](AGENTS.md): 모든 변경에 적용되는 짧은 운영 계약입니다.
+- [기여 가이드](CONTRIBUTING.md): 새 기여자가 처음 실행할 명령, 머지 전 검증, 커밋 메시지 기준을 설명합니다.
 - [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 - [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
 - [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
@@ -169,10 +174,11 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 1. `app/src/main/java/com/gasstation/App.kt` — Hilt 진입과 startup hook.
 2. `app/src/main/java/com/gasstation/MainActivity.kt` — Compose host와 system bar 정책.
 3. `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt` — destination 그래프.
-4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt` → `StationListViewModel.kt` — 화면 진입과 ViewModel.
-5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt` — 쿼리/캐시/실패 책임 분리.
-6. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt` — Room snapshot + remote fetch 조합과 재시도.
-7. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
+4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt` -> `StationListViewModel.kt` — 화면 진입과 ViewModel.
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt` + `StationSearchOrchestrator.kt` — 위치 상태와 쿼리/캐시/실패 책임 분리.
+6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `StationListQuerySummary.kt`, `StationListBodyState.kt` — 화면 scaffold, 카드, 상태 화면, query context 분리.
+7. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`, `StationSearchResultAssembler.kt`, `WatchlistSummaryAssembler.kt` — Room snapshot + remote fetch orchestration과 읽기 모델 조립.
+8. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
 
 각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
 
@@ -194,6 +200,9 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 ```bash
 ./gradlew \
+  :core:model:test \
+  :domain:location:test \
+  :core:observability:test \
   :core:designsystem:testDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \

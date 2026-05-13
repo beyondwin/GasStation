@@ -22,6 +22,8 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 
 ```bash
 ./gradlew \
+  :core:model:test \
+  :domain:location:test \
   :domain:station:test \
   :core:observability:test \
   :core:database:testDebugUnitTest \
@@ -42,6 +44,8 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 
 ```bash
 ./gradlew \
+  :core:model:test \
+  :domain:location:test \
   :core:observability:test \
   :core:designsystem:testDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
@@ -69,11 +73,13 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 
 ## 머지 전 권장 회귀 세트
 
-모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 enum/label 이동, settings dependency cleanup, station retry/pruning, station-list 상태 projection 회귀를 함께 막습니다.
+모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 값 객체/enum/label 이동, 주소 정규화, observability 경계, settings dependency cleanup, station retry/pruning, station-list 상태 projection 회귀를 함께 막습니다.
 
 ```bash
 ./gradlew \
   spotlessCheck lint \
+  :core:model:test \
+  :domain:location:test \
   :core:observability:test \
   :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
   :feature:station-list:testDebugUnitTest \

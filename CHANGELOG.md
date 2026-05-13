@@ -2,6 +2,22 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## Unreleased
+
+### 개발자 영향
+
+- Clean Architecture 경계: `CrashReporter` 계약을 `domain:station`에서 `core:observability`로 이동해 `core:location`이 station domain을 참조하지 않게 했습니다. 앱은 여전히 flavor별 NoOp/Logcat 구현을 Hilt로 바인딩합니다.
+- 주소 라벨 정규화: 행정동 라벨 파싱을 `domain:location/AddressLabelNormalizer.kt`로 올리고, `core:location`과 station list가 같은 정규화 규칙을 쓰도록 정리했습니다.
+- 공유 값 객체: 좌표 거리 계산은 `Coordinates.distanceTo`, 브랜드 코드 fallback은 `Brand.fromCode`로 중앙화했습니다.
+- Station list UI: `StationListScreen.kt`의 카드, 상태 화면, query context, body state 책임을 별도 파일로 분리하면서 가격 우선 card hierarchy와 semantics 계약은 유지했습니다.
+- Station repository: 검색 결과와 watchlist 요약 조립을 `StationSearchResultAssembler.kt`, `WatchlistSummaryAssembler.kt`로 분리하고 repository/test double 파일 크기를 줄였습니다.
+- CI: PR에서는 static analysis, unit tests, screenshot tests, debug assemble만 돌리고, `prodRelease` assemble과 coverage는 `main`/`v*` tag push에서 실행하도록 scope를 나눴습니다.
+
+### 문서와 검증
+
+- README, 아키텍처, 모듈 계약, 상태 모델, 테스트 전략, 검증 매트릭스를 `core:observability`, 주소 정규화, station-list/data 분리 구조에 맞췄습니다.
+- 검증 기준에 `:core:model:test`, `:domain:location:test`, `:core:observability:test`를 포함해 새 경계와 값 객체 계약을 확인합니다.
+
 ## 1.1.0 - 2026-05-11
 
 ### 사용자 영향
@@ -18,7 +34,7 @@
 - Kover 0.9.1: 전 모듈 코드 커버리지 수집 활성화, Hilt/Compose 생성 코드 제외.
 - Compose stability metrics: `compose-reports` / `compose-metrics` 출력 4개 모듈 설정.
 - Baseline profile: AGP 9.1.1 인프라 호환성 대기 중 (deferred). 준비되면 이 항목을 갱신합니다.
-- CI: GitHub Actions workflow를 6개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`(debug + benchmark), `release-assemble`(prodRelease — `main`/`v*` push only), `coverage`. Codecov 업로드는 `CODECOV_TOKEN`이 있을 때만 실행되도록 env gate를 사용해 secret 미설정 상태에서도 workflow 파일이 유효합니다.
+- CI: GitHub Actions workflow를 5개 job으로 분리 — `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`. Codecov 업로드는 `CODECOV_TOKEN`이 있을 때만 실행되도록 env gate를 사용해 secret 미설정 상태에서도 workflow 파일이 유효합니다.
 - i18n: `StringResource` 래퍼 + `en/strings.xml` 추가.
 - Repository hygiene: 로컬 `.orchestrator` 실행 산출물을 추적 대상에서 제거하고 `.gitignore`에 추가했습니다.
 

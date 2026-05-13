@@ -26,6 +26,9 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 ```bash
 ./gradlew \
   spotlessCheck lint \
+  :core:model:test \
+  :domain:location:test \
+  :core:observability:test \
   :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \

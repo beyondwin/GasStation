@@ -28,6 +28,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 - `data:*`는 repository 구현과 저장/원격/캐시 조합을 담당한다. 화면 상태나 Compose 타입을 만들지 않는다.
 - `core:model`은 값 객체와 불변식을 둔다.
 - `core:designsystem`은 테마, 토큰, 공통 UI primitive를 둔다. feature 전용 문구나 화면 상태 분기를 소유하지 않는다.
+- `core:observability`는 SDK-agnostic 관찰/진단 계약만 둔다. 실제 SDK나 flavor별 구현은 `app`이 바인딩한다.
 - `core:database`, `core:network`, `core:datastore`, `core:location`은 공유 인프라 구현을 둔다.
 - `tools:demo-seed`와 `benchmark`는 앱 런타임 기능 구현의 우회 경로가 아니다.
 

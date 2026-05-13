@@ -17,11 +17,11 @@
 
 | 계층 | 대표 테스트 파일 | 무엇을 증명하나 |
 | --- | --- | --- |
-| `core:model` | `ValueObjectInvariantTest`, `BrandFilterTest`, `core:model/SharedEnumContractTest` | 값 객체 불변식 유지, 공유 enum identity와 UI/transport field 배제 |
-| `domain:*` | `StationPriceDeltaTest`, `StationQueryCacheKeyTest`, `LocationUseCasesTest`, `UpdateSettingsUseCasesTest`, `DomainContractSurfaceTest`, `UserPreferencesTest` | 순수 규칙, 계약 표면, `StationEvent` variant 계약, 캐시 키 계산, 유스케이스 위임 |
+| `core:model` | `ValueObjectInvariantTest`, `CoordinatesDistanceTest`, `BrandFilterTest`, `core:model/SharedEnumContractTest` | 값 객체 불변식 유지, 좌표 거리 계산, 공유 enum identity와 UI/transport field 배제 |
+| `domain:*` | `StationPriceDeltaTest`, `StationQueryCacheKeyTest`, `AddressLabelNormalizerTest`, `LocationUseCasesTest`, `UpdateSettingsUseCasesTest`, `DomainContractSurfaceTest`, `UserPreferencesTest` | 순수 규칙, 주소 라벨 정규화, 계약 표면, `StationEvent` variant 계약, 캐시 키 계산, 유스케이스 위임 |
 | `core:database` | `StationCacheDaoTest`, `StationPriceHistoryDaoTest`, `WatchedStationDaoTest`, `GasStationDatabaseMigrationTest` | Room DAO와 migration, 오래된 cache pruning, watchlist 최신 캐시용 deterministic latest row/index |
 | `core:network` | `LocalKoreanCoordinateTransformTest`, `NetworkStationFetcherTest`, `NetworkRuntimeConfigTest` | 좌표 변환, 원격 fetcher, 설정 주입 |
-| `core:location` | `AddressLabelFormatterTest`, `AndroidForegroundLocationProviderSurfaceTest`, `AndroidForegroundLocationProviderTest`, `DefaultLocationRepositoryTest`, `LocationAvailabilityFlowTest`, `LocationPermissionStateTest`, `GeocoderAsyncLookupTest`, `AndroidAddressResolverDeviceTest` | Android 위치 조회 표면, API 33+ 지오코더 callback wrapping, 주소 라벨 정규화, domain location 구현, availability broadcast 반영, device-backed callback smoke |
+| `core:location` | `AddressLabelFormatterTest`, `AndroidForegroundLocationProviderSurfaceTest`, `AndroidForegroundLocationProviderTest`, `DefaultLocationRepositoryTest`, `LocationAvailabilityFlowTest`, `LocationPermissionStateTest`, `GeocoderAsyncLookupTest`, `AndroidAddressResolverDeviceTest` | Android 위치 조회 표면, API 33+ 지오코더 callback wrapping, Android Address 후보 변환과 domain 정규화 적용, domain location 구현, availability broadcast 반영, device-backed callback smoke |
 | `core:datastore` | `UserPreferencesSerializerTest`, `AndroidUserPreferencesDataSourceTest` | storage-local 설정 DTO 직렬화와 DataStore 업데이트 |
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest` | 브랜드 anchor 색상, tinted surface token, typography/spacing token, metric/supporting-info/row/status/guidance chrome 계약, `Brand`별 아이콘과 표시 label 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, 알 수 없는 enum name fallback |
@@ -63,8 +63,8 @@
   일시적 refresh 실패는 data 계층에서 한 번만 재시도하고, cancellation, 재시도 불가 실패, 예기치 않은 두 번째 예외는 즉시 전파해야 합니다.
 - `LocationStateMachine`, `StationSearchOrchestrator`, `StationListViewModel`
   권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다.
-- `AddressLabelFormatter`
-  Android 지오코더는 `대한민국`, `KR`, 건물 동, 도로명 조각을 섞어 줄 수 있습니다. 이 값이 목록 상단에 그대로 노출되지 않도록 행정동 라벨 회귀 테스트로 막습니다.
+- `AddressLabelNormalizer` / `AddressLabelFormatter`
+  Android 지오코더는 `대한민국`, `KR`, 건물 동, 도로명 조각을 섞어 줄 수 있습니다. 순수 정규화는 `domain:location`, Android `Address` 후보 변환은 `core:location` 테스트로 나눠 목록 상단에 raw 주소가 그대로 노출되지 않게 막습니다.
 - `AndroidAddressResolverDeviceTest`
   API 33+ Geocoder callback path를 실제 기기/에뮬레이터에서 확인하는 connected smoke test입니다. Provider 출력은 기기와 네트워크 상태에 따라 달라지므로 주소 문자열이 아니라 terminal domain result 도달만 검증합니다.
 - `BrandLabels`

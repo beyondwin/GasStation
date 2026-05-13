@@ -81,11 +81,11 @@ flowchart LR
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
 | `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, `StationEvent`/`StationEventLogger` 이벤트 계약 |
 | `data:settings` | DataStore data source를 domain `UserPreferences`로 매핑하는 설정 저장소 구현 |
-| `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
-| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
+| `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 검색 결과/watchlist 읽기 모델 조립, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
+| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체, `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
 | `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 |
 | `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스와 표시 라벨 매핑 |
-| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
+| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화 |
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | storage-local `StoredUserPreferences` DataStore와 커스텀 serializer. 선호값은 primitive/string enum name으로 저장 |
@@ -94,7 +94,7 @@ flowchart LR
 
 ## 의존성 해석 기준
 
-문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체와 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:network`, `core:designsystem`, `domain:settings`가 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `domain:settings`의 `UserPreferences` public model은 `core:model` enum을 노출하므로 `domain:settings`는 `core:model`을 public API로 게시합니다. `core:datastore`는 storage-local DTO만 저장하고, `data:settings`가 이를 `domain:settings.UserPreferences`로 매핑하므로 storage module은 domain settings model에 의존하지 않습니다. `core:designsystem`은 `Brand`와 `BrandFilter`를 리소스/표시 라벨에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체, 거리 계산, 브랜드 fallback, 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:network`, `core:designsystem`, `domain:settings`, `data:station`이 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `domain:settings`의 `UserPreferences` public model은 `core:model` enum을 노출하므로 `domain:settings`는 `core:model`을 public API로 게시합니다. `core:datastore`는 storage-local DTO만 저장하고, `data:settings`가 이를 `domain:settings.UserPreferences`로 매핑하므로 storage module은 domain settings model에 의존하지 않습니다. `core:designsystem`은 `Brand`와 `BrandFilter`를 리소스/표시 라벨에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
 
 ## Presentation hierarchy
 
@@ -105,6 +105,7 @@ flowchart LR
 화면별 핵심 계약:
 
 - `feature:station-list`: 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 유종 chip 옆 아이콘 중심으로만 노출하고 visible brand label은 렌더링하지 않습니다.
+- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh rail을, `StationListCards.kt`는 카드와 watch toggle을, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 query context와 body 분기를 맡습니다.
 - `feature:watchlist`: 같은 metric 위계를 쓰지만 저장 항목 식별을 위해 brand icon과 visible brand label을 함께 보여줍니다.
 - `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
 

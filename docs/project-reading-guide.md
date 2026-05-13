@@ -26,11 +26,11 @@
 | 앱 전체 구조는 어디서 보나 | `settings.gradle.kts`, `README.md`, `docs/architecture.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |
-| 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `StationListUiState.kt`, `domain/location/*` |
+| 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `StationListUiState.kt`, `StationListBodyState.kt`, `domain/location/*` |
 | 설정 화면은 왜 main/detail route가 나뉘나 | `GasStationNavHost.kt`, `feature/settings/SettingsRoute.kt`, `SettingsDetailRoute.kt`, `SettingsViewModel.kt` |
-| watchlist는 어떻게 만들어지나 | `feature/watchlist/WatchlistViewModel.kt`, `domain/station/usecase/ObserveWatchlistUseCase.kt`, `data/station/DefaultStationRepository.kt` |
+| watchlist는 어떻게 만들어지나 | `feature/watchlist/WatchlistViewModel.kt`, `domain/station/usecase/ObserveWatchlistUseCase.kt`, `data/station/DefaultStationRepository.kt`, `data/station/WatchlistSummaryAssembler.kt` |
 | 디자인 방향과 공통 UI primitive는 어디서 보나 | `.impeccable.md`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/*` |
-| 오프라인과 stale는 어디서 결정되나 | `data/station/DefaultStationRepository.kt`, `StationCachePolicy.kt`, `core/database/station/*` |
+| 오프라인과 stale는 어디서 결정되나 | `data/station/DefaultStationRepository.kt`, `StationSearchResultAssembler.kt`, `StationCachePolicy.kt`, `core/database/station/*` |
 | 일시적 refresh 실패 재시도는 어디서 보나 | `data/station/StationRetryPolicy.kt`, `DefaultStationRepository.kt`, `domain/station/model/StationEvent.kt` |
 | demo는 어디서 고정되나 | `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`, `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`, `app/src/demo/kotlin/com/gasstation/demo/seed/DemoSeedStationRemoteDataSource.kt` |
 | prod는 어디서 달라지나 | `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`, `app/build.gradle.kts` |
@@ -58,12 +58,18 @@
 3. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
 5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
-6. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
-7. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
-8. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
-9. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
-10. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
-11. `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
+6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
+7. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStates.kt`
+8. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListQuerySummary.kt`
+9. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
+10. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
+11. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
+12. `domain/location/src/main/kotlin/com/gasstation/domain/location/AddressLabelNormalizer.kt`
+13. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
+14. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
+15. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+16. `data/station/src/main/kotlin/com/gasstation/data/station/StationSearchResultAssembler.kt`
+17. `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
 
 목록 화면이 이 프로젝트의 중심입니다. 권한, GPS, 위치 조회, 캐시 유지, 가격 변화, watch toggle까지 대부분 여기서 이어집니다.
 
@@ -94,6 +100,7 @@
 3. `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`
 4. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveWatchlistUseCase.kt`
 5. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+6. `data/station/src/main/kotlin/com/gasstation/data/station/WatchlistSummaryAssembler.kt`
 
 watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심입니다.
 
@@ -114,17 +121,17 @@ watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심�
 ## 변경 목적별 바로 열 파일
 
 - 목록 UI를 바꾸려면:
-  `feature/station-list/*`, `core/designsystem/*`
+  `feature/station-list/StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `StationListQuerySummary.kt`, `StationListBodyState.kt`, `core/designsystem/*`
 - 정렬/필터 규칙을 바꾸려면:
   `domain/station/model/*`, `data/station/DefaultStationRepository.kt`
 - stale 기준이나 캐시 동작을 바꾸려면:
   `data/station/StationCachePolicy.kt`, `core/database/station/*`
 - watchlist 비교 규칙을 바꾸려면:
-  `data/station/DefaultStationRepository.kt`, `feature/watchlist/*`
+  `data/station/DefaultStationRepository.kt`, `data/station/WatchlistSummaryAssembler.kt`, `feature/watchlist/*`
 - 설정 항목을 바꾸려면:
   `domain/settings/model/UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `data/settings/DefaultSettingsRepository.kt`, `feature/settings/*`
 - 위치 경계를 바꾸려면:
-  `domain/location/*`, `core/location/*`, `feature/station-list/*`
+  `domain/location/*`, `core/location/*`, `core/observability/*`, `feature/station-list/*`
 - demo 재현 데이터를 바꾸려면:
   `tools/demo-seed/*`, `app/src/demo/assets/demo-station-seed.json`, `app/src/demo/kotlin/*`
 - 검증 명령을 바꾸려면:
@@ -132,9 +139,9 @@ watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심�
 
 ## 길을 잃었을 때
 
-대부분의 질문은 결국 두 파일로 돌아옵니다.
+대부분의 질문은 결국 두 기준으로 돌아옵니다.
 
 - 조립 기준: `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt`
-- 데이터 조합 기준: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- 데이터 조합 기준: `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`와 `data/station/src/main/kotlin/com/gasstation/data/station/*Assembler.kt`
 
 현재 사용자 플로우와 캐시 정책은 거의 이 두 파일 사이에서 설명됩니다.
