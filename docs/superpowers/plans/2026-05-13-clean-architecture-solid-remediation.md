@@ -817,7 +817,7 @@ git commit -m "refactor: centralize station value conversions"
 - Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStates.kt`
 - Create: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListQuerySummary.kt`
 
-- [ ] **Step 1: Move body state calculation**
+- [x] **Step 1: Move body state calculation**
 
 Create `StationListBodyState.kt` with the sealed interface currently in `StationListScreen.kt:92-105` and `toBodyState()` currently in `StationListScreen.kt:750-757`.
 
@@ -848,7 +848,7 @@ internal fun StationListUiState.toBodyState(): StationListBodyState = when {
 
 Delete the moved declarations from `StationListScreen.kt`.
 
-- [ ] **Step 2: Move station card components**
+- [x] **Step 2: Move station card components**
 
 Create `StationListCards.kt` and move these declarations without changing their bodies:
 
@@ -867,7 +867,7 @@ internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
 internal const val STATION_LIST_FUEL_CHIP_TAG = "station-list-fuel-chip"
 ```
 
-- [ ] **Step 3: Move state surfaces**
+- [x] **Step 3: Move state surfaces**
 
 Create `StationListStates.kt` and move these declarations without changing their user-facing strings:
 
@@ -880,7 +880,7 @@ Create `StationListStates.kt` and move these declarations without changing their
 - `StationListFailureCardContent` from `StationListScreen.kt:891`
 - `StationListFailureReason.toFailureCardContent()` from `StationListScreen.kt:893-914`
 
-- [ ] **Step 4: Move query summary and labels**
+- [x] **Step 4: Move query summary and labels**
 
 Create `StationListQuerySummary.kt` and move:
 
@@ -903,7 +903,7 @@ Keep:
 internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
 ```
 
-- [ ] **Step 5: Keep top-level screen and result pane in `StationListScreen.kt`**
+- [x] **Step 5: Keep top-level screen and result pane in `StationListScreen.kt`**
 
 After moving declarations, `StationListScreen.kt` should keep only:
 
@@ -919,7 +919,7 @@ After moving declarations, `StationListScreen.kt` should keep only:
 - `SortOrder.toNextSortActionLabel`
 - `STATION_LIST_PULL_REFRESH_TAG`
 
-- [ ] **Step 6: Verify UI behavior**
+- [x] **Step 6: Verify UI behavior**
 
 Run:
 
@@ -932,7 +932,7 @@ Expected:
 - `StationListScreen.kt` is below 350 lines.
 - Tests and Roborazzi verification pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist
