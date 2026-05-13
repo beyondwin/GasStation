@@ -948,7 +948,7 @@ git commit -m "refactor: split station list screen components"
 - Create if `DefaultStationRepository.kt` remains above 300 lines: `data/station/src/main/kotlin/com/gasstation/data/station/StationSearchResultAssembler.kt`
 - Create if `DefaultStationRepository.kt` remains above 300 lines: `data/station/src/main/kotlin/com/gasstation/data/station/WatchlistSummaryAssembler.kt`
 
-- [ ] **Step 1: Check the file size after Tasks 1-3**
+- [x] **Step 1: Check the file size after Tasks 1-3**
 
 Run:
 
@@ -958,7 +958,7 @@ wc -l data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRep
 
 Expected: if the file is 300 lines or less, skip this task and record the skip in the final summary. If above 300 lines, continue.
 
-- [ ] **Step 2: Extract search result assembly**
+- [x] **Step 2: Extract search result assembly**
 
 Create `StationSearchResultAssembler.kt` and move these declarations from `DefaultStationRepository.kt`:
 
@@ -969,7 +969,7 @@ Create `StationSearchResultAssembler.kt` and move these declarations from `Defau
 
 Keep them `internal`.
 
-- [ ] **Step 3: Extract watchlist summary assembly**
+- [x] **Step 3: Extract watchlist summary assembly**
 
 Create `WatchlistSummaryAssembler.kt` and move these declarations from `DefaultStationRepository.kt`:
 
@@ -979,7 +979,7 @@ Create `WatchlistSummaryAssembler.kt` and move these declarations from `DefaultS
 
 Keep them `internal`.
 
-- [ ] **Step 4: Verify repository behavior**
+- [x] **Step 4: Verify repository behavior**
 
 Run:
 
@@ -989,7 +989,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/station/src/main/kotlin/com/gasstation/data/station
