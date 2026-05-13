@@ -1153,7 +1153,7 @@ git commit -m "docs: document observability and cleanup boundaries"
 
 **Files:** N/A
 
-- [ ] **Step 1: Run focused full regression**
+- [x] **Step 1: Run focused full regression**
 
 Run:
 
@@ -1174,7 +1174,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 2: Run boundary searches**
+- [x] **Step 2: Run boundary searches**
 
 Run:
 
@@ -1186,7 +1186,7 @@ rg -n 'distanceBetween|fun String\.toBrand|OpinetStationDto|toFuelProductCode|ra
 
 Expected: no output.
 
-- [ ] **Step 3: Check file sizes**
+- [x] **Step 3: Check file sizes**
 
 Run:
 
@@ -1199,7 +1199,7 @@ Expected:
 - `StationListScreen.kt` below 350 lines.
 - The remaining biggest files are tests or database migration tests.
 
-- [ ] **Step 4: Final status**
+- [x] **Step 4: Final status**
 
 Run:
 
