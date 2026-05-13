@@ -11,9 +11,9 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SortOrder
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
-import com.gasstation.domain.station.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason

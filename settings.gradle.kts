@@ -20,6 +20,7 @@ rootProject.name = "GasStation"
 include(
     ":app",
     ":core:model",
+    ":core:observability",
     ":core:designsystem",
     ":core:location",
     ":core:network",

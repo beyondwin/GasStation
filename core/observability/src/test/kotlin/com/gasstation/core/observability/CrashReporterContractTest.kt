@@ -1,4 +1,4 @@
-package com.gasstation.domain.station
+package com.gasstation.core.observability
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

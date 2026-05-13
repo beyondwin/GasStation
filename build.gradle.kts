@@ -31,6 +31,7 @@ plugins {
 dependencies {
     kover(project(":app"))
     kover(project(":core:model"))
+    kover(project(":core:observability"))
     kover(project(":core:designsystem"))
     kover(project(":core:location"))
     kover(project(":core:network"))

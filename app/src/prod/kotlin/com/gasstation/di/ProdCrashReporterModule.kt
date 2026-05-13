@@ -1,7 +1,7 @@
 package com.gasstation.di
 
 import com.gasstation.analytics.LogcatCrashReporter
-import com.gasstation.domain.station.CrashReporter
+import com.gasstation.core.observability.CrashReporter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

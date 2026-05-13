@@ -9,8 +9,8 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:observability"))
     implementation(project(":domain:location"))
-    implementation(project(":domain:station"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.location)
     testImplementation(libs.app.cash.turbine)

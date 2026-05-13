@@ -1,8 +1,8 @@
 package com.gasstation.core.location
 
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.location.LocationAddressLookupResult
-import com.gasstation.domain.station.CrashReporter
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

@@ -6,8 +6,8 @@ import android.location.Geocoder
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.location.LocationAddressLookupResult
-import com.gasstation.domain.station.CrashReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException

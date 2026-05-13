@@ -78,7 +78,7 @@ Modify:
 - Read: `docs/module-contracts.md`
 - Read: `settings.gradle.kts`
 
-- [ ] **Step 1: Confirm clean starting state**
+- [x] **Step 1: Confirm clean starting state**
 
 Run:
 
@@ -88,7 +88,7 @@ git status --short
 
 Expected: no output, or only user changes that are unrelated and must be preserved.
 
-- [ ] **Step 2: Confirm the current issue still exists**
+- [x] **Step 2: Confirm the current issue still exists**
 
 Run:
 
@@ -103,7 +103,7 @@ Expected:
 - station-list still reports address parsing helpers.
 - data station still reports duplicated distance/brand/dead DTO mapping helpers.
 
-- [ ] **Step 3: Baseline compile**
+- [x] **Step 3: Baseline compile**
 
 Run:
 
@@ -126,7 +126,7 @@ Expected: `BUILD SUCCESSFUL`.
 - Delete: `domain/station/src/test/kotlin/com/gasstation/domain/station/CrashReporterContractTest.kt`
 - Modify imports in app/core/data tests listed in File Structure
 
-- [ ] **Step 1: Register the module**
+- [x] **Step 1: Register the module**
 
 Add `":core:observability"` after `":core:model"` in `settings.gradle.kts`:
 
@@ -153,7 +153,7 @@ include(
 )
 ```
 
-- [ ] **Step 2: Add the module build file**
+- [x] **Step 2: Add the module build file**
 
 Create `core/observability/build.gradle.kts`:
 
@@ -163,7 +163,7 @@ plugins {
 }
 ```
 
-- [ ] **Step 3: Add the neutral CrashReporter contract**
+- [x] **Step 3: Add the neutral CrashReporter contract**
 
 Create `core/observability/src/main/kotlin/com/gasstation/core/observability/CrashReporter.kt`:
 
@@ -176,7 +176,7 @@ interface CrashReporter {
 }
 ```
 
-- [ ] **Step 4: Move the contract test**
+- [x] **Step 4: Move the contract test**
 
 Create `core/observability/src/test/kotlin/com/gasstation/core/observability/CrashReporterContractTest.kt`:
 
@@ -225,7 +225,7 @@ class CrashReporterContractTest {
 }
 ```
 
-- [ ] **Step 5: Update module dependencies**
+- [x] **Step 5: Update module dependencies**
 
 Change `core/location/build.gradle.kts` dependencies to:
 
@@ -255,7 +255,7 @@ Add this line to `app/build.gradle.kts` with the other `core:*` modules:
 implementation(project(":core:observability"))
 ```
 
-- [ ] **Step 6: Replace imports**
+- [x] **Step 6: Replace imports**
 
 Run this search:
 
@@ -275,7 +275,7 @@ with:
 import com.gasstation.core.observability.CrashReporter
 ```
 
-- [ ] **Step 7: Delete the old domain files**
+- [x] **Step 7: Delete the old domain files**
 
 Delete:
 
@@ -284,7 +284,7 @@ domain/station/src/main/kotlin/com/gasstation/domain/station/CrashReporter.kt
 domain/station/src/test/kotlin/com/gasstation/domain/station/CrashReporterContractTest.kt
 ```
 
-- [ ] **Step 8: Verify the boundary**
+- [x] **Step 8: Verify the boundary**
 
 Run:
 
@@ -297,7 +297,7 @@ Expected:
 - `rg` prints no output.
 - Gradle reports `BUILD SUCCESSFUL`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add settings.gradle.kts core/observability core/location/build.gradle.kts data/station/build.gradle.kts app/build.gradle.kts app core data domain

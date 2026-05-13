@@ -7,7 +7,7 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.domain.station.CrashReporter
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent

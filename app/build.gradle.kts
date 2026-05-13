@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:location"))
     implementation(project(":core:model"))
+    implementation(project(":core:observability"))
     implementation(project(":core:network"))
     implementation(project(":domain:settings"))
     implementation(project(":domain:station"))

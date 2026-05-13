@@ -8,7 +8,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
-import com.gasstation.domain.station.CrashReporter
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason

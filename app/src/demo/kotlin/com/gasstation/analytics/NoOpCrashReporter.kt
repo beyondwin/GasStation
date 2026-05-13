@@ -1,6 +1,6 @@
 package com.gasstation.analytics
 
-import com.gasstation.domain.station.CrashReporter
+import com.gasstation.core.observability.CrashReporter
 import javax.inject.Inject
 import javax.inject.Singleton
 
