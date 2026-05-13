@@ -29,7 +29,7 @@
 | 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
-| 현재 앱 버전 | `1.1.0` (`versionCode` 4) |
+| 현재 앱 버전 | `1.1.1` (`versionCode` 5) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 | 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
@@ -146,6 +146,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 ## 릴리즈
 
 - [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
+- [1.1.1 릴리즈 노트](docs/release-notes/2026-05-13-v1.1.1.md): clean architecture remediation, observability 경계, station-list/data 분리, CI scope 조정을 정리합니다.
 - [1.1.0 릴리즈 노트](docs/release-notes/2026-05-11-v1.1.0.md): production baseline, CI, i18n, screenshot regression, coverage 기반 변경과 검증 결과를 정리합니다.
 - [1.0.2 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.2.md): 2026-05-05 deep analysis required fixes와 검증 결과를 정리합니다.
 - [1.0.1 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.1.md): 2026-05-05 backlog risk resolution 변경의 상세 내용과 검증 결과를 정리합니다.

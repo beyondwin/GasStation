@@ -2,7 +2,7 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
-## Unreleased
+## 1.1.1 - 2026-05-13
 
 ### 개발자 영향
 
@@ -17,6 +17,7 @@
 
 - README, 아키텍처, 모듈 계약, 상태 모델, 테스트 전략, 검증 매트릭스를 `core:observability`, 주소 정규화, station-list/data 분리 구조에 맞췄습니다.
 - 검증 기준에 `:core:model:test`, `:domain:location:test`, `:core:observability:test`를 포함해 새 경계와 값 객체 계약을 확인합니다.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-05-13-v1.1.1.md](docs/release-notes/2026-05-13-v1.1.1.md)를 봅니다.
 
 ## 1.1.0 - 2026-05-11
 
