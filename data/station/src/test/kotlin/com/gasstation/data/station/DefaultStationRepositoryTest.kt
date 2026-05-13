@@ -8,6 +8,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.core.model.distanceTo
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
@@ -30,7 +31,6 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Optional
-import kotlin.math.roundToInt
 
 class DefaultStationRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
@@ -408,13 +408,12 @@ class DefaultStationRepositoryTest {
         assertEquals(listOf("other-brand", "mid", "cheap"), baseResult.stations.map { it.station.id })
         assertEquals(listOf("cheap", "mid", "other-brand"), shiftedResult.stations.map { it.station.id })
         assertEquals(
-            expectedDistanceMeters(
-                origin = shiftedQuery.coordinates,
-                destination = Coordinates(
+            shiftedQuery.coordinates.distanceTo(
+                Coordinates(
                     latitude = shiftedQuery.coordinates.latitude + 0.0003,
                     longitude = shiftedQuery.coordinates.longitude,
                 ),
-            ),
+            ).value,
             shiftedResult.stations.first().station.distance.value,
         )
         assertTrue(shiftedResult.stations.first().station.distance.value < baseResult.stations.last().station.distance.value)
@@ -599,20 +598,6 @@ class DefaultStationRepositoryTest {
         longitude = longitude,
         fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
     )
-
-    private fun expectedDistanceMeters(origin: Coordinates, destination: Coordinates): Int {
-        val earthRadiusMeters = 6_371_000.0
-        val latitudeDelta = Math.toRadians(destination.latitude - origin.latitude)
-        val longitudeDelta = Math.toRadians(destination.longitude - origin.longitude)
-        val originLatitudeRadians = Math.toRadians(origin.latitude)
-        val destinationLatitudeRadians = Math.toRadians(destination.latitude)
-        val haversine = kotlin.math.sin(latitudeDelta / 2).let { it * it } +
-            kotlin.math.cos(originLatitudeRadians) *
-            kotlin.math.cos(destinationLatitudeRadians) *
-            kotlin.math.sin(longitudeDelta / 2).let { it * it }
-        val centralAngle = 2 * kotlin.math.atan2(kotlin.math.sqrt(haversine), kotlin.math.sqrt(1 - haversine))
-        return (earthRadiusMeters * centralAngle).roundToInt()
-    }
 
     private class FakeStationRemoteDataSource(private val result: RemoteStationFetchResult) : StationRemoteDataSource {
         override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = result

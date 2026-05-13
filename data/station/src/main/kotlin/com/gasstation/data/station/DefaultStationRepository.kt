@@ -8,9 +8,9 @@ import com.gasstation.core.database.station.WatchedStationDao
 import com.gasstation.core.database.station.WatchedStationEntity
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
-import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SortOrder
+import com.gasstation.core.model.distanceTo
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.data.station.mapper.toDomainStation
 import com.gasstation.data.station.mapper.toEntity
@@ -38,11 +38,6 @@ import java.time.Clock
 import java.time.Instant
 import java.util.Optional
 import javax.inject.Inject
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultStationRepository @Inject constructor(
@@ -272,14 +267,17 @@ class DefaultStationRepository @Inject constructor(
         val previousPrice = historyForContext.drop(1).firstOrNull()
         val station = when {
             cachedSnapshot != null -> cachedSnapshot
-            latestPrice != null -> Station(
-                id = stationId,
-                name = name,
-                brand = brandCode.toBrand(),
-                price = MoneyWon(latestPrice.priceWon),
-                distance = DistanceMeters(distanceBetween(origin, Coordinates(latitude, longitude))),
-                coordinates = Coordinates(latitude = latitude, longitude = longitude),
-            )
+            latestPrice != null -> {
+                val stationCoordinates = Coordinates(latitude, longitude)
+                Station(
+                    id = stationId,
+                    name = name,
+                    brand = Brand.fromCode(brandCode),
+                    price = MoneyWon(latestPrice.priceWon),
+                    distance = origin.distanceTo(stationCoordinates),
+                    coordinates = stationCoordinates,
+                )
+            }
             else -> return null
         }
         val priceDelta = when {
@@ -333,23 +331,7 @@ class DefaultStationRepository @Inject constructor(
         SortOrder.PRICE -> sortedBy { it.station.price.value }
     }
 
-    private fun String.toBrand(): Brand = Brand.entries.firstOrNull { it.name == this } ?: Brand.ETC
-
     private companion object {
         const val DEFAULT_BUCKET_METERS = 250
     }
-}
-
-private fun distanceBetween(origin: Coordinates, destination: Coordinates): Int {
-    val earthRadiusMeters = 6_371_000.0
-    val latitudeDelta = Math.toRadians(destination.latitude - origin.latitude)
-    val longitudeDelta = Math.toRadians(destination.longitude - origin.longitude)
-    val originLatitudeRadians = Math.toRadians(origin.latitude)
-    val destinationLatitudeRadians = Math.toRadians(destination.latitude)
-    val haversine = sin(latitudeDelta / 2).let { it * it } +
-        cos(originLatitudeRadians) *
-        cos(destinationLatitudeRadians) *
-        sin(longitudeDelta / 2).let { it * it }
-    val centralAngle = 2 * atan2(sqrt(haversine), sqrt(1 - haversine))
-    return (earthRadiusMeters * centralAngle).roundToInt()
 }

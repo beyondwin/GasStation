@@ -41,4 +41,10 @@ class ValueObjectInvariantTest {
 
         assertEquals("money won must be non-negative", error.message)
     }
+
+    @Test
+    fun `brand fromCode falls back to ETC for unknown code`() {
+        assertEquals(Brand.GSC, Brand.fromCode("GSC"))
+        assertEquals(Brand.ETC, Brand.fromCode("UNKNOWN"))
+    }
 }

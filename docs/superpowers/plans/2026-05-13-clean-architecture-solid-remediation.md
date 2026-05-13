@@ -578,7 +578,7 @@ git commit -m "refactor: centralize address label normalization"
 - Modify: `data/station/src/main/kotlin/com/gasstation/data/station/mapper/StationMappers.kt`
 - Modify: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
 
-- [ ] **Step 1: Add core model tests**
+- [x] **Step 1: Add core model tests**
 
 Create `CoordinatesDistanceTest.kt`:
 
@@ -624,7 +624,7 @@ Run:
 
 Expected: FAIL because `distanceTo` and `Brand.fromCode` are not defined.
 
-- [ ] **Step 2: Add `Coordinates.distanceTo`**
+- [x] **Step 2: Add `Coordinates.distanceTo`**
 
 Create `core/model/src/main/kotlin/com/gasstation/core/model/CoordinatesDistance.kt`:
 
@@ -653,7 +653,7 @@ fun Coordinates.distanceTo(destination: Coordinates): DistanceMeters {
 }
 ```
 
-- [ ] **Step 3: Add `Brand.fromCode`**
+- [x] **Step 3: Add `Brand.fromCode`**
 
 Modify `Brand.kt`:
 
@@ -679,7 +679,7 @@ enum class Brand {
 }
 ```
 
-- [ ] **Step 4: Update data station mappers**
+- [x] **Step 4: Update data station mappers**
 
 In `StationMappers.kt`, change imports to remove:
 
@@ -725,7 +725,7 @@ internal fun StationCacheEntity.toDomainStation(queryCoordinates: Coordinates): 
 )
 ```
 
-- [ ] **Step 5: Update watchlist fallback distance and brand parsing**
+- [x] **Step 5: Update watchlist fallback distance and brand parsing**
 
 In `DefaultStationRepository.kt`, add:
 
@@ -770,7 +770,7 @@ private fun String.toBrand
 private fun distanceBetween
 ```
 
-- [ ] **Step 6: Update tests to use the shared distance helper**
+- [x] **Step 6: Update tests to use the shared distance helper**
 
 In `DefaultStationRepositoryTest.kt`, replace `expectedDistanceMeters(origin, destination)` helper body usages with:
 
@@ -786,7 +786,7 @@ import com.gasstation.core.model.distanceTo
 
 Delete the private `expectedDistanceMeters` helper.
 
-- [ ] **Step 7: Verify no duplicate helpers remain**
+- [x] **Step 7: Verify no duplicate helpers remain**
 
 Run:
 
@@ -799,7 +799,7 @@ Expected:
 - `rg` prints no output from `data/station/src/main`.
 - Gradle reports `BUILD SUCCESSFUL`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add core/model data/station

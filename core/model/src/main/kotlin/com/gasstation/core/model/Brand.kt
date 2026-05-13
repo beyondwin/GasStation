@@ -11,4 +11,9 @@ enum class Brand {
     ETC,
     E1G,
     SKG,
+    ;
+
+    companion object {
+        fun fromCode(code: String): Brand = entries.firstOrNull { it.name == code } ?: ETC
+    }
 }
