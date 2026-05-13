@@ -1006,7 +1006,7 @@ git commit -m "refactor: extract station repository assemblers"
 - Modify: `data/station/src/test/kotlin/com/gasstation/data/station/DefaultStationRepositoryTest.kt`
 - Create: `data/station/src/test/kotlin/com/gasstation/data/station/RepositoryDoubles.kt`
 
-- [ ] **Step 1: Extract station-list ViewModel test fixtures**
+- [x] **Step 1: Extract station-list ViewModel test fixtures**
 
 Move these private declarations from the bottom of `StationListViewModelTest.kt` into `StationListViewModelTestFixtures.kt` and make them `internal`:
 
@@ -1023,7 +1023,7 @@ package com.gasstation.feature.stationlist
 
 Keep constructor defaults and behavior identical.
 
-- [ ] **Step 2: Verify station-list tests**
+- [x] **Step 2: Verify station-list tests**
 
 Run:
 
@@ -1033,7 +1033,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Extract data repository doubles**
+- [x] **Step 3: Extract data repository doubles**
 
 Move these private declarations from `DefaultStationRepositoryTest.kt` into `RepositoryDoubles.kt` and make them `internal`:
 
@@ -1054,7 +1054,7 @@ package com.gasstation.data.station
 
 If `RepositoryStorageDoubles.kt` already contains a related double, do not duplicate it. Keep `RecordingStationPriceHistoryDao` and `RecordingWatchedStationDao` in `RepositoryStorageDoubles.kt`.
 
-- [ ] **Step 4: Verify data station tests**
+- [x] **Step 4: Verify data station tests**
 
 Run:
 
@@ -1064,7 +1064,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Check large test files**
+- [x] **Step 5: Check large test files**
 
 Run:
 
@@ -1076,7 +1076,7 @@ Expected:
 - `StationListViewModelTest.kt` is materially smaller than 1260 lines.
 - `DefaultStationRepositoryTest.kt` is materially smaller than 783 lines.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist data/station/src/test/kotlin/com/gasstation/data/station
