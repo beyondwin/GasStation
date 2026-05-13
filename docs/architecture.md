@@ -26,6 +26,7 @@ flowchart LR
     app --> cnetwork["core:network"]
     app --> cdatabase["core:database"]
     app --> cmodel["core:model"]
+    app --> cobserve["core:observability"]
     app --> domSettings["domain:settings"]
     app --> domStation["domain:station"]
 
@@ -48,6 +49,7 @@ flowchart LR
     dstation --> cnetwork
     dstation --> cdatabase
     dstation --> cmodel
+    dstation --> cobserve
 
     dsettings --> domSettings
     dsettings --> cstore["core:datastore"]
@@ -56,6 +58,7 @@ flowchart LR
 
     clocation --> domLocation
     clocation --> cmodel
+    clocation --> cobserve
     domSettings --> cmodel
     domLocation --> cmodel
     domStation --> cmodel
@@ -76,10 +79,11 @@ flowchart LR
 | `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability 유스케이스 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
-| `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, 이벤트 계약, `CrashReporter` 계약 |
+| `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, `StationEvent`/`StationEventLogger` 이벤트 계약 |
 | `data:settings` | DataStore data source를 domain `UserPreferences`로 매핑하는 설정 저장소 구현 |
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체와 `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
+| `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 |
 | `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스와 표시 라벨 매핑 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, 주소 표시 라벨 정규화, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화 |
@@ -111,7 +115,7 @@ flowchart LR
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
 2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다.
 3. ViewModel은 `LocationStateMachine`을 통해 `ObserveLocationAvailabilityUseCase`와 새로고침 시점의 `GetCurrentLocationUseCase`를 다루고, 별도로 `ObserveUserPreferencesUseCase`를 구독합니다.
-4. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `GetCurrentAddressUseCase` 주소 라벨 조회는 non-blocking 표시용 context로 뒤따릅니다. `core:location`은 행정동 단위 주소를 우선 만들고, 화면은 지오코더가 섞어 보낸 국가 코드나 건물 동 표기를 다시 방어합니다.
+4. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `GetCurrentAddressUseCase` 주소 라벨 조회는 non-blocking 표시용 context로 뒤따릅니다. `core:location`은 Android 주소 후보를 `domain:location` 정규화 함수로 변환하고, `LocationStateMachine`은 정규화된 라벨을 표시용으로 저장합니다.
 5. `StationSearchOrchestrator`는 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만들고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
 6. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 ViewModel은 active query를 새 조건으로 전환하고 `RefreshNearbyStationsUseCase`를 호출합니다. 브랜드 필터와 정렬은 캐시 키에는 없지만, 화면은 새 조건으로 즉시 읽기 모델을 다시 만들고 원격 성공 시 같은 버킷 스냅샷을 최신 데이터로 교체합니다.
 7. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.

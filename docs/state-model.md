@@ -13,7 +13,8 @@
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
 | 설정 화면 파생 상태 | `SettingsUiState` | `UserPreferences`로부터 항상 재생성 가능 | 요약 라벨과 선택 옵션 |
 | 단발성 UI effect | `StationListEffect` | 한 번 소비하고 버림 | snackbar, 위치 설정 열기, 외부 지도 열기 |
-| 구조화 이벤트 | `StationEvent` | 영속 상태가 아니라 관찰/진단용 로그 | watch toggle, refresh/location 실패, retry 결과 같은 앱 이벤트 |
+| 구조화 이벤트 | `StationEvent` | 영속 상태가 아니라 관찰/진단용 로그 | `domain:station` 계약으로 watch toggle, refresh/location 실패, retry 결과 같은 앱 이벤트 표현 |
+| 비치명 예외 보고 | `CrashReporter` | 영속 상태가 아니라 관찰/진단용 로그 | `core:observability` 계약으로 예상하지 못한 nonfatal exception 보고 |
 
 ## 1. 영속 선호 상태
 
@@ -126,6 +127,7 @@
 ## 8. 구조화 이벤트
 
 `StationEvent`는 화면 복원용 상태가 아니라 관찰과 진단을 위한 계약입니다.
+이벤트 종류와 payload는 `domain:station`이 소유하고, 예상하지 못한 비치명 예외 보고 계약은 `core:observability`의 `CrashReporter`가 소유합니다.
 
 - `WatchToggled`는 북마크 저장/해제 액션에서 emit됩니다.
 - `SearchRefreshed`는 저장소 refresh가 성공적으로 스냅샷과 히스토리를 저장한 뒤 emit됩니다.

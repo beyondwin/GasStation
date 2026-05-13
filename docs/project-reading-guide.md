@@ -35,7 +35,7 @@
 | demo는 어디서 고정되나 | `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`, `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`, `app/src/demo/kotlin/com/gasstation/demo/seed/DemoSeedStationRemoteDataSource.kt` |
 | prod는 어디서 달라지나 | `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`, `app/build.gradle.kts` |
 | 외부 지도 연동은 어디 있나 | `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt` |
-| 이벤트 로그 계약은 어디 있나 | `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt` |
+| 이벤트/관찰 계약은 어디 있나 | `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `core/observability/CrashReporter.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`, `app/src/{demo,prod}/kotlin/com/gasstation/analytics/*` |
 | 현재 완료된 개선과 조건부 backlog는 어디서 보나 | `docs/history/deep-analysis-report.md`, `docs/history/improvement-analysis.md` |
 | CI와 로컬 검증 명령의 기준은 어디서 보나 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
 
@@ -102,11 +102,12 @@ watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심�
 1. `core/database/src/main/kotlin/com/gasstation/core/database/*`
 2. `core/network/src/main/kotlin/com/gasstation/core/network/station/*`
 3. `core/location/src/main/kotlin/com/gasstation/core/location/*`
-4. `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`
-5. `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/BrandIcon.kt`
-6. `app/src/demo/kotlin/com/gasstation/*`
-7. `app/src/prod/kotlin/com/gasstation/*`
-8. `tools/demo-seed/src/main/kotlin/com/gasstation/tools/demoseed/*`
+4. `core/observability/src/main/kotlin/com/gasstation/core/observability/*`
+5. `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`
+6. `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/BrandIcon.kt`
+7. `app/src/demo/kotlin/com/gasstation/*`
+8. `app/src/prod/kotlin/com/gasstation/*`
+9. `tools/demo-seed/src/main/kotlin/com/gasstation/tools/demoseed/*`
 
 여기까지 보면 `demo`가 단순 mock이 아니라 "실제 규칙을 seed 데이터로 재현하는 경로"라는 점이 명확해집니다.
 

@@ -1094,7 +1094,7 @@ git commit -m "test: extract shared repository and viewmodel doubles"
 - Modify: `docs/state-model.md`
 - Modify: `docs/verification-matrix.md`
 
-- [ ] **Step 1: Update module inventory**
+- [x] **Step 1: Update module inventory**
 
 In `docs/module-contracts.md`, add `core:observability` to the module inventory:
 
@@ -1104,7 +1104,7 @@ In `docs/module-contracts.md`, add `core:observability` to the module inventory:
 
 Change the `core:location` direct dependency description to include `core:observability` and remove any implication that it depends on `domain:station`.
 
-- [ ] **Step 2: Update architecture graph**
+- [x] **Step 2: Update architecture graph**
 
 In `docs/architecture.md`, add `core:observability` to the Mermaid graph:
 
@@ -1116,7 +1116,7 @@ clocation --> cobserve
 
 Remove any graph edge that suggests `core:location` depends on `domain:station`.
 
-- [ ] **Step 3: Update state and reading docs**
+- [x] **Step 3: Update state and reading docs**
 
 In `docs/state-model.md`, update the structured event/crash reporting description so `StationEvent` remains `domain:station`, while unexpected nonfatal exception reporting is `core:observability`.
 
@@ -1126,11 +1126,11 @@ In `docs/project-reading-guide.md`, update the event/logging entry to mention:
 `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `core/observability/CrashReporter.kt`, `app/src/*/kotlin/com/gasstation/analytics/*`
 ```
 
-- [ ] **Step 4: Update verification matrix**
+- [x] **Step 4: Update verification matrix**
 
 Add `:core:observability:test` to relevant documentation verification command groups.
 
-- [ ] **Step 5: Verify docs**
+- [x] **Step 5: Verify docs**
 
 Run:
 
@@ -1140,7 +1140,7 @@ git diff --check -- docs/architecture.md docs/module-contracts.md docs/project-r
 
 Expected: no output.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add docs/architecture.md docs/module-contracts.md docs/project-reading-guide.md docs/state-model.md docs/verification-matrix.md

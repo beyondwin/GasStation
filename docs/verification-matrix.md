@@ -23,6 +23,7 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 ```bash
 ./gradlew \
   :domain:station:test \
+  :core:observability:test \
   :core:database:testDebugUnitTest \
   :core:location:testDebugUnitTest \
   :core:designsystem:testDebugUnitTest \
@@ -41,6 +42,7 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 
 ```bash
 ./gradlew \
+  :core:observability:test \
   :core:designsystem:testDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \
@@ -72,6 +74,7 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 ```bash
 ./gradlew \
   spotlessCheck lint \
+  :core:observability:test \
   :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
   :feature:station-list:testDebugUnitTest \
   :feature:watchlist:testDebugUnitTest \
