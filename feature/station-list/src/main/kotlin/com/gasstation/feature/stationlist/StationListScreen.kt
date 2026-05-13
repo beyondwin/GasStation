@@ -328,7 +328,6 @@ private fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier 
     val addressLabel = uiState.currentAddressLabel
         ?.trim()
         ?.takeIf(String::isNotEmpty)
-        ?.toDongLevelAddressLabel()
     val conditionLabel = stringResource(
         R.string.station_list_query_context_condition,
         uiState.selectedRadius.toLabel(),
@@ -755,84 +754,6 @@ private fun StationListUiState.toBodyState(): StationListBodyState = when {
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
     else -> StationListBodyState.Results
 }
-
-private fun String.toDongLevelAddressLabel(): String = toAddressTokens().toAdministrativeDongLabel() ?: this
-
-private fun String.isAdministrativeDongPart(): Boolean {
-    val normalized = trim('(', ')', '[', ']', ',', '.')
-    return normalized.endsWith("\uB3D9") && normalized.dropLast(1).any { it in '가'..'힣' }
-}
-
-private fun String.toAddressTokens(): List<String> = split(Regex("\\s+"))
-    .asSequence()
-    .map { it.trim('(', ')', '[', ']', ',', '.') }
-    .filter(String::isNotBlank)
-    .filterNot { it == "\uB300\uD55C\uBBFC\uAD6D" || it.equals("KR", ignoreCase = true) }
-    .toList()
-    .joinSplitAdministrativeTokens()
-
-private fun List<String>.joinSplitAdministrativeTokens(): List<String> {
-    val result = mutableListOf<String>()
-    var index = 0
-    while (index < size) {
-        val current = this[index]
-        val next = getOrNull(index + 1)
-        if (next in setOf("\uD2B9\uBCC4\uC2DC", "\uAD11\uC5ED\uC2DC", "\uD2B9\uBCC4\uC790\uCE58\uC2DC", "\uD2B9\uBCC4\uC790\uCE58\uB3C4")) {
-            result += current + next
-            index += 2
-        } else {
-            result += current
-            index += 1
-        }
-    }
-    return result
-}
-
-private fun List<String>.toAdministrativeDongLabel(): String? {
-    val dongIndex = indexOfLast(String::isAdministrativeDongPart)
-    if (dongIndex < 0) return null
-
-    val districtIndex = findLastAdminIndexBefore(dongIndex, suffixes = listOf("\uAD6C", "\uAD70"))
-    val regionIndex = if (districtIndex >= 0) {
-        findLastAdminIndexBefore(districtIndex, suffixes = listOf("\uC2DC", "\uB3C4"))
-            .takeIf { it >= 0 } ?: findFallbackRegionIndexBefore(districtIndex)
-    } else {
-        findLastAdminIndexBefore(dongIndex, suffixes = listOf("\uC2DC", "\uB3C4"))
-    }
-
-    return listOf(regionIndex, districtIndex, dongIndex)
-        .filter { it >= 0 }
-        .distinct()
-        .map(::get)
-        .joinToString(separator = " ")
-        .takeIf(String::isNotBlank)
-}
-
-private fun List<String>.findLastAdminIndexBefore(endExclusive: Int, suffixes: List<String>): Int = asSequence()
-    .take(endExclusive)
-    .withIndex()
-    .filter { (_, token) -> suffixes.any(token::endsWith) && token.dropLast(1).any { it in '가'..'힣' } }
-    .lastOrNull()
-    ?.index ?: -1
-
-private fun List<String>.findFallbackRegionIndexBefore(endExclusive: Int): Int = asSequence()
-    .take(endExclusive)
-    .withIndex()
-    .filter { (_, token) ->
-        token in
-            setOf(
-                "\uC11C\uC6B8",
-                "\uBD80\uC0B0",
-                "\uB300\uAD6C",
-                "\uC778\uCC9C",
-                "\uAD11\uC8FC",
-                "\uB300\uC804",
-                "\uC6B8\uC0B0",
-                "\uC138\uC885",
-            )
-    }
-    .lastOrNull()
-    ?.index ?: -1
 
 private fun subtleContentTransform(): ContentTransform = fadeIn(
     animationSpec = tween(durationMillis = 180),

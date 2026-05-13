@@ -7,6 +7,7 @@ import com.gasstation.domain.location.LocationAddressLookupResult
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
+import com.gasstation.domain.location.normalizeCurrentAddressLabel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,7 +66,7 @@ class LocationStateMachine @Inject constructor(
     }
 
     suspend fun resolveAddressLabel(coordinates: Coordinates): String? = when (val result = getCurrentAddress(coordinates)) {
-        is LocationAddressLookupResult.Success -> result.addressLabel
+        is LocationAddressLookupResult.Success -> normalizeCurrentAddressLabel(result.addressLabel)
         LocationAddressLookupResult.Unavailable,
         is LocationAddressLookupResult.Error,
         -> null

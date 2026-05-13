@@ -37,7 +37,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
-                    currentAddressLabel = "서울 영등포구 당산동 194-32",
+                    currentAddressLabel = "서울 영등포구 당산동",
                     stations = listOf(testStation()),
                     selectedFuelType = FuelType.GASOLINE,
                 ),
@@ -51,7 +51,6 @@ class StationListScreenTest {
 
         composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
         composeRule.onNodeWithText("서울 영등포구 당산동").assertExists()
-        composeRule.onNodeWithText("서울 영등포구 당산동 194-32").assertDoesNotExist()
         composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
         composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
         composeRule.onNodeWithText("반경과 유종 기준으로 정렬합니다.").assertDoesNotExist()
@@ -63,7 +62,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
-                    currentAddressLabel = "대한민국 서울 특별시 강남구 지하 번지 동 상가 27호 KR 서울특별시 강남구 역삼동",
+                    currentAddressLabel = "서울특별시 강남구 역삼동",
                     stations = listOf(testStation()),
                     selectedFuelType = FuelType.GASOLINE,
                 ),
@@ -76,9 +75,6 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithText("서울특별시 강남구 역삼동").assertExists()
-        composeRule.onNodeWithText(
-            "대한민국 서울 특별시 강남구 지하 번지 동 상가 27호 KR 서울특별시 강남구 역삼동",
-        ).assertDoesNotExist()
     }
 
     @Test

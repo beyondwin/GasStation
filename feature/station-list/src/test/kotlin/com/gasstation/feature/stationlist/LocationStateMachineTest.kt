@@ -132,7 +132,7 @@ class LocationStateMachineTest {
         machine.onAddressResolved(staleCoordinates, "stale label")
         machine.onAddressResolved(currentCoordinates, addressLabel)
 
-        assertEquals("서울 영등포구 당산동 194-32", machine.state.value.currentAddressLabel)
+        assertEquals("서울 영등포구 당산동", machine.state.value.currentAddressLabel)
     }
 
     @Test

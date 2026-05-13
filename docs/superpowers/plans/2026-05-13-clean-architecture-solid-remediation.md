@@ -316,7 +316,7 @@ git commit -m "refactor: move crash reporting contract to observability core"
 - Modify: `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - Modify: `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListScreenTest.kt`
 
-- [ ] **Step 1: Add failing domain tests**
+- [x] **Step 1: Add failing domain tests**
 
 Create `domain/location/src/test/kotlin/com/gasstation/domain/location/AddressLabelNormalizerTest.kt`:
 
@@ -369,7 +369,7 @@ Run:
 
 Expected: FAIL because `normalizeCurrentAddressLabel` is not defined.
 
-- [ ] **Step 2: Add the domain normalizer**
+- [x] **Step 2: Add the domain normalizer**
 
 Create `domain/location/src/main/kotlin/com/gasstation/domain/location/AddressLabelNormalizer.kt`:
 
@@ -449,7 +449,7 @@ private fun List<String>.findFallbackRegionIndexBefore(endExclusive: Int): Int =
     ?.index ?: -1
 ```
 
-- [ ] **Step 3: Use the normalizer in `core:location`**
+- [x] **Step 3: Use the normalizer in `core:location`**
 
 Modify `AddressLabelFormatter.kt`:
 
@@ -484,7 +484,7 @@ getAddressLine(0)
 
 Delete the duplicate private token helpers from `AddressLabelFormatter.kt`.
 
-- [ ] **Step 4: Normalize fake/raw success values in `LocationStateMachine`**
+- [x] **Step 4: Normalize fake/raw success values in `LocationStateMachine`**
 
 In `LocationStateMachine.kt`, add:
 
@@ -498,7 +498,7 @@ Change the success branch in `resolveAddressLabel` to:
 is LocationAddressLookupResult.Success -> normalizeCurrentAddressLabel(result.addressLabel)
 ```
 
-- [ ] **Step 5: Remove address parsing from `StationListScreen.kt`**
+- [x] **Step 5: Remove address parsing from `StationListScreen.kt`**
 
 In `QueryContextSummary`, replace:
 
@@ -529,7 +529,7 @@ List<String>.findLastAdminIndexBefore
 List<String>.findFallbackRegionIndexBefore
 ```
 
-- [ ] **Step 6: Update UI tests to keep UI focused on rendering**
+- [x] **Step 6: Update UI tests to keep UI focused on rendering**
 
 In `StationListScreenTest.kt`, change the test named `query context does not treat building dong as administrative dong` so it passes a normalized label:
 
@@ -545,7 +545,7 @@ composeRule.onNodeWithText("서울특별시 강남구 역삼동").assertExists()
 
 Remove the assertion that the raw full address is absent from this UI test; that behavior is now covered by `AddressLabelNormalizerTest`.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run:
 
@@ -558,7 +558,7 @@ Expected:
 - `rg` prints no output from feature main source.
 - Gradle reports `BUILD SUCCESSFUL`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add domain/location core/location feature/station-list

@@ -299,7 +299,7 @@ class StationListViewModelTest {
         viewModel.onAction(StationListAction.RefreshRequested)
         advanceUntilIdle()
 
-        assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+        assertEquals("서울 영등포구 당산동", viewModel.uiState.value.currentAddressLabel)
         assertEquals(coordinates, viewModel.uiState.value.currentCoordinates)
         assertEquals(1, viewModel.uiState.value.stations.size)
     }
@@ -370,7 +370,7 @@ class StationListViewModelTest {
         viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
         viewModel.onAction(StationListAction.RefreshRequested)
         advanceUntilIdle()
-        assertEquals("서울 영등포구 당산동 194-32", viewModel.uiState.value.currentAddressLabel)
+        assertEquals("서울 영등포구 당산동", viewModel.uiState.value.currentAddressLabel)
 
         viewModel.onAction(StationListAction.RefreshRequested)
         advanceUntilIdle()
