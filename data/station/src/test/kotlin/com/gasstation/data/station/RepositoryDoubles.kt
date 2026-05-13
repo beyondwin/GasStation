@@ -168,11 +168,10 @@ internal class RecordingStationCacheDao : StationCacheDao() {
             }
     }
 
-    suspend fun snapshotFor(cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey): List<StationCacheEntity> =
-        observeStations(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType.name,
-        ).first()
+    suspend fun snapshotFor(cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey): List<StationCacheEntity> = observeStations(
+        latitudeBucket = cacheKey.latitudeBucket,
+        longitudeBucket = cacheKey.longitudeBucket,
+        radiusMeters = cacheKey.radiusMeters,
+        fuelType = cacheKey.fuelType.name,
+    ).first()
 }

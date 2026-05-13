@@ -249,7 +249,8 @@ private fun StationListResultsPane(uiState: StationListUiState, onAction: (Stati
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             StationListContent(
-                uiState = uiState, onAction = onAction,
+                uiState = uiState,
+                onAction = onAction,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = refreshRailInset)
