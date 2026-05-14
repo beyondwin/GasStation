@@ -11,7 +11,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File
-import java.nio.file.Files
 
 class AndroidUserPreferencesDataSourceTest {
 
@@ -66,7 +65,7 @@ class AndroidUserPreferencesDataSourceTest {
         secondScope.job.cancelAndJoin()
     }
 
-    private fun createTempStoreFile(): File = Files.createTempFile("user-preferences", ".preferences_pb").toFile().apply {
+    private fun createTempStoreFile(): File = File.createTempFile("user-preferences", ".preferences_pb").apply {
         deleteOnExit()
         delete()
     }

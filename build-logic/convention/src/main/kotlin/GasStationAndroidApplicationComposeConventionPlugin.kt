@@ -23,6 +23,10 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
             .gradleProperty("gasstation.composeCompilerReports")
             .map(String::toBoolean)
             .orElse(false)
+        val lintTestSourcesEnabled = providers
+            .gradleProperty("gasstation.lintTestSources")
+            .map(String::toBoolean)
+            .orElse(false)
 
         extensions.configure<ApplicationExtension> {
             compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
@@ -59,6 +63,8 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                 warningsAsErrors = false
                 abortOnError = true
                 checkDependencies = true
+                checkTestSources = lintTestSourcesEnabled.get()
+                ignoreTestSources = !lintTestSourcesEnabled.get()
                 sarifReport = true
                 htmlReport = true
                 xmlReport = false
