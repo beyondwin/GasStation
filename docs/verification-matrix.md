@@ -115,6 +115,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 | `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
 
 `prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
+`assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
 
 ## 기기 기반 UI 확인
 

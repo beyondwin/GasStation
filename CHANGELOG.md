@@ -2,6 +2,21 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## 1.1.2 - 2026-05-14
+
+### 개발자 영향
+
+- Build/test fast path: Roborazzi screenshot 검증을 일반 unit test 경로에서 제외하고, screenshot 회귀는 `verifyRoborazziDebug`가 전담하도록 분리했습니다.
+- CI 안정화: `assemble` job의 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 나눠 GitHub runner에서 Hilt compile 메모리 피크가 겹치지 않게 했습니다.
+- Lint/Compose metrics: 기본 lint는 production source 중심으로 유지하고, test source lint와 Compose compiler report/metric은 명시적 opt-in으로 정리했습니다.
+- Test ownership: app resource smoke test는 demo unit test source set으로 옮기고, station route 정책은 빠른 JVM 테스트로 보호합니다.
+
+### 문서와 검증
+
+- README의 현재 버전과 릴리즈 인덱스를 v1.1.2 기준으로 갱신했습니다.
+- 검증 매트릭스에 CI assemble job의 메모리 안정화 의도를 반영했습니다.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-05-14-v1.1.2.md](docs/release-notes/2026-05-14-v1.1.2.md)를 봅니다.
+
 ## 1.1.1 - 2026-05-13
 
 ### 개발자 영향
