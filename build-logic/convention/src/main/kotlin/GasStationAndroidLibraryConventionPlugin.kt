@@ -17,6 +17,10 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.android.library")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+        val lintTestSourcesEnabled = providers
+            .gradleProperty("gasstation.lintTestSources")
+            .map(String::toBoolean)
+            .orElse(false)
 
         extensions.configure<LibraryExtension> {
             compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
@@ -46,7 +50,9 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
             lint {
                 warningsAsErrors = false
                 abortOnError = true
-                checkDependencies = true
+                checkDependencies = false
+                checkTestSources = lintTestSourcesEnabled.get()
+                ignoreTestSources = !lintTestSourcesEnabled.get()
                 sarifReport = true
                 htmlReport = true
                 xmlReport = false

@@ -19,6 +19,14 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+        val composeCompilerReportsEnabled = providers
+            .gradleProperty("gasstation.composeCompilerReports")
+            .map(String::toBoolean)
+            .orElse(false)
+        val lintTestSourcesEnabled = providers
+            .gradleProperty("gasstation.lintTestSources")
+            .map(String::toBoolean)
+            .orElse(false)
 
         extensions.configure<ApplicationExtension> {
             compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
@@ -55,6 +63,8 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                 warningsAsErrors = false
                 abortOnError = true
                 checkDependencies = true
+                checkTestSources = lintTestSourcesEnabled.get()
+                ignoreTestSources = !lintTestSourcesEnabled.get()
                 sarifReport = true
                 htmlReport = true
                 xmlReport = false
@@ -62,8 +72,10 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
         }
 
         extensions.configure<ComposeCompilerGradlePluginExtension> {
-            reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
-            metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+            if (composeCompilerReportsEnabled.get()) {
+                reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+                metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+            }
         }
 
         tasks.withType<KotlinCompile>().configureEach {

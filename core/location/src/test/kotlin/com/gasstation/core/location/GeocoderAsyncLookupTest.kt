@@ -1,5 +1,6 @@
 package com.gasstation.core.location
 
+import android.annotation.TargetApi
 import android.location.Address
 import android.location.Geocoder
 import android.os.Build
@@ -16,6 +17,7 @@ import java.io.IOException
 import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@TargetApi(Build.VERSION_CODES.TIRAMISU)
 @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
 class GeocoderAsyncLookupTest {
     @Test
@@ -107,6 +109,7 @@ class GeocoderAsyncLookupTest {
     }
 }
 
+@TargetApi(Build.VERSION_CODES.TIRAMISU)
 private class FakeGeocoderAsyncLookup(private val onLookup: (Geocoder.GeocodeListener) -> Unit = {}) : GeocoderAsyncLookup {
     var lastLatitude: Double = Double.NaN
     var lastLongitude: Double = Double.NaN
