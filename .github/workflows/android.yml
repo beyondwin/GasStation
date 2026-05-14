@@ -23,6 +23,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Spotless + Lint
+        # Default lint focuses on production sources. Test-source lint is an explicit local/full-path opt-in.
         run: ./gradlew spotlessCheck lint --continue
 
   unit-tests:
@@ -35,6 +36,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit Tests
+        # Regular unit-test tasks exclude Roborazzi screenshot classes; screenshot-tests owns screenshot regression.
         run: |
           ./gradlew \
             :domain:location:test \
@@ -65,6 +67,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Roborazzi Screenshot Verification
+        # Keep screenshot regression separate from the fast unit-test path.
         run: ./gradlew verifyRoborazziDebug
       - name: Upload screenshot diffs on failure
         if: failure()

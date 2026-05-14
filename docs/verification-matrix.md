@@ -90,6 +90,20 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
   :app:assembleProdRelease
 ```
 
+## 기본 Fast Path와 Opt-in 확장
+
+기본 lint 명령은 production source 중심으로 돌고, test source lint는 `-Pgasstation.lintTestSources=true`로 명시합니다.
+
+기본 unit-test 명령은 Roborazzi screenshot class를 제외합니다. Screenshot 회귀는 `verifyRoborazziDebug`가 소유합니다.
+
+Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이 필요할 때만 명시적으로 켭니다.
+
+```bash
+./gradlew lint -Pgasstation.lintTestSources=true --continue
+./gradlew :core:designsystem:testDebugUnitTest -Pgasstation.includeRoborazziInUnitTests=true
+./gradlew :feature:station-list:compileDebugKotlin -Pgasstation.composeCompilerReports=true
+```
+
 ## CI 연결
 
 GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격의 push를 다르게 검증합니다. 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.
