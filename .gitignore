@@ -1,38 +1,44 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
+# Gradle / Android build output
+.gradle/
+.kotlin/
+build/
 **/build/
-/captures
-.externalNativeBuild
-.cxx
+.externalNativeBuild/
+.cxx/
+captures/
+app/release/
+
+# Local machine / IDE state
 local.properties
-.idea
+*.iml
+.idea/
+.DS_Store
+
+# Local agent/tooling state
 .gstack/
 .orchestrator/
-.kotlin
+.superpowers/
+.codex/
 
 # signing and local secrets
 *.jks
 *.keystore
 keystore.properties
+*.p12
+*.pem
 
 # local env files
 .env
 .env.*
+!.env.example
 
 # generated app artifacts
 *.apk
 *.aab
 *.ap_
 
-# profiling and crash dumps
+# profiling, logs, and crash dumps
 *.hprof
-.superpowers
+*.log
+hs_err_pid*
+replay_pid*
