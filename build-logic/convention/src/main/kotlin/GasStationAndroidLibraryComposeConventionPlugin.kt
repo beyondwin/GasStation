@@ -15,6 +15,10 @@ class GasStationAndroidLibraryComposeConventionPlugin : Plugin<Project> {
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+        val composeCompilerReportsEnabled = providers
+            .gradleProperty("gasstation.composeCompilerReports")
+            .map(String::toBoolean)
+            .orElse(false)
 
         extensions.configure<LibraryExtension> {
             buildFeatures {
@@ -23,8 +27,10 @@ class GasStationAndroidLibraryComposeConventionPlugin : Plugin<Project> {
         }
 
         extensions.configure<ComposeCompilerGradlePluginExtension> {
-            reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
-            metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+            if (composeCompilerReportsEnabled.get()) {
+                reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+                metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+            }
         }
 
         dependencies {
