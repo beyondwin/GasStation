@@ -86,11 +86,12 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Assemble
+        # Run assemble targets separately so parallel Gradle execution does not compile
+        # both app flavors and benchmark in the same memory peak on GitHub runners.
         run: |
-          ./gradlew \
-            :app:assembleDemoDebug \
-            :app:assembleProdDebug \
-            :benchmark:assemble
+          ./gradlew :app:assembleDemoDebug
+          ./gradlew :app:assembleProdDebug
+          ./gradlew :benchmark:assemble
 
   release-assemble:
     runs-on: ubuntu-latest
