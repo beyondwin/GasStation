@@ -55,15 +55,7 @@ fun StationListRoute(
         uiState.isAvailabilityKnown,
         uiState.needsRecoveryRefresh,
     ) {
-        if (
-            uiState.isAvailabilityKnown &&
-            uiState.isGpsEnabled &&
-            (
-                uiState.currentCoordinates == null ||
-                    uiState.hasDeniedLocationAccess ||
-                    uiState.needsRecoveryRefresh
-                )
-        ) {
+        if (uiState.shouldAutoRefreshOnRoute()) {
             viewModel.onAction(StationListAction.AutoRefreshRequested)
         }
     }
@@ -89,17 +81,9 @@ fun StationListRoute(
             context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
         onSettingsClick = onSettingsClick,
-        onWatchlistClick = uiState.currentCoordinates
-            ?.takeIf {
-                uiState.isGpsEnabled &&
-                    (
-                        uiState.permissionState != LocationPermissionState.Denied ||
-                            uiState.hasDeniedLocationAccess
-                        )
-            }
-            ?.let { coordinates ->
-                { onWatchlistClick(coordinates) }
-            },
+        onWatchlistClick = uiState.watchlistCoordinatesOrNull()?.let { coordinates ->
+            { onWatchlistClick(coordinates) }
+        },
     )
 }
 
