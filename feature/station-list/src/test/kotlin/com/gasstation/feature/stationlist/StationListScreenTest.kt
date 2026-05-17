@@ -2,6 +2,9 @@ package com.gasstation.feature.stationlist
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -854,6 +857,75 @@ class StationListScreenTest {
             .performTouchInput { swipeDown() }
 
         assertEquals(listOf(StationListAction.RefreshRequested), actions)
+    }
+
+    @Test
+    fun `first content callback waits during initial loading`() {
+        var callbackCount = 0
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    isLoading = true,
+                    stations = emptyList(),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+                onFirstContentDrawn = { callbackCount += 1 },
+            )
+        }
+
+        composeRule.waitForIdle()
+
+        assertEquals(0, callbackCount)
+    }
+
+    @Test
+    fun `first content callback fires once after usable station content appears`() {
+        var callbackCount = 0
+        var uiState by mutableStateOf(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isLoading = true,
+                stations = emptyList(),
+                selectedFuelType = FuelType.GASOLINE,
+            ),
+        )
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = uiState,
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+                onFirstContentDrawn = { callbackCount += 1 },
+            )
+        }
+
+        composeRule.waitForIdle()
+        assertEquals(0, callbackCount)
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(
+                isLoading = false,
+                stations = listOf(testStation()),
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(isRefreshing = true)
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, callbackCount)
     }
 
     private fun testStation() = StationListItemUiModel(

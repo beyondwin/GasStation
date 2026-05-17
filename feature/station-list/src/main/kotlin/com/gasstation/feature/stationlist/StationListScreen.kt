@@ -43,6 +43,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -76,8 +80,18 @@ fun StationListScreen(
     onOpenLocationSettings: () -> Unit,
     onSettingsClick: () -> Unit,
     onWatchlistClick: (() -> Unit)? = null,
+    onFirstContentDrawn: () -> Unit = {},
 ) {
     val bookmarkLabel = stringResource(R.string.station_list_action_bookmark)
+    val currentOnFirstContentDrawn by rememberUpdatedState(onFirstContentDrawn)
+    val hasFirstUsableContent = uiState.hasFirstUsableContent()
+
+    LaunchedEffect(hasFirstUsableContent) {
+        if (hasFirstUsableContent) {
+            withFrameNanos { }
+            currentOnFirstContentDrawn()
+        }
+    }
     GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,

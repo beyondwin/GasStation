@@ -22,7 +22,10 @@ import com.gasstation.feature.watchlist.WatchlistRoute
 import com.gasstation.map.ExternalMapLauncher
 
 @Composable
-fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher) {
+fun GasStationNavHost(
+    externalMapLauncher: ExternalMapLauncher,
+    onStationListFirstContentDrawn: () -> Unit = {},
+) {
     val navController = rememberNavController()
 
     NavHost(
@@ -51,6 +54,7 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher) {
                         longitude = effect.longitude,
                     )
                 },
+                onFirstContentDrawn = onStationListFirstContentDrawn,
             )
         }
         composable(

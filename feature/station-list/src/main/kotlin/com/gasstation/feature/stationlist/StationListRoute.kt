@@ -28,6 +28,7 @@ fun StationListRoute(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (Coordinates) -> Unit,
     onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Unit,
+    onFirstContentDrawn: () -> Unit = {},
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -84,6 +85,7 @@ fun StationListRoute(
         onWatchlistClick = uiState.watchlistCoordinatesOrNull()?.let { coordinates ->
             { onWatchlistClick(coordinates) }
         },
+        onFirstContentDrawn = onFirstContentDrawn,
     )
 }
 

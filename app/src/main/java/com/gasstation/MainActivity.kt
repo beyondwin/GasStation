@@ -11,6 +11,7 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.GasStationThemeDefaults
 import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.navigation.GasStationNavHost
+import com.gasstation.startup.StartupDrawReporter
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -18,6 +19,8 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject
     lateinit var externalMapLauncher: ExternalMapLauncher
+
+    private val startupDrawReporter = StartupDrawReporter(::reportFullyDrawn)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_GasStation)
@@ -27,6 +30,7 @@ class MainActivity : ComponentActivity() {
             GasStationTheme {
                 GasStationNavHost(
                     externalMapLauncher = externalMapLauncher,
+                    onStationListFirstContentDrawn = startupDrawReporter::reportFirstContentDrawn,
                 )
             }
         }
