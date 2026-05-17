@@ -83,6 +83,7 @@ fun StationListScreen(
     onFirstContentDrawn: () -> Unit = {},
 ) {
     val bookmarkLabel = stringResource(R.string.station_list_action_bookmark)
+    val refreshLabel = stringResource(R.string.station_list_action_refresh)
     val currentOnFirstContentDrawn by rememberUpdatedState(onFirstContentDrawn)
     val hasFirstUsableContent = uiState.hasFirstUsableContent()
 
@@ -112,8 +113,11 @@ fun StationListScreen(
                                 Icon(imageVector = Icons.Outlined.BookmarkBorder, contentDescription = null)
                             }
                         }
-                        IconButton(onClick = { onAction(StationListAction.RefreshRequested) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.station_list_action_refresh))
+                        IconButton(
+                            modifier = Modifier.semantics { contentDescription = refreshLabel },
+                            onClick = { onAction(StationListAction.RefreshRequested) },
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
                         }
                         IconButton(onClick = onSettingsClick) {
                             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.station_list_action_settings))

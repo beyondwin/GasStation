@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -233,6 +234,7 @@ private fun WatchToggleButton(watched: Boolean, onClick: () -> Unit) {
     IconButton(
         modifier = Modifier
             .semantics {
+                contentDescription = watchActionLabel
                 selected = watched
                 stateDescription = if (watched) {
                     watchSavedLabel
@@ -244,7 +246,7 @@ private fun WatchToggleButton(watched: Boolean, onClick: () -> Unit) {
     ) {
         Icon(
             imageVector = if (watched) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-            contentDescription = watchActionLabel,
+            contentDescription = null,
             modifier = Modifier.size(26.dp),
             tint = iconTint.value,
         )

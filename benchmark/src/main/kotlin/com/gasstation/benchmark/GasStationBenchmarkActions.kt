@@ -3,6 +3,7 @@ package com.gasstation.benchmark
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 
@@ -64,17 +65,35 @@ internal fun MacrobenchmarkScope.scrollStationList() {
 }
 
 internal fun MacrobenchmarkScope.openWatchlistWithSavedStation() {
-    waitForObject(
+    clickStable(
         selector = By.desc(SAVE_ACTION_DESCRIPTION),
         label = "any visible station save action '$SAVE_ACTION_DESCRIPTION'",
-    ).click()
-    waitForObject(
+    )
+    clickStable(
         selector = By.desc(BOOKMARK_ACTION_DESCRIPTION),
         label = "watchlist action '$BOOKMARK_ACTION_DESCRIPTION'",
-    ).click()
+    )
     waitForObject(
         selector = By.desc(WATCHLIST_CARD_DESCRIPTION),
         label = "watchlist card '$WATCHLIST_CARD_DESCRIPTION'",
+    )
+}
+
+private fun MacrobenchmarkScope.clickStable(selector: BySelector, label: String) {
+    var lastError: Throwable? = null
+    repeat(3) {
+        try {
+            waitForObject(selector, label).click()
+            device.waitForIdle()
+            return
+        } catch (error: StaleObjectException) {
+            lastError = error
+            device.waitForIdle()
+        }
+    }
+    throw IllegalStateException(
+        "Stale UI object kept invalidating while clicking $label",
+        lastError,
     )
 }
 
