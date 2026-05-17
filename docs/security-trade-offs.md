@@ -47,3 +47,7 @@
 **보안 관련성:** 크래시 리포터가 사용자 데이터나 민감 정보를 원격 서버로 전송하는 경우, 인터페이스 교체만으로 전송 범위를 제어할 수 있습니다.
 
 **승격 조건:** Firebase Crashlytics 등 원격 크래시 리포터 도입 시, 수집 데이터 항목을 이 문서에 추가하고 개인정보 처리방침을 갱신합니다.
+
+## Backend Proxy Escalation
+
+Backend proxy implementation is not part of the current Android-focused scope. The accepted escalation path is documented in [`docs/adr/2026-05-18-backend-proxy-escalation.md`](adr/2026-05-18-backend-proxy-escalation.md).

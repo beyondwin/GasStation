@@ -18,6 +18,8 @@
 
 `docs/superpowers/specs/`와 `docs/superpowers/plans/`는 과거 설계와 구현 계획의 이력입니다. 그 안에는 작성 당시의 모듈 경계, API 키, Gradle 명령이 남아 있을 수 있으므로 현재 기준을 판단할 때는 `settings.gradle.kts`, live 문서, 실제 코드를 우선합니다.
 
+- `docs/adr/`: Architecture decision records for accepted trade-offs and future escalation paths.
+
 ## 질문별 가장 빠른 진입점
 
 | 질문 | 먼저 볼 파일 |
