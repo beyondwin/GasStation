@@ -38,6 +38,10 @@
 | prod는 어디서 달라지나 | `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`, `app/build.gradle.kts` |
 | 외부 지도 연동은 어디 있나 | `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt` |
 | 이벤트/관찰 계약은 어디 있나 | `domain/station/model/StationEvent.kt`, `domain/station/StationEventLogger.kt`, `core/observability/CrashReporter.kt`, `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`, `app/src/{demo,prod}/kotlin/com/gasstation/analytics/*` |
+| startup metric의 "first usable content" 기준은 어디서 정해지나 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListFirstContentPolicy.kt`, `app/src/main/java/com/gasstation/startup/StartupDrawReporter.kt`, `app/src/main/java/com/gasstation/MainActivity.kt` |
+| hero macrobenchmark는 어디 있나 | `benchmark/src/main/kotlin/com/gasstation/benchmark/StationListBenchmark.kt`, `BaselineProfileGenerator.kt`, `GasStationBenchmarkActions.kt`, `app/build.gradle.kts` (`benchmark` build type) |
+| 현재 측정된 성능 수치와 재현 명령은 어디서 보나 | `docs/performance.md`, `README.md` "Performance Snapshot" |
+| backend proxy 승격 조건은 어디서 보나 | `docs/adr/2026-05-18-backend-proxy-escalation.md`, `docs/security-trade-offs.md` |
 | 현재 완료된 개선과 조건부 backlog는 어디서 보나 | `docs/history/deep-analysis-report.md`, `docs/history/improvement-analysis.md` |
 | CI와 로컬 검증 명령의 기준은 어디서 보나 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
 

@@ -6,7 +6,8 @@
 
 ### 개발자 영향
 
-- Hero benchmark evidence: station-list first usable content 기준으로 `reportFullyDrawn()`을 연결하고, startup/list scroll/refresh/watchlist macrobenchmark 경로를 분리합니다.
+- Hero benchmark evidence: station-list first usable content 기준으로 `reportFullyDrawn()`을 연결하고, startup/list scroll/refresh/watchlist macrobenchmark 경로를 분리합니다. 판단은 `feature:station-list`의 순수 정책 `StationListFirstContentPolicy`로, 보고는 `app`의 `StartupDrawReporter` Compose 훅으로 책임을 나눠 측정 기준이 feature 경계 안에서 단일 출처를 갖도록 했습니다.
+- Baseline profile 런타임: `:app`에 `androidx.profileinstaller`를 포함시켜 생성된 baseline profile이 설치된 APK에서 실제로 적용될 수 있게 합니다(생성기와 measurement 경로는 `:benchmark` 모듈에 분리).
 - Baseline profile: 앱 시작, 목록 표시, refresh, watchlist 진입을 포함하는 baseline profile journey를 문서화합니다.
 - Security operations: Opinet API key를 backend proxy로 승격해야 하는 조건과 Android 영향 범위를 ADR로 기록합니다.
 
