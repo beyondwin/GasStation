@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.profileinstaller)
 
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.robolectric)
