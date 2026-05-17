@@ -2,6 +2,19 @@
 
 이 문서는 사용자와 리뷰어가 버전별로 무엇이 바뀌었는지 빠르게 확인할 수 있도록 유지합니다.
 
+## Unreleased
+
+### 개발자 영향
+
+- Hero benchmark evidence: station-list first usable content 기준으로 `reportFullyDrawn()`을 연결하고, startup/list scroll/refresh/watchlist macrobenchmark 경로를 분리합니다.
+- Baseline profile: 앱 시작, 목록 표시, refresh, watchlist 진입을 포함하는 baseline profile journey를 문서화합니다.
+- Security operations: Opinet API key를 backend proxy로 승격해야 하는 조건과 Android 영향 범위를 ADR로 기록합니다.
+
+### 문서와 검증
+
+- README와 `docs/performance.md`는 실기기 hero benchmark 결과를 기준으로 성능 증거를 설명합니다.
+- `docs/verification-matrix.md`는 physical-device benchmark를 PR gate가 아닌 opt-in evidence collection으로 분리합니다.
+
 ## 1.1.2 - 2026-05-14
 
 ### 개발자 영향

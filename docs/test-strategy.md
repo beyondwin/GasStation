@@ -26,7 +26,7 @@
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest` | 브랜드 anchor 색상, tinted surface token, typography/spacing token, metric/supporting-info/row/status/guidance chrome 계약, `Brand`별 아이콘과 표시 label 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, 알 수 없는 enum name fallback |
 | `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
-| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest` | 위치 상태 전이, query/cache/failure orchestration, extraction 이후 UI state composition/effect/action dispatch, stale/approximate guidance, 주소 컨텍스트 표시, 가격 우선 카드, 긴 역명/가격/유종 clipping 방지, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
+| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest` | 위치 상태 전이, query/cache/failure orchestration, extraction 이후 UI state composition/effect/action dispatch, stale/approximate guidance, 주소 컨텍스트 표시, 가격 우선 카드, 긴 역명/가격/유종 clipping 방지, route lifecycle 기반 availability 관찰과 권한/GPS recovery, first usable content 기준 |
 | `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest` | 설정 요약/상세 화면 계약, 그룹/row hierarchy, selected check affordance, 긴 현재값 row clipping 방지 |
 | `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest` | 북마크 비교 화면 상태와 표시, `CompareViewed` event, brand label 보존, metric column alignment, 긴 저장 항목/큰 가격 clipping 방지 |
 | `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 인텐트 |
@@ -79,6 +79,8 @@
   demo 시작 상태가 흔들리면 문서, 스크린샷, benchmark, UI 테스트가 함께 흔들립니다.
 - `ExternalMapLauncher`
   사용자 설정의 지도 앱 선택이 실제 외부 인텐트와 맞아야 합니다.
+- First usable content policy
+  Startup metric은 첫 frame이 아니라 사용 가능한 목록/empty/failure content 기준으로 보고합니다. `StationListFirstContentPolicy`와 `StartupDrawReporter` 테스트가 이 기준을 보호합니다.
 
 ## 의도적으로 약하게 보는 것
 
