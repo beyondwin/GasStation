@@ -96,4 +96,109 @@ class StationListRoutePolicyTest {
             ).watchlistCoordinatesOrNull(),
         )
     }
+
+    @Test
+    fun `first content waits while permission is required`() {
+        assertFalse(
+            StationListUiState(
+                permissionState = LocationPermissionState.Denied,
+                hasDeniedLocationAccess = false,
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content waits while gps is disabled`() {
+        assertFalse(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isGpsEnabled = false,
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content waits during initial loading without cached stations`() {
+        assertFalse(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isLoading = true,
+                stations = emptyList(),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content is ready when a station card is visible`() {
+        assertTrue(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isLoading = true,
+                stations = listOf(testStationUiModel()),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content is ready for a settled successful empty result`() {
+        assertTrue(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isLoading = false,
+                isRefreshing = false,
+                stations = emptyList(),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content waits for empty results while refresh is still active`() {
+        assertFalse(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                isRefreshing = true,
+                stations = emptyList(),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content is ready for blocking failure guidance`() {
+        assertTrue(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                blockingFailure = StationListFailureReason.RefreshFailed,
+                stations = emptyList(),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content is ready for stale cache with visible stations`() {
+        assertTrue(
+            StationListUiState(
+                permissionState = LocationPermissionState.ApproximateGranted,
+                isStale = true,
+                isRefreshing = true,
+                stations = listOf(testStationUiModel()),
+            ).hasFirstUsableContent(),
+        )
+    }
 }
+
+private fun testStationUiModel() = StationListItemUiModel(
+    id = "station-1",
+    name = "테스트 주유소",
+    brand = com.gasstation.core.model.Brand.GSC,
+    brandLabel = "GS칼텍스",
+    priceLabel = "1,689원",
+    distanceLabel = "0.3km",
+    priceNumberLabel = "1,689",
+    priceUnitLabel = "원",
+    distanceNumberLabel = "0.3",
+    distanceUnitLabel = "km",
+    priceDeltaLabel = "-",
+    isWatched = false,
+    latitude = 37.498095,
+    longitude = 127.02761,
+)
