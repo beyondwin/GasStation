@@ -8,7 +8,7 @@ import androidx.test.uiautomator.Until
 
 internal const val TARGET_PACKAGE = "com.gasstation.demo"
 
-private const val WAIT_TIMEOUT_MS = 5_000L
+private const val WAIT_TIMEOUT_MS = 10_000L
 private const val COARSE_LOCATION_PERMISSION = "android.permission.ACCESS_COARSE_LOCATION"
 private const val FINE_LOCATION_PERMISSION = "android.permission.ACCESS_FINE_LOCATION"
 private const val STATION_TEXT_FRAGMENT = "주유소"

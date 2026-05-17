@@ -69,6 +69,22 @@ The `:app` `benchmark` build type forks `release` with `isDebuggable=false`, `is
 
 ## Known Limitations
 
-- **Baseline profile not installed.** `BaselineProfileGenerator.collectHeroJourney` failed during this run (watchlist card selector timed out after 5 s on this device). Compilation mode therefore stayed at `verify`. Startup numbers above are realistic for first-install / post-update users and represent a lower-bound improvement target once a baseline profile is generated.
-- **`openWatchlistFrameTiming` skipped.** The same watchlist-card selector timeout caused this benchmark to fail before producing samples. Investigation candidates: (a) raise `WAIT_TIMEOUT_MS` in `benchmark/src/main/kotlin/com/gasstation/benchmark/GasStationBenchmarkActions.kt`, (b) confirm the seeded demo data exposes a card the bookmark action can save on this device, (c) confirm the bookmark/watchlist navigation copies the same `content-description` strings on API 33.
+- **Baseline profile not installed.** `BaselineProfileGenerator.collectHeroJourney` failed during this run because the watchlist card selector timed out on this device after both the original 5 s budget and a follow-up 10 s budget. Compilation mode therefore stayed at `verify`. Startup numbers above are realistic for first-install / post-update users and represent a lower-bound improvement target once a baseline profile is generated.
+- **`openWatchlistFrameTiming` skipped.** The watchlist-card flow times out on the very first selector (`By.desc("저장")`) on this device. A follow-up run with `WAIT_TIMEOUT_MS = 10_000` and an added `scrollStationList()` setup step still timed out at the same selector, so the failure is not a timing or list-position issue. `BaselineProfileGenerator.collectHeroJourney`, which runs `refreshStationList()` before the same `openWatchlistWithSavedStation()` call, gets past `"저장"` and only fails at the final watchlist card. Remaining investigation candidates: (a) confirm whether the `refresh` interaction is what makes the `IconButton` semantics in `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt` discoverable to UiAutomator (e.g., by adding `setupBlock = { launchStationList(); refreshStationList() }` to `openWatchlistFrameTiming`), (b) attach a stable test tag / contentDescription directly to the `WatchToggleButton` semantics node so it does not depend on Compose `mergeDescendants` behavior, (c) confirm the seeded demo data exposes a card the bookmark action can save on this device.
 - **Cooling and thermal state not enforced.** macrobenchmark warned about `SUSTAINED_PERFORMANCE_MODE` being unavailable; results below are the median over 10 startup iterations and 5 frame iterations, which mitigates but does not eliminate device-side thermal variance. Re-run on a cooled device before committing future numbers if comparisons span multiple firmware revisions.
+
+## APK Size (demo flavor)
+
+R8 minification on the `benchmark` build type produces a usable size baseline for what production-shaped users would download. Measured from the same build that produced the numbers above:
+
+| Variant | APK | Size |
+| --- | --- | --- |
+| `demoBenchmark` (R8 minify=true, profileable, debug-signed) | `app/build/outputs/apk/demo/benchmark/app-demo-benchmark.apk` | **2.51 MB** |
+| `demoDebug` (minify=false, debuggable) | `app/build/outputs/apk/demo/debug/app-demo-debug.apk` | 22.70 MB |
+
+The roughly 9× difference confirms R8 + resource shrinking is doing the work expected of it for the production-shaped APK; it does not represent a separate optimization opportunity, just the build-type cost on this codebase. Reproduce with:
+
+```bash
+./gradlew :app:assembleDemoBenchmark :app:assembleDemoDebug
+ls -l app/build/outputs/apk/demo/{benchmark,debug}/*.apk
+```
