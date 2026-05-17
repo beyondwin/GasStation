@@ -1,13 +1,11 @@
 package com.gasstation.benchmark
 
 import androidx.benchmark.macro.FrameTimingMetric
-import androidx.benchmark.macro.MacrobenchmarkScope
+import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.benchmark.macro.measureRepeated
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Until
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,29 +16,56 @@ class StationListBenchmark {
     val benchmarkRule = MacrobenchmarkRule()
 
     @Test
-    fun coldStartAndOpenWatchlist() = benchmarkRule.measureRepeated(
-        packageName = "com.gasstation.demo",
-        metrics = listOf(
-            StartupTimingMetric(),
-            FrameTimingMetric(),
-        ),
-        iterations = 5,
+    fun startupToFirstContent() = benchmarkRule.measureRepeated(
+        packageName = TARGET_PACKAGE,
+        metrics = listOf(StartupTimingMetric()),
+        iterations = 10,
+        startupMode = StartupMode.COLD,
+        setupBlock = {
+            grantLocationPermissions()
+            pressHome()
+        },
     ) {
-        grantLocationPermissions()
-        pressHome()
         startActivityAndWait()
-        waitForAndClick(description = "북마크")
+        waitForStationListContent()
     }
-}
 
-private fun MacrobenchmarkScope.grantLocationPermissions() {
-    device.executeShellCommand("pm grant com.gasstation.demo android.permission.ACCESS_COARSE_LOCATION")
-    device.executeShellCommand("pm grant com.gasstation.demo android.permission.ACCESS_FINE_LOCATION")
-}
+    @Test
+    fun listScrollFrameTiming() = benchmarkRule.measureRepeated(
+        packageName = TARGET_PACKAGE,
+        metrics = listOf(FrameTimingMetric()),
+        iterations = 5,
+        startupMode = null,
+        setupBlock = {
+            launchStationList()
+        },
+    ) {
+        scrollStationList()
+    }
 
-private fun MacrobenchmarkScope.waitForAndClick(description: String) {
-    device.wait(Until.hasObject(By.desc(description)), 5_000)
-    requireNotNull(device.findObject(By.desc(description))) {
-        "Unable to find UI element with description=$description"
-    }.click()
+    @Test
+    fun refreshFrameTiming() = benchmarkRule.measureRepeated(
+        packageName = TARGET_PACKAGE,
+        metrics = listOf(FrameTimingMetric()),
+        iterations = 5,
+        startupMode = null,
+        setupBlock = {
+            launchStationList()
+        },
+    ) {
+        refreshStationList()
+    }
+
+    @Test
+    fun openWatchlistFrameTiming() = benchmarkRule.measureRepeated(
+        packageName = TARGET_PACKAGE,
+        metrics = listOf(FrameTimingMetric()),
+        iterations = 5,
+        startupMode = null,
+        setupBlock = {
+            launchStationList()
+        },
+    ) {
+        openWatchlistWithSavedStation()
+    }
 }
