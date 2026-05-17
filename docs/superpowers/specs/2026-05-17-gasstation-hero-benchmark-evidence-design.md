@@ -123,7 +123,7 @@ ViewModel이 복잡해질 경우에는 full reducer 추출보다 `StationListFir
 새 문서 위치:
 
 - `docs/performance.md`: hero benchmark 정의, 실기기 측정 환경, 실행 명령, 결과 표, baseline profile 생성 절차
-- `docs/adr/2026-05-17-backend-proxy-escalation.md`: client API key 한계와 공개 배포 시 proxy 승격 설계
+- `docs/adr/2026-05-18-backend-proxy-escalation.md`: client API key 한계와 공개 배포 시 proxy 승격 설계
 
 기존 문서 갱신:
 
@@ -185,11 +185,14 @@ Baseline Profile 생성 경로는 넓게 커버한다.
 
 ### 8.1 `feature:station-list`
 
-- loading은 first usable content가 아님
+- 위치 권한 대기는 first usable content가 아님
+- GPS 비활성화 대기는 first usable content가 아님
+- 캐시 없는 초기 loading은 first usable content가 아님
+- empty 결과는 refresh가 끝나야 first usable content임
 - station card가 있으면 first usable content임
-- 성공한 empty state는 first usable content임
-- 캐시 없는 blocking failure는 first usable content임
-- stale cache with visible stations는 first usable content임
+- 성공한 settled empty state는 first usable content임
+- 캐시 없는 blocking failure guidance는 first usable content임
+- stale cache with visible stations는 first usable content임 (`stations.isNotEmpty()` 분기로 자동 충족)
 
 ### 8.2 `app`
 
@@ -198,13 +201,14 @@ Baseline Profile 생성 경로는 넓게 커버한다.
 
 ### 8.3 `benchmark`
 
-가능한 pure helper는 JVM 테스트로 분리한다.
+Hero benchmark helper는 `MacrobenchmarkScope`/UiAutomator에 강하게 의존하므로 이번 패스 범위에서 pure JVM 테스트로 분리하지 않는다. 대신 코드 수준에서 다음 신뢰성 기준을 helper 자체 구조로 보장한다.
 
-- selector description이 실패 메시지에 포함됨
-- benchmark setup이 demo package name을 단일 출처로 사용함
-- scenario helper가 startup, scroll, refresh, watchlist를 명확히 구분함
+- selector 실패 시 메시지에 어떤 selector와 단계인지 포함되도록 helper 안에 `check(...)` 메시지를 둔다.
+- demo package name은 `TARGET_PACKAGE` 단일 상수로 노출해 scenario마다 중복하지 않는다.
+- scenario helper는 startup, scroll, refresh, watchlist를 별도 함수로 두고, 함수 이름이 측정 대상을 그대로 나타내게 한다.
+- frame timing scenario는 `launchStationList()`가 cold start 자동 refresh의 rail이 사라질 때까지 기다린 뒤 반환하도록 하여, refresh/watchlist hero 측정이 잔여 refresh 활동과 섞이지 않게 한다.
 
-Macrobenchmark 자체는 실기기에서 실행한다.
+Macrobenchmark 자체는 실기기에서 실행한다. Helper의 JVM 단위 추출은 UiAutomator 의존성을 줄이는 별도 follow-up으로 남긴다.
 
 ## 9. Backend Proxy ADR 범위
 

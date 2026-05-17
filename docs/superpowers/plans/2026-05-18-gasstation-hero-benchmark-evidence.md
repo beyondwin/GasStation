@@ -16,6 +16,17 @@ This plan implements the approved spec at `docs/superpowers/specs/2026-05-17-gas
 
 This is one integrated plan because the work produces one coherent outcome: a measured performance evidence path. Backend proxy work is documentation-only and does not create a server.
 
+### Code-Review Pass (2026-05-18)
+
+After comparing the plan to the current code state, the following corrections are folded in:
+
+- Task 1: added a `first content is ready for stale cache with visible stations` policy test so the spec 5.3 / 8.1 stale path is exercised, not just implied by the `stations.isNotEmpty()` branch.
+- Task 5: `launchStationList()` now waits for the cold-start auto-refresh rail (`가격 갱신 중`) to disappear before returning, and `refreshStationList()` reuses the same `waitForRefreshRailGone()` helper. Without this, `refreshFrameTiming` and `openWatchlistFrameTiming` measurements raced against the leftover initial refresh and gave noisy frame timing.
+- Task 5: relabeled the save selector log from "first station save action" to "any visible station save action" — `findObject(By.desc("저장"))` returns an arbitrary match because every station card shares the same `contentDescription`, and the misleading "first" wording would hide future debugging of selector ambiguity.
+- Task 6: the README placeholder check is now an explicit forbidden-token list (`TBD`, `xxx`, `예시`, `placeholder`, `Record the device`) and a unit requirement on every `p50`/`p95` cell, instead of the prior loose "search for sample words" instruction.
+- Spec alignment: the ADR filename in spec section 5.4 was `2026-05-17-backend-proxy-escalation.md` but the plan creates `2026-05-18-backend-proxy-escalation.md`. The spec is updated to the 05-18 name to match the executable plan.
+- Spec alignment: spec section 8.3 previously promised JVM-level benchmark helper tests, but the helpers depend on `MacrobenchmarkScope`/UiAutomator, so they cannot run as pure JVM tests. The spec is updated to keep the reliability guarantees as helper-structure rules (single `TARGET_PACKAGE` constant, named scenario functions, descriptive `check(...)` messages, and the refresh-rail quiescence wait) and to mark JVM extraction as a follow-up.
+
 ## File Structure
 
 ### Create
@@ -153,6 +164,18 @@ Append these tests inside `StationListRoutePolicyTest`.
                 permissionState = LocationPermissionState.PreciseGranted,
                 blockingFailure = StationListFailureReason.RefreshFailed,
                 stations = emptyList(),
+            ).hasFirstUsableContent(),
+        )
+    }
+
+    @Test
+    fun `first content is ready for stale cache with visible stations`() {
+        assertTrue(
+            StationListUiState(
+                permissionState = LocationPermissionState.ApproximateGranted,
+                isStale = true,
+                isRefreshing = true,
+                stations = listOf(testStationUiModel()),
             ).hasFirstUsableContent(),
         )
     }
@@ -658,6 +681,11 @@ internal fun MacrobenchmarkScope.launchStationList() {
     pressHome()
     startActivityAndWait()
     waitForStationListContent()
+    waitForRefreshRailGone()
+}
+
+internal fun MacrobenchmarkScope.waitForRefreshRailGone() {
+    device.wait(Until.gone(By.text(REFRESH_RAIL_TITLE)), WAIT_TIMEOUT_MS)
 }
 
 internal fun MacrobenchmarkScope.grantLocationPermissions() {
@@ -676,7 +704,7 @@ internal fun MacrobenchmarkScope.refreshStationList() {
         selector = By.desc(REFRESH_ACTION_DESCRIPTION),
         label = "refresh action '$REFRESH_ACTION_DESCRIPTION'",
     ).click()
-    device.wait(Until.gone(By.text(REFRESH_RAIL_TITLE)), WAIT_TIMEOUT_MS)
+    waitForRefreshRailGone()
     waitForStationListContent()
 }
 
@@ -696,7 +724,7 @@ internal fun MacrobenchmarkScope.scrollStationList() {
 internal fun MacrobenchmarkScope.openWatchlistWithSavedStation() {
     waitForObject(
         selector = By.desc(SAVE_ACTION_DESCRIPTION),
-        label = "first station save action '$SAVE_ACTION_DESCRIPTION'",
+        label = "any visible station save action '$SAVE_ACTION_DESCRIPTION'",
     ).click()
     waitForObject(
         selector = By.desc(BOOKMARK_ACTION_DESCRIPTION),
@@ -946,7 +974,7 @@ Required README structure:
 - Table columns: `Hero journey`, `Primary metric`, `p50`, `p95`
 - Required row: `Startup to first content`, `startup`, followed by the measured p50 and p95 values from the physical-device run.
 - Final sentence: link to `[Performance](docs/performance.md)` for scenario definitions, device information, and benchmark commands.
-- Before committing, search the README performance section for sample words and confirm every metric cell contains a concrete measured value.
+- Before committing, grep the README performance section for placeholder tokens and confirm none remain. The forbidden tokens are: `TBD`, `xxx`, `예시`, `placeholder`, and `Record the device`. Every `p50` and `p95` cell must contain a measured number with millisecond unit (for startup) or an ms/frame unit (for frame timing).
 
 - [ ] **Step 3: Update verification matrix**
 
