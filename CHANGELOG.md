@@ -12,8 +12,10 @@
 
 ### 문서와 검증
 
-- README와 `docs/performance.md`는 실기기 hero benchmark 결과를 기준으로 성능 증거를 설명합니다.
-- `docs/verification-matrix.md`는 physical-device benchmark를 PR gate가 아닌 opt-in evidence collection으로 분리합니다.
+- README "Performance Snapshot"과 `docs/performance.md`는 Samsung Galaxy S20+ 5G (API 33, `demoBenchmark` variant) 측정값(`timeToInitialDisplayMs` p50 347 ms / p95 393 ms 등)을 게시합니다.
+- `docs/verification-matrix.md`는 physical-device benchmark를 PR gate가 아닌 opt-in evidence collection으로 분리하고 "Hero Benchmark Evidence" 섹션을 추가합니다.
+- `:app`에 `benchmark` build type(`isProfileable=true`, `isDebuggable=false`, debug 키 서명)을 추가해 minified APK를 macrobenchmark가 추적할 수 있게 하고, `:benchmark` 매크로벤치마크 소스를 `com.android.test` 표준 위치인 `src/main/kotlin`으로 이동했습니다(이전 `src/androidTest/`는 컴파일 대상이 아님).
+- 알려진 제약: `BaselineProfileGenerator`와 `openWatchlistFrameTiming`은 현재 실기기에서 watchlist 카드 selector 5초 타임아웃으로 실패하므로 baseline profile은 아직 설치하지 않은 상태로 측정합니다. 자세한 내용은 `docs/performance.md` "Known Limitations"를 참고하세요.
 
 ## 1.1.2 - 2026-05-14
 

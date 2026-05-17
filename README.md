@@ -184,17 +184,18 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
 
-## Startup metric (참고)
+## Performance Snapshot
 
-| 시나리오 | p50 | p95 |
-| --- | --- | --- |
-| Cold start | TBD (measure on hardware) | TBD (measure on hardware) |
-| Warm start | n/a (single-mode run) | n/a (single-mode run) |
-| Hot start | n/a (single-mode run) | n/a (single-mode run) |
+GasStation publishes performance numbers from the deterministic `demo` flavor running hero macrobenchmarks on a physical device. Emulator measurements are used only as smoke checks. The numbers below are the latest committed physical-device run; scenario definitions, device information, and reproduction commands live in [Performance](docs/performance.md).
 
-측정 환경: Pixel 9 emulator / Android 35 / `demo` flavor / 2026-05-11 기준.
+| Hero journey | Primary metric | p50 | p95 |
+| --- | --- | --- | --- |
+| Startup to first content | startup (`timeToInitialDisplayMs`) | 347 ms | 393 ms |
+| Startup to first content | startup (`timeToFullDisplayMs`) | 546 ms | 622 ms |
+| List scroll | frame (`frameDurationCpuMs`) | 3.84 ms/frame | 6.83 ms/frame |
+| Refresh | frame (`frameDurationCpuMs`) | 3.83 ms/frame | 6.05 ms/frame |
 
-> 참고: `androidx.baselineprofile` 플러그인 1.4.1이 AGP 9.1.1과 호환되지 않아(지원 최대 버전: 9.0.0-alpha1) 에뮬레이터 기반 macrobenchmark 실행이 차단되었습니다. 실제 하드웨어나 AGP 호환 환경에서 `:benchmark:connectedDebugAndroidTest`를 통해 측정하세요.
+Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `demoBenchmark` variant on 2026-05-18. See [Performance](docs/performance.md) for the full table, frame-overrun numbers, known limitations (baseline profile + watchlist benchmark currently unavailable), and the exact commands to reproduce the run.
 
 ## 검증
 

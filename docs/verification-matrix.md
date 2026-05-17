@@ -154,6 +154,24 @@ API 33+ Geocoder callback path를 실제 기기나 에뮬레이터에서 확인�
 - watchlist 열기
 - baseline profile 수집 시 새로고침과 watchlist 진입
 
+## Hero Benchmark Evidence
+
+Hero benchmarks require a physical device for committed performance numbers. Emulator runs are allowed only as smoke checks. Use the `benchmark` build variant (forks `release` with `isDebuggable=false`, `isProfileable=true`, debug signing) so the same minified APK macrobenchmark expects can be installed and traced without a release keystore.
+
+```bash
+./gradlew :app:assembleDemoBenchmark :benchmark:assembleBenchmark
+ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTest
+```
+
+After a successful run, inspect generated JSON and trace artifacts:
+
+```bash
+find benchmark/build/outputs/connected_android_test_additional_output -name '*benchmarkData.json' -print
+find benchmark/build/outputs/connected_android_test_additional_output -name '*.perfetto-trace' -print
+```
+
+Do not add this command to the default PR gate. It depends on a connected physical device and is part of release or portfolio evidence collection. The committed reference numbers and known limitations live in [`docs/performance.md`](performance.md).
+
 ## 참고
 
 - `./benchmark/run-demo-benchmark.sh`는 빠른 assemble 확인용 래퍼입니다.
