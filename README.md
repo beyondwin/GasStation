@@ -29,7 +29,7 @@
 | 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
-| 현재 앱 버전 | `1.1.2` (`versionCode` 6) |
+| 현재 앱 버전 | `1.1.3` (`versionCode` 7) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 | 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
@@ -146,7 +146,9 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 ## 릴리즈
 
 - [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
-- [Unreleased](CHANGELOG.md#unreleased): v1.1.2 이후 hero benchmark evidence, first usable content startup reporting, backend proxy ADR, physical-device performance snapshot을 추적합니다.
+- [배포 절차](docs/deployment.md): release branch, 검증, tag push, prodRelease 산출물, signing/secret 경계를 정리합니다.
+- [Unreleased](CHANGELOG.md#unreleased): v1.1.3 이후 변경 사항을 추적합니다.
+- [1.1.3 릴리즈 노트](docs/release-notes/2026-05-18-v1.1.3.md): hero benchmark evidence, first usable content startup reporting, backend proxy ADR, physical-device performance snapshot, 배포 절차 문서화를 정리합니다.
 - [1.1.2 릴리즈 노트](docs/release-notes/2026-05-14-v1.1.2.md): build/test 속도 개선, CI 메모리 안정화, 검증 경로 분리를 정리합니다.
 - [1.1.1 릴리즈 노트](docs/release-notes/2026-05-13-v1.1.1.md): clean architecture remediation, observability 경계, station-list/data 분리, CI scope 조정을 정리합니다.
 - [1.1.0 릴리즈 노트](docs/release-notes/2026-05-11-v1.1.0.md): production baseline, CI, i18n, screenshot regression, coverage 기반 변경과 검증 결과를 정리합니다.
@@ -166,6 +168,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
+- [배포 절차](docs/deployment.md): 릴리스 준비, GitHub PR/tag 흐름, Android release 산출물과 공개 배포 전 보안 gate를 설명합니다.
 - [성능](docs/performance.md): hero macrobenchmark 정의, 실기기 측정값, baseline profile 경로와 제약을 정리합니다.
 - [Backend proxy ADR](docs/adr/2026-05-18-backend-proxy-escalation.md): Opinet API key를 backend proxy로 승격해야 하는 조건을 기록합니다.
 - [심층 분석 리포트](docs/history/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.

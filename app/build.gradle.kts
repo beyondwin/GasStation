@@ -11,8 +11,8 @@ android {
 
     defaultConfig {
         applicationId = "com.gasstation"
-        versionCode = 6
-        versionName = "1.1.2"
+        versionCode = 7
+        versionName = "1.1.3"
     }
 
     productFlavors {

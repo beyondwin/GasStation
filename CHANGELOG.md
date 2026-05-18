@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+릴리스 후 다음 변경 사항을 기록합니다.
+
+## 1.1.3 - 2026-05-18
+
 ### 개발자 영향
 
 - Hero benchmark evidence: station-list first usable content 기준으로 `reportFullyDrawn()`을 연결하고, startup/list scroll/refresh/watchlist macrobenchmark 경로를 분리합니다. 판단은 `feature:station-list`의 순수 정책 `StationListFirstContentPolicy`로, 보고는 `app`의 `StartupDrawReporter` Compose 훅으로 책임을 나눠 측정 기준이 feature 경계 안에서 단일 출처를 갖도록 했습니다.
@@ -18,9 +22,11 @@
 - `:app`에 `benchmark` build type(`isProfileable=true`, `isDebuggable=false`, debug 키 서명)을 추가해 minified APK를 macrobenchmark가 추적할 수 있게 하고, `:benchmark` 매크로벤치마크 소스를 `com.android.test` 표준 위치인 `src/main/kotlin`으로 이동했습니다(이전 `src/androidTest/`는 컴파일 대상이 아님).
 - `benchmark` macrobenchmark의 UiAutomator 대기 한도(`WAIT_TIMEOUT_MS`)를 5초에서 10초로 늘려 실기기 selector 안정성을 확보합니다.
 - `docs/performance.md`에 `demoBenchmark` vs `demoDebug` APK 사이즈(2.51 MB / 22.70 MB) 비교를 추가해 R8 minify 효과를 단일 출처로 기록합니다.
+- `docs/deployment.md`를 추가해 release branch, 버전 bump, PR/CI, tag push, prodRelease 산출물, signing/secret 경계를 한 곳에서 확인할 수 있게 했습니다.
 - `feature:station-list`의 `WatchToggleButton`(`StationListCards.kt`)과 station-list 새로고침 `IconButton`(`StationListScreen.kt`)이 자식 `Icon` 대신 부모 `Modifier.semantics`에 직접 `contentDescription`을 부여하도록 정리했습니다. UX/시각 변화는 없으며 접근성 트리에서 단일 노드로 노출되어 기존 bookmark `IconButton`과 동일한 패턴이 됩니다.
 - `benchmark` 매크로벤치마크의 `openWatchlistWithSavedStation`이 `waitForObject` → `click` 사이 Compose recomposition으로 `UiObject2`가 stale이 될 때 selector를 재해석하도록 `clickStable` retry 헬퍼를 도입했습니다.
 - 알려진 제약: 위 변경 후에도 `BaselineProfileGenerator`와 `openWatchlistFrameTiming`은 macrobenchmark phase / 디바이스 상태 상호작용으로 인해 실기기에서 일관되지 않은 selector 매치를 보이며 측정 표본을 수집하지 못합니다. baseline profile은 아직 설치하지 않은 상태로 측정합니다. 시도한 3가지 변경과 남은 조사 후보는 `docs/performance.md` "Known Limitations"를 참고하세요.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-05-18-v1.1.3.md](docs/release-notes/2026-05-18-v1.1.3.md)를 봅니다.
 
 ## 1.1.2 - 2026-05-14
 
