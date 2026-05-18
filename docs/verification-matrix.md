@@ -13,7 +13,7 @@
 코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
 
 ```bash
-git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/security-trade-offs.md docs/release-notes/*.md
+git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/security-trade-offs.md docs/performance.md docs/deployment.md docs/adr/*.md docs/release-notes/*.md
 ```
 
 `docs/superpowers/specs/`와 `docs/superpowers/plans/`는 과거 설계/계획 이력이므로 current contract 확인 명령에는 기본 포함하지 않습니다. 해당 이력 문서를 직접 수정했다면 수정한 파일 경로를 위 명령에 명시적으로 추가합니다.
@@ -117,6 +117,18 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 `prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
 `assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
 
+## 릴리스/배포 확인
+
+새 버전을 발행할 때는 [`docs/deployment.md`](deployment.md)의 절차를 따른 뒤 아래 명령을 최소 확인으로 사용합니다.
+
+```bash
+git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md app/build.gradle.kts docs/deployment.md docs/verification-matrix.md docs/release-notes/*.md
+./gradlew :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble
+./gradlew :app:assembleProdRelease
+```
+
+physical-device 성능 수치를 갱신하는 릴리스라면 "Hero Benchmark Evidence" 명령을 추가로 실행하고 `docs/performance.md`와 해당 릴리즈 노트에 기기/variant/측정일을 남깁니다.
+
 ## 기기 기반 UI 확인
 
 demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.
@@ -145,14 +157,17 @@ API 33+ Geocoder callback path를 실제 기기나 에뮬레이터에서 확인�
 매크로벤치마크와 baseline profile 수집이 필요할 때 사용합니다.
 
 ```bash
-./gradlew :benchmark:connectedDebugAndroidTest
+./gradlew :app:assembleDemoBenchmark :benchmark:assembleBenchmark
+ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTest
 ```
 
 현재 benchmark는 다음 흐름을 기준으로 합니다.
 
-- cold start
-- watchlist 열기
-- baseline profile 수집 시 새로고침과 watchlist 진입
+- startup to first station-list content
+- station-list scroll
+- seeded refresh
+- station save 후 watchlist 진입
+- baseline profile 수집 시 startup, refresh, scroll, watchlist 진입
 
 ## Hero Benchmark Evidence
 

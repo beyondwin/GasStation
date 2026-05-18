@@ -40,6 +40,10 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 
 명령 변경/확장 시 `docs/verification-matrix.md`를 먼저 갱신한 뒤 위 블록을 같이 동기화합니다.
 
+## 릴리스와 배포
+
+새 버전 발행은 [`docs/deployment.md`](docs/deployment.md)를 따릅니다. 릴리스 PR은 `app/build.gradle.kts`의 `versionCode`/`versionName`, `CHANGELOG.md`, `README.md`, `docs/release-notes/`를 함께 갱신하고, merge 후 `vX.Y.Z` 태그 push로 GitHub Actions의 release 성격 검증을 실행합니다.
+
 ## 커밋 메시지
 
 [Conventional Commits](https://www.conventionalcommits.org/)을 따릅니다.
