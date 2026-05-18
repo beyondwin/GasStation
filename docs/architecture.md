@@ -73,7 +73,7 @@ flowchart LR
 
 | 모듈 | 책임 |
 | --- | --- |
-| `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결, flavor별 `CrashReporter` 구현(NoOp/Logcat) Hilt 바인딩 |
+| `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, first-content startup reporting bridge, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결, flavor별 `CrashReporter` 구현(NoOp/Logcat) Hilt 바인딩 |
 | `feature:station-list` | 권한/GPS/위치/새로고침을 포함한 목록 화면 상태와 effect 처리 |
 | `feature:settings` | 설정 요약 목록과 상세 선택 화면 렌더링, 같은 `SettingsViewModel` 공유 |
 | `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
@@ -90,7 +90,7 @@ flowchart LR
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | storage-local `StoredUserPreferences` DataStore와 커스텀 serializer. 선호값은 primitive/string enum name으로 저장 |
 | `tools:demo-seed` | Opinet 결과를 기준으로 demo seed JSON을 다시 생성하는 JVM CLI |
-| `benchmark` | `demo` 경로를 대상으로 cold start, watchlist 이동, baseline profile 측정 |
+| `benchmark` | `demo` 경로를 대상으로 startup-to-first-content, list scroll, refresh, watchlist 진입 macrobenchmark와 baseline profile journey 측정 |
 
 ## 의존성 해석 기준
 

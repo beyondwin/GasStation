@@ -31,7 +31,7 @@
 | `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest` | 북마크 비교 화면 상태와 표시, `CompareViewed` event, brand label 보존, metric column alignment, 긴 저장 항목/큰 가격 clipping 방지 |
 | `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 인텐트 |
 | `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `StationPortfolioFlowTest` | seed 적재, 고정 위치, 실제 북마크 플로우 |
-| `benchmark` | `StationListBenchmark`, `BaselineProfileGenerator` | cold start, watchlist 이동, baseline profile |
+| `benchmark` | `StationListBenchmark`, `BaselineProfileGenerator`, `GasStationBenchmarkActions` | startup-to-first-content, list scroll, refresh, watchlist 진입, baseline profile journey |
 | `tools:demo-seed` | `DemoSeedGeneratorTest` | seed 생성기와 질의 매트릭스 |
 
 ## flavor별 관점
@@ -81,6 +81,8 @@
   사용자 설정의 지도 앱 선택이 실제 외부 인텐트와 맞아야 합니다.
 - First usable content policy
   Startup metric은 첫 frame이 아니라 사용 가능한 목록/empty/failure content 기준으로 보고합니다. `StationListFirstContentPolicy`와 `StartupDrawReporter` 테스트가 이 기준을 보호합니다.
+- Hero benchmark source set
+  `benchmark`는 `com.android.test` 모듈의 main source set(`benchmark/src/main/kotlin`)에서 scenario와 baseline profile generator를 컴파일합니다. 실기기 증거 수집은 `connectedBenchmarkAndroidTest` 경로가 단일 기준입니다.
 
 ## 의도적으로 약하게 보는 것
 

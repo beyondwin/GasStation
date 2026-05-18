@@ -31,7 +31,7 @@
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
 | `core:datastore` | DataStore data source, serializer, storage-local settings DTO | Android DataStore | 화면 상태, 설정 정책, domain model |
 | `tools:demo-seed` | demo seed 재생성 CLI | `core:network`, `domain:station`, `core:model` | 앱 런타임 의존 |
-| `benchmark` | 매크로벤치마크와 baseline profile | `app` | 기능 구현 |
+| `benchmark` | `demo` hero macrobenchmark, baseline profile journey, physical-device performance evidence | `app` | 기능 구현 |
 
 ## 경계가 헷갈릴 때 보는 기준
 

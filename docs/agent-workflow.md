@@ -191,7 +191,7 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 - 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel test: `Dispatchers.Main`이 필요하면 feature-local JUnit rule/helper를 우선하고, station-list는 `MainDispatcherRule` 계약을 따른다.
 - app 조립/flavor/startup: `app:testDemoDebugUnitTest`, `app:testProdDebugUnitTest`
 - demo 실제 플로우: `app:connectedDemoDebugAndroidTest`
-- benchmark: `benchmark:assemble` 또는 `benchmark:connectedDebugAndroidTest`
+- benchmark: `benchmark:assemble` 또는 실기기 evidence 수집용 `benchmark:connectedBenchmarkAndroidTest`
 
 정확한 명령 조합은 `docs/verification-matrix.md`를 따른다.
 
@@ -203,6 +203,7 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 - 상태 원천이나 lifecycle이 바뀌면 `docs/state-model.md`
 - 캐시, stale, refresh 실패, watchlist fallback이 바뀌면 `docs/offline-strategy.md`
 - 테스트 의미나 명령이 바뀌면 `docs/test-strategy.md`와 `docs/verification-matrix.md`
+- 성능 측정, benchmark journey, baseline profile 경로가 바뀌면 `docs/performance.md`와 `docs/verification-matrix.md`
 - README가 설명하는 대표 사용자 흐름이 바뀌면 `README.md`
 - 일회성 기능 설계나 구현 계획은 `docs/superpowers/specs/`와 `docs/superpowers/plans/`
 
