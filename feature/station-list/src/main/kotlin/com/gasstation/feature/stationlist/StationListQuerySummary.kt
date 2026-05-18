@@ -2,10 +2,16 @@ package com.gasstation.feature.stationlist
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -18,11 +24,13 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 
 internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
+internal const val STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG = "station-list-query-context-location-icon"
 
 @Composable
 internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier = Modifier) {
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
+    val iconSize = GasStationTheme.iconSize
     val addressLabel = uiState.currentAddressLabel
         ?.trim()
         ?.takeIf(String::isNotEmpty)
@@ -43,13 +51,28 @@ internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier
         verticalArrangement = Arrangement.spacedBy(spacing.space4),
     ) {
         if (addressLabel != null) {
-            Text(
-                text = addressLabel,
-                style = typography.body.copy(fontWeight = FontWeight.Bold),
-                color = ColorBlack,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.space4),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MyLocation,
+                    contentDescription = null,
+                    tint = ColorGray2,
+                    modifier = Modifier
+                        .size(iconSize.status)
+                        .testTag(STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG),
+                )
+                Text(
+                    text = addressLabel,
+                    style = typography.body.copy(fontWeight = FontWeight.Bold),
+                    color = ColorBlack,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         Text(
             text = conditionLabel,

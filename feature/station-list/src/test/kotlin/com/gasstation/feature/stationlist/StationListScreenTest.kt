@@ -53,6 +53,7 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG).assertExists()
         composeRule.onNodeWithText("서울 영등포구 당산동").assertExists()
         composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
         composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
@@ -99,6 +100,7 @@ class StationListScreenTest {
         }
 
         composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG).assertDoesNotExist()
         composeRule.onNodeWithText("3km · 휘발유 기준").assertExists()
         composeRule.onNodeWithText("현재 조건").assertDoesNotExist()
         composeRule.onNodeWithText("반경과 유종 기준으로 정렬합니다.").assertDoesNotExist()
