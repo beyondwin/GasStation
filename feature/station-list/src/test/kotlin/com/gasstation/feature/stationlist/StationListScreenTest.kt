@@ -788,6 +788,30 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `station list exposes stable benchmark tags without changing copy`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(testStation()),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+                onWatchlistClick = {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("북마크").assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_WATCHLIST_ACTION_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("저장").assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_WATCH_TOGGLE_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun `empty results state renders empty guidance and retry action`() {
         val actions = mutableListOf<StationListAction>()
 
@@ -835,6 +859,7 @@ class StationListScreenTest {
             .performTouchInput { swipeDown() }
 
         assertEquals(listOf(StationListAction.RefreshRequested), actions)
+        composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true).assertExists()
     }
 
     @Test

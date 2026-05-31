@@ -95,6 +95,21 @@ class WatchlistScreenTest {
     }
 
     @Test
+    fun `watchlist exposes root tag for benchmark resource id lookup`() {
+        composeRule.setContent {
+            WatchlistScreen(
+                uiState = WatchlistUiState(
+                    stations = listOf(watchlistStation("station-1", "강남주유소", "1,689")),
+                ),
+                onCloseClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(WATCHLIST_ROOT_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun `watchlist keeps comparison metric columns aligned across cards`() {
         composeRule.setContent {
             WatchlistScreen(

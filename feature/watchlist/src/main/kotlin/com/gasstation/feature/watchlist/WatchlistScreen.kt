@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
@@ -60,7 +61,14 @@ internal const val WATCHLIST_DELTA_INDICATOR_TAG = "watchlist-delta-indicator"
 fun WatchlistScreen(uiState: WatchlistUiState, onCloseClick: () -> Unit) {
     val spacing = GasStationTheme.spacing
 
-    GasStationBackground(modifier = Modifier.fillMaxSize()) {
+    GasStationBackground(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(WATCHLIST_ROOT_TAG)
+            .semantics {
+                testTagsAsResourceId = true
+            },
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {

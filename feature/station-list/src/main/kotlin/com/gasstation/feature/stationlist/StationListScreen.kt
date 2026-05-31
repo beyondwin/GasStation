@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
@@ -93,7 +94,14 @@ fun StationListScreen(
             currentOnFirstContentDrawn()
         }
     }
-    GasStationBackground(modifier = Modifier.fillMaxSize()) {
+    GasStationBackground(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(STATION_LIST_ROOT_TAG)
+            .semantics {
+                testTagsAsResourceId = true
+            },
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -107,7 +115,9 @@ fun StationListScreen(
                     actions = {
                         if (onWatchlistClick != null) {
                             IconButton(
-                                modifier = Modifier.semantics { contentDescription = bookmarkLabel },
+                                modifier = Modifier
+                                    .testTag(STATION_LIST_WATCHLIST_ACTION_TAG)
+                                    .semantics { contentDescription = bookmarkLabel },
                                 onClick = onWatchlistClick,
                             ) {
                                 Icon(imageVector = Icons.Outlined.BookmarkBorder, contentDescription = null)

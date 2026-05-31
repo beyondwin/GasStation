@@ -233,6 +233,7 @@ private fun WatchToggleButton(watched: Boolean, onClick: () -> Unit) {
 
     IconButton(
         modifier = Modifier
+            .testTag(STATION_LIST_WATCH_TOGGLE_TAG)
             .semantics {
                 contentDescription = watchActionLabel
                 selected = watched
