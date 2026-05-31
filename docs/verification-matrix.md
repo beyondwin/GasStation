@@ -178,6 +178,8 @@ Hero benchmarks require a physical device for committed performance numbers. Emu
 ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTest
 ```
 
+The watchlist benchmark uses Compose test tags exposed as resource IDs for the save action, top-bar bookmark action, and watchlist card. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+
 After a successful run, inspect generated JSON and trace artifacts:
 
 ```bash
