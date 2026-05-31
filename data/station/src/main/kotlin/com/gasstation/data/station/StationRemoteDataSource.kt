@@ -2,7 +2,7 @@ package com.gasstation.data.station
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.network.station.NetworkStationFetchResult
-import com.gasstation.core.network.station.NetworkStationFetcher
+import com.gasstation.core.network.station.StationNetworkSource
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
 import kotlinx.coroutines.CancellationException
@@ -22,11 +22,11 @@ sealed interface RemoteStationFetchResult {
     data class Failure(val reason: StationRefreshFailureReason, val cause: Throwable? = null) : RemoteStationFetchResult
 }
 
-class DefaultStationRemoteDataSource @Inject constructor(private val networkStationFetcher: NetworkStationFetcher) :
+class DefaultStationRemoteDataSource @Inject constructor(private val stationNetworkSource: StationNetworkSource) :
     StationRemoteDataSource {
     override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult = try {
         when (
-            val result = networkStationFetcher.fetchStations(
+            val result = stationNetworkSource.fetchStations(
                 origin = query.coordinates,
                 radius = query.radius,
                 fuelType = query.fuelType,

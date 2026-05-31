@@ -5,9 +5,8 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
-import com.gasstation.core.network.model.OpinetResponseDto
-import com.gasstation.core.network.service.OpinetService
-import com.gasstation.core.network.station.NetworkStationFetcher
+import com.gasstation.core.network.station.NetworkRemoteStation
+import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
 import kotlinx.coroutines.CancellationException
@@ -21,12 +20,45 @@ import java.net.SocketTimeoutException
 
 class StationRemoteDataSourceTest {
     @Test
+    fun `success maps common network source stations to remote stations`() = runBlocking {
+        val dataSource = DefaultStationRemoteDataSource(
+            stationNetworkSource = FakeStationNetworkSource(
+                NetworkStationFetchResult.Success(
+                    listOf(
+                        NetworkRemoteStation(
+                            stationId = "station-1",
+                            name = "강남주유소",
+                            brandCode = "SKG",
+                            priceWon = 1689,
+                            coordinates = Coordinates(37.4987, 127.0285),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = dataSource.fetchStations(stationQuery())
+
+        assertEquals(
+            RemoteStationFetchResult.Success(
+                listOf(
+                    RemoteStation(
+                        stationId = "station-1",
+                        name = "강남주유소",
+                        brandCode = "SKG",
+                        priceWon = 1689,
+                        coordinates = Coordinates(37.4987, 127.0285),
+                    ),
+                ),
+            ),
+            result,
+        )
+    }
+
+    @Test
     fun `socket timeout maps to timeout failure`() = runBlocking {
         val dataSource = DefaultStationRemoteDataSource(
-            networkStationFetcher = NetworkStationFetcher(
-                opinetService = FakeOpinetService(throwable = SocketTimeoutException("slow")),
-                opinetApiKey = "opinet-key",
-            ),
+            stationNetworkSource = ThrowingStationNetworkSource(SocketTimeoutException("slow")),
         )
         val result = dataSource.fetchStations(stationQuery())
 
@@ -39,10 +71,7 @@ class StationRemoteDataSourceTest {
     @Test
     fun `interrupted io timeout maps to timeout failure`() = runBlocking {
         val dataSource = DefaultStationRemoteDataSource(
-            networkStationFetcher = NetworkStationFetcher(
-                opinetService = FakeOpinetService(throwable = InterruptedIOException("call timeout")),
-                opinetApiKey = "opinet-key",
-            ),
+            stationNetworkSource = ThrowingStationNetworkSource(InterruptedIOException("call timeout")),
         )
         val result = dataSource.fetchStations(stationQuery())
 
@@ -55,10 +84,7 @@ class StationRemoteDataSourceTest {
     @Test
     fun `payload parsing failure maps to invalid payload`() = runBlocking {
         val dataSource = DefaultStationRemoteDataSource(
-            networkStationFetcher = NetworkStationFetcher(
-                opinetService = FakeOpinetService(throwable = JsonSyntaxException("malformed json")),
-                opinetApiKey = "opinet-key",
-            ),
+            stationNetworkSource = ThrowingStationNetworkSource(JsonSyntaxException("malformed json")),
         )
         val result = dataSource.fetchStations(stationQuery())
 
@@ -72,10 +98,7 @@ class StationRemoteDataSourceTest {
     fun `cancellation exception is rethrown`() {
         runBlocking {
             val dataSource = DefaultStationRemoteDataSource(
-                networkStationFetcher = NetworkStationFetcher(
-                    opinetService = FakeOpinetService(throwable = CancellationException("cancelled")),
-                    opinetApiKey = "opinet-key",
-                ),
+                stationNetworkSource = ThrowingStationNetworkSource(CancellationException("cancelled")),
             )
 
             assertThrows(CancellationException::class.java) {
@@ -94,21 +117,23 @@ class StationRemoteDataSourceTest {
         sortOrder = SortOrder.DISTANCE,
     )
 
-    private class FakeOpinetService(
-        private val response: OpinetResponseDto = OpinetResponseDto(),
-        private val throwable: Throwable? = null,
-    ) : OpinetService {
-        override suspend fun findStations(
-            code: String,
-            x: Double,
-            y: Double,
-            radius: Int,
-            sort: String,
-            fuelType: String,
-            out: String,
-        ): OpinetResponseDto {
-            throwable?.let { throw it }
-            return response
+    private class FakeStationNetworkSource(private val result: NetworkStationFetchResult) :
+        com.gasstation.core.network.station.StationNetworkSource {
+        override suspend fun fetchStations(
+            origin: Coordinates,
+            radius: SearchRadius,
+            fuelType: FuelType,
+        ): NetworkStationFetchResult = result
+    }
+
+    private class ThrowingStationNetworkSource(private val throwable: Throwable) :
+        com.gasstation.core.network.station.StationNetworkSource {
+        override suspend fun fetchStations(
+            origin: Coordinates,
+            radius: SearchRadius,
+            fuelType: FuelType,
+        ): NetworkStationFetchResult {
+            throw throwable
         }
     }
 

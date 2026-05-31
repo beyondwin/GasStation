@@ -4,6 +4,8 @@ plugins {
 }
 
 val opinetApiKey = providers.gradleProperty("opinet.apikey").orElse("").get()
+val stationEndpointMode = providers.gradleProperty("gasstation.stationEndpointMode").orElse("direct")
+val proxyBaseUrl = providers.gradleProperty("gasstation.proxyBaseUrl").orElse("")
 
 android {
     namespace = "com.gasstation"
@@ -13,6 +15,8 @@ android {
         applicationId = "com.gasstation"
         versionCode = 7
         versionName = "1.1.3"
+        buildConfigField("String", "STATION_ENDPOINT_MODE", "\"${stationEndpointMode.get()}\"")
+        buildConfigField("String", "PROXY_BASE_URL", "\"${proxyBaseUrl.get()}\"")
     }
 
     productFlavors {

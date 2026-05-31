@@ -7,13 +7,40 @@ import org.junit.Test
 
 class NetworkRuntimeConfigTest {
     @Test
-    fun `runtime config keeps only the externally provided opinet api key`() {
+    fun `runtime config keeps externally provided key and station endpoint settings`() {
         val config = NetworkRuntimeConfig(
             opinetApiKey = "opinet-key",
+            stationEndpointMode = StationEndpointMode.Proxy,
+            stationBaseUrl = "https://gasstation-proxy.example/",
         )
 
         assertEquals("opinet-key", config.opinetApiKey)
-        assertEquals(listOf("opinetApiKey"), NetworkRuntimeConfig::class.java.declaredFields.map { it.name })
+        assertEquals(StationEndpointMode.Proxy, config.stationEndpointMode)
+        assertEquals("https://gasstation-proxy.example/", config.stationBaseUrl)
+        assertEquals(
+            listOf("opinetApiKey", "stationEndpointMode", "stationBaseUrl"),
+            NetworkRuntimeConfig::class.java.declaredFields.map { it.name },
+        )
+    }
+
+    @Test
+    fun `default runtime config uses direct Opinet`() {
+        val config = NetworkRuntimeConfig(opinetApiKey = "opinet-key")
+
+        assertEquals(StationEndpointMode.DirectOpinet, config.stationEndpointMode)
+        assertEquals(NetworkModule.provideOpinetBaseUrl(), config.stationBaseUrl)
+    }
+
+    @Test
+    fun `runtime config supports proxy endpoint mode`() {
+        val config = NetworkRuntimeConfig(
+            opinetApiKey = "opinet-key",
+            stationEndpointMode = StationEndpointMode.Proxy,
+            stationBaseUrl = "https://gasstation-proxy.example/",
+        )
+
+        assertEquals(StationEndpointMode.Proxy, config.stationEndpointMode)
+        assertEquals("https://gasstation-proxy.example/", config.stationBaseUrl)
     }
 
     @Test
@@ -38,6 +65,7 @@ class NetworkRuntimeConfigTest {
                 "provideOpinetBaseUrl",
                 "provideOpinetService",
                 "provideProxyStationService",
+                "provideStationNetworkSource",
             ),
             methodNames,
         )
