@@ -1,6 +1,10 @@
 package com.gasstation.core.network.di
 
 import com.gasstation.core.network.service.OpinetService
+import com.gasstation.core.network.service.ProxyStationService
+import com.gasstation.core.network.station.NetworkStationFetcher
+import com.gasstation.core.network.station.ProxyStationFetcher
+import com.gasstation.core.network.station.StationNetworkSource
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -19,6 +23,23 @@ object NetworkModule {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
         .create(OpinetService::class.java)
+
+    fun provideProxyStationService(baseUrl: String): ProxyStationService = Retrofit.Builder()
+        .baseUrl(baseUrl)
+        .client(defaultOkHttpClient())
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+        .create(ProxyStationService::class.java)
+
+    fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource = when (config.stationEndpointMode) {
+        StationEndpointMode.DirectOpinet -> NetworkStationFetcher(
+            opinetService = provideOpinetService(provideOpinetBaseUrl()),
+            opinetApiKey = config.opinetApiKey,
+        )
+        StationEndpointMode.Proxy -> ProxyStationFetcher(
+            proxyStationService = provideProxyStationService(config.stationBaseUrl),
+        )
+    }
 
     private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
         .callTimeout(Duration.ofSeconds(8))

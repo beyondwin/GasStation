@@ -178,6 +178,8 @@ Hero benchmarks require a physical device for committed performance numbers. Emu
 ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTest
 ```
 
+The watchlist benchmark uses Compose test tags exposed as resource IDs for the save action, top-bar bookmark action, and watchlist card. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+
 After a successful run, inspect generated JSON and trace artifacts:
 
 ```bash
@@ -189,5 +191,6 @@ Do not add this command to the default PR gate. It depends on a connected physic
 
 ## 참고
 
+- `docs/build-velocity.md`는 Gradle parallel/cache/configuration-cache 기본값과 release assemble gate 위치를 timing 근거와 함께 설명합니다.
 - `./benchmark/run-demo-benchmark.sh`는 빠른 assemble 확인용 래퍼입니다.
 - 앱 모듈의 사용 가능한 variant/task 표면은 `./gradlew :app:tasks --all`로 다시 확인할 수 있습니다.

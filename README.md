@@ -129,6 +129,7 @@ flowchart LR
 `prod` 앱을 실제로 실행하려면 발급받은 `opinet.apikey`가 필요합니다. `demo` 실행에는 키가 필요 없고, `prod` 빌드는 빈 값으로도 가능하지만 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다. 키는 버전 관리되는 프로젝트 루트 `gradle.properties`에 쓰지 말고 사용자별 `~/.gradle/gradle.properties`에 두거나 Gradle 실행 시 `-Popinet.apikey=<issued-key>`로 전달합니다. 참고할 공식 페이지는 [오피넷 홈페이지](https://www.opinet.co.kr)와 [오피넷 Open API 소개](https://www.opinet.co.kr/user/custapi/openApiIntro.do)입니다.
 
 > `prod` 키는 Android 클라이언트 `BuildConfig`로 주입되며, 그 한계와 승격 조건은 [`docs/security-trade-offs.md`](docs/security-trade-offs.md)에 정리되어 있습니다. 앱은 로컬 캐시/설정을 Android backup 대상으로 내보내지 않습니다.
+> 앱은 향후 공개 배포를 위해 proxy endpoint mode로 빌드할 수 있지만, 체크인된 기본 설정은 Android 중심 `demo`/`prod` 경로의 direct Opinet 접근을 유지합니다.
 
 ```properties
 # ~/.gradle/gradle.properties
@@ -201,7 +202,7 @@ GasStation publishes performance numbers from the deterministic `demo` flavor ru
 | List scroll | frame (`frameDurationCpuMs`) | 3.84 ms/frame | 6.83 ms/frame |
 | Refresh | frame (`frameDurationCpuMs`) | 3.83 ms/frame | 6.05 ms/frame |
 
-Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `demoBenchmark` variant on 2026-05-18. See [Performance](docs/performance.md) for the full table, frame-overrun numbers, known limitations (baseline profile + watchlist benchmark currently unavailable), and the exact commands to reproduce the run.
+Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `demoBenchmark` variant on 2026-05-18. See [Performance](docs/performance.md) for the full table, frame-overrun numbers, selector contracts, physical-device rerun requirements, and the exact commands to reproduce the run.
 
 ## 검증
 

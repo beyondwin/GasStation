@@ -50,7 +50,7 @@ The baseline profile generator covers:
 - Station-list scroll
 - Watchlist entry after saving a station
 
-The generator and its companion `openWatchlistFrameTiming` benchmark depend on a station being saved and the watchlist card (`content-description = "관심 주유소 카드"`) appearing within 10 seconds. See Known Limitations for the current status of those two scenarios.
+The generator and its companion `openWatchlistFrameTiming` benchmark depend on a station being saved and the watchlist card appearing within 10 seconds. The save action, top-bar bookmark action, and watchlist card are selected through Compose test tags exposed as resource IDs so benchmark selectors stay separate from Korean accessibility copy. See Known Limitations for the current status of those two scenarios.
 
 ## Commands
 
@@ -69,12 +69,8 @@ The `:app` `benchmark` build type forks `release` with `isDebuggable=false`, `is
 
 ## Known Limitations
 
-- **Baseline profile not installed.** `BaselineProfileGenerator.collectHeroJourney` still fails on this device after the production semantics hardening described below. Compilation mode therefore stays at `verify`. Startup numbers above are realistic for first-install / post-update users and represent a lower-bound improvement target once a baseline profile is generated.
-- **`openWatchlistFrameTiming` skipped.** The watchlist flow continues to time out on the first `By.desc("저장")` selector in `openWatchlistWithSavedStation()`. We attempted three remediations in this pass:
-  - Lifted `WAIT_TIMEOUT_MS` 5 s → 10 s (kept).
-  - Made the `WatchToggleButton` and station-list refresh `IconButton` declare `contentDescription` directly on the parent semantics node so UiAutomator does not depend on Compose `mergeDescendants` behavior (kept — also an accessibility improvement; `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`, `StationListScreen.kt`).
-  - Added a `clickStable()` retry wrapper that re-resolves the `UiObject2` on `StaleObjectException` between `waitForObject` and `click` (kept — `GasStationBenchmarkActions.kt`).
-  After these changes one run did push `BaselineProfileGenerator` further (selector match succeeded, `StaleObjectException` surfaced inside the click path instead of a `waitForObject` timeout). On the very next run the same two scenarios reverted to first-selector timeout. The same `refreshStationList()` call passes in `StationListBenchmark.refreshFrameTiming` (measure block) but fails in `StationListBenchmark.openWatchlistFrameTiming` setupBlock, which points at a macrobenchmark phase / device-state interaction we did not isolate. Further investigation candidates: (a) drive watchlist entry through an explicit `Intent` instead of UI traversal (requires production code to expose an internal deep link), (b) replace the demo-data dependency with a fixture that guarantees a single bookmarkable card under stable on-screen coordinates, (c) re-run on a Compose 1.7+ / AGP 9.2 line to see if `mergeDescendants` + macrobenchmark scope interplay has been fixed upstream.
+- **Baseline profile not installed.** `BaselineProfileGenerator.collectHeroJourney` did not produce a committed physical-device profile in the latest measured run, so compilation mode stays at `verify`. Startup numbers above are realistic for first-install / post-update users and represent a lower-bound improvement target once a baseline profile is generated.
+- **`openWatchlistFrameTiming` not yet re-measured on a physical device.** On 2026-05-31 the benchmark helper moved the watchlist flow from Korean content-description selectors to stable resource-id selectors: `station-list-watch-toggle`, `station-list-watchlist-action`, and `watchlist-card`. The code assembles, but this session only had `emulator-5554` attached and no physical device, so no new `openWatchlistFrameTiming` JSON or trace artifact was generated. Keep README performance numbers unchanged until `ANDROID_SERIAL=<physical device> ./gradlew :benchmark:connectedBenchmarkAndroidTest` passes and `find benchmark/build/outputs/connected_android_test_additional_output -name '*benchmarkData.json' -print` shows a new source JSON.
 - **Cooling and thermal state not enforced.** macrobenchmark warned about `SUSTAINED_PERFORMANCE_MODE` being unavailable; results above are the median over 10 startup iterations and 5 frame iterations, which mitigates but does not eliminate device-side thermal variance. Re-run on a cooled device before committing future numbers if comparisons span multiple firmware revisions.
 
 ## APK Size (demo flavor)

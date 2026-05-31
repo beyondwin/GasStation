@@ -6,6 +6,15 @@
 
 릴리스 후 다음 변경 사항을 기록합니다.
 
+### 개발자 영향
+
+- v1.2 hardening planning: benchmark selector contracts now use stable Compose test tags exposed as resource IDs, keeping watchlist macrobenchmark selectors separate from Korean accessibility copy.
+- Backend proxy readiness: `core:network` now has a proxy endpoint contract and endpoint-mode boundary while keeping direct Opinet as the default Android path.
+
+### 문서와 검증
+
+- Build velocity evidence: `docs/build-velocity.md` records timing and current decisions for Gradle parallel/cache/configuration-cache and release assemble gate placement.
+
 ## 1.1.3 - 2026-05-18
 
 ### 개발자 영향
