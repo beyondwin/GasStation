@@ -4,7 +4,7 @@ Date: 2026-05-18
 
 ## Status
 
-Accepted as a future escalation path. Not implemented in the current Android app.
+Accepted as a future escalation path. The Android app has a proxy-ready endpoint boundary, but no backend proxy service is deployed by default.
 
 ## Context
 
@@ -49,9 +49,14 @@ The Android app keeps:
 
 ## Android Code Impact
 
-The expected Android change is limited to `core:network` runtime configuration and the remote station source. `feature:*`, `domain:*`, `data:station` cache policy, and `core:database` schema should not need product-level rewrites.
+The Android app keeps the direct Opinet path as the default. v1.2 adds a proxy-ready network boundary:
 
-The endpoint swap should preserve:
+- `core:network` can select direct Opinet or proxy endpoint mode from runtime config.
+- `ProxyStationService` owns the Android-facing proxy contract.
+- `ProxyStationFetcher` maps proxy payloads into the existing `NetworkRemoteStation` model.
+- `data:station`, `domain:station`, `feature:*`, cache policy, stale fallback, and watchlist comparison contracts remain unchanged.
+
+The endpoint swap preserves:
 
 - `StationQuery`
 - `StationRepository`

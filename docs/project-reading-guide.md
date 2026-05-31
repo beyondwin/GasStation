@@ -42,6 +42,7 @@
 | hero macrobenchmark는 어디 있나 | `benchmark/src/main/kotlin/com/gasstation/benchmark/StationListBenchmark.kt`, `BaselineProfileGenerator.kt`, `GasStationBenchmarkActions.kt`, `app/build.gradle.kts` (`benchmark` build type) |
 | 현재 측정된 성능 수치와 재현 명령은 어디서 보나 | `docs/performance.md`, `README.md` "Performance Snapshot" |
 | backend proxy 승격 조건은 어디서 보나 | `docs/adr/2026-05-18-backend-proxy-escalation.md`, `docs/security-trade-offs.md` |
+| proxy endpoint mode는 어디서 보나 | `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt`, `core/network/src/main/kotlin/com/gasstation/core/network/station/ProxyStationFetcher.kt`, `docs/adr/2026-05-18-backend-proxy-escalation.md` |
 | 현재 완료된 개선과 조건부 backlog는 어디서 보나 | `docs/history/deep-analysis-report.md`, `docs/history/improvement-analysis.md` |
 | CI와 로컬 검증 명령의 기준은 어디서 보나 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
 

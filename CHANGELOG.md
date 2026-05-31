@@ -9,6 +9,7 @@
 ### 개발자 영향
 
 - v1.2 hardening planning: benchmark selector contracts now use stable Compose test tags exposed as resource IDs, keeping watchlist macrobenchmark selectors separate from Korean accessibility copy.
+- Backend proxy readiness: `core:network` now has a proxy endpoint contract and endpoint-mode boundary while keeping direct Opinet as the default Android path.
 
 ## 1.1.3 - 2026-05-18
 
