@@ -31,16 +31,15 @@ object NetworkModule {
         .build()
         .create(ProxyStationService::class.java)
 
-    fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource =
-        when (config.stationEndpointMode) {
-            StationEndpointMode.DirectOpinet -> NetworkStationFetcher(
-                opinetService = provideOpinetService(provideOpinetBaseUrl()),
-                opinetApiKey = config.opinetApiKey,
-            )
-            StationEndpointMode.Proxy -> ProxyStationFetcher(
-                proxyStationService = provideProxyStationService(config.stationBaseUrl),
-            )
-        }
+    fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource = when (config.stationEndpointMode) {
+        StationEndpointMode.DirectOpinet -> NetworkStationFetcher(
+            opinetService = provideOpinetService(provideOpinetBaseUrl()),
+            opinetApiKey = config.opinetApiKey,
+        )
+        StationEndpointMode.Proxy -> ProxyStationFetcher(
+            proxyStationService = provideProxyStationService(config.stationBaseUrl),
+        )
+    }
 
     private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
         .callTimeout(Duration.ofSeconds(8))

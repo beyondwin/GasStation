@@ -1,16 +1,8 @@
 package com.gasstation.core.network.model
 
-data class ProxyStationSearchRequestDto(
-    val latitude: Double,
-    val longitude: Double,
-    val radiusMeters: Int,
-    val fuelType: String,
-)
+data class ProxyStationSearchRequestDto(val latitude: Double, val longitude: Double, val radiusMeters: Int, val fuelType: String)
 
-data class ProxyStationSearchResponseDto(
-    val stations: List<ProxyStationDto> = emptyList(),
-    val fetchedAtEpochMillis: Long? = null,
-)
+data class ProxyStationSearchResponseDto(val stations: List<ProxyStationDto> = emptyList(), val fetchedAtEpochMillis: Long? = null)
 
 data class ProxyStationDto(
     val stationId: String? = null,

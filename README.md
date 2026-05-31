@@ -202,7 +202,7 @@ GasStation publishes performance numbers from the deterministic `demo` flavor ru
 | List scroll | frame (`frameDurationCpuMs`) | 3.84 ms/frame | 6.83 ms/frame |
 | Refresh | frame (`frameDurationCpuMs`) | 3.83 ms/frame | 6.05 ms/frame |
 
-Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `demoBenchmark` variant on 2026-05-18. See [Performance](docs/performance.md) for the full table, frame-overrun numbers, known limitations (baseline profile + watchlist benchmark currently unavailable), and the exact commands to reproduce the run.
+Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `demoBenchmark` variant on 2026-05-18. See [Performance](docs/performance.md) for the full table, frame-overrun numbers, selector contracts, physical-device rerun requirements, and the exact commands to reproduce the run.
 
 ## 검증
 

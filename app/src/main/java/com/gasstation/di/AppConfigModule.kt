@@ -34,6 +34,5 @@ object AppConfigModule {
 
     @Provides
     @Singleton
-    fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource =
-        NetworkModule.provideStationNetworkSource(config)
+    fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource = NetworkModule.provideStationNetworkSource(config)
 }

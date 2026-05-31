@@ -119,22 +119,14 @@ class StationRemoteDataSourceTest {
 
     private class FakeStationNetworkSource(private val result: NetworkStationFetchResult) :
         com.gasstation.core.network.station.StationNetworkSource {
-        override suspend fun fetchStations(
-            origin: Coordinates,
-            radius: SearchRadius,
-            fuelType: FuelType,
-        ): NetworkStationFetchResult = result
+        override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult =
+            result
     }
 
     private class ThrowingStationNetworkSource(private val throwable: Throwable) :
         com.gasstation.core.network.station.StationNetworkSource {
-        override suspend fun fetchStations(
-            origin: Coordinates,
-            radius: SearchRadius,
-            fuelType: FuelType,
-        ): NetworkStationFetchResult {
+        override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult =
             throw throwable
-        }
     }
 
     private class JsonSyntaxException(message: String) : RuntimeException(message)
