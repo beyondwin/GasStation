@@ -14,10 +14,10 @@ private const val COARSE_LOCATION_PERMISSION = "android.permission.ACCESS_COARSE
 private const val FINE_LOCATION_PERMISSION = "android.permission.ACCESS_FINE_LOCATION"
 private const val STATION_TEXT_FRAGMENT = "주유소"
 private const val REFRESH_ACTION_DESCRIPTION = "새로고침"
-private const val BOOKMARK_ACTION_DESCRIPTION = "북마크"
-private const val SAVE_ACTION_DESCRIPTION = "저장"
-private const val WATCHLIST_CARD_DESCRIPTION = "관심 주유소 카드"
 private const val REFRESH_RAIL_TITLE = "가격 갱신 중"
+private const val STATION_LIST_WATCHLIST_ACTION_TAG = "station-list-watchlist-action"
+private const val STATION_LIST_WATCH_TOGGLE_TAG = "station-list-watch-toggle"
+private const val WATCHLIST_CARD_TAG = "watchlist-card"
 
 internal fun MacrobenchmarkScope.launchStationList() {
     grantLocationPermissions()
@@ -66,18 +66,20 @@ internal fun MacrobenchmarkScope.scrollStationList() {
 
 internal fun MacrobenchmarkScope.openWatchlistWithSavedStation() {
     clickStable(
-        selector = By.desc(SAVE_ACTION_DESCRIPTION),
-        label = "any visible station save action '$SAVE_ACTION_DESCRIPTION'",
+        selector = resourceId(STATION_LIST_WATCH_TOGGLE_TAG),
+        label = "station-list watch toggle resource id '$STATION_LIST_WATCH_TOGGLE_TAG'",
     )
     clickStable(
-        selector = By.desc(BOOKMARK_ACTION_DESCRIPTION),
-        label = "watchlist action '$BOOKMARK_ACTION_DESCRIPTION'",
+        selector = resourceId(STATION_LIST_WATCHLIST_ACTION_TAG),
+        label = "station-list watchlist action resource id '$STATION_LIST_WATCHLIST_ACTION_TAG'",
     )
     waitForObject(
-        selector = By.desc(WATCHLIST_CARD_DESCRIPTION),
-        label = "watchlist card '$WATCHLIST_CARD_DESCRIPTION'",
+        selector = resourceId(WATCHLIST_CARD_TAG),
+        label = "watchlist card resource id '$WATCHLIST_CARD_TAG'",
     )
 }
+
+private fun resourceId(tag: String): BySelector = By.res(TARGET_PACKAGE, tag)
 
 private fun MacrobenchmarkScope.clickStable(selector: BySelector, label: String) {
     var lastError: Throwable? = null
