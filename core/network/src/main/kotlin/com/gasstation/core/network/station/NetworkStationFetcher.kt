@@ -5,8 +5,8 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.network.service.OpinetService
 
-class NetworkStationFetcher(private val opinetService: OpinetService, private val opinetApiKey: String) {
-    suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult {
+class NetworkStationFetcher(private val opinetService: OpinetService, private val opinetApiKey: String) : StationNetworkSource {
+    override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult {
         val originInKtm = LocalKoreanCoordinateTransform.wgs84ToKtm(
             latitude = origin.latitude,
             longitude = origin.longitude,

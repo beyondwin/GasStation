@@ -37,6 +37,7 @@ class NetworkRuntimeConfigTest {
                 "provideOpinetApiKey",
                 "provideOpinetBaseUrl",
                 "provideOpinetService",
+                "provideProxyStationService",
             ),
             methodNames,
         )
