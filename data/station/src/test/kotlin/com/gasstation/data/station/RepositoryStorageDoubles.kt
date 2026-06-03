@@ -1,5 +1,6 @@
 package com.gasstation.data.station
 
+import com.gasstation.core.database.DatabaseTransactionRunner
 import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.database.station.WatchedStationDao
@@ -8,6 +9,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+
+internal class ImmediateDatabaseTransactionRunner : DatabaseTransactionRunner {
+    var invocations = 0
+        private set
+
+    override suspend fun <T> withTransaction(block: suspend () -> T): T {
+        invocations++
+        return block()
+    }
+}
 
 internal class RecordingStationPriceHistoryDao(history: List<StationPriceHistoryEntity> = emptyList()) : StationPriceHistoryDao {
     private val entities = MutableStateFlow(history.sortedHistory())

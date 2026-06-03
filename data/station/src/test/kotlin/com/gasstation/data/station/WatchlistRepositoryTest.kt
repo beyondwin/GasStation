@@ -290,6 +290,7 @@ class WatchlistRepositoryTest {
         retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         stationEventLogger = RecordingStationEventLogger(),
         crashReporter = NoOpCrashReporter,
+        transactionRunner = ImmediateDatabaseTransactionRunner(),
         clock = clock,
     )
 

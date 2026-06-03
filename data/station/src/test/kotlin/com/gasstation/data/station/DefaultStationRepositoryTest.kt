@@ -123,6 +123,52 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `refreshNearbyStations runs all writes inside a single transaction with deduplicated prune calls`() = runBlocking {
+        val query = stationQuery()
+        val stationPriceHistoryDao = RecordingStationPriceHistoryDao()
+        val transactionRunner = ImmediateDatabaseTransactionRunner()
+        val repository = repository(
+            stationPriceHistoryDao = stationPriceHistoryDao,
+            transactionRunner = transactionRunner,
+            remoteDataSource = FakeStationRemoteDataSource(
+                result = RemoteStationFetchResult.Success(
+                    listOf(
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First",
+                            brandCode = "GSC",
+                            priceWon = 1_680,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
+                        RemoteStation(
+                            stationId = "station-1",
+                            name = "Gangnam First Duplicate",
+                            brandCode = "GSC",
+                            priceWon = 1_690,
+                            coordinates = Coordinates(37.499095, 127.027610),
+                        ),
+                        RemoteStation(
+                            stationId = "station-2",
+                            name = "Gangnam Second",
+                            brandCode = "SKE",
+                            priceWon = 1_700,
+                            coordinates = Coordinates(37.500095, 127.027610),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        repository.refreshNearbyStations(query)
+
+        assertEquals(1, transactionRunner.invocations)
+        assertEquals(
+            listOf("station-1" to query.fuelType.name, "station-2" to query.fuelType.name),
+            stationPriceHistoryDao.keepLatestTenCalls,
+        )
+    }
+
+    @Test
     fun `refreshNearbyStations prunes cache rows after successful persistence`() = runBlocking {
         val query = stationQuery()
         val stationCacheDao = RecordingStationCacheDao()
@@ -548,6 +594,7 @@ class DefaultStationRepositoryTest {
         seedRemoteDataSource: Optional<SeedStationRemoteDataSource> = Optional.empty(),
         analytics: StationEventLogger = RepositoryDoubles.RecordingStationEventLogger(),
         crashReporter: CrashReporter = FakeCrashReporter(),
+        transactionRunner: ImmediateDatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationPriceHistoryDao = stationPriceHistoryDao,
@@ -558,6 +605,7 @@ class DefaultStationRepositoryTest {
         retryPolicy = StationRetryPolicy(analytics),
         stationEventLogger = analytics,
         crashReporter = crashReporter,
+        transactionRunner = transactionRunner,
         clock = clock,
     )
 

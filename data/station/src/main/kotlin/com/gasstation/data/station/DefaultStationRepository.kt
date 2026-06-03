@@ -1,5 +1,6 @@
 package com.gasstation.data.station
 
+import com.gasstation.core.database.DatabaseTransactionRunner
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
@@ -42,6 +43,7 @@ class DefaultStationRepository @Inject constructor(
     private val retryPolicy: StationRetryPolicy,
     private val stationEventLogger: StationEventLogger,
     private val crashReporter: CrashReporter,
+    private val transactionRunner: DatabaseTransactionRunner,
     private val clock: Clock,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
@@ -159,15 +161,6 @@ class DefaultStationRepository @Inject constructor(
         }
 
         val snapshotEntities = remoteStations.stations.map { it.toEntity(cacheKey, fetchedAt) }
-        stationCacheDao.replaceSnapshot(
-            latitudeBucket = cacheKey.latitudeBucket,
-            longitudeBucket = cacheKey.longitudeBucket,
-            radiusMeters = cacheKey.radiusMeters,
-            fuelType = cacheKey.fuelType.name,
-            fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
-            entities = snapshotEntities,
-        )
-
         val historyEntities = remoteStations.stations.map { station ->
             StationPriceHistoryEntity(
                 stationId = station.stationId,
@@ -176,14 +169,25 @@ class DefaultStationRepository @Inject constructor(
                 fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
             )
         }
-        stationPriceHistoryDao.insertAll(historyEntities)
-        remoteStations.stations.forEach { station ->
-            stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
-                stationId = station.stationId,
+
+        transactionRunner.withTransaction {
+            stationCacheDao.replaceSnapshot(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
                 fuelType = cacheKey.fuelType.name,
+                fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
+                entities = snapshotEntities,
             )
+            stationPriceHistoryDao.insertAll(historyEntities)
+            remoteStations.stations.map { it.stationId }.distinct().forEach { stationId ->
+                stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
+                    stationId = stationId,
+                    fuelType = cacheKey.fuelType.name,
+                )
+            }
+            stationCacheDao.pruneOlderThan(cachePolicy.pruneCutoff(fetchedAt).toEpochMilli())
         }
-        stationCacheDao.pruneOlderThan(cachePolicy.pruneCutoff(fetchedAt).toEpochMilli())
         stationEventLogger.logSafely(
             StationEvent.SearchRefreshed(
                 radius = query.radius,

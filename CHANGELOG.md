@@ -10,6 +10,7 @@
 
 - v1.2 hardening planning: benchmark selector contracts now use stable Compose test tags exposed as resource IDs, keeping watchlist macrobenchmark selectors separate from Korean accessibility copy.
 - Backend proxy readiness: `core:network` now has a proxy endpoint contract and endpoint-mode boundary while keeping direct Opinet as the default Android path.
+- Refresh persistence hardening: `data:station`의 `refreshNearbyStations`는 snapshot 교체, 가격 히스토리 insert/trim, cache prune을 `core:database`의 새 `DatabaseTransactionRunner` 계약으로 단일 트랜잭션 안에서 수행합니다. 부분 실패 시 일관성 깨짐을 막고, 주유소별 `keepLatestTen` 호출을 stationId 기준으로 중복 제거합니다. 출력/동작은 변하지 않습니다.
 
 ### 문서와 검증
 
