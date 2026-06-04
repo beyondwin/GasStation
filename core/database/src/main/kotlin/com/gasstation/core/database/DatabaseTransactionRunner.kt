@@ -11,8 +11,6 @@ interface DatabaseTransactionRunner {
     suspend fun <T> withTransaction(block: suspend () -> T): T
 }
 
-class RoomDatabaseTransactionRunner @Inject constructor(
-    private val database: GasStationDatabase,
-) : DatabaseTransactionRunner {
+class RoomDatabaseTransactionRunner @Inject constructor(private val database: GasStationDatabase) : DatabaseTransactionRunner {
     override suspend fun <T> withTransaction(block: suspend () -> T): T = database.withTransaction { block() }
 }

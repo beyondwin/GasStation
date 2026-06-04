@@ -31,8 +31,7 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabaseTransactionRunner(database: GasStationDatabase): DatabaseTransactionRunner =
-        RoomDatabaseTransactionRunner(database)
+    fun provideDatabaseTransactionRunner(database: GasStationDatabase): DatabaseTransactionRunner = RoomDatabaseTransactionRunner(database)
 
     @Provides
     fun provideStationCacheDao(database: GasStationDatabase): StationCacheDao = database.stationCacheDao()
