@@ -107,3 +107,4 @@ googleDaggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref =
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+benManesVersions = { id = "com.github.ben-manes.versions", version = "0.54.0" }

@@ -1,3 +1,5 @@
+import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
+
 buildscript {
     dependencies {
         classpath(libs.kotlin.gradlePlugin) {
@@ -26,6 +28,7 @@ plugins {
     alias(libs.plugins.googleDevtoolsKsp) apply false
     alias(libs.plugins.googleDaggerHiltAndroid) apply false
     alias(libs.plugins.kover)
+    alias(libs.plugins.benManesVersions)
 }
 
 dependencies {
@@ -63,4 +66,14 @@ kover {
             }
         }
     }
+}
+
+fun isNonStable(version: String): Boolean {
+    val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { version.uppercase().contains(it) }
+    val regex = "^[0-9,.v-]+(-r)?$".toRegex()
+    return !stableKeyword && !regex.matches(version)
+}
+
+tasks.withType<DependencyUpdatesTask>().configureEach {
+    rejectVersionIf { isNonStable(candidate.version) }
 }
