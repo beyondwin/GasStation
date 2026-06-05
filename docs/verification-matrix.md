@@ -104,6 +104,21 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew :feature:station-list:compileDebugKotlin -Pgasstation.composeCompilerReports=true
 ```
 
+## 검증 깊이 측정 (온디맨드 / report-only)
+
+라인 커버리지 숫자 너머의 신호를 측정·기록하는 명령입니다. 빌드를 깨는 게이트가 아니라 신호 수집용이며, 기본 PR gate에는 넣지 않습니다.
+
+```bash
+# 의존성 신선도 스캔 — 비차단 CI job `dependency-freshness`로도 실행됩니다.
+# ben-manes versions 플러그인은 configuration-cache/parallel 비호환이라 둘 다 끕니다.
+./gradlew dependencyUpdates --no-configuration-cache --no-parallel
+
+# domain:station 변이 테스트 — 온디맨드, report-only. 리포트는 domain/station/build/reports/pitest/.
+./gradlew :domain:station:pitest
+```
+
+> 커버리지 진실성 게이트(Track 1, `koverVerify`)는 **보류** 상태입니다. Kover 0.9.1이 AGP 9.1.1의 Android variant를 계측하지 못하는 툴체인 호환성 한계 때문이며, AGP 9.x를 지원하는 Kover 릴리스가 나오면 재개합니다. 배경은 `docs/superpowers/specs/2026-06-06-verification-depth-hardening-design.md` Track 1 보류 노트를 참조합니다.
+
 ## CI 연결
 
 GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격의 push를 다르게 검증합니다. 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.

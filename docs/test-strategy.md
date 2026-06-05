@@ -85,6 +85,16 @@
 - Hero benchmark source set
   `benchmark`는 `com.android.test` 모듈의 main source set(`benchmark/src/main/kotlin`)에서 scenario와 baseline profile generator를 컴파일합니다. 실기기 증거 수집은 `connectedBenchmarkAndroidTest` 경로가 단일 기준입니다.
 
+## Mutation testing (변이 테스트)
+
+라인 커버리지 숫자만으로는 테스트가 실제 결함을 잡는지 알 수 없습니다. 가장 약한 JVM 모듈에 변이 테스트를 적용해 테스트의 결함 탐지력을 측정·기록합니다.
+
+- **대상 선정 이유:** JVM-only 모듈 중 라인 커버리지가 가장 약한(48.57%) `domain:station`을 1순위로 골랐습니다. Pitest는 Android 모듈에서 불안정하므로 JVM 모듈로 한정합니다.
+- **실행 명령:** `./gradlew :domain:station:pitest` (온디맨드/로컬). HTML/XML 리포트는 `domain/station/build/reports/pitest/`에 생성됩니다.
+- **현재 변이 점수(2026-06-06 기준):** 보강 전 `Killed 19/60 (32%)`, test strength 70%, SURVIVED 8. 보강 후 `Killed 28/60 (47%)`, **test strength 97%**, SURVIVED 1. (전체 점수가 낮은 이유는 `no-coverage` 변이 31건 때문이며, 커버된 변이 기준 결함 탐지력은 test strength가 나타냅니다.) 남은 SURVIVED 1건은 `StationPriceDelta.from`의 `<` 경계 변이로, 상위 분기에서 `==` 케이스가 이미 처리돼 동작이 동일한 equivalent mutant라 추가 테스트로 잡을 수 없습니다.
+- **보강한 테스트:** `StationPriceDeltaTest`에 0(비음수 경계) 허용과 음수 previous price 거부 케이스를, `StationQueryCacheKeyTest`에 좌표→버킷의 정확한 곱셈/나눗셈 결과 검증과 `bucketMeters` 비양수 거부 케이스를 추가했습니다. 모두 `domain:station`의 기존 동작 계약을 바꾸지 않는 범위입니다.
+- **report-only 결정:** mutation 점수 임계값으로 빌드를 깨지 않습니다. 변이 테스트는 느리므로 CI에 포함하지 않고 로컬/온디맨드로 둡니다. 게이트화는 점수가 안정화된 뒤 별도로 결정합니다.
+
 ## 의도적으로 약하게 보는 것
 
 - 실제 Opinet 서버 상태에 의존하는 end-to-end 네트워크 테스트

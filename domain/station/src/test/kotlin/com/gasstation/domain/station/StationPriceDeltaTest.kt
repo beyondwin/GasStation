@@ -46,6 +46,25 @@ class StationPriceDeltaTest {
     }
 
     @Test
+    fun `from prices accepts zero as a non-negative boundary`() {
+        assertEquals(
+            StationPriceDelta.Unavailable,
+            StationPriceDelta.from(previousPriceWon = null, currentPriceWon = 0),
+        )
+        assertEquals(
+            StationPriceDelta.Increased(100),
+            StationPriceDelta.from(previousPriceWon = 0, currentPriceWon = 100),
+        )
+    }
+
+    @Test
+    fun `from prices rejects negative previous price`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            StationPriceDelta.from(previousPriceWon = -1, currentPriceWon = 1680)
+        }
+    }
+
+    @Test
     fun `delta variants reject zero amounts`() {
         assertThrows(IllegalArgumentException::class.java) {
             StationPriceDelta.Increased(0)

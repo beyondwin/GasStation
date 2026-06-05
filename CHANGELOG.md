@@ -11,10 +11,12 @@
 - v1.2 hardening planning: benchmark selector contracts now use stable Compose test tags exposed as resource IDs, keeping watchlist macrobenchmark selectors separate from Korean accessibility copy.
 - Backend proxy readiness: `core:network` now has a proxy endpoint contract and endpoint-mode boundary while keeping direct Opinet as the default Android path.
 - Refresh persistence hardening: `data:station`의 `refreshNearbyStations`는 snapshot 교체, 가격 히스토리 insert/trim, cache prune을 `core:database`의 새 `DatabaseTransactionRunner` 계약으로 단일 트랜잭션 안에서 수행합니다. 부분 실패 시 일관성 깨짐을 막고, 주유소별 `keepLatestTen` 호출을 stationId 기준으로 중복 제거합니다. 출력/동작은 변하지 않습니다.
+- Verification depth: `domain:station`에 변이 테스트(pitest, report-only)를 도입하고 `StationPriceDelta.from`/`StationQuery.toCacheKey` 경계 테스트를 보강해 mutation test strength를 70%→97%로 끌어올렸습니다. 의존성 신선도 스캔(ben-manes versions, 비차단 CI job `dependency-freshness`)도 추가했습니다. 둘 다 빌드를 깨지 않는 신호 수집용입니다. 커버리지 진실성 게이트(Track 1, `koverVerify`)는 Kover 0.9.1↔AGP 9.1.1 호환성 한계로 보류합니다.
 
 ### 문서와 검증
 
 - Build velocity evidence: `docs/build-velocity.md` records timing and current decisions for Gradle parallel/cache/configuration-cache and release assemble gate placement.
+- Verification depth measurement: `docs/test-strategy.md`에 변이 테스트 섹션을, `docs/verification-matrix.md`에 온디맨드/report-only 검증 깊이 측정 섹션을 추가해 pitest와 dependency 스캔 실행법, Track 1 보류 배경을 단일 출처로 기록합니다.
 
 ## 1.1.3 - 2026-05-18
 
