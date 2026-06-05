@@ -27,9 +27,15 @@ GasStation의 검증을 "숫자가 있는 상태"에서 "숫자가 진실되고 
 
 ---
 
-## Track 1: 진실된 커버리지 측정 + fail-under 게이트
+## Track 1: 진실된 커버리지 측정 + fail-under 게이트 — **보류 (BLOCKED)**
 
-**소유:** `build-logic/convention` (Kover 컨벤션), 루트 `build.gradle.kts`, `.github/workflows/android.yml`
+> **2026-06-06 스파이크 결과 보류 결정.** 구현 단계에서 다음을 경험적으로 확인했다:
+> - `:core:database:koverXmlReport`가 **클래스 0개, LINE 0/0**을 보고한다(Android 계측 자체가 비활성).
+> - `currentProject { createVariant("appwide") { add("debug") / add("demoDebug") } }`가 `"Could not find the provided variant"`로 거부된다.
+> - 플러그인 적용 순서(`kover` ↔ AGP)를 바꿔도 Android per-variant Kover 태스크가 하나도 생성되지 않는다.
+> - Maven Central 기준 Kover 최신 published 버전은 **0.9.1**이며 우리는 이미 그것을 쓰고 있다(업그레이드 경로 없음).
+>
+> **결론:** Kover 0.9.1이 AGP 9.1.1의 Android variant API를 계측하지 못하는 **툴체인 호환성 한계**다. "커버리지 진실성" 전제 없이 게이트만 추가하면 의미가 없으므로(JVM 5개 모듈만 분모), Track 1 전체를 보류한다. **재개 조건:** AGP 9.x를 지원하는 Kover 릴리스가 나오면 1a~1d를 다시 시도한다. 이번 구현 plan에는 포함하지 않는다.
 
 **문제:** 커버리지 게이트를 추가하기 전에 커버리지 자체가 진실되어야 한다. 현재 분모는 Android 모듈을 누락한다.
 
@@ -131,8 +137,7 @@ GasStation의 검증을 "숫자가 있는 상태"에서 "숫자가 진실되고 
 ## 최종 검증 (전체)
 
 ```bash
-# Track 1
-./gradlew koverXmlReport koverVerify
+# Track 1 — 보류(BLOCKED): Kover 0.9.1 ↔ AGP 9.1.1 호환성 한계로 이번 범위에서 제외
 # Track 2
 ./gradlew :domain:station:pitest :domain:station:test
 # Track 4
