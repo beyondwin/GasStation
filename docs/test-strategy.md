@@ -95,7 +95,7 @@
 - **실행 명령:** `./gradlew :domain:station:pitest`. 리포트는 `domain/station/build/reports/pitest/`.
 - **현재 변이 점수(2026-06-06 기준):** 보강 전 `Killed 19/60 (32%)`, test strength 70%, SURVIVED 8. 보강 후 `Killed 28/60 (47%)`, **test strength 97%**, SURVIVED 1. (전체 점수가 낮은 이유는 `no-coverage` 변이 31건 때문이며, 커버된 변이 기준 결함 탐지력은 test strength가 나타냅니다.) 남은 SURVIVED 1건은 `StationPriceDelta.from`의 `<` 경계 변이로, 상위 분기에서 `==` 케이스가 이미 처리돼 동작이 동일한 equivalent mutant라 추가 테스트로 잡을 수 없습니다.
 - **보강한 테스트:** `StationPriceDeltaTest`에 0(비음수 경계) 허용과 음수 previous price 거부 케이스를, `StationQueryCacheKeyTest`에 좌표→버킷의 정확한 곱셈/나눗셈 결과 검증과 `bucketMeters` 비양수 거부 케이스를 추가했습니다.
-- **게이트:** `mutationThreshold` floor 게이트로 점수 하락을 막습니다(Track B에서 승격). report-only 베이스라인이 안정화된 모듈만 게이트화합니다.
+- **게이트:** `mutationThreshold.set(40)` floor 게이트로 점수 하락을 막습니다. 현재 점수 47%가 40 floor를 넘어 통과하며, floor를 60으로 올리면 `Mutation score of 47 is below threshold of 60`으로 빌드가 실패함을 확인했습니다. report-only 베이스라인이 안정화된 모듈만 이렇게 게이트화합니다.
 
 ### `domain:settings` (report-only)
 
