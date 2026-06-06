@@ -99,6 +99,74 @@ class ProxyStationFetcherTest {
     }
 
     @Test
+    fun `fetchStations skips out-of-range coordinates and preserves valid rows`() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                    """
+                    {"stations":[
+                      {"stationId":"station-1","name":"강남주유소","brandCode":"SKG","fuelType":"GASOLINE","priceWon":1689,"latitude":37.4987,"longitude":127.0285},
+                      {"stationId":"station-2","name":"범위초과주유소","brandCode":"GSC","fuelType":"GASOLINE","priceWon":1669,"latitude":200.0,"longitude":127.0290}
+                    ]}
+                    """.trimIndent(),
+                ),
+        )
+        server.start()
+
+        try {
+            val fetcher = ProxyStationFetcher(
+                proxyStationService = NetworkModule.provideProxyStationService(server.url("/").toString()),
+            )
+
+            val result = fetcher.fetchStations(
+                origin = Coordinates(latitude = 37.497927, longitude = 127.027583),
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            assertTrue(result is NetworkStationFetchResult.Success)
+            val stations = (result as NetworkStationFetchResult.Success).stations
+            assertEquals(listOf("station-1"), stations.map { it.stationId })
+            assertEquals(Coordinates(latitude = 37.4987, longitude = 127.0285), stations.single().coordinates)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun `fetchStations returns failure when only out-of-range coordinates remain`() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                    """
+                    {"stations":[{"stationId":"station-2","name":"범위초과주유소","brandCode":"GSC","fuelType":"GASOLINE","priceWon":1669,"latitude":200.0,"longitude":127.0290}]}
+                    """.trimIndent(),
+                ),
+        )
+        server.start()
+
+        try {
+            val fetcher = ProxyStationFetcher(
+                proxyStationService = NetworkModule.provideProxyStationService(server.url("/").toString()),
+            )
+
+            val result = fetcher.fetchStations(
+                origin = Coordinates(latitude = 37.497927, longitude = 127.027583),
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            assertEquals(NetworkStationFetchResult.Failure, result)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun `fetchStations returns failure when proxy station payload is incomplete`() = runBlocking {
         val server = MockWebServer()
         server.enqueue(

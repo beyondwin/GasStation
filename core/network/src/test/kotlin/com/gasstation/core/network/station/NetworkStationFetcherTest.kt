@@ -110,6 +110,49 @@ class NetworkStationFetcherTest {
     }
 
     @Test
+    fun `fetchStations skips rows whose KATEC transform leaves the valid range and preserves others`() = runBlocking {
+        val opinetServer = MockWebServer()
+        val stationKatec = LocalKoreanCoordinateTransform.wgs84ToKtm(
+            latitude = 37.4987,
+            longitude = 127.0285,
+        )
+        opinetServer.enqueue(
+            MockResponse()
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                    """
+                    {"RESULT":{"OIL":[
+                      {"UNI_ID":"station-1","OS_NM":"Gangnam","POLL_DIV_CD":"SKG","PRICE":"1689","GIS_X_COOR":"${stationKatec.x}","GIS_Y_COOR":"${stationKatec.y}"},
+                      {"UNI_ID":"station-2","OS_NM":"OutOfRange","POLL_DIV_CD":"GSC","PRICE":"1669","GIS_X_COOR":"5000000.0","GIS_Y_COOR":"5000000.0"}
+                    ]}}
+                    """.trimIndent(),
+                ),
+        )
+        opinetServer.start()
+
+        try {
+            val fetcher = NetworkStationFetcher(
+                opinetService = NetworkModule.provideOpinetService(opinetServer.url("/").toString()),
+                opinetApiKey = "opinet-key",
+            )
+
+            val result = fetcher.fetchStations(
+                origin = Coordinates(latitude = 37.497927, longitude = 127.027583),
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            assertTrue(result is NetworkStationFetchResult.Success)
+            val stations = (result as NetworkStationFetchResult.Success).stations
+            assertEquals(listOf("station-1"), stations.map { it.stationId })
+            assertEquals(37.4987, stations.single().coordinates.latitude, 0.0005)
+            assertEquals(127.0285, stations.single().coordinates.longitude, 0.0005)
+        } finally {
+            opinetServer.shutdown()
+        }
+    }
+
+    @Test
     fun `fetchStations returns failure when every raw station is filtered out`() = runBlocking {
         val opinetServer = MockWebServer()
         opinetServer.enqueue(

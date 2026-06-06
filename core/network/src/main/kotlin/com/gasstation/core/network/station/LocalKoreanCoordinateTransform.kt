@@ -28,11 +28,13 @@ object LocalKoreanCoordinateTransform {
         return KtmCoordinates(x = target.x, y = target.y)
     }
 
-    fun ktmToWgs84(x: Double, y: Double): Coordinates {
-        val source = ProjCoordinate(x, y)
+    fun ktmToWgs84(x: Double, y: Double): Coordinates? {
         val target = ProjCoordinate()
-        katecToWgs84Transform.transform(source, target)
-        return Coordinates(
+        // proj4j throws when the input lies outside the projection's valid domain;
+        // at this untrusted-input boundary that is a "filter the row", not a crash.
+        runCatching { katecToWgs84Transform.transform(ProjCoordinate(x, y), target) }
+            .getOrNull() ?: return null
+        return Coordinates.ofOrNull(
             latitude = target.y,
             longitude = target.x,
         )

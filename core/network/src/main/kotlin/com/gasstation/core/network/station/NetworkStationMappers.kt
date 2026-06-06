@@ -25,9 +25,7 @@ internal fun OpinetStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
 }
 
 internal fun rawCoordinatesToWgs84(rawX: Double, rawY: Double): Coordinates? {
-    if (rawY in -90.0..90.0 && rawX in -180.0..180.0) {
-        return Coordinates(latitude = rawY, longitude = rawX)
-    }
+    Coordinates.ofOrNull(latitude = rawY, longitude = rawX)?.let { return it }
 
     return LocalKoreanCoordinateTransform.ktmToWgs84(x = rawX, y = rawY)
 }

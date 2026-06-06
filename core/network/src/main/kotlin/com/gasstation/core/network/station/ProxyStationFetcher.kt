@@ -41,6 +41,6 @@ private fun ProxyStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
         name = stationName,
         brandCode = brand,
         priceWon = price,
-        coordinates = Coordinates(latitude = lat, longitude = lon),
+        coordinates = Coordinates.ofOrNull(latitude = lat, longitude = lon) ?: return null,
     )
 }

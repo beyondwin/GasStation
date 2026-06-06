@@ -15,9 +15,11 @@ class LocalKoreanCoordinateTransformTest {
         assertTrue(ktm.x > 0.0)
         assertTrue(ktm.y > 0.0)
 
-        val wgs84 = LocalKoreanCoordinateTransform.ktmToWgs84(
-            x = ktm.x,
-            y = ktm.y,
+        val wgs84 = requireNotNull(
+            LocalKoreanCoordinateTransform.ktmToWgs84(
+                x = ktm.x,
+                y = ktm.y,
+            ),
         )
 
         assertEquals(37.497927, wgs84.latitude, 0.0005)
