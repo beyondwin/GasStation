@@ -12,11 +12,14 @@
 - Backend proxy readiness: `core:network` now has a proxy endpoint contract and endpoint-mode boundary while keeping direct Opinet as the default Android path.
 - Refresh persistence hardening: `data:station`의 `refreshNearbyStations`는 snapshot 교체, 가격 히스토리 insert/trim, cache prune을 `core:database`의 새 `DatabaseTransactionRunner` 계약으로 단일 트랜잭션 안에서 수행합니다. 부분 실패 시 일관성 깨짐을 막고, 주유소별 `keepLatestTen` 호출을 stationId 기준으로 중복 제거합니다. 출력/동작은 변하지 않습니다.
 - Verification depth: `domain:station`에 변이 테스트(pitest, report-only)를 도입하고 `StationPriceDelta.from`/`StationQuery.toCacheKey` 경계 테스트를 보강해 mutation test strength를 70%→97%로 끌어올렸습니다. 의존성 신선도 스캔(ben-manes versions, 비차단 CI job `dependency-freshness`)도 추가했습니다. 둘 다 빌드를 깨지 않는 신호 수집용입니다. 커버리지 진실성 게이트(Track 1, `koverVerify`)는 Kover 0.9.1↔AGP 9.1.1 호환성 한계로 보류합니다.
+- Module boundary guard: `docs/module-contracts.md`의 의도된 모듈 경계를 config-cache-safe한 `verifyModuleBoundaries` Gradle 태스크(denylist)로 고정했습니다. 금지된 production 의존성 엣지(feature→core:location/network/database/datastore, feature/domain→data 등)가 생기면 빌드를 깨고, 의도된 `core:location → domain:location` 예외는 가드에서 제외합니다. CI `static-analysis` job에 포함됩니다.
+- Mutation gate promotion: `domain:station` pitest를 report-only에서 `mutationThreshold` 40 floor 게이트로 승격해 점수 하락(현재 47%)을 막습니다. 변이 테스트를 `domain:settings`(report-only baseline)와 `domain:location`로 확장하고, `domain:location`은 `AddressLabelNormalizer`의 fallback 지역/district 선택 로직 갭을 보강해 test strength를 78%→85%로 올렸습니다. `domain:settings` SURVIVED는 전부 coroutine-suspend 등가 변이라 baseline만 기록합니다.
 
 ### 문서와 검증
 
 - Build velocity evidence: `docs/build-velocity.md` records timing and current decisions for Gradle parallel/cache/configuration-cache and release assemble gate placement.
 - Verification depth measurement: `docs/test-strategy.md`에 변이 테스트 섹션을, `docs/verification-matrix.md`에 온디맨드/report-only 검증 깊이 측정 섹션을 추가해 pitest와 dependency 스캔 실행법, Track 1 보류 배경을 단일 출처로 기록합니다.
+- Module boundary + mutation gate docs: `docs/module-contracts.md`에 `verifyModuleBoundaries` 강제 규칙을, `docs/test-strategy.md`에 `domain:station`(floor 40)/`domain:settings`/`domain:location` 변이 점수와 SURVIVED 분석을, `docs/verification-matrix.md`에 모듈 경계 가드 명령과 세 모듈 pitest 명령, CI static-analysis 범위를 갱신했습니다.
 
 ## 1.1.3 - 2026-05-18
 

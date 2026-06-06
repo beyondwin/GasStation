@@ -113,8 +113,19 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 # ben-manes versions 플러그인은 configuration-cache/parallel 비호환이라 둘 다 끕니다.
 ./gradlew dependencyUpdates --no-configuration-cache --no-parallel
 
-# domain:station 변이 테스트 — 온디맨드, report-only. 리포트는 domain/station/build/reports/pitest/.
+# JVM 모듈 변이 테스트 — 온디맨드. 리포트는 각 모듈 build/reports/pitest/.
+# domain:station 은 mutationThreshold 40 floor 게이트라 점수가 떨어지면 실패한다.
+# domain:settings / domain:location 은 report-only 베이스라인이다.
 ./gradlew :domain:station:pitest
+./gradlew :domain:settings:pitest
+./gradlew :domain:location:pitest
+```
+
+모듈 경계 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
+
+```bash
+# 금지된 production 모듈 의존성 엣지를 검증한다. 의도된 core:location→domain:location 예외는 제외.
+./gradlew verifyModuleBoundaries
 ```
 
 > 커버리지 진실성 게이트(Track 1, `koverVerify`)는 **보류** 상태입니다. Kover 0.9.1이 AGP 9.1.1의 Android variant를 계측하지 못하는 툴체인 호환성 한계 때문이며, AGP 9.x를 지원하는 Kover 릴리스가 나오면 재개합니다. 배경은 `docs/superpowers/specs/2026-06-06-verification-depth-hardening-design.md` Track 1 보류 노트를 참조합니다.
@@ -125,7 +136,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `static-analysis` (spotlessCheck + lint), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`koverXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
 

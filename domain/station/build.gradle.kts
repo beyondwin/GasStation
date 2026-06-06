@@ -16,5 +16,6 @@ pitest {
     threads.set(2)
     outputFormats.set(setOf("HTML", "XML"))
     timestampedReports.set(false)
-    // report-only: mutationThreshold 게이트를 두지 않는다.
+    // floor 게이트: 현재 변이 점수 47%에서 하락을 막는다. 점수가 오르면 floor도 함께 올린다.
+    mutationThreshold.set(40)
 }

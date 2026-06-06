@@ -35,4 +35,28 @@ class AddressLabelNormalizerTest {
             normalizeCurrentAddressLabel("서울특별시 강남구 테헤란로 152"),
         )
     }
+
+    @Test
+    fun `picks bare metro region by name over leading noise tokens`() {
+        assertEquals(
+            "서울 강남구 역삼동",
+            normalizeCurrentAddressLabel("한국 서울 청사 강남구 역삼동"),
+        )
+    }
+
+    @Test
+    fun `prefers nearest si region before the district`() {
+        assertEquals(
+            "성남시 분당구 정자동",
+            normalizeCurrentAddressLabel("경기도 성남시 분당구 정자동"),
+        )
+    }
+
+    @Test
+    fun `selects the administrative district and skips trailing noise before dong`() {
+        assertEquals(
+            "서울 강남구 역삼동",
+            normalizeCurrentAddressLabel("서울 강남구 부설 역삼동"),
+        )
+    }
 }
