@@ -1,11 +1,15 @@
 package com.gasstation.feature.stationlist
 
+import com.gasstation.core.designsystem.GAS_STATION_DISTANCE_UNIT
+import com.gasstation.core.designsystem.GAS_STATION_WON_UNIT
 import com.gasstation.core.designsystem.gasStationBrandLabel
+import com.gasstation.core.designsystem.gasStationDistanceDigits
+import com.gasstation.core.designsystem.gasStationDistanceLabel
+import com.gasstation.core.designsystem.gasStationPriceDigits
+import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
-import com.gasstation.core.model.DistanceMeters
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
-import java.text.DecimalFormat
 
 data class StationListItemUiModel(
     val id: String,
@@ -24,19 +28,26 @@ data class StationListItemUiModel(
     val latitude: Double,
     val longitude: Double,
 ) {
+    init {
+        require(priceNumberLabel.isNotBlank()) { "priceNumberLabel must not be blank" }
+        require(priceUnitLabel.isNotBlank()) { "priceUnitLabel must not be blank" }
+        require(distanceNumberLabel.isNotBlank()) { "distanceNumberLabel must not be blank" }
+        require(distanceUnitLabel.isNotBlank()) { "distanceUnitLabel must not be blank" }
+    }
+
     constructor(entry: StationListEntry) : this(
         id = entry.station.id,
         name = entry.station.name,
         brand = entry.station.brand,
         brandLabel = entry.station.brand.gasStationBrandLabel(),
-        priceLabel = entry.station.price.value.toPriceLabel(),
-        distanceLabel = entry.station.distance.toDistanceLabel(),
-        priceNumberLabel = entry.station.price.value.toGroupedDigits(),
-        priceUnitLabel = PRICE_UNIT_WON,
-        distanceNumberLabel = entry.station.distance.toDistanceNumberLabel(),
-        distanceUnitLabel = "km",
-        priceDeltaLabel = entry.priceDelta.toLabel(),
-        priceDeltaTone = entry.priceDelta.toTone(),
+        priceLabel = entry.station.price.gasStationPriceLabel(),
+        distanceLabel = entry.station.distance.gasStationDistanceLabel(),
+        priceNumberLabel = entry.station.price.gasStationPriceDigits(),
+        priceUnitLabel = GAS_STATION_WON_UNIT,
+        distanceNumberLabel = entry.station.distance.gasStationDistanceDigits(),
+        distanceUnitLabel = GAS_STATION_DISTANCE_UNIT,
+        priceDeltaLabel = entry.priceDelta.toDeltaLabel(),
+        priceDeltaTone = entry.priceDelta.direction.toTone(),
         isWatched = entry.isWatched,
         latitude = entry.station.coordinates.latitude,
         longitude = entry.station.coordinates.longitude,
@@ -49,29 +60,11 @@ enum class PriceDeltaTone {
     Neutral,
 }
 
-// Korean Won currency unit (U+C6D0 = 원), stored as Unicode escape
-@Suppress("UnusedPrivateMember")
-internal const val PRICE_UNIT_WON = "\uC6D0"
+private fun StationPriceDelta.toDeltaLabel(): String =
+    amountWonOrNull?.let { "$it$GAS_STATION_WON_UNIT" } ?: "-"
 
-private fun Int.toPriceLabel(): String = "${toGroupedDigits()}$PRICE_UNIT_WON"
-
-private fun Int.toGroupedDigits(): String = DecimalFormat("#,###").format(this)
-
-private fun DistanceMeters.toDistanceLabel(): String = "${toDistanceNumberLabel()}km"
-
-private fun DistanceMeters.toDistanceNumberLabel(): String = DecimalFormat("#,##0.0").format(value / 1000.0)
-
-private fun StationPriceDelta.toLabel(): String = when (this) {
-    StationPriceDelta.Unavailable -> "-"
-    StationPriceDelta.Unchanged -> "-"
-    is StationPriceDelta.Increased -> "$amountWon$PRICE_UNIT_WON"
-    is StationPriceDelta.Decreased -> "$amountWon$PRICE_UNIT_WON"
-}
-
-private fun StationPriceDelta.toTone(): PriceDeltaTone = when (this) {
-    is StationPriceDelta.Increased -> PriceDeltaTone.Rise
-    is StationPriceDelta.Decreased -> PriceDeltaTone.Fall
-    StationPriceDelta.Unavailable,
-    StationPriceDelta.Unchanged,
-    -> PriceDeltaTone.Neutral
+private fun StationPriceDelta.PriceDirection.toTone(): PriceDeltaTone = when (this) {
+    StationPriceDelta.PriceDirection.RISE -> PriceDeltaTone.Rise
+    StationPriceDelta.PriceDirection.FALL -> PriceDeltaTone.Fall
+    StationPriceDelta.PriceDirection.NEUTRAL -> PriceDeltaTone.Neutral
 }
