@@ -40,7 +40,7 @@ import javax.inject.Inject
 class StationListViewModel @Inject constructor(
     private val searchOrchestrator: StationSearchOrchestrator,
     private val updateWatchState: UpdateWatchStateUseCase,
-    observeUserPreferences: ObserveUserPreferencesUseCase,
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
     private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
     private val locationStateMachine: LocationStateMachine,
     private val stationEventLogger: StationEventLogger,
@@ -54,10 +54,18 @@ class StationListViewModel @Inject constructor(
     val effects: SharedFlow<StationListEffect> = mutableEffects.asSharedFlow()
 
     init {
+        observePreferences()
+        triggerRefreshOnQueryChange()
+        bindUiState(searchUiProjection())
+    }
+
+    private fun observePreferences() {
         observeUserPreferences()
             .onEach { preferences.value = it }
             .launchIn(viewModelScope)
+    }
 
+    private fun triggerRefreshOnQueryChange() {
         var previousQuery: StationQuery? = null
         val queryFlow = combine(preferences, locationStateMachine.state) { prefs, location ->
             location.usableCoordinates()
@@ -72,24 +80,26 @@ class StationListViewModel @Inject constructor(
 
         searchOrchestrator.observe(queryFlow)
             .launchIn(viewModelScope)
+    }
 
-        val searchUiProjection = searchOrchestrator.searchResult
-            .runningFold(StationListSearchUiProjection()) { previous, result ->
-                val stationItems = if (previous.sourceStations == result.stations) {
-                    previous.stations
-                } else {
-                    result.stations.map(::StationListItemUiModel)
-                }
-                StationListSearchUiProjection(
-                    sourceStations = result.stations,
-                    stations = stationItems,
-                    freshness = result.freshness,
-                    fetchedAt = result.fetchedAt,
-                )
+    private fun searchUiProjection(): Flow<StationListSearchUiProjection> = searchOrchestrator.searchResult
+        .runningFold(StationListSearchUiProjection()) { previous, result ->
+            val stationItems = if (previous.sourceStations == result.stations) {
+                previous.stations
+            } else {
+                result.stations.map(::StationListItemUiModel)
             }
-            .drop(1)
-            .distinctUntilChanged()
+            StationListSearchUiProjection(
+                sourceStations = result.stations,
+                stations = stationItems,
+                freshness = result.freshness,
+                fetchedAt = result.fetchedAt,
+            )
+        }
+        .drop(1)
+        .distinctUntilChanged()
 
+    private fun bindUiState(searchUiProjection: Flow<StationListSearchUiProjection>) {
         combine(
             preferences,
             locationStateMachine.state,
