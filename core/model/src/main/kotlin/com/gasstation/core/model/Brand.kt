@@ -14,6 +14,8 @@ enum class Brand {
     ;
 
     companion object {
-        fun fromCode(code: String): Brand = entries.firstOrNull { it.name == code } ?: ETC
+        private val BY_NAME = entries.associateBy(Brand::name)
+
+        fun fromCode(code: String): Brand = BY_NAME[code] ?: ETC
     }
 }
