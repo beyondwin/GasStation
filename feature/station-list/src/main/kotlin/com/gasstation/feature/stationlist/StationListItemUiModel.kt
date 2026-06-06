@@ -60,8 +60,7 @@ enum class PriceDeltaTone {
     Neutral,
 }
 
-private fun StationPriceDelta.toDeltaLabel(): String =
-    amountWonOrNull?.let { "$it$GAS_STATION_WON_UNIT" } ?: "-"
+private fun StationPriceDelta.toDeltaLabel(): String = amountWonOrNull?.let { "$it$GAS_STATION_WON_UNIT" } ?: "-"
 
 private fun StationPriceDelta.PriceDirection.toTone(): PriceDeltaTone = when (this) {
     StationPriceDelta.PriceDirection.RISE -> PriceDeltaTone.Rise
