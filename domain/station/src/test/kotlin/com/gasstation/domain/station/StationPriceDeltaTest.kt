@@ -73,4 +73,20 @@ class StationPriceDeltaTest {
             StationPriceDelta.Decreased(0)
         }
     }
+
+    @Test
+    fun `direction classifies each variant`() {
+        assertEquals(StationPriceDelta.PriceDirection.NEUTRAL, StationPriceDelta.Unavailable.direction)
+        assertEquals(StationPriceDelta.PriceDirection.NEUTRAL, StationPriceDelta.Unchanged.direction)
+        assertEquals(StationPriceDelta.PriceDirection.RISE, StationPriceDelta.Increased(20).direction)
+        assertEquals(StationPriceDelta.PriceDirection.FALL, StationPriceDelta.Decreased(20).direction)
+    }
+
+    @Test
+    fun `amountWonOrNull exposes signed magnitude only for changed variants`() {
+        assertEquals(null, StationPriceDelta.Unavailable.amountWonOrNull)
+        assertEquals(null, StationPriceDelta.Unchanged.amountWonOrNull)
+        assertEquals(20, StationPriceDelta.Increased(20).amountWonOrNull)
+        assertEquals(20, StationPriceDelta.Decreased(20).amountWonOrNull)
+    }
 }

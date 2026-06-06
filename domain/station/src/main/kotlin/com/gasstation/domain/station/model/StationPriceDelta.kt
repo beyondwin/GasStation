@@ -1,6 +1,22 @@
 package com.gasstation.domain.station.model
 
 sealed interface StationPriceDelta {
+    enum class PriceDirection { RISE, FALL, NEUTRAL }
+
+    val direction: PriceDirection
+        get() = when (this) {
+            is Increased -> PriceDirection.RISE
+            is Decreased -> PriceDirection.FALL
+            Unavailable, Unchanged -> PriceDirection.NEUTRAL
+        }
+
+    val amountWonOrNull: Int?
+        get() = when (this) {
+            is Increased -> amountWon
+            is Decreased -> amountWon
+            Unavailable, Unchanged -> null
+        }
+
     data object Unavailable : StationPriceDelta
     data object Unchanged : StationPriceDelta
     data class Increased(val amountWon: Int) : StationPriceDelta {
