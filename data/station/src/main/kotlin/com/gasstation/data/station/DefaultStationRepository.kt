@@ -66,26 +66,12 @@ class DefaultStationRepository @Inject constructor(
             snapshot to cachedStations
         }.flatMapLatest { (snapshot, cachedStations) ->
             if (snapshot == null) {
-                return@flatMapLatest flowOf(
-                    StationSearchResult(
-                        stations = emptyList(),
-                        freshness = StationFreshness.Stale,
-                        fetchedAt = null,
-                        hasCachedSnapshot = false,
-                    ),
-                )
+                return@flatMapLatest flowOf(emptySearchResult())
             }
 
             val fetchedAt = Instant.ofEpochMilli(snapshot.fetchedAtEpochMillis)
             if (cachedStations.isEmpty()) {
-                return@flatMapLatest flowOf(
-                    StationSearchResult(
-                        stations = emptyList(),
-                        freshness = cachePolicy.freshnessOf(fetchedAt, clock.instant()),
-                        fetchedAt = fetchedAt,
-                        hasCachedSnapshot = true,
-                    ),
-                )
+                return@flatMapLatest flowOf(snapshotOnlyResult(fetchedAt))
             }
 
             val stationIds = cachedStations.map { it.stationId }.distinct()
@@ -107,6 +93,20 @@ class DefaultStationRepository @Inject constructor(
             }
         }
     }
+
+    private fun emptySearchResult(): StationSearchResult = StationSearchResult(
+        stations = emptyList(),
+        freshness = StationFreshness.Stale,
+        fetchedAt = null,
+        hasCachedSnapshot = false,
+    )
+
+    private fun snapshotOnlyResult(fetchedAt: Instant): StationSearchResult = StationSearchResult(
+        stations = emptyList(),
+        freshness = cachePolicy.freshnessOf(fetchedAt, clock.instant()),
+        fetchedAt = fetchedAt,
+        hasCachedSnapshot = true,
+    )
 
     override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
         watchedStationDao.observeWatchedStations().flatMapLatest { watchedStations ->
