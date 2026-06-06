@@ -16,19 +16,20 @@
 - `domain:station` 변이 베이스라인(직전 플랜, `docs/test-strategy.md:94`): 보강 후 `Killed 28/60 (47%)`, **test strength 97%**, SURVIVED 1(= `StationPriceDelta.from`의 `<` 경계 동등 변이, 추가 테스트로 못 잡음). `no-coverage` 변이 31건 때문에 overall %가 낮음.
 - `domain:station/build.gradle.kts`에는 이미 `alias(libs.plugins.pitest)` + `pitest {}`(report-only, `// report-only: mutationThreshold 게이트를 두지 않는다.` 주석)가 있다.
 - root `build.gradle.kts` 구조: 최상단 `import` → `buildscript {}` → `plugins {}` → `dependencies {}`(kover) → `kover {}` → `isNonStable()` + `DependencyUpdatesTask` 설정 순. 파일 첫 줄에 `import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask` 존재.
-- `gradle.properties`에 `org.gradle.configuration-cache=true`. → 경계 가드는 **설정 시점에 의존성 그래프를 String으로 캡처**해 config-cache 안전하게 만든다(실행 시점에 `Project` 접근 금지).
+- `gradle.properties`에 `org.gradle.configuration-cache=true`. → 경계 가드는 **설정 시점에 production `api`/`implementation` 프로젝트 의존성만 `consumer|target` String 목록으로 캡처**하고, 실행 시점에는 `@Input`으로 주입된 값만 읽는 typed task로 만든다(실행 시점 `Project` 접근 및 script-level 컬렉션 클로저 캡처 금지).
 - CI(`.github/workflows/android.yml`) `static-analysis` job은 `./gradlew spotlessCheck lint --continue` 실행(파일 27번째 줄).
-- 현재 모듈 그래프는 아래 가드 규칙을 **모두 통과**한다(구현 전 GREEN 상태가 기대값).
+- 현재 production 모듈 그래프(`api`/`implementation`)는 아래 가드 규칙을 **모두 통과**한다(구현 전 GREEN 상태가 기대값). 테스트 전용 `testImplementation(project(...))`는 테스트 보조 의존이므로 이번 가드 범위 밖이다.
 
 **코드 대조 검증 (2026-06-06, 실제 파일 확인):**
-- root `build.gradle.kts`: 1번째 줄 `import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask`, 마지막 블록은 77~79번째 줄 `tasks.withType<DependencyUpdatesTask>().configureEach { ... }`, 파일은 80번째 빈 줄로 끝. → Track C import는 1번째 줄 아래, 태스크는 79번째 줄 다음에 붙인다.
+- root `build.gradle.kts`: 1번째 줄 `import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask`, 마지막 블록은 77~79번째 줄 `tasks.withType<DependencyUpdatesTask>().configureEach { ... }`, 파일은 80번째 빈 줄로 끝. → Track C import는 1번째 줄 아래, typed task class는 `isNonStable()` 앞, 규칙/캡처/등록은 79번째 줄 다음에 붙인다.
 - `gasstation.jvm.library` 컨벤션(`build-logic/convention/src/main/kotlin/GasStationJvmLibraryConventionPlugin.kt`)이 `testImplementation(libs.kotlin-test)`를 주입한다. `domain:station`이 **추가 junit 선언 없이** 이 설정만으로 pitest를 이미 돌리고 있으므로(베이스라인 28/60 존재), `domain:settings`/`domain:location`도 동일하게 동작한다. → A.1/A.3의 `testImplementation(libs.junit)` 폴백은 **거의 불필요**(만일을 위한 안전망).
 - 카탈로그(`gradle/libs.versions.toml`): `pitest = { id = "info.solidsoft.pitest", version = "1.19.0" }`(111번째 줄), `kotlin-test`(48번째 줄) 등록 확인. → 카탈로그 변경 없음.
 - `domain:settings/build.gradle.kts`는 `api(project(":core:model"))` + coroutines/inject + turbine/coroutines-test. `domain:location/build.gradle.kts`는 `implementation(project(":core:model"))` + coroutines/inject + coroutines-test. 둘 다 `plugins { id("gasstation.jvm.library") }`만 선언(pitest 미적용). → A.1/A.3가 alias만 추가하면 됨.
-- 테스트 클래스 실존 확인: `domain/settings/src/test/.../UpdateSettingsUseCasesTest.kt`, `UserPreferencesTest.kt`; `domain/location/src/test/.../LocationUseCasesTest.kt`, `AddressLabelNormalizerTest.kt`.
+- 테스트 클래스 실존 확인: `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UpdateSettingsUseCasesTest.kt`, `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UserPreferencesTest.kt`; `domain/location/src/test/kotlin/com/gasstation/domain/location/LocationUseCasesTest.kt`, `domain/location/src/test/kotlin/com/gasstation/domain/location/AddressLabelNormalizerTest.kt`.
 - `docs/verification-matrix.md`, `CHANGELOG.md` 실존 → Track D는 신설이 아니라 수정.
 - `docs/test-strategy.md`의 report-only 문장은 96번째 줄(Track B.3 편집 대상)과 정확히 일치. 베이스라인(94번째 줄) `Killed 28/60 (47%)`/test strength 97%/SURVIVED 1/no-coverage 31도 일치.
 - use case 본문 직접 확인: `UpdateFuelTypeUseCase`/`UpdateSearchRadiusUseCase`는 `updateUserPreferences { current.copy(...) }` 위임(세터 없음). `UpdateSettingsUseCasesTest.kt`가 도달값을, `UserPreferencesTest.kt`가 5개 기본값을 이미 단언 → A.2 SURVIVED는 0 기대(정상 경로는 건너뜀). `AddressLabelNormalizer.kt`는 26번째 줄 set·38번째 줄 `indexOfLast`·42/46번째 줄 districtIndex 분기 모두 문서 기술과 일치.
+- 2026-06-06 재검증: 현재 기준 커밋은 `c1e1f26`이고 `./gradlew :domain:settings:test :domain:location:test --console=plain`은 BUILD SUCCESSFUL. 단, 기존 C.1 초안의 `doLast { capturedModuleEdges... }` 방식은 config-cache에서 script object/Project 그래프 캡처 리스크가 있어 typed task + 단순 String `@Input` 방식으로 수정한다.
 - 편집 앵커 실재 확인: `module-contracts.md` 11번째 줄 `- `core:*`는 ... 값 객체만 둡니다.`(C.4 삽입 기준점), `android.yml` 27번째 줄 `run: ./gradlew spotlessCheck lint --continue`(C.3 교체 대상), `verification-matrix.md` 107~118번째 줄 "검증 깊이 측정" 섹션(D.1 추가 위치), `CHANGELOG.md` 5번째 줄 `## Unreleased`(D.2 추가 위치) 모두 존재. 컨벤션 플러그인 36번째 줄 `add("testImplementation", libs.findLibrary("kotlin-test").get())` 확인 → A.1/A.3 junit 폴백 거의 불필요.
 
 **강의 → 작업 매핑 (이 플랜의 학습 동기):**
@@ -53,67 +54,58 @@
 - Modify: `.github/workflows/android.yml` (`static-analysis` job에 태스크 추가)
 - Modify: `docs/module-contracts.md` (가드 명령 한 줄 추가)
 
-### Task C.1: root build에 경계 가드 태스크 추가
+### Task C.1: root build에 config-cache 안전한 경계 가드 태스크 추가
 
 - [ ] **Step 1: root `build.gradle.kts` 최상단에 import 추가**
 
 기존 첫 줄(`import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask`) **바로 아래**에 추가:
 
 ```kotlin
+import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.TaskAction
 ```
 
-- [ ] **Step 2: 파일 맨 끝(`tasks.withType<DependencyUpdatesTask>` 블록 다음)에 규칙·캡처·태스크 추가**
+- [ ] **Step 2: `isNonStable()` 함수 바로 위에 typed task class 추가**
+
+`doLast` 클로저가 script-level 컬렉션을 직접 캡처하지 않게 한다. 실행 시점에는 `@Input`으로 직렬화된 String 값만 읽는다.
 
 ```kotlin
-// === 모듈 경계 가드 ===
-// docs/module-contracts.md / docs/architecture.md 의 "의도된" 모듈 경계를 코드로 고정한다.
-// 의도된 예외: core:location -> domain:location (위치를 플랫폼 인프라로 둔 결정, architecture.md:97).
-//   core:location 은 아래 소비자 prefix 목록에 없으므로 제약되지 않는다.
-//   F1(core:location 데이터 역할)/F3(api 노출)은 "고칠 결함"이 아니라 가드가 지켜야 할 의도된 규칙이다.
-// 형식: (소비 모듈 path prefix, 금지된 대상 모듈 path prefix, 위반 사유)
-val forbiddenModuleEdges: List<Triple<String, String, String>> = listOf(
-    Triple(":feature:", ":core:location", "feature는 위치 인프라를 직접 호출하지 않고 domain:location을 경유한다"),
-    Triple(":feature:", ":core:network", "feature는 네트워크를 직접 다루지 않는다"),
-    Triple(":feature:", ":core:database", "feature는 Room을 직접 다루지 않는다"),
-    Triple(":feature:", ":core:datastore", "feature는 DataStore를 직접 다루지 않는다"),
-    Triple(":feature:", ":data:", "feature는 저장소 구현이 아니라 domain 계약에만 의존한다"),
-    Triple(":data:", ":core:location", "data는 위치 인프라에 의존하지 않는다 (위치는 feature→domain→core:location)"),
-    Triple(":data:", ":feature:", "data는 화면 계층을 알지 못한다"),
-    Triple(":domain:", ":data:", "domain은 구현 세부를 모른다"),
-    Triple(":domain:", ":feature:", "domain은 화면 계층을 모른다"),
-    Triple(":domain:", ":core:location", "domain은 Android 위치 인프라를 모른다"),
-    Triple(":domain:", ":core:network", "domain은 네트워크 구현을 모른다"),
-    Triple(":domain:", ":core:database", "domain은 Room을 모른다"),
-    Triple(":domain:", ":core:datastore", "domain은 DataStore를 모른다"),
-    Triple(":domain:", ":core:designsystem", "domain은 UI를 모른다"),
-    Triple(":core:model", ":domain:", "core:model은 도메인 계층을 모른다"),
-    Triple(":core:model", ":data:", "core:model은 데이터 계층을 모른다"),
-    Triple(":core:network", ":domain:", "core:network은 도메인 계층을 모른다"),
-    Triple(":core:observability", ":domain:", "core:observability는 도메인 계층을 모른다"),
-)
+abstract class VerifyModuleBoundariesTask : DefaultTask() {
+    @get:Input
+    var forbiddenEdges: List<String> = emptyList()
 
-// config-cache 안전: 자식 프로젝트를 먼저 평가해 선언 의존성을 String 으로만 캡처한다.
-// (실행 시점에는 Project 그래프에 접근하지 않는다.)
-evaluationDependsOnChildren()
-val capturedModuleEdges: Map<String, List<String>> = subprojects.associate { sp ->
-    sp.path to sp.configurations
-        .filter { it.name == "implementation" || it.name == "api" }
-        .flatMap { cfg -> cfg.dependencies.withType(ProjectDependency::class.java) }
-        .map { it.path }
-        .distinct()
-}
+    @get:Input
+    var moduleEdges: List<String> = emptyList()
 
-tasks.register("verifyModuleBoundaries") {
-    group = "verification"
-    description = "docs/module-contracts.md 의 의도된 모듈 경계를 검증한다 (의도된 core:location→domain:location 예외 제외)."
-    doLast {
+    @get:Input
+    var moduleCount: Int = 0
+
+    @TaskAction
+    fun verify() {
+        val rules = forbiddenEdges.map { encoded ->
+            val parts = encoded.split("|", limit = 3)
+            require(parts.size == 3) { "Invalid module boundary rule: $encoded" }
+            ForbiddenModuleEdge(
+                consumerPrefix = parts[0],
+                targetPrefix = parts[1],
+                reason = parts[2],
+            )
+        }
         val violations = mutableListOf<String>()
-        capturedModuleEdges.forEach { (consumerPath, deps) ->
-            forbiddenModuleEdges.forEach { (consumerPrefix, targetPrefix, reason) ->
-                if (consumerPath.startsWith(consumerPrefix)) {
-                    deps.filter { it.startsWith(targetPrefix) }
-                        .forEach { bad -> violations += "$consumerPath -> $bad  ($reason)" }
+        moduleEdges.forEach { encodedEdge ->
+            val edgeParts = encodedEdge.split("|", limit = 2)
+            require(edgeParts.size == 2) { "Invalid module dependency edge: $encodedEdge" }
+            val consumerPath = edgeParts[0]
+            val dependencyPath = edgeParts[1]
+            rules.forEach { rule ->
+                if (
+                    consumerPath.startsWith(rule.consumerPrefix) &&
+                    dependencyPath.startsWith(rule.targetPrefix)
+                ) {
+                    violations += "$consumerPath -> $dependencyPath  (${rule.reason})"
                 }
             }
         }
@@ -125,17 +117,74 @@ tasks.register("verifyModuleBoundaries") {
                 },
             )
         }
-        logger.lifecycle("모듈 경계 OK: 금지된 의존성 엣지 없음 (${capturedModuleEdges.size}개 모듈 검사).")
+        logger.lifecycle("모듈 경계 OK: 금지된 production 의존성 엣지 없음 (${moduleCount}개 모듈 검사).")
     }
+
+    private data class ForbiddenModuleEdge(
+        val consumerPrefix: String,
+        val targetPrefix: String,
+        val reason: String,
+    )
 }
 ```
 
-- [ ] **Step 3: 현재 그래프에서 GREEN 통과 확인**
+- [ ] **Step 3: 파일 맨 끝(`tasks.withType<DependencyUpdatesTask>` 블록 다음)에 규칙·캡처·태스크 등록 추가**
+
+```kotlin
+// === 모듈 경계 가드 ===
+// docs/module-contracts.md / docs/architecture.md 의 "의도된" 모듈 경계를 코드로 고정한다.
+// 의도된 예외: core:location -> domain:location (위치를 플랫폼 인프라로 둔 결정, architecture.md:97).
+//   core:location 은 아래 소비자 prefix 목록에 없으므로 제약되지 않는다.
+//   F1(core:location 데이터 역할)/F3(api 노출)은 "고칠 결함"이 아니라 가드가 지켜야 할 의도된 규칙이다.
+// 형식: "소비 모듈 path prefix|금지된 대상 모듈 path prefix|위반 사유"
+val forbiddenModuleEdges = listOf(
+    ":feature:|:core:location|feature는 위치 인프라를 직접 호출하지 않고 domain:location을 경유한다",
+    ":feature:|:core:network|feature는 네트워크를 직접 다루지 않는다",
+    ":feature:|:core:database|feature는 Room을 직접 다루지 않는다",
+    ":feature:|:core:datastore|feature는 DataStore를 직접 다루지 않는다",
+    ":feature:|:data:|feature는 저장소 구현이 아니라 domain 계약에만 의존한다",
+    ":data:|:core:location|data는 위치 인프라에 의존하지 않는다 (위치는 feature→domain→core:location)",
+    ":data:|:feature:|data는 화면 계층을 알지 못한다",
+    ":domain:|:data:|domain은 구현 세부를 모른다",
+    ":domain:|:feature:|domain은 화면 계층을 모른다",
+    ":domain:|:core:location|domain은 Android 위치 인프라를 모른다",
+    ":domain:|:core:network|domain은 네트워크 구현을 모른다",
+    ":domain:|:core:database|domain은 Room을 모른다",
+    ":domain:|:core:datastore|domain은 DataStore를 모른다",
+    ":domain:|:core:designsystem|domain은 UI를 모른다",
+    ":core:model|:domain:|core:model은 도메인 계층을 모른다",
+    ":core:model|:data:|core:model은 데이터 계층을 모른다",
+    ":core:network|:domain:|core:network은 도메인 계층을 모른다",
+    ":core:observability|:domain:|core:observability는 도메인 계층을 모른다",
+)
+
+// config-cache 안전: 자식 프로젝트를 먼저 평가해 production 선언 의존성(api/implementation)을
+// "consumer|target" String 으로만 캡처하고, 실행 시점에는 task @Input 값만 읽는다.
+evaluationDependsOnChildren()
+val capturedModuleEdges: List<String> = subprojects.flatMap { sp ->
+    sp.configurations
+        .filter { it.name == "implementation" || it.name == "api" }
+        .flatMap { cfg -> cfg.dependencies.withType(ProjectDependency::class.java) }
+        .map { "${sp.path}|${it.path}" }
+        .distinct()
+}
+val capturedModuleCount = subprojects.size
+
+tasks.register<VerifyModuleBoundariesTask>("verifyModuleBoundaries") {
+    group = "verification"
+    description = "docs/module-contracts.md 의 의도된 모듈 경계를 검증한다 (의도된 core:location→domain:location 예외 제외)."
+    forbiddenEdges = forbiddenModuleEdges
+    moduleEdges = capturedModuleEdges
+    moduleCount = capturedModuleCount
+}
+```
+
+- [ ] **Step 4: 현재 그래프에서 GREEN 통과 확인**
 
 Run: `./gradlew verifyModuleBoundaries --console=plain`
-Expected: BUILD SUCCESSFUL, 마지막 줄에 `모듈 경계 OK: 금지된 의존성 엣지 없음 (18개 모듈 검사).`
+Expected: BUILD SUCCESSFUL, 마지막 줄에 `모듈 경계 OK: 금지된 production 의존성 엣지 없음 (18개 모듈 검사).`
 
-- [ ] **Step 4: config-cache 호환 확인 (저장 + 재사용)**
+- [ ] **Step 5: config-cache 호환 확인 (저장 + 재사용)**
 
 Run: `./gradlew verifyModuleBoundaries --console=plain && ./gradlew verifyModuleBoundaries --console=plain`
 Expected: 두 번째 실행에서 `Reusing configuration cache.` 출력, BUILD SUCCESSFUL. (config-cache 문제 보고가 없어야 한다.)
@@ -166,7 +215,19 @@ Expected: BUILD SUCCESSFUL, `모듈 경계 OK ...`.
 
 ### Task C.3: CI static-analysis job에 가드 연결
 
-- [ ] **Step 1: `.github/workflows/android.yml`의 static-analysis 실행 줄 수정**
+- [ ] **Step 1: `.github/workflows/android.yml`의 static-analysis step 이름과 실행 줄 수정**
+
+다음 step 이름을
+
+```yaml
+      - name: Spotless + Lint
+```
+
+다음으로 교체:
+
+```yaml
+      - name: Spotless + Lint + Module Boundaries
+```
 
 다음 줄을
 

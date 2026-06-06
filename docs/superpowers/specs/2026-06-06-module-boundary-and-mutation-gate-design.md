@@ -1,7 +1,7 @@
 # GasStation 모듈 경계 가드 + 변이 게이트 (검증 깊이 II) 설계
 
 > 작성일: 2026-06-06
-> 기준 커밋: `fcdcaba`
+> 기준 커밋: `c1e1f26`
 > 범위: 모듈 경계 코드 가드, domain 계층 변이 테스트 확장, domain:station 변이 회귀 floor 게이트
 > 사용자 플로우 영향: 없음 (주유소 비교/watchlist/설정/외부 지도 handoff 동작 불변)
 > 짝 구현 plan: `docs/superpowers/plans/2026-06-06-module-boundary-and-mutation-gate.md`
@@ -16,11 +16,12 @@
 
 1. **모듈 경계는 문서에만 존재하고 코드 강제가 없다.** `docs/module-contracts.md`가 "어떤 모듈이 무엇을 소유하면 안 되는가"를 단일 출처로 규정하지만, 위반을 자동으로 잡는 가드가 없다. 경계는 리뷰어의 주의에만 의존한다.
 2. **`core:location → domain:location`은 의도된 예외다.** `docs/module-contracts.md:29`·`docs/architecture.md`가 `core:location`을 "위치를 플랫폼 인프라로 둔" 데이터 역할(F1)로 명시한다. `domain:settings`가 `core:model`을 `api`로 노출하는 것(F3, `module-contracts.md:22` "core:model as public API")도 의도된 결정이다. **이 둘은 "고칠 결함"이 아니라 가드가 보존해야 할 규칙이다.**
-3. **`gradle.properties`에 `org.gradle.configuration-cache=true`.** 따라서 경계 가드 태스크는 실행 시점에 `Project` 그래프에 접근하면 안 되고, **설정 시점에 의존성 엣지를 String으로 캡처**해야 config-cache 안전하다.
+3. **`gradle.properties`에 `org.gradle.configuration-cache=true`.** 따라서 경계 가드 태스크는 실행 시점에 `Project` 그래프에 접근하면 안 되고, **설정 시점에 production `api`/`implementation` 의존성 엣지를 `consumer|target` String 목록으로 캡처한 뒤 typed task의 `@Input`으로 주입**해야 config-cache 안전하다. 기존 초안처럼 `doLast` 클로저가 script-level 컬렉션을 직접 캡처하는 방식은 config-cache에서 script object/Project 그래프 캡처 리스크가 있어 피한다.
 4. **`domain:station` 변이 베이스라인이 안정됐다.** 직전 플랜에서 `docs/test-strategy.md:94` 기준 보강 후 `Killed 28/60 (47%)`, **test strength 97%**, SURVIVED 1(= `StationPriceDelta.from`의 `<` 경계 동등 변이, 추가 테스트로 못 잡는 equivalent mutant). overall %가 낮은 이유는 `no-coverage` 변이 31건 때문이다. → 게이트 승격에 충분한 근거.
 5. **`domain:settings`/`domain:location`은 변이 미측정이다.** 둘 다 `gasstation.jvm.library` 순수 JVM 모듈이라 pitest 적용이 가능한데 아직 베이스라인이 없다. 컨벤션 플러그인(`GasStationJvmLibraryConventionPlugin.kt:36`)이 `testImplementation(kotlin-test)`를 주입하고, `domain:station`이 이 설정만으로 pitest를 이미 돌리므로 두 모듈도 동일하게 동작한다.
 6. **변이 표면의 비대칭.** `domain:settings`의 use case는 `updateUserPreferences { current.copy(필드 = 인자) }` 형태의 얇은 위임이고 기존 테스트가 도달값·기본값을 이미 단언한다 → SURVIVED 0 기대. `domain:location`은 `AddressLabelNormalizer.kt`에 분기·경계(시/도 토큰 결합, `indexOfLast`, districtIndex 유무 분기)가 몰려 있어 SURVIVED 후보가 집중된다.
-7. **현재 그래프는 가드 규칙을 모두 통과한다(GREEN).** 18개 모듈의 `implementation`/`api` 의존을 확인한 결과, 아래 denylist 어떤 규칙도 위반하지 않는다. 즉 가드 도입은 즉시 GREEN이며, 회귀가 생길 때만 RED가 된다.
+7. **현재 production 그래프는 가드 규칙을 모두 통과한다(GREEN).** 18개 모듈의 `implementation`/`api` 의존을 확인한 결과, 아래 denylist 어떤 규칙도 위반하지 않는다. 즉 가드 도입은 즉시 GREEN이며, 회귀가 생길 때만 RED가 된다. 테스트 전용 `testImplementation(project(...))`는 정상 테스트 보조 의존까지 오탐할 수 있어 이번 가드 범위 밖에 둔다.
+8. **현 테스트 계약은 현재 코드에서도 통과한다.** 2026-06-06 재검증에서 `./gradlew :domain:settings:test :domain:location:test --console=plain`은 BUILD SUCCESSFUL이다. `domain:settings`의 `UserPreferencesTest` 실제 경로는 `domain/settings/src/test/kotlin/com/gasstation/domain/settings/UserPreferencesTest.kt`다.
 
 ## 비목표 (Out of Scope)
 
@@ -43,17 +44,17 @@
 
 - **denylist(금지 엣지) 방식**을 택한다. allowlist(허용 엣지 전수 나열)가 아니라, `(소비 모듈 prefix, 금지 대상 prefix, 사유)` Triple 목록으로 "있어선 안 되는 의존"만 규정한다.
   - **이유:** allowlist는 새 모듈/새 정상 의존이 생길 때마다 갱신해야 해 마찰이 크고, 누락 시 false-positive(정상인데 RED)를 낸다. denylist는 의도된 예외(`core:location → domain:location`)를 소비자 prefix 목록에서 단순 제외하는 것으로 보존할 수 있어 **오탐 0**을 보장한다. 트레이드오프는 "새로운 종류의 나쁜 엣지"를 규칙에 추가하지 않으면 못 잡는다는 점인데, 경계는 천천히 바뀌므로 수용 가능하다.
-- **config-cache 안전:** `evaluationDependsOnChildren()`로 자식 프로젝트를 먼저 평가한 뒤, 각 subproject의 `implementation`/`api` 의존을 `ProjectDependency.path`(String)로만 캡처해 immutable `Map<String, List<String>>`에 담는다. 태스크 `doLast`는 이 String 맵만 읽고 `Project` 그래프에 접근하지 않는다.
+- **config-cache 안전:** `evaluationDependsOnChildren()`로 자식 프로젝트를 먼저 평가한 뒤, 각 subproject의 production `implementation`/`api` 의존을 `consumer|target` String 목록으로만 캡처한다. `verifyModuleBoundaries`는 `DefaultTask` 기반 typed task로 만들고, 규칙/의존성 엣지를 단순 `@Input` property로 주입한다. `@TaskAction`은 이 직렬화된 입력만 읽고 `Project` 그래프나 script-level 컬렉션을 직접 캡처하지 않는다.
 - **빠르므로 CI에 넣는다.** 의존성 그래프만 보는 태스크라 거의 즉시 끝난다 → `static-analysis` job(`spotlessCheck lint`)에 `verifyModuleBoundaries`를 추가해 PR마다 강제한다.
 - 위반 시 위반 엣지와 사유를 모두 모아 `GradleException`으로 실패시킨다(부분 실패가 아니라 전체 목록 제공).
 
 ### 산출물
 
-- 루트 `build.gradle.kts`의 `verifyModuleBoundaries` 태스크 + `forbiddenModuleEdges` 규칙.
+- 루트 `build.gradle.kts`의 `VerifyModuleBoundariesTask` typed task + `forbiddenModuleEdges` 규칙.
 - CI `static-analysis` job 배선.
 - `docs/module-contracts.md`에 가드 명령과 의도된 예외 한 줄.
 
-**완료 기준:** `./gradlew verifyModuleBoundaries`가 현재 그래프(18개 모듈)에서 통과하고, 임시로 금지된 엣지(예: `data:station → core:location`)를 주입하면 사유와 함께 실패한다. config-cache 저장/재사용이 경고 없이 동작한다.
+**완료 기준:** `./gradlew verifyModuleBoundaries`가 현재 production 그래프(18개 모듈)에서 통과하고, 임시로 금지된 엣지(예: `data:station → core:location`)를 주입하면 사유와 함께 실패한다. config-cache 저장/재사용이 경고 없이 동작한다.
 
 **Track C 검증:**
 ```bash
