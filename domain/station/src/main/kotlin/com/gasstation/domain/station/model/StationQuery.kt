@@ -16,8 +16,8 @@ data class StationQuery(
     fun toCacheKey(bucketMeters: Int): StationQueryCacheKey {
         require(bucketMeters > 0) { "bucketMeters must be greater than 0" }
 
-        val latitudeBucket = ((coordinates.latitude * 111_000) / bucketMeters).toInt()
-        val longitudeBucket = ((coordinates.longitude * 88_800) / bucketMeters).toInt()
+        val latitudeBucket = ((coordinates.latitude * METERS_PER_LATITUDE_DEGREE) / bucketMeters).toInt()
+        val longitudeBucket = ((coordinates.longitude * METERS_PER_LONGITUDE_DEGREE_KR) / bucketMeters).toInt()
 
         return StationQueryCacheKey(
             latitudeBucket = latitudeBucket,
@@ -25,5 +25,14 @@ data class StationQuery(
             radiusMeters = radius.meters,
             fuelType = fuelType,
         )
+    }
+
+    private companion object {
+        // 위도 1도 ≈ 111km (전 지구 공통 근사).
+        const val METERS_PER_LATITUDE_DEGREE = 111_000
+
+        // 경도 1도당 미터는 위도에 따라 줄어든다. 이 값은 한국 위도(약 37도) 근사치이며,
+        // 캐시 버킷팅 전용 좌표 양자화에만 쓰인다(정밀 거리 계산용 아님).
+        const val METERS_PER_LONGITUDE_DEGREE_KR = 88_800
     }
 }
