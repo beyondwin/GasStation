@@ -9,6 +9,7 @@
 - `domain:*`는 계약과 모델을 소유하지만 Android/UI 타입을 노출하지 않습니다.
 - `data:*`는 저장과 조합을 담당하지만 화면 상태나 Compose 타입을 만들지 않습니다.
 - `core:*`는 여러 모듈이 공유하는 인프라와 값 객체만 둡니다.
+- 위 경계는 `./gradlew verifyModuleBoundaries`(CI `static-analysis` 포함)로 강제합니다. 의도된 예외는 `core:location → domain:location` 하나이며, 가드 규칙에서 제외돼 있습니다.
 
 ## 모듈 인벤토리
 
