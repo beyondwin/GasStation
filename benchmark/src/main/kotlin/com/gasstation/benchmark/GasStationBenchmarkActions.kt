@@ -1,5 +1,6 @@
 package com.gasstation.benchmark
 
+import android.content.Intent
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
@@ -9,10 +10,10 @@ import androidx.test.uiautomator.Until
 
 internal const val TARGET_PACKAGE = "com.gasstation.demo"
 
-private const val WAIT_TIMEOUT_MS = 10_000L
+private const val WAIT_TIMEOUT_MS = 20_000L
+private const val TARGET_ACTIVITY = "com.gasstation.MainActivity"
 private const val COARSE_LOCATION_PERMISSION = "android.permission.ACCESS_COARSE_LOCATION"
 private const val FINE_LOCATION_PERMISSION = "android.permission.ACCESS_FINE_LOCATION"
-private const val STATION_TEXT_FRAGMENT = "주유소"
 private const val REFRESH_ACTION_DESCRIPTION = "새로고침"
 private const val REFRESH_RAIL_TITLE = "가격 갱신 중"
 private const val STATION_LIST_WATCHLIST_ACTION_TAG = "station-list-watchlist-action"
@@ -22,9 +23,17 @@ private const val WATCHLIST_CARD_TAG = "watchlist-card"
 internal fun MacrobenchmarkScope.launchStationList() {
     grantLocationPermissions()
     pressHome()
-    startActivityAndWait()
+    startGasStationActivityAndWait()
     waitForStationListContent()
     waitForRefreshRailGone()
+}
+
+internal fun MacrobenchmarkScope.startGasStationActivityAndWait() {
+    startActivityAndWait { intent ->
+        intent.action = Intent.ACTION_MAIN
+        intent.addCategory(Intent.CATEGORY_LAUNCHER)
+        intent.setClassName(TARGET_PACKAGE, TARGET_ACTIVITY)
+    }
 }
 
 internal fun MacrobenchmarkScope.waitForRefreshRailGone() {
@@ -38,8 +47,8 @@ internal fun MacrobenchmarkScope.grantLocationPermissions() {
 
 internal fun MacrobenchmarkScope.waitForStationListContent(): UiObject2 =
     waitForObject(
-        selector = By.textContains(STATION_TEXT_FRAGMENT),
-        label = "station list content containing '$STATION_TEXT_FRAGMENT'",
+        selector = resourceId(STATION_LIST_WATCH_TOGGLE_TAG),
+        label = "station-list watch toggle resource id '$STATION_LIST_WATCH_TOGGLE_TAG'",
     )
 
 internal fun MacrobenchmarkScope.refreshStationList() {

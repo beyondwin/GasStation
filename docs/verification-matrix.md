@@ -201,10 +201,10 @@ Hero benchmarks require a physical device for committed performance numbers. Emu
 
 ```bash
 ./gradlew :app:assembleDemoBenchmark :benchmark:assembleBenchmark
-ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTest
+ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest
 ```
 
-The watchlist benchmark uses Compose test tags exposed as resource IDs for the save action, top-bar bookmark action, and watchlist card. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs for the save action, top-bar bookmark action, and watchlist card. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
 
 After a successful run, inspect generated JSON and trace artifacts:
 

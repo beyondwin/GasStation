@@ -25,7 +25,7 @@ class StationListBenchmark {
             pressHome()
         },
     ) {
-        startActivityAndWait()
+        startGasStationActivityAndWait()
         waitForStationListContent()
     }
 

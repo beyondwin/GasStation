@@ -17,7 +17,7 @@ class BaselineProfileGenerator {
     ) {
         grantLocationPermissions()
         pressHome()
-        startActivityAndWait()
+        startGasStationActivityAndWait()
         waitForStationListContent()
         refreshStationList()
         scrollStationList()
