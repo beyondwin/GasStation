@@ -4,31 +4,34 @@ sealed interface StationPriceDelta {
     enum class PriceDirection { RISE, FALL, NEUTRAL }
 
     val direction: PriceDirection
-        get() = when (this) {
-            is Increased -> PriceDirection.RISE
-            is Decreased -> PriceDirection.FALL
-            Unavailable, Unchanged -> PriceDirection.NEUTRAL
-        }
-
     val amountWonOrNull: Int?
-        get() = when (this) {
-            is Increased -> amountWon
-            is Decreased -> amountWon
-            Unavailable, Unchanged -> null
-        }
 
-    data object Unavailable : StationPriceDelta
-    data object Unchanged : StationPriceDelta
+    data object Unavailable : StationPriceDelta {
+        override val direction = PriceDirection.NEUTRAL
+        override val amountWonOrNull: Int? = null
+    }
+
+    data object Unchanged : StationPriceDelta {
+        override val direction = PriceDirection.NEUTRAL
+        override val amountWonOrNull: Int? = null
+    }
+
     data class Increased(val amountWon: Int) : StationPriceDelta {
         init {
             require(amountWon > 0) { "Increased price delta amount must be positive." }
         }
+
+        override val direction = PriceDirection.RISE
+        override val amountWonOrNull get() = amountWon
     }
 
     data class Decreased(val amountWon: Int) : StationPriceDelta {
         init {
             require(amountWon > 0) { "Decreased price delta amount must be positive." }
         }
+
+        override val direction = PriceDirection.FALL
+        override val amountWonOrNull get() = amountWon
     }
 
     companion object {
