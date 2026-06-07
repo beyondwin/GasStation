@@ -29,7 +29,7 @@
 | 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
-| 현재 앱 버전 | `1.1.3` (`versionCode` 7) |
+| 현재 앱 버전 | `1.2.0` (`versionCode` 8) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 | 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
@@ -148,7 +148,8 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 - [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
 - [배포 절차](docs/deployment.md): release branch, 검증, tag push, prodRelease 산출물, signing/secret 경계를 정리합니다.
-- [Unreleased](CHANGELOG.md#unreleased): v1.1.3 이후 변경 사항을 추적합니다.
+- [Unreleased](CHANGELOG.md#unreleased): v1.2.0 이후 변경 사항을 추적합니다.
+- [1.2.0 릴리즈 노트](docs/release-notes/2026-06-07-v1.2.0.md): proxy readiness, refresh transaction, module boundary guard, mutation gate, release-readiness fixes를 정리합니다.
 - [1.1.3 릴리즈 노트](docs/release-notes/2026-05-18-v1.1.3.md): hero benchmark evidence, first usable content startup reporting, backend proxy ADR, physical-device performance snapshot, 배포 절차 문서화를 정리합니다.
 - [1.1.2 릴리즈 노트](docs/release-notes/2026-05-14-v1.1.2.md): build/test 속도 개선, CI 메모리 안정화, 검증 경로 분리를 정리합니다.
 - [1.1.1 릴리즈 노트](docs/release-notes/2026-05-13-v1.1.1.md): clean architecture remediation, observability 경계, station-list/data 분리, CI scope 조정을 정리합니다.
