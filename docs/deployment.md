@@ -9,6 +9,7 @@
 - 저장소에는 Play Store 자동 배포, signing keystore, 배포 credential을 두지 않습니다.
 - `prodRelease` APK/AAB signing은 저장소 밖의 keystore와 배포자 계정에서 처리합니다.
 - `prod` 런타임에는 사용자 로컬 `opinet.apikey`가 필요합니다. 키는 `~/.gradle/gradle.properties` 또는 `-Popinet.apikey=<issued-key>`로 전달하고 저장소에 커밋하지 않습니다.
+- 원격 조회 endpoint는 기본값이 `gasstation.stationEndpointMode=direct`(direct Opinet)입니다. proxy 빌드는 `-Pgasstation.stationEndpointMode=proxy -Pgasstation.proxyBaseUrl=<https-url>`로 전환하며(`STATION_ENDPOINT_MODE`/`PROXY_BASE_URL` BuildConfig로 주입), proxy 서버 배포는 [`docs/adr/2026-05-18-backend-proxy-escalation.md`](adr/2026-05-18-backend-proxy-escalation.md) 조건을 따릅니다.
 
 ## 릴리스 PR 준비
 

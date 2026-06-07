@@ -75,6 +75,8 @@ Room은 네 개의 저장 단위를 씁니다.
 - 정렬도 클라이언트에서 적용
 - 가격 변화는 같은 유종 히스토리만 사용
 
+이때 좌표가 유효하지 않거나 가격이 양수가 아닌 캐시 행은 DB→domain 읽기 경계에서 제외됩니다. `StationCacheEntity.toDomainStation()`이 `Coordinates.ofOrNull`/`MoneyWon.ofOrNull` 실패 시 `null`을 돌려주고, `StationSearchResultAssembler`가 이 행들을 `mapNotNull`로 건너뛰므로 불량 행은 예외 없이 목록에서 빠집니다.
+
 ## stale 판정
 
 `StationCachePolicy`는 현재 5분 기준으로 `Fresh`와 `Stale`를 나누고, 오래된 캐시 정리 cutoff도 같은 정책 객체에서 계산합니다.
@@ -117,8 +119,8 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 
 1. `watched_station`에서 저장 항목을 읽습니다.
-2. 같은 `stationId`의 최신 캐시가 있으면 그 정보를 우선 사용합니다. 이 최신 행 선택은 DAO SQL이 station별 한 행만 반환하며, timestamp tie는 유종, 반경, 위치 버킷 순서로 고정합니다.
-3. 최신 캐시가 없으면 `station_price_history` 최신 행과 저장된 좌표/브랜드/이름으로 대체 모델을 만듭니다.
+2. 같은 `stationId`의 최신 캐시가 있으면 그 정보를 우선 사용합니다. 이 최신 행 선택은 DAO SQL이 station별 한 행만 반환하며, timestamp tie는 유종, 반경, 위치 버킷 순서로 고정합니다. 단, 그 최신 캐시 행이 좌표/가격 검증을 통과하지 못해 `toDomainStation()`이 `null`을 돌려주면 무시하고 다음 단계로 내려갑니다(`WatchlistSummaryAssembler`가 `cachedSnapshot != null`인 행만 유효 캐시로 인정).
+3. 최신 캐시가 없거나 무효하면 `station_price_history` 최신 행과 저장된 좌표/브랜드/이름으로 대체 모델을 만듭니다.
 4. 둘 다 없으면 해당 항목은 요약에서 빠집니다.
 
 즉 사용자가 저장한 항목은 현재 검색 결과에서 사라져도 바로 비어 버리지 않습니다.

@@ -12,7 +12,7 @@
 
 **승격 조건:** 공개 배포, quota 비용이 큰 운영 환경, 또는 민감 데이터 엔드포인트 추가 시 backend proxy + key restriction + quota monitoring 설계로 전환합니다.
 
-**v1.2 readiness:** Android can be configured for a proxy endpoint through `gasstation.stationEndpointMode=proxy` and `gasstation.proxyBaseUrl=https://gasstation-proxy.example/`. The default remains direct Opinet access until a separately approved proxy service is deployed. The proxy contract must return Android-ready station payloads rather than leaking Opinet raw DTOs into `domain:*` or `feature:*`.
+**v1.2 readiness:** Android can be configured for a proxy endpoint through `gasstation.stationEndpointMode=proxy` and `gasstation.proxyBaseUrl=https://gasstation-proxy.example/`. The default remains direct Opinet access until a separately approved proxy service is deployed (see [`docs/adr/2026-05-18-backend-proxy-escalation.md`](adr/2026-05-18-backend-proxy-escalation.md)). The proxy base URL is validated in `NetworkModule.requireValidProxyBaseUrl`, which rejects blank or malformed values and requires an absolute http(s) URL ending in `/` before any Retrofit client is constructed. The proxy contract must return Android-ready station payloads rather than leaking Opinet raw DTOs into `domain:*` or `feature:*`.
 
 ## Cleartext HTTP Whitelist
 

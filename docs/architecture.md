@@ -86,7 +86,7 @@ flowchart LR
 | `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 |
 | `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스와 표시 라벨 매핑 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
-| `core:network` | Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화 |
+| `core:network` | direct Opinet과 proxy 두 endpoint 모드를 `StationNetworkSource` 계약으로 추상화(`NetworkStationFetcher` vs `ProxyStationFetcher`), Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화. endpoint 모드와 base URL은 `app`이 주입한 `NetworkRuntimeConfig`만 따름 |
 | `core:database` | Room DB, DAO, migration |
 | `core:datastore` | storage-local `StoredUserPreferences` DataStore와 커스텀 serializer. 선호값은 primitive/string enum name으로 저장 |
 | `tools:demo-seed` | Opinet 결과를 기준으로 demo seed JSON을 다시 생성하는 JVM CLI |
@@ -172,6 +172,7 @@ flowchart LR
   별도 좌표 변환 API를 호출하지 않습니다.
 - Opinet base URL이 HTTP를 사용하므로 앱 network security config는 cleartext 예외를 `www.opinet.co.kr` 정확한 도메인에만 둡니다.
 - `prod` API key는 `BuildConfig`를 통해 클라이언트에 들어가므로 APK에서 완전히 숨길 수 있는 secret boundary가 아닙니다. 현재 범위에서는 수용하지만 공개 서비스 배포 전에는 backend proxy, key restriction, quota monitoring을 별도 설계합니다.
+- 원격 조회 endpoint는 `core:network`의 `StationNetworkSource`로 추상화하고, `StationEndpointMode.DirectOpinet`(기본)와 `Proxy` 중 무엇을 쓸지는 `app/src/main/java/com/gasstation/di/AppConfigModule.kt`가 `BuildConfig.STATION_ENDPOINT_MODE`/`PROXY_BASE_URL`(Gradle property `gasstation.stationEndpointMode`/`gasstation.proxyBaseUrl`)로 결정해 `NetworkRuntimeConfig`로 주입합니다. proxy 모드에서는 `NetworkModule.requireValidProxyBaseUrl`이 `/`로 끝나는 절대 http(s) URL만 통과시키고 blank/malformed base URL은 Retrofit 생성 전에 설정 오류로 거부합니다. proxy 서버 자체는 배포돼 있지 않으며 승격 조건은 `docs/adr/2026-05-18-backend-proxy-escalation.md`를 따릅니다.
 - 로컬 Room/DataStore 상태는 재생성 가능한 캐시와 reference watchlist/settings로 보고 Android backup/data extraction을 비활성화합니다.
 - 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
 - API 33 이상 주소 조회는 지오코더 callback API를 coroutine으로 감싸고, pre-33은 기존 동기 API를 I/O dispatcher에서 fallback으로 사용합니다. callback error는 `LocationAddressLookupResult.Error`, 성공했지만 빈 결과는 `Unavailable`, cancellation은 그대로 전파됩니다.

@@ -15,7 +15,7 @@
 
 | 모듈 | 소유 범위 | 직접 의존 | 이 모듈에 두지 말 것 |
 | --- | --- | --- | --- |
-| `app` | Hilt 조립, startup hook, navigation, flavor 연결, 외부 앱 handoff, `StationEventLogger` 구현 연결, flavor별 `CrashReporter` 구현/Hilt 바인딩 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
+| `app` | Hilt 조립, startup hook, navigation, flavor 연결, 외부 앱 handoff, network endpoint 모드 선택(`AppConfigModule` via `BuildConfig.STATION_ENDPOINT_MODE`/`PROXY_BASE_URL`), `StationEventLogger` 구현 연결, flavor별 `CrashReporter` 구현/Hilt 바인딩 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
 | `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, 정규화된 주소 라벨 표시/저장, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
@@ -28,7 +28,7 @@
 | `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 | 없음 | feature 화면 상태, 특정 domain 정책, Timber/Crashlytics SDK 구현 |
 | `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive, 브랜드 아이콘 리소스와 표시 label 매핑 | Compose/Material3, `core:model` | feature 전용 비즈니스 문구, 화면 상태 분기, 검색/저장 정책 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback/pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:observability`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
-| `core:network` | Opinet 서비스, 좌표 변환, fetcher | `core:model` | 캐시/Room 조합 |
+| `core:network` | direct Opinet/proxy endpoint 모드(`StationNetworkSource` 추상화), Opinet 서비스, 좌표 변환, fetcher | `core:model` | 캐시/Room 조합, endpoint 모드/base URL 선택(=`app` 소유) |
 | `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
 | `core:datastore` | DataStore data source, serializer, storage-local settings DTO | Android DataStore | 화면 상태, 설정 정책, domain model |
 | `tools:demo-seed` | demo seed 재생성 CLI | `core:network`, `domain:station`, `core:model` | 앱 런타임 의존 |
@@ -54,6 +54,8 @@
   `data/station/StationCachePolicy.kt`와 `core/database/*`
 - refresh 재시도 정책 변경:
   `data/station/StationRetryPolicy.kt`, `data/station/DefaultStationRepository.kt`, retry event 계약이 바뀌면 `domain/station/model/StationEvent.kt`
+- 원격 endpoint 모드(direct/proxy) 변경:
+  `core/network/di/NetworkRuntimeConfig.kt`, `core/network/di/NetworkModule.kt`, `core/network/station/ProxyStationFetcher.kt`, 선택 wiring은 `app/src/main/java/com/gasstation/di/AppConfigModule.kt`와 `app/build.gradle.kts` buildConfigField
 - 이벤트/관찰 계약 변경:
   이벤트 종류와 payload는 `domain/station/model/StationEvent.kt`, 비치명 예외 보고 계약은 `core/observability/CrashReporter.kt`, 앱의 현재 구현은 `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`와 `app/src/{demo,prod}/kotlin/com/gasstation/analytics/*`
 - watchlist 비교 규칙 변경:
