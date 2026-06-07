@@ -18,22 +18,23 @@ internal fun WatchedStationEntity.toWatchedSummary(
     cachedStation: StationCacheEntity?,
     history: List<StationPriceHistoryEntity>,
 ): WatchedStationSummary? {
+    val cachedSnapshot = cachedStation?.toDomainStation(origin)
+    val validCachedStation = cachedStation?.takeIf { cachedSnapshot != null }
     val historyForContext = history.historyForWatchlistContext(cachedStation?.fuelType)
-    val station = resolveStation(origin, cachedStation, historyForContext) ?: return null
-    val priceDelta = resolvePriceDelta(cachedStation, historyForContext)
+    val station = resolveStation(origin, cachedSnapshot, historyForContext) ?: return null
+    val priceDelta = resolvePriceDelta(validCachedStation, historyForContext)
     return WatchedStationSummary(
         station = station,
         priceDelta = priceDelta,
-        lastSeenAt = resolveLastSeenAt(cachedStation, historyForContext),
+        lastSeenAt = resolveLastSeenAt(validCachedStation, historyForContext),
     )
 }
 
 private fun WatchedStationEntity.resolveStation(
     origin: Coordinates,
-    cachedStation: StationCacheEntity?,
+    cachedSnapshot: Station?,
     historyForContext: List<StationPriceHistoryEntity>,
 ): Station? {
-    val cachedSnapshot = cachedStation?.toDomainStation(origin)
     val latestPrice = historyForContext.firstOrNull()
     return when {
         cachedSnapshot != null -> cachedSnapshot

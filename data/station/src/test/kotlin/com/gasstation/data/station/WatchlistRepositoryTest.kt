@@ -228,6 +228,59 @@ class WatchlistRepositoryTest {
     }
 
     @Test
+    fun `observeWatchlist ignores invalid cached row when computing history fallback delta`() = runBlocking {
+        val origin = Coordinates(37.498095, 127.027610)
+        val repository = repository(
+            stationCacheDao = RecordingWatchlistStationCacheDao(
+                cachedStations = listOf(
+                    cachedStation(
+                        stationId = "station-invalid",
+                        name = "Invalid Cached Snapshot",
+                        brandCode = "GSC",
+                        priceWon = -1,
+                        latitude = 37.500095,
+                        longitude = 127.025610,
+                        fetchedAt = now.minusSeconds(10),
+                    ),
+                ),
+            ),
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-invalid",
+                        priceWon = 1_680,
+                        fetchedAt = now.minusSeconds(30),
+                    ),
+                    history(
+                        stationId = "station-invalid",
+                        priceWon = 1_660,
+                        fetchedAt = now.minusSeconds(330),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-invalid",
+                        name = "Watched Fallback",
+                        brandCode = "GSC",
+                        latitude = 37.497095,
+                        longitude = 127.026610,
+                        watchedAt = now.minusSeconds(5),
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(origin).first().single()
+
+        assertEquals("Watched Fallback", item.station.name)
+        assertEquals(1_680, item.station.price.value)
+        assertEquals(StationPriceDelta.Increased(20), item.priceDelta)
+        assertEquals(now.minusSeconds(30), item.lastSeenAt)
+    }
+
+    @Test
     fun `observeWatchlist drops watched entries with no last known snapshot or history`() = runBlocking {
         val origin = Coordinates(37.498095, 127.027610)
         val repository = repository(
