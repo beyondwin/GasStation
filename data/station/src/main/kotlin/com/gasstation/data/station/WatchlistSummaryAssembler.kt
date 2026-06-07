@@ -18,11 +18,24 @@ internal fun WatchedStationEntity.toWatchedSummary(
     cachedStation: StationCacheEntity?,
     history: List<StationPriceHistoryEntity>,
 ): WatchedStationSummary? {
-    val cachedSnapshot = cachedStation?.toDomainStation(origin)
     val historyForContext = history.historyForWatchlistContext(cachedStation?.fuelType)
+    val station = resolveStation(origin, cachedStation, historyForContext) ?: return null
+    val priceDelta = resolvePriceDelta(cachedStation, historyForContext)
+    return WatchedStationSummary(
+        station = station,
+        priceDelta = priceDelta,
+        lastSeenAt = resolveLastSeenAt(cachedStation, historyForContext),
+    )
+}
+
+private fun WatchedStationEntity.resolveStation(
+    origin: Coordinates,
+    cachedStation: StationCacheEntity?,
+    historyForContext: List<StationPriceHistoryEntity>,
+): Station? {
+    val cachedSnapshot = cachedStation?.toDomainStation(origin)
     val latestPrice = historyForContext.firstOrNull()
-    val previousPrice = historyForContext.drop(1).firstOrNull()
-    val station = when {
+    return when {
         cachedSnapshot != null -> cachedSnapshot
         latestPrice != null -> {
             val stationCoordinates = Coordinates.ofOrNull(latitude, longitude) ?: return null
@@ -36,9 +49,12 @@ internal fun WatchedStationEntity.toWatchedSummary(
                 coordinates = stationCoordinates,
             )
         }
-        else -> return null
+        else -> null
     }
-    val priceDelta = when {
+}
+
+private fun resolvePriceDelta(cachedStation: StationCacheEntity?, historyForContext: List<StationPriceHistoryEntity>): StationPriceDelta =
+    when {
         cachedStation != null -> StationPriceDelta.from(
             previousPriceWon = historyRowsBefore(
                 fetchedAtEpochMillis = cachedStation.fetchedAtEpochMillis,
@@ -46,20 +62,16 @@ internal fun WatchedStationEntity.toWatchedSummary(
             ).firstOrNull()?.priceWon,
             currentPriceWon = cachedStation.priceWon,
         )
-        latestPrice != null -> StationPriceDelta.from(
-            previousPriceWon = previousPrice?.priceWon,
-            currentPriceWon = latestPrice.priceWon,
+        historyForContext.isNotEmpty() -> StationPriceDelta.from(
+            previousPriceWon = historyForContext.drop(1).firstOrNull()?.priceWon,
+            currentPriceWon = historyForContext.first().priceWon,
         )
         else -> StationPriceDelta.Unavailable
     }
 
-    return WatchedStationSummary(
-        station = station,
-        priceDelta = priceDelta,
-        lastSeenAt = cachedStation?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli)
-            ?: latestPrice?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli),
-    )
-}
+private fun resolveLastSeenAt(cachedStation: StationCacheEntity?, historyForContext: List<StationPriceHistoryEntity>): Instant? =
+    cachedStation?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli)
+        ?: historyForContext.firstOrNull()?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli)
 
 private fun List<StationPriceHistoryEntity>.historyForWatchlistContext(cachedFuelType: String?): List<StationPriceHistoryEntity> {
     if (isEmpty()) return emptyList()
