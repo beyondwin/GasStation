@@ -149,7 +149,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
 - [배포 절차](docs/deployment.md): release branch, 검증, tag push, prodRelease 산출물, signing/secret 경계를 정리합니다.
 - [Unreleased](CHANGELOG.md#unreleased): v1.2.0 이후 변경 사항을 추적합니다.
-- [1.2.0 릴리즈 노트](docs/release-notes/2026-06-07-v1.2.0.md): proxy readiness, refresh transaction, module boundary guard, mutation gate, release-readiness fixes를 정리합니다.
+- [1.2.0 릴리즈 노트](docs/release-notes/2026-06-07-v1.2.0.md): proxy readiness, DB/remote 입력 검증, refresh transaction, module boundary guard, mutation gate, release-readiness fixes를 정리합니다.
 - [1.1.3 릴리즈 노트](docs/release-notes/2026-05-18-v1.1.3.md): hero benchmark evidence, first usable content startup reporting, backend proxy ADR, physical-device performance snapshot, 배포 절차 문서화를 정리합니다.
 - [1.1.2 릴리즈 노트](docs/release-notes/2026-05-14-v1.1.2.md): build/test 속도 개선, CI 메모리 안정화, 검증 경로 분리를 정리합니다.
 - [1.1.1 릴리즈 노트](docs/release-notes/2026-05-13-v1.1.1.md): clean architecture remediation, observability 경계, station-list/data 분리, CI scope 조정을 정리합니다.

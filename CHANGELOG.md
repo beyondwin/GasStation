@@ -16,11 +16,14 @@
 - Verification depth: `domain:station`에 변이 테스트(pitest, report-only)를 도입하고 `StationPriceDelta.from`/`StationQuery.toCacheKey` 경계 테스트를 보강해 mutation test strength를 70%→97%로 끌어올렸습니다. 의존성 신선도 스캔(ben-manes versions, 비차단 CI job `dependency-freshness`)도 추가했습니다. 둘 다 빌드를 깨지 않는 신호 수집용입니다. 커버리지 진실성 게이트(Track 1, `koverVerify`)는 Kover 0.9.1↔AGP 9.1.1 호환성 한계로 보류합니다.
 - Module boundary guard: `docs/module-contracts.md`의 의도된 모듈 경계를 config-cache-safe한 `verifyModuleBoundaries` Gradle 태스크(denylist)로 고정했습니다. 금지된 production 의존성 엣지(feature→core:location/network/database/datastore, feature/domain→data 등)가 생기면 빌드를 깨고, 의도된 `core:location → domain:location` 예외는 가드에서 제외합니다. CI `static-analysis` job에 포함됩니다.
 - Mutation gate promotion: `domain:station` pitest를 report-only에서 `mutationThreshold` 40 floor 게이트로 승격해 점수 하락(현재 47%)을 막습니다. 변이 테스트를 `domain:settings`(report-only baseline)와 `domain:location`로 확장하고, `domain:location`은 `AddressLabelNormalizer`의 fallback 지역/district 선택 로직 갭을 보강해 test strength를 78%→85%로 올렸습니다. `domain:settings` SURVIVED는 전부 coroutine-suspend 등가 변이라 baseline만 기록합니다.
+- Boundary validation cleanup: 신뢰할 수 없는 DB/remote 입력은 읽기 경계에서 안전 생성으로 걸러지도록 `MoneyWon.ofOrNull`, nullable station mapping, Opinet 양수 가격 검증을 추가했습니다. 잘못 저장된 캐시 행이나 음수/0 원격 가격이 정상 행 전체를 깨뜨리지 않도록 단위 테스트를 보강했습니다.
+- Readability cleanup: `WatchlistSummaryAssembler`는 station 선택, price delta, last-seen 계산을 의도별 helper로 분리했고, `StationPriceDelta`는 variant가 `direction`/`amountWonOrNull`을 직접 소유하도록 정리했습니다. 공개 API와 UI 동작은 유지합니다.
 - Release readiness fixes: watchlist fallback now ignores invalid cached rows when calculating history-based deltas, and proxy endpoint mode now validates blank or malformed base URLs before Retrofit construction.
 
 ### 문서와 검증
 
 - Build velocity evidence: `docs/build-velocity.md` records timing and current decisions for Gradle parallel/cache/configuration-cache and release assemble gate placement.
+- Clean-code round 2 evidence: `docs/improvements/clean-code-improvements-round2-spec.md`와 `docs/improvements/clean-code-improvements-round2-implementation.md`에 DB→domain 읽기 경계, Opinet 가격 검증, watchlist 조립 분리, `StationPriceDelta` 다형성 전환의 근거와 TDD 검증 경로를 기록했습니다.
 - Verification depth measurement: `docs/test-strategy.md`에 변이 테스트 섹션을, `docs/verification-matrix.md`에 온디맨드/report-only 검증 깊이 측정 섹션을 추가해 pitest와 dependency 스캔 실행법, Track 1 보류 배경을 단일 출처로 기록합니다.
 - Module boundary + mutation gate docs: `docs/module-contracts.md`에 `verifyModuleBoundaries` 강제 규칙을, `docs/test-strategy.md`에 `domain:station`(floor 40)/`domain:settings`/`domain:location` 변이 점수와 SURVIVED 분석을, `docs/verification-matrix.md`에 모듈 경계 가드 명령과 세 모듈 pitest 명령, CI static-analysis 범위를 갱신했습니다.
 - 상세 릴리즈 노트는 [docs/release-notes/2026-06-07-v1.2.0.md](docs/release-notes/2026-06-07-v1.2.0.md)를 봅니다.
