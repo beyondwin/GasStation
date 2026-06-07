@@ -2,6 +2,8 @@ package com.gasstation.core.network.di
 
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -44,6 +46,48 @@ class NetworkRuntimeConfigTest {
     }
 
     @Test
+    fun `proxy station service rejects blank base url before Retrofit construction`() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NetworkModule.provideProxyStationService(" ")
+        }
+
+        assertEquals(
+            "Proxy station base URL must be a non-blank absolute http(s) URL ending with '/'.",
+            error.message,
+        )
+    }
+
+    @Test
+    fun `proxy station service rejects invalid base url before Retrofit construction`() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NetworkModule.provideProxyStationService("not-a-url")
+        }
+
+        assertEquals(
+            "Proxy station base URL must be a non-blank absolute http(s) URL ending with '/'.",
+            error.message,
+        )
+    }
+
+    @Test
+    fun `proxy station service rejects path base url without trailing slash`() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NetworkModule.provideProxyStationService("https://gasstation-proxy.example/api")
+        }
+
+        assertEquals(
+            "Proxy station base URL must be a non-blank absolute http(s) URL ending with '/'.",
+            error.message,
+        )
+    }
+
+    @Test
+    fun `proxy station service accepts host-only and trailing-slash base urls`() {
+        assertNotNull(NetworkModule.provideProxyStationService("https://gasstation-proxy.example"))
+        assertNotNull(NetworkModule.provideProxyStationService("https://gasstation-proxy.example/api/"))
+    }
+
+    @Test
     fun `provideOpinetApiKey returns opinet api key from runtime config`() {
         val config = NetworkRuntimeConfig(
             opinetApiKey = "opinet-key",
@@ -66,6 +110,7 @@ class NetworkRuntimeConfigTest {
                 "provideOpinetService",
                 "provideProxyStationService",
                 "provideStationNetworkSource",
+                "requireValidProxyBaseUrl",
             ),
             methodNames,
         )

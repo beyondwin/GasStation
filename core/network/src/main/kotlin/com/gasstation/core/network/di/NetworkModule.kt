@@ -5,6 +5,7 @@ import com.gasstation.core.network.service.ProxyStationService
 import com.gasstation.core.network.station.NetworkStationFetcher
 import com.gasstation.core.network.station.ProxyStationFetcher
 import com.gasstation.core.network.station.StationNetworkSource
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -24,12 +25,23 @@ object NetworkModule {
         .build()
         .create(OpinetService::class.java)
 
-    fun provideProxyStationService(baseUrl: String): ProxyStationService = Retrofit.Builder()
-        .baseUrl(baseUrl)
-        .client(defaultOkHttpClient())
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-        .create(ProxyStationService::class.java)
+    fun provideProxyStationService(baseUrl: String): ProxyStationService {
+        val validatedBaseUrl = requireValidProxyBaseUrl(baseUrl)
+        return Retrofit.Builder()
+            .baseUrl(validatedBaseUrl)
+            .client(defaultOkHttpClient())
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ProxyStationService::class.java)
+    }
+
+    private fun requireValidProxyBaseUrl(baseUrl: String): String {
+        val parsedUrl = baseUrl.trim().toHttpUrlOrNull()
+        require(parsedUrl != null && parsedUrl.encodedPath.endsWith("/")) {
+            "Proxy station base URL must be a non-blank absolute http(s) URL ending with '/'."
+        }
+        return parsedUrl.toString()
+    }
 
     fun provideStationNetworkSource(config: NetworkRuntimeConfig): StationNetworkSource = when (config.stationEndpointMode) {
         StationEndpointMode.DirectOpinet -> NetworkStationFetcher(
