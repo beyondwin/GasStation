@@ -249,6 +249,36 @@ class WatchlistRepositoryTest {
     }
 
     @Test
+    fun `observeWatchlist drops watched entries whose fallback coordinates are out of range`() = runBlocking {
+        val origin = Coordinates(37.498095, 127.027610)
+        val repository = repository(
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-bad",
+                        priceWon = 1_680,
+                        fetchedAt = now.minusSeconds(30),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-bad",
+                        name = "Out Of Range",
+                        brandCode = "GSC",
+                        latitude = 200.0,
+                        longitude = 127.026610,
+                        watchedAt = now.minusSeconds(5),
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(repository.observeWatchlist(origin).first().isEmpty())
+    }
+
+    @Test
     fun `updateWatchState upserts and deletes watched rows`() = runBlocking {
         val watchedStationDao = RecordingWatchedStationDao()
         val repository = repository(watchedStationDao = watchedStationDao)

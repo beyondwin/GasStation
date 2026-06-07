@@ -25,12 +25,13 @@ internal fun WatchedStationEntity.toWatchedSummary(
     val station = when {
         cachedSnapshot != null -> cachedSnapshot
         latestPrice != null -> {
-            val stationCoordinates = Coordinates(latitude, longitude)
+            val stationCoordinates = Coordinates.ofOrNull(latitude, longitude) ?: return null
+            val price = MoneyWon.ofOrNull(latestPrice.priceWon) ?: return null
             Station(
                 id = stationId,
                 name = name,
                 brand = Brand.fromCode(brandCode),
-                price = MoneyWon(latestPrice.priceWon),
+                price = price,
                 distance = origin.distanceTo(stationCoordinates),
                 coordinates = stationCoordinates,
             )

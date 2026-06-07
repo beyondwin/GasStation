@@ -18,8 +18,8 @@ internal fun List<StationCacheEntity>.toSearchResult(
     cachePolicy: StationCachePolicy,
     now: Instant,
 ): StationSearchResult {
-    val stations = map { cacheRow ->
-        val station = cacheRow.toDomainStation(query.coordinates)
+    val stations = mapNotNull { cacheRow ->
+        val station = cacheRow.toDomainStation(query.coordinates) ?: return@mapNotNull null
         StationListEntry(
             station = station,
             priceDelta = StationPriceDelta.from(

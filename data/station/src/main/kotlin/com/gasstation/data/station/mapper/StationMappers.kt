@@ -24,11 +24,15 @@ internal fun RemoteStation.toEntity(cacheKey: StationQueryCacheKey, fetchedAt: I
     fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
 )
 
-internal fun StationCacheEntity.toDomainStation(queryCoordinates: Coordinates): Station = Station(
-    id = stationId,
-    name = name,
-    brand = Brand.fromCode(brandCode),
-    price = MoneyWon(priceWon),
-    distance = queryCoordinates.distanceTo(Coordinates(latitude, longitude)),
-    coordinates = Coordinates(latitude = latitude, longitude = longitude),
-)
+internal fun StationCacheEntity.toDomainStation(queryCoordinates: Coordinates): Station? {
+    val coordinates = Coordinates.ofOrNull(latitude = latitude, longitude = longitude) ?: return null
+    val price = MoneyWon.ofOrNull(priceWon) ?: return null
+    return Station(
+        id = stationId,
+        name = name,
+        brand = Brand.fromCode(brandCode),
+        price = price,
+        distance = queryCoordinates.distanceTo(coordinates),
+        coordinates = coordinates,
+    )
+}
