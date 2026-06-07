@@ -4,10 +4,12 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.network.di.NetworkModule
+import com.gasstation.core.network.model.OpinetStationDto
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -151,6 +153,60 @@ class NetworkStationFetcherTest {
             opinetServer.shutdown()
         }
     }
+
+    @Test
+    fun `toNetworkRemoteStation filters out non-positive prices to match proxy contract`() {
+        assertNull(opinetStation(priceWon = "-1").toNetworkRemoteStation())
+        assertNull(opinetStation(priceWon = "0").toNetworkRemoteStation())
+        assertEquals(1689, opinetStation(priceWon = "1689").toNetworkRemoteStation()?.priceWon)
+    }
+
+    @Test
+    fun `fetchStations filters out rows with non-positive prices`() = runBlocking {
+        val opinetServer = MockWebServer()
+        opinetServer.enqueue(
+            MockResponse()
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                    """
+                    {"RESULT":{"OIL":[
+                      {"UNI_ID":"station-1","OS_NM":"Gangnam","POLL_DIV_CD":"SKG","PRICE":"1689","GIS_X_COOR":"127.0250","GIS_Y_COOR":"37.4980"},
+                      {"UNI_ID":"station-2","OS_NM":"Negative","POLL_DIV_CD":"GSC","PRICE":"-1","GIS_X_COOR":"127.0260","GIS_Y_COOR":"37.4990"},
+                      {"UNI_ID":"station-3","OS_NM":"Zero","POLL_DIV_CD":"HDO","PRICE":"0","GIS_X_COOR":"127.0270","GIS_Y_COOR":"37.5000"}
+                    ]}}
+                    """.trimIndent(),
+                ),
+        )
+        opinetServer.start()
+
+        try {
+            val fetcher = NetworkStationFetcher(
+                opinetService = NetworkModule.provideOpinetService(opinetServer.url("/").toString()),
+                opinetApiKey = "opinet-key",
+            )
+
+            val result = fetcher.fetchStations(
+                origin = Coordinates(latitude = 37.497927, longitude = 127.027583),
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            assertTrue(result is NetworkStationFetchResult.Success)
+            val stations = (result as NetworkStationFetchResult.Success).stations
+            assertEquals(listOf("station-1"), stations.map { it.stationId })
+        } finally {
+            opinetServer.shutdown()
+        }
+    }
+
+    private fun opinetStation(priceWon: String) = OpinetStationDto(
+        stationId = "station-1",
+        name = "Gangnam",
+        brandCode = "SKG",
+        priceWon = priceWon,
+        gisX = "127.0285",
+        gisY = "37.4987",
+    )
 
     @Test
     fun `fetchStations returns failure when every raw station is filtered out`() = runBlocking {

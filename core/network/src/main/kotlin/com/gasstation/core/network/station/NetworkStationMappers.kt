@@ -8,7 +8,7 @@ internal fun OpinetStationDto.toNetworkRemoteStation(): NetworkRemoteStation? {
     val stationId = stationId?.takeIf(String::isNotBlank) ?: return null
     val name = name?.takeIf(String::isNotBlank) ?: return null
     val brandCode = brandCode?.takeIf(String::isNotBlank) ?: return null
-    val priceWon = priceWon?.toIntOrNull() ?: return null
+    val priceWon = priceWon?.toIntOrNull()?.takeIf { it > 0 } ?: return null
     val rawX = gisX?.toDoubleOrNull() ?: return null
     val rawY = gisY?.toDoubleOrNull() ?: return null
 
