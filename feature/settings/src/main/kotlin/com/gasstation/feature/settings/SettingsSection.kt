@@ -2,7 +2,7 @@ package com.gasstation.feature.settings
 
 import androidx.annotation.StringRes
 
-enum class SettingsSectionGroup(@StringRes val titleResId: Int, @StringRes val subtitleResId: Int) {
+enum class SettingsSectionGroup(@param:StringRes val titleResId: Int, @param:StringRes val subtitleResId: Int) {
     Explore(
         titleResId = R.string.settings_group_explore_title,
         subtitleResId = R.string.settings_group_explore_subtitle,
@@ -20,8 +20,8 @@ enum class SettingsSectionGroup(@StringRes val titleResId: Int, @StringRes val s
 enum class SettingsSection(
     val routeSegment: String,
     val group: SettingsSectionGroup,
-    @StringRes val titleResId: Int,
-    @StringRes val subtitleResId: Int,
+    @param:StringRes val titleResId: Int,
+    @param:StringRes val subtitleResId: Int,
 ) {
     SearchRadius(
         routeSegment = "search-radius",
