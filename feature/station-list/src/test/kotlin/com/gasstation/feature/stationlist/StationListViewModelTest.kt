@@ -62,6 +62,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -207,6 +208,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -280,6 +282,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val coordinates = Coordinates(37.498095, 127.027610)
@@ -309,6 +312,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val viewModel = stationListViewModel(
@@ -337,6 +341,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val firstCoordinates = Coordinates(37.498095, 127.027610)
@@ -386,6 +391,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(
@@ -440,6 +446,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(
@@ -485,6 +492,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -511,6 +519,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -543,6 +552,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -591,6 +601,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -633,6 +644,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -683,6 +695,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -745,6 +758,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -778,6 +792,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -815,6 +830,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -843,6 +859,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -871,6 +888,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -903,6 +921,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Fresh,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
         )
         val viewModel = stationListViewModel(
@@ -1012,6 +1031,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Stale,
                 fetchedAt = cachedAt,
+                hasCachedSnapshot = true,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -1092,6 +1112,7 @@ class StationListViewModelTest {
                 stations = emptyList(),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
+                hasCachedSnapshot = false,
             ),
             refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
             useObservedResultsFlow = true,

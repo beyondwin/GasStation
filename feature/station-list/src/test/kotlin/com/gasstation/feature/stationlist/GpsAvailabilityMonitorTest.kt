@@ -124,6 +124,7 @@ private class NoOpRouteStationRepository : StationRepository {
             stations = emptyList(),
             freshness = StationFreshness.Stale,
             fetchedAt = null,
+            hasCachedSnapshot = false,
         ),
     )
 

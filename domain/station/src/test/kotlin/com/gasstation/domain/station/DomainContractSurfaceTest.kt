@@ -33,6 +33,12 @@ class DomainContractSurfaceTest {
         val stationSearchResultField = StationSearchResult::class.java.getDeclaredField("stations")
         assertEquals(List::class.java, stationSearchResultField.type)
         assertTrue(stationSearchResultField.genericType.typeName.contains(StationListEntry::class.java.name))
+        assertTrue(
+            StationSearchResult::class.java.declaredConstructors.none { constructor ->
+                constructor.parameterTypes.any { it.name == "kotlin.jvm.internal.DefaultConstructorMarker" }
+            },
+            "StationSearchResult creation must set cache snapshot presence explicitly.",
+        )
 
         assertEquals(
             setOf("Unavailable", "Unchanged", "Increased", "Decreased"),

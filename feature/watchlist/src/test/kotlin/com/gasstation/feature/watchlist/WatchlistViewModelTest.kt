@@ -185,6 +185,7 @@ private class FakeWatchlistRepository(private val summaries: List<WatchedStation
             stations = emptyList(),
             freshness = StationFreshness.Stale,
             fetchedAt = null,
+            hasCachedSnapshot = false,
         ),
     )
 
