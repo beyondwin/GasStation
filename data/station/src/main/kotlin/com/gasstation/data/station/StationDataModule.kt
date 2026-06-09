@@ -7,6 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import java.time.Clock
+import java.util.Optional
 import javax.inject.Singleton
 
 @Module
@@ -17,11 +18,17 @@ abstract class StationDataModule {
     @Singleton
     abstract fun bindStationRepository(repository: DefaultStationRepository): StationRepository
 
-    @Binds
-    @Singleton
-    abstract fun bindStationRemoteDataSource(remoteDataSource: DefaultStationRemoteDataSource): StationRemoteDataSource
-
     companion object {
+        @Provides
+        @Singleton
+        fun provideStationRemoteDataSource(
+            prodRemoteDataSource: DefaultStationRemoteDataSource,
+            seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
+        ): StationRemoteDataSource = FlavorAwareStationRemoteDataSource(
+            prodRemoteDataSource = prodRemoteDataSource,
+            seedRemoteDataSource = seedRemoteDataSource,
+        )
+
         @Provides
         @Singleton
         fun provideStationCachePolicy(): StationCachePolicy = StationCachePolicy()

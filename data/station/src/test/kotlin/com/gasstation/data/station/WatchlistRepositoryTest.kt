@@ -22,7 +22,6 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.Optional
 
 class WatchlistRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
@@ -368,7 +367,6 @@ class WatchlistRepositoryTest {
         stationPriceHistoryDao = stationPriceHistoryDao,
         watchedStationDao = watchedStationDao,
         remoteDataSource = NoOpStationRemoteDataSource,
-        seedRemoteDataSource = Optional.empty(),
         cachePolicy = StationCachePolicy(),
         retryPolicy = StationRetryPolicy(RecordingStationEventLogger()),
         stationEventLogger = RecordingStationEventLogger(),

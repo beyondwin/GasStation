@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.time.Instant
-import java.util.Optional
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -38,7 +37,6 @@ class DefaultStationRepository @Inject constructor(
     private val stationPriceHistoryDao: StationPriceHistoryDao,
     private val watchedStationDao: WatchedStationDao,
     private val remoteDataSource: StationRemoteDataSource,
-    private val seedRemoteDataSource: Optional<SeedStationRemoteDataSource>,
     private val cachePolicy: StationCachePolicy,
     private val retryPolicy: StationRetryPolicy,
     private val stationEventLogger: StationEventLogger,
@@ -151,7 +149,7 @@ class DefaultStationRepository @Inject constructor(
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
         val fetchedAt = clock.instant()
         val remoteStations = retryPolicy.withRetry {
-            when (val result = fetchRemoteStations(query)) {
+            when (val result = remoteDataSource.fetchStations(query)) {
                 is RemoteStationFetchResult.Failure -> throw StationRefreshException(
                     reason = result.reason,
                     cause = result.cause,
@@ -196,12 +194,6 @@ class DefaultStationRepository @Inject constructor(
                 stale = cachePolicy.freshnessOf(fetchedAt, clock.instant()) is StationFreshness.Stale,
             ),
         )
-    }
-
-    private suspend fun fetchRemoteStations(query: StationQuery): RemoteStationFetchResult = if (seedRemoteDataSource.isPresent) {
-        seedRemoteDataSource.get().fetchStations(query)
-    } else {
-        remoteDataSource.fetchStations(query)
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) {
