@@ -441,16 +441,229 @@ GasStation UI의 기본 정체성은 yellow, black, white입니다. 하지만 �
 접근성 semantics와 test tag도 UI 계약입니다. 테스트 selector를 정리한다는 이유로 semantics를 제거하면 안 됩니다. 제거가 필요하면 대체 테스트와 접근성 설명을 함께 마련해야 합니다.
 ## 15. 테스트 전략과 검증 명령
 
+테스트는 "이 앱이 `demo`와 `prod` 정식 경로에서 계속 성립하는가"를 확인하는 장치입니다. 어떤 테스트가 어떤 계층을 보호하는지는 `docs/test-strategy.md`, 실제 명령 조합은 `docs/verification-matrix.md`가 단일 출처입니다.
+
+계층별로 보면 아래처럼 생각하면 됩니다.
+
+| 변경 영역 | 주로 보는 테스트 |
+| --- | --- |
+| 값 객체, enum, 순수 규칙 | `:core:model:test`, `:domain:*:test` |
+| 위치 계약과 Android 위치 구현 | `:domain:location:test`, `:core:location:testDebugUnitTest` |
+| 캐시, retry, watchlist 저장소 | `:data:station:testDebugUnitTest`, `:core:database:testDebugUnitTest` |
+| 설정 저장 | `:domain:settings:test`, `:data:settings:testDebugUnitTest`, `:core:datastore:testDebugUnitTest` |
+| 화면 상태와 Compose 계약 | `:feature:*:testDebugUnitTest`, `verifyRoborazziDebug` |
+| app 조립, flavor, startup | `:app:testDemoDebugUnitTest`, `:app:testProdDebugUnitTest` |
+| 실제 demo 사용자 흐름 | `:app:connectedDemoDebugAndroidTest` |
+| 성능 증거 | `:benchmark:connectedBenchmarkAndroidTest` on physical device |
+
+문서/가벼운 변경 후 빠른 로컬 확인은 아래 조합을 기준으로 봅니다.
+
+```bash
+./gradlew \
+  :core:model:test \
+  :core:network:test \
+  :domain:location:test \
+  :core:observability:test \
+  :core:designsystem:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :app:assembleDemoDebug \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :benchmark:assemble
+```
+
+문서만 바꿨다면 우선 아래 명령으로 공백/패치 오류를 확인합니다.
+
+```bash
+git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/junior-handoff-guide.md
+```
+
+Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변경 계층에 맞는 테스트를 먼저 고르고, 공통 계약이나 release 전에는 `docs/verification-matrix.md`의 더 넓은 조합으로 확장합니다.
+
 ## 16. 작업 유형별 수정 위치
+
+처음 맡은 작업은 "어느 파일을 고치면 되지?"보다 "어느 모듈이 이 정책을 소유하지?"로 접근합니다.
+
+| 변경 유형 | 먼저 읽을 파일 | 주로 수정할 모듈 | 검증 |
+| --- | --- | --- | --- |
+| 목록 UI 변경 | `StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `core/designsystem/*` | `feature:station-list`, 필요 시 `core:designsystem` | `:feature:station-list:testDebugUnitTest`, 필요 시 `verifyRoborazziDebug` |
+| 가격/거리/카드 정보 위계 변경 | `StationListItemUiModel.kt`, `StationListCards.kt`, `core/designsystem/component/*` | `feature:station-list`, `core:designsystem` | station-list UI test, screenshot test |
+| 새 설정 추가 | `UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `DefaultSettingsRepository.kt`, `feature/settings/*` | `domain:settings`, `core:datastore`, `data:settings`, `feature:settings` | `:domain:settings:test`, `:data:settings:testDebugUnitTest`, `:feature:settings:testDebugUnitTest` |
+| 캐시/stale 정책 변경 | `StationCachePolicy.kt`, `DefaultStationRepository.kt`, `StationSearchResultAssembler.kt`, `core/database/station/*` | `data:station`, `core:database`, 필요 시 `domain:station` | `:data:station:testDebugUnitTest`, `:core:database:testDebugUnitTest` |
+| refresh retry 변경 | `StationRetryPolicy.kt`, `DefaultStationRepository.kt`, `StationEvent.kt` | `data:station`, 필요 시 `domain:station` | `:data:station:testDebugUnitTest`, `:domain:station:test` |
+| 위치 동작 변경 | `domain/location/*`, `core/location/*`, `LocationStateMachine.kt` | `domain:location`, `core:location`, `feature:station-list` | `:domain:location:test`, `:core:location:testDebugUnitTest`, station-list tests |
+| 주소 라벨 표시 변경 | `AddressLabelNormalizer.kt`, `AddressLabelFormatter.kt`, `LocationStateMachine.kt` | `domain:location`, `core:location`, `feature:station-list` | location/domain/core tests |
+| network/proxy 변경 | `NetworkRuntimeConfig.kt`, `NetworkStationFetcher.kt`, `ProxyStationFetcher.kt`, `AppConfigModule.kt` | `core:network`, `app` | `:core:network:test`, `:app:testProdDebugUnitTest` |
+| watchlist 변경 | `WatchlistViewModel.kt`, `WatchlistScreen.kt`, `WatchlistSummaryAssembler.kt` | `feature:watchlist`, `data:station` | `:feature:watchlist:testDebugUnitTest`, `:data:station:testDebugUnitTest` |
+| demo seed 변경 | `tools/demo-seed/*`, `DemoSeedStartupHook.kt`, `app/src/demo/assets/demo-station-seed.json` | `tools:demo-seed`, `app` demo source set | `:tools:demo-seed:test`, `:app:testDemoDebugUnitTest`, 필요 시 connected demo |
+| 외부 지도 handoff 변경 | `ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`, `GasStationNavHost.kt` | `app`, `feature:station-list` | `:app:testDemoDebugUnitTest`, station-list tests |
+| 문서-only 변경 | 바꿀 문서와 실제 코드 앵커 | `docs/*`, 필요 시 `README.md` | `git diff --check`, 링크/파일 존재 확인 |
+
+수정 위치가 애매하면 `docs/module-contracts.md`를 먼저 봅니다. 구조 설명이 필요하면 `docs/architecture.md`, 상태가 헷갈리면 `docs/state-model.md`, 캐시/failure가 헷갈리면 `docs/offline-strategy.md`를 봅니다.
 
 ## 17. 처음 맡은 개발자의 3일 온보딩 루트
 
+### Day 1: 앱을 실행 가능한 구조로 이해하기
+
+1. `AGENTS.md`를 읽고 작업 원칙을 확인합니다.
+2. `README.md`로 제품 목적과 대표 사용자 흐름을 봅니다.
+3. 이 가이드를 한 번 끝까지 읽습니다.
+4. `settings.gradle.kts`와 `app/build.gradle.kts`로 활성 모듈과 flavor를 확인합니다.
+5. `docs/architecture.md`와 `docs/module-contracts.md`로 구조와 금지 의존을 확인합니다.
+6. `./gradlew :app:assembleDemoDebug`를 실행해 demo build가 되는지 확인합니다.
+7. `GasStationNavHost.kt`에서 route 구조를 따라갑니다.
+
+### Day 2: station list를 끝까지 추적하기
+
+1. `StationListRoute.kt`에서 화면 진입을 봅니다.
+2. `StationListViewModel.kt`에서 action, state, effect가 어떻게 나뉘는지 봅니다.
+3. `LocationStateMachine.kt`로 위치 상태를 봅니다.
+4. `StationSearchOrchestrator.kt`로 query/cache/failure 판단을 봅니다.
+5. `DefaultStationRepository.kt`로 observe/refresh/watchlist 조합을 봅니다.
+6. `StationSearchResultAssembler.kt`, `StationCachePolicy.kt`, `StationRetryPolicy.kt`를 읽습니다.
+7. `docs/state-model.md`와 `docs/offline-strategy.md`를 같이 읽습니다.
+
+### Day 3: 작은 변경 하나를 안전하게 해보기
+
+1. 화면 문구, 테스트 정리, 문서 링크 같은 작은 작업을 고릅니다.
+2. 관련 테스트를 먼저 읽습니다.
+3. 변경 소유 모듈을 정합니다.
+4. 최소 수정만 합니다.
+5. targeted verification을 실행합니다.
+6. 문서가 약속한 흐름이 바뀌었는지 확인합니다.
+
+처음부터 cache policy, location provider, build-logic, benchmark를 크게 바꾸지 않는 편이 좋습니다. 이 영역들은 영향 범위가 넓고, 한 번에 여러 단일 출처 문서와 테스트를 함께 봐야 합니다.
+
 ## 18. 첫 버그 수정 절차
+
+첫 버그 수정은 아래 순서로 진행합니다.
+
+```text
+재현 -> 소유 모듈 찾기 -> 관련 테스트 읽기 -> 실패 테스트 또는 문서 검증 기준 추가 -> 최소 수정 -> targeted verification -> 문서 영향 확인
+```
+
+각 단계를 풀면 다음과 같습니다.
+
+1. 재현합니다. 화면 버그라면 demo에서 재현되는지 먼저 봅니다.
+2. 소유 모듈을 찾습니다. 화면 표시 문제인지, domain 규칙인지, data/cache 문제인지 나눕니다.
+3. 관련 테스트를 먼저 읽습니다. 현재 계약이 무엇인지 모르면 수정 방향이 흔들립니다.
+4. 가능한 경우 실패 테스트를 추가합니다. 문서-only라면 `git diff --check`와 파일 존재 확인처럼 검증 기준을 명확히 합니다.
+5. 최소 수정합니다. 주변 리팩터링을 같이 하지 않습니다.
+6. targeted verification을 돌립니다.
+7. 사용자 흐름이나 모듈 책임 설명이 바뀌었으면 문서를 갱신합니다.
+
+예를 들어 "네트워크 실패 후 목록이 비어 보인다"는 버그가 있다면 UI만 보지 않습니다. `StationSearchOrchestrator`, `StationSearchResult.hasCachedSnapshot`, `DefaultStationRepository.observeNearbyStations()`, `StationCacheDao` snapshot 관찰을 함께 봅니다. 실패해도 기존 snapshot을 유지해야 하기 때문입니다.
 
 ## 19. 첫 기능 추가 절차
 
+첫 기능 추가는 화면에서 바로 시작하지 않습니다.
+
+```text
+제품 흐름 확인 -> domain 계약 확인 -> data/core 필요성 판단 -> feature state/action/effect 작성 -> app navigation wiring -> demo/prod 영향 확인 -> 테스트와 문서 갱신
+```
+
+각 단계의 질문은 아래와 같습니다.
+
+1. 제품 흐름 확인: 사용자가 왜 이 기능을 쓰는가? 가격 비교 속도를 늦추지 않는가?
+2. domain 계약 확인: 새 domain model, use case, repository method가 필요한가?
+3. data/core 필요성 판단: 저장, 네트워크, 위치, DataStore, Room schema가 바뀌는가?
+4. feature 작성: 어떤 UI state, action, effect가 필요한가?
+5. app wiring: 새 route, Hilt binding, flavor 연결이 필요한가?
+6. demo/prod 영향: demo seed나 prod key/network 경로가 영향을 받는가?
+7. 테스트와 문서: 어떤 계층 테스트와 어떤 단일 출처 문서가 바뀌어야 하는가?
+
+설정 항목 추가처럼 단순해 보이는 기능도 domain/settings -> core/datastore -> data/settings -> feature/settings -> station-list query 영향 순서로 봅니다. 화면에 radio row 하나 추가하는 문제가 아니라, 사용자 선택 상태의 저장/관찰/반영 경로를 유지하는 문제입니다.
+
 ## 20. 면접/포트폴리오 설명 가이드
+
+이 섹션은 실무 문서와 분리해서 봅니다. 면접에서는 "썼다"보다 "왜 그렇게 나눴고, 어떤 trade-off를 알고 있는가"가 중요합니다.
+
+### 왜 멀티모듈 Clean Architecture를 썼나요?
+
+답변 예시:
+
+> 현재 위치 기반 주유소 비교 앱은 위치, 설정, 캐시, 네트워크, 오프라인 fallback, UI 상태가 한 화면에서 만납니다. 이를 한 모듈이나 한 ViewModel에 몰면 변경 이유가 섞입니다. 그래서 화면은 `feature`, 계약은 `domain`, 저장/원격 조합은 `data`, Android/Room/Retrofit/DataStore 구현은 `core`, 최종 조립은 `app`으로 나눴습니다. 특히 feature가 Room/Retrofit/DataStore를 직접 알지 않게 한 것이 핵심입니다.
+
+### 왜 Compose를 썼나요?
+
+답변 예시:
+
+> station list는 권한, GPS, loading, stale, failure, 목록, watch 상태가 자주 바뀌는 화면입니다. Compose는 `StationListUiState`를 화면으로 투영하기 좋아서 상태 기반 UI에 맞습니다. 대신 side effect를 UI state에 섞지 않도록 snackbar, 외부 지도 열기 같은 반응은 `StationListEffect`로 분리했습니다.
+
+### 왜 Hilt를 썼나요?
+
+답변 예시:
+
+> repository, DAO, remote source, retry policy, event logger 같은 의존성이 많습니다. Hilt를 쓰면 생성자 주입으로 조립을 명확히 하고 flavor별 구현도 app에서 연결할 수 있습니다. 다만 Hilt가 의존 방향을 자동으로 지켜주는 것은 아니므로 `docs/module-contracts.md`와 module boundary test로 feature가 infra를 직접 의존하지 않게 관리합니다.
+
+### 왜 Room에 snapshot table을 따로 뒀나요?
+
+답변 예시:
+
+> `station_cache` 행만으로는 "성공적으로 조회했지만 결과가 0건"과 "아직 캐시가 없음"을 구분하기 어렵습니다. 그래서 `station_cache_snapshot` 마커를 둬서 성공한 빈 결과도 성공으로 기록합니다. UI는 `fetchedAt != null`보다 `StationSearchResult.hasCachedSnapshot`을 기준으로 blocking failure 여부를 판단합니다.
+
+### 왜 DataStore를 썼나요?
+
+답변 예시:
+
+> 반경, 유종, 브랜드 필터, 정렬, 지도 앱 선택은 작은 사용자 설정 상태이고 Flow로 관찰되어야 합니다. DataStore가 이 요구에 맞습니다. 단, storage DTO를 domain model로 노출하지 않고 `data:settings`에서 `UserPreferences`로 매핑해 저장 포맷과 domain 의미를 분리했습니다.
+
+### 왜 demo flavor를 중요하게 보나요?
+
+답변 예시:
+
+> demo는 mock 예외 경로가 아니라 재현 가능한 정식 실행 경로입니다. seed DB, 기본 preferences, 고정 좌표로 항상 같은 시작 상태를 만들기 때문에 README screenshot, UI test, macrobenchmark가 같은 기준을 공유합니다. 그래서 demo가 깨지면 단순 샘플이 깨진 것이 아니라 프로젝트의 검증 기반이 흔들린 것입니다.
+
+### 오프라인 동작은 어떻게 설명하나요?
+
+답변 예시:
+
+> refresh가 실패해도 기존 snapshot은 지우지 않습니다. 캐시가 있으면 stale이나 snackbar로 실패를 알리고 마지막 성공 결과를 유지합니다. 캐시가 없을 때만 blocking failure로 전환합니다. 이때 핵심 기준은 `hasCachedSnapshot`이고, 성공한 빈 결과와 캐시 없음은 다른 상태입니다.
+
+### secret/API key는 어떻게 다루나요?
+
+답변 예시:
+
+> 현재 `prod` direct Opinet 경로에서는 API key가 Android client `BuildConfig`에 들어가므로 완전한 secret boundary는 아닙니다. 이를 문서에서 명시하고, 공개 배포 전에는 backend proxy, key restriction, quota monitoring으로 승격해야 하는 조건을 ADR과 security trade-off 문서에 남겼습니다.
+
+### 성능은 어떻게 측정하나요?
+
+답변 예시:
+
+> demoBenchmark variant와 macrobenchmark로 startup to first content, list scroll, refresh, watchlist 진입을 측정합니다. committed 성능 수치는 emulator가 아니라 physical device 기준으로만 기록합니다. demo flavor가 deterministic하기 때문에 성능 비교가 흔들리지 않습니다.
+
+### 공개 production 전에 다시 볼 trade-off는 무엇인가요?
+
+답변 예시:
+
+> 가장 큰 것은 Opinet API key boundary입니다. Android client에 키가 들어가는 direct mode는 포트폴리오/제한된 실행에는 수용 가능하지만 공개 서비스라면 backend proxy, quota, abuse monitoring, key restriction을 먼저 승격해야 합니다. 그 다음은 실제 사용자 규모에서 cache retention과 benchmark 기준을 다시 검증해야 합니다.
 
 ## 21. 자주 실수하는 지점
 
+- 파일시스템에 디렉터리가 있다고 활성 모듈로 판단합니다. 활성 모듈은 `settings.gradle.kts` 기준입니다.
+- `app`에 비즈니스 정책을 넣습니다. app은 조립, startup, navigation, handoff를 맡습니다.
+- feature에서 Room/Retrofit/DataStore를 직접 호출합니다. feature는 domain use case와 UI state/effect를 중심으로 유지합니다.
+- `demo`를 fake path로 취급합니다. demo는 문서, 테스트, benchmark가 기대는 정식 재현 경로입니다.
+- 캐시 존재 여부를 `fetchedAt != null`로 판단합니다. 우선 기준은 `StationSearchResult.hasCachedSnapshot`입니다.
+- 성공한 빈 결과와 캐시 없음 상태를 같은 empty로 처리합니다. 두 상태는 UI 실패 의미가 다릅니다.
+- settings write를 domain use case 없이 repository/DataStore로 직접 연결합니다.
+- semantics나 test tag를 정리하면서 대체 접근성/테스트 계약을 만들지 않습니다.
+- designsystem에 feature 전용 문구나 화면 상태 분기를 넣습니다.
+- 문서를 바꿀 때 실제 코드 앵커를 확인하지 않습니다.
+- benchmark 수치를 emulator smoke 결과로 문서에 남깁니다. committed 성능 수치는 physical device 기준입니다.
+- 오래된 `docs/superpowers/specs/`나 `docs/superpowers/plans/`의 당시 기준을 현재 계약으로 착각합니다. 현재 기준은 live 문서와 실제 코드입니다.
+
 ## 22. 머지 전 체크리스트
+
+- [ ] `git status --short`로 기존 변경을 확인했다.
+- [ ] 변경 모듈의 소유 범위가 `docs/module-contracts.md`와 맞다.
+- [ ] 활성 모듈 판단을 `settings.gradle.kts` 기준으로 했다.
+- [ ] `demo`와 `prod` 영향이 모두 확인됐다.
+- [ ] 변경 계층에 맞는 테스트를 골랐다.
+- [ ] 문서 변경은 `git diff --check`를 통과했다.
+- [ ] 현재 단일 출처 문서가 바뀌어야 하는지 확인했다.
+- [ ] UI 변경이라면 가격 우선 정보 위계, 접근성 semantics, test tag 계약을 확인했다.
+- [ ] 캐시/failure 변경이라면 성공한 빈 결과와 캐시 없음이 구분되는지 확인했다.
+- [ ] benchmark나 성능 수치를 바꿨다면 physical device evidence와 `docs/performance.md`를 확인했다.
