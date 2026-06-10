@@ -6,15 +6,16 @@
 
 1. `AGENTS.md`
 2. `README.md`
-3. `docs/architecture.md`
-4. `docs/module-contracts.md`
-5. `docs/agent-workflow.md`
-6. `docs/state-model.md`
-7. `docs/offline-strategy.md`
-8. `docs/test-strategy.md`
-9. `docs/verification-matrix.md`
+3. `docs/onboarding/junior-handoff-guide.md`
+4. `docs/architecture.md`
+5. `docs/module-contracts.md`
+6. `docs/agent-workflow.md`
+7. `docs/state-model.md`
+8. `docs/offline-strategy.md`
+9. `docs/test-strategy.md`
+10. `docs/verification-matrix.md`
 
-이 순서는 "운영 계약 -> 큰 그림 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
+이 순서는 "운영 계약 -> 큰 그림 -> 주니어 인수인계 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
 
 `docs/superpowers/specs/`와 `docs/superpowers/plans/`는 과거 설계와 구현 계획의 이력입니다. 그 안에는 작성 당시의 모듈 경계, API 키, Gradle 명령이 남아 있을 수 있으므로 현재 기준을 판단할 때는 `settings.gradle.kts`, live 문서, 실제 코드를 우선합니다.
 
@@ -25,6 +26,7 @@
 | 질문 | 먼저 볼 파일 |
 | --- | --- |
 | 모든 작업에 적용되는 운영 원칙은 어디서 보나 | `AGENTS.md` |
+| 처음 인수인계받는 개발자는 무엇부터 보면 되나 | `docs/onboarding/junior-handoff-guide.md`, `README.md`, `docs/architecture.md` |
 | 앱 전체 구조는 어디서 보나 | `settings.gradle.kts`, `README.md`, `docs/architecture.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |

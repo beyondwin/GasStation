@@ -163,6 +163,7 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [기여 가이드](CONTRIBUTING.md): 새 기여자가 처음 실행할 명령, 머지 전 검증, 커밋 메시지 기준을 설명합니다.
 - [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 - [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
+- [주니어 인수인계 가이드](docs/onboarding/junior-handoff-guide.md): 처음 인수인계받는 개발자를 위해 제품 목적, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 설명합니다.
 - [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
 - [모듈 계약](docs/module-contracts.md): 각 모듈의 소유 범위와 변경 경계를 고정합니다.
