@@ -182,20 +182,263 @@ Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회�
 장점은 계층별로 빠른 테스트와 깊은 테스트를 나눌 수 있다는 점입니다. 단점은 모든 테스트를 항상 돌리면 피드백이 느려진다는 점입니다. 그래서 `docs/verification-matrix.md`에서 변경 유형별 명령을 고릅니다.
 ## 7. 앱 시작 흐름
 
+앱 시작 흐름은 `app` 모듈이 소유합니다. 비즈니스 정책을 만들기보다 이미 정의된 feature/data/core/domain 구현을 조립하는 역할입니다.
+
+먼저 볼 파일:
+
+- `app/src/main/java/com/gasstation/App.kt`
+- `app/src/main/java/com/gasstation/startup/AppStartupRunner.kt`
+- `app/src/main/java/com/gasstation/MainActivity.kt`
+- `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt`
+
+읽는 순서는 아래와 같습니다.
+
+1. `App.kt`에서 Hilt application이 시작됩니다.
+2. `AppStartupRunner`가 flavor별 `AppStartupHook`을 실행합니다.
+3. `MainActivity`가 Compose host를 띄우고 system bar/startup reporting bridge를 연결합니다.
+4. `GasStationNavHost`가 시작 destination으로 station list를 엽니다.
+
+`GasStationNavHost`는 네 route를 연결합니다.
+
+- station list: 앱의 시작 화면입니다.
+- settings: 설정 요약 화면입니다.
+- settings detail: 설정 항목별 선택 화면입니다.
+- watchlist: 저장한 주유소 비교 화면입니다.
+
+여기서 중요한 점은 navigation이 화면 이동만 담당한다는 것입니다. 예를 들어 station list에서 주유소를 눌렀을 때 외부 지도 앱을 여는 handoff는 `app`의 `ExternalMapLauncher`가 실행하지만, "어떤 provider를 쓸지" 같은 사용자 선택 상태는 settings/domain/data 경로에서 옵니다.
+
+`reportFullyDrawn()`도 app이 연결하지만, "first usable content가 무엇인가"라는 판단은 feature 쪽의 policy가 맡습니다. app은 Android platform bridge이고, 화면 의미는 feature가 소유합니다.
+
 ## 8. 목록 화면 흐름
+
+목록 화면은 이 프로젝트의 중심입니다. 위치, 권한, GPS, 설정, 검색 query, 캐시, stale, refresh 실패, watch toggle, 외부 지도 effect가 모두 이 화면에서 만납니다.
+
+먼저 볼 파일:
+
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
+
+책임은 네 덩어리로 나눠 봅니다.
+
+| 구성요소 | 책임 |
+| --- | --- |
+| `StationListRoute` | Compose route, 권한 상태 전달, lifecycle-bound availability 수집, effect 소비 |
+| `LocationStateMachine` | 권한, GPS availability, 현재 좌표, 주소 라벨, denied/recovery 같은 세션 위치 상태 |
+| `StationSearchOrchestrator` | active query, cache snapshot state, observed search result, pending/blocking failure |
+| `StationListViewModel` | preferences, location state, search projection, loading flag, action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |
+
+처음 읽을 때 `StationListViewModel`만 계속 보면 복잡해 보입니다. 의도는 반대입니다. ViewModel이 모든 정책을 직접 소유하지 않도록 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, 저장/원격/캐시 조합은 `data:station`으로 내려 보낸 구조입니다.
+
+흐름을 따라가면 아래와 같습니다.
+
+1. Route가 화면 foreground 동안 GPS availability를 수집하고 ViewModel action으로 넘깁니다.
+2. ViewModel은 `ObserveUserPreferencesUseCase`로 설정을 구독합니다.
+3. 위치가 준비되면 설정값과 좌표를 합쳐 `StationQuery`를 만듭니다.
+4. `StationSearchOrchestrator`가 해당 query로 `ObserveNearbyStationsUseCase`를 구독합니다.
+5. refresh가 필요하면 `RefreshNearbyStationsUseCase`를 호출합니다.
+6. 저장소에서 온 `StationSearchResult`는 UI projection으로 바뀌고, 최종 `StationListUiState`가 만들어집니다.
+7. 화면은 `StationListUiState`를 보고 목록, stale 배너, 권한/GPS/loading/empty/failure 상태를 렌더링합니다.
+
+`StationListEffect`는 한 번만 소비할 반응입니다. snackbar, 위치 설정 열기, 외부 지도 열기는 UI state에 넣어 오래 보존할 값이 아닙니다. 화면 재구성 때 중복 실행되지 않게 effect stream으로 분리합니다.
+
+상태 의미를 더 깊게 보려면 `docs/state-model.md`를 먼저 읽습니다.
 
 ## 9. 데이터 흐름: Opinet, proxy, 좌표 변환, Room snapshot
 
+데이터 흐름은 domain 계약에서 시작해 data 구현, core network/database로 내려갑니다.
+
+먼저 볼 파일:
+
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/StationRepository.kt`
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQuery.kt`
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationQueryCacheKey.kt`
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/StationSearchResultAssembler.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
+- `core/database/src/main/kotlin/com/gasstation/core/database/station/StationCacheDao.kt`
+- `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt`
+- `core/network/src/main/kotlin/com/gasstation/core/network/station/ProxyStationFetcher.kt`
+- `core/network/src/main/kotlin/com/gasstation/core/network/station/LocalKoreanCoordinateTransform.kt`
+- `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt`
+
+`StationQuery`는 현재 검색 조건을 표현합니다.
+
+- 현재 좌표
+- 검색 반경
+- 유종
+- 브랜드 필터
+- 정렬 순서
+
+하지만 cache key에는 모든 값이 들어가지 않습니다. `StationQueryCacheKey`는 위치 버킷, 반경, 유종만 포함합니다. 브랜드 필터와 정렬은 캐시 키가 아니라 읽기 모델 단계에서 적용합니다. 이렇게 해야 같은 위치/반경/유종 스냅샷을 재사용하면서도 UI 조건을 빠르게 바꿀 수 있습니다.
+
+Room 저장 모델의 핵심은 `station_cache_snapshot`입니다. `station_cache` 행만 있으면 아래 두 상태를 구분하기 어렵습니다.
+
+- 성공적으로 조회했지만 결과가 0건인 상태
+- 아직 성공한 조회가 없어 캐시 자체가 없는 상태
+
+그래서 `StationSearchResult.hasCachedSnapshot`이 중요합니다. 문서나 코드에서 "캐시가 있다"를 판단할 때 `fetchedAt != null`보다 `hasCachedSnapshot` 의미를 우선해야 합니다.
+
+refresh 성공 흐름은 다음과 같습니다.
+
+1. `DefaultStationRepository.refreshNearbyStations()`가 remote data source를 호출합니다.
+2. `StationRetryPolicy`가 `Timeout`과 `Network` 실패에 한해 500ms 뒤 한 번 재시도합니다.
+3. remote 결과를 cache entity와 price history entity로 바꿉니다.
+4. transaction 안에서 snapshot을 교체하고 가격 이력을 추가합니다.
+5. 오래된 cache/snapshot을 정리합니다.
+6. `StationEvent.SearchRefreshed`를 기록합니다.
+
+refresh 실패 흐름은 더 중요합니다. 실패했다고 기존 스냅샷을 지우지 않습니다. 기존 캐시가 있으면 UI는 마지막 성공 결과를 계속 보여주고, snackbar나 stale/failure context로 실패를 알립니다. 캐시가 없을 때만 blocking failure가 됩니다.
+
+네트워크 흐름은 `core:network`가 담당합니다. direct Opinet 모드에서는 `NetworkStationFetcher`가 현재 WGS84 좌표를 `LocalKoreanCoordinateTransform`으로 KATEC 좌표로 바꾼 뒤 Opinet API를 호출합니다. proxy 모드에서는 `ProxyStationFetcher`가 proxy endpoint를 사용합니다. 어떤 endpoint mode를 쓸지는 `app`의 config/Hilt wiring이 결정하고, fetcher 자체는 선택 정책을 소유하지 않습니다.
+
+API key는 Android client `BuildConfig`에 들어갈 수 있으므로 완전한 secret boundary가 아닙니다. 현재 범위에서는 direct Opinet 경로를 지원하지만, 공개 배포 전 backend proxy 승격 조건은 `docs/security-trade-offs.md`와 `docs/adr/2026-05-18-backend-proxy-escalation.md`를 따릅니다.
+
+오프라인과 stale 정책은 `docs/offline-strategy.md`가 단일 출처입니다.
+
 ## 10. demo/prod flavor 차이
+
+`demo`와 `prod`는 둘 다 정식 실행 경로입니다.
+
+먼저 볼 파일:
+
+- `app/build.gradle.kts`
+- `app/src/demo/kotlin/com/gasstation/startup/DemoSeedStartupHook.kt`
+- `app/src/demo/kotlin/com/gasstation/DemoLocationModule.kt`
+- `app/src/demo/kotlin/com/gasstation/di/DemoStationRemoteDataSourceModule.kt`
+- `app/src/prod/kotlin/com/gasstation/startup/ProdSecretsStartupHook.kt`
+
+`demo`는 앱 시작 때 아래를 수행합니다.
+
+1. seed asset을 읽습니다.
+2. DB의 station cache, snapshot, price history, watched station을 초기화합니다.
+3. seed query와 history를 DB에 적재합니다.
+4. `UserPreferences.default()`로 설정을 되돌립니다.
+5. 강남역 2번 출구 기준 고정 좌표를 사용합니다.
+
+따라서 `demo`는 "서버 없이 그럴듯한 화면을 보여주는 mock"이 아닙니다. 실제 cache/stale/watchlist 규칙을 seed 데이터로 재현하는 경로입니다. README screenshot, UI test, benchmark가 이 안정성에 기대고 있습니다.
+
+`prod`는 실제 사용 경로입니다.
+
+- `opinet.apikey`가 필요합니다.
+- 실제 위치 provider를 사용합니다.
+- direct Opinet 또는 proxy endpoint 모드를 사용합니다.
+- 앱 시작 시 `ProdSecretsStartupHook`가 키 누락을 빠르게 실패시킵니다.
+
+새 동작이 사용자 흐름에 보이면 `demo`에서 재현 가능한지도 확인합니다. `demo`에서만 돌아가는 우회 구현을 넣으면 안 되고, `prod`에서만 의미 있는 로직이라도 demo/test/benchmark 전제를 깨지 않는지 봐야 합니다.
 
 ## 11. 설정 화면 흐름
 
+설정 화면은 `UserPreferences`를 편집하는 얇은 UI 계층에 가깝습니다.
+
+먼저 볼 파일:
+
+- `feature/settings/src/main/kotlin/com/gasstation/feature/settings/*`
+- `domain/settings/src/main/kotlin/com/gasstation/domain/settings/*`
+- `data/settings/src/main/kotlin/com/gasstation/data/settings/DefaultSettingsRepository.kt`
+- `core/datastore/src/main/kotlin/com/gasstation/core/datastore/*`
+
+흐름은 아래와 같습니다.
+
+1. `SettingsRoute`가 설정 요약 화면을 보여줍니다.
+2. 사용자가 항목을 누르면 `SettingsDetailRoute`로 이동합니다.
+3. detail route는 별도 ViewModel이 아니라 settings back stack owner를 통해 같은 `SettingsViewModel`을 공유합니다.
+4. 사용자가 값을 선택하면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 use case를 호출합니다.
+5. `data:settings`가 DataStore storage DTO와 domain `UserPreferences`를 매핑합니다.
+6. 목록 화면은 같은 preferences stream을 보고 검색 조건을 갱신합니다.
+
+주의할 점은 설정 쓰기 경로입니다. feature에서 DataStore를 직접 호출하지 않습니다. "설정 하나 추가"는 대개 아래 순서를 따릅니다.
+
+1. `domain/settings/model/UserPreferences.kt`
+2. 필요한 update use case
+3. `core/datastore` storage DTO/serializer/data source
+4. `data/settings/DefaultSettingsRepository.kt`
+5. `feature/settings` 화면과 ViewModel
+6. 목록 검색에 영향이 있으면 `feature:station-list` query 흐름
+
 ## 12. watchlist 흐름
+
+watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 화면입니다.
+
+먼저 볼 파일:
+
+- `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/*`
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveWatchlistUseCase.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/WatchlistSummaryAssembler.kt`
+
+목록 화면에서 사용자가 watch toggle을 누르면 `UpdateWatchStateUseCase`를 통해 저장 상태가 바뀝니다. watchlist 화면으로 이동할 때는 기준 좌표가 navigation argument로 넘어가고, `WatchlistViewModel`은 `SavedStateHandle`에서 이 좌표를 읽습니다.
+
+watchlist는 별도 위치 조회나 refresh 세션 상태를 들고 있지 않습니다. 저장된 주유소를 비교할 기준 좌표와 저장소에서 관찰한 `WatchedStationSummary`가 핵심입니다.
+
+저장소는 watchlist 항목을 만들 때 아래 순서로 복원합니다.
+
+1. `watched_station`에서 저장 항목을 읽습니다.
+2. 같은 station id의 최신 cache가 있으면 우선 사용합니다.
+3. 최신 cache가 없거나 무효하면 price history와 저장된 이름/브랜드/좌표로 가능한 만큼 복원합니다.
+4. 둘 다 없으면 요약에서 제외합니다.
+
+그래서 watchlist는 현재 검색 결과에 없는 주유소라도 바로 사라지지 않습니다. 사용자가 저장한 비교 대상이라는 제품 의미를 최대한 유지합니다.
 
 ## 13. 오프라인, stale, failure 처리
 
+이 앱의 오프라인 전략은 "마지막 성공 스냅샷을 버리지 않고, 실패와 빈 결과를 구분한 채 계속 보여준다"입니다.
+
+핵심 용어는 아래와 같습니다.
+
+| 용어 | 의미 |
+| --- | --- |
+| snapshot | 특정 query bucket에 대해 마지막으로 성공한 조회 결과 |
+| snapshot marker | `station_cache_snapshot` 행. 결과가 0건이어도 성공한 조회였음을 남김 |
+| stale | `StationCachePolicy` 기준 5분을 넘긴 저장 결과 |
+| blocking failure | 캐시가 없어 화면 전체가 실패 상태로 가야 하는 실패 |
+
+실패 처리 기준은 `StationSearchOrchestrator`와 `StationSearchResult.hasCachedSnapshot`이 함께 만듭니다.
+
+- 캐시 스냅샷이 있으면 refresh/location 실패 후에도 기존 결과를 유지합니다.
+- 캐시 스냅샷이 없으면 timeout/failure가 blocking failure가 됩니다.
+- 성공한 빈 결과는 실패가 아닙니다.
+- `fetchedAt != null`만으로 캐시 존재를 판단하지 않습니다.
+
+이 정책은 사용자 관점에서 중요합니다. 운전자는 네트워크가 잠깐 실패해도 마지막으로 성공한 가격 비교 화면을 보고 판단할 수 있어야 합니다. 반대로 아직 한 번도 성공한 조회가 없다면 빈 화면을 정상 결과처럼 보여주면 안 됩니다.
+
+세부 정책과 테이블 의미는 `docs/offline-strategy.md`, 상태 lifecycle은 `docs/state-model.md`를 우선합니다.
+
 ## 14. 디자인 시스템과 UI 정보 위계
 
+디자인 시스템은 `core:designsystem`이 소유합니다.
+
+먼저 볼 파일:
+
+- `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`
+- `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/*`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
+- `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/WatchlistScreen.kt`
+
+GasStation UI의 기본 정체성은 yellow, black, white입니다. 하지만 색상보다 더 중요한 것은 정보 위계입니다.
+
+- 가격이 첫 번째 읽기 대상입니다.
+- 거리는 두 번째 판단 기준입니다.
+- 역명, 브랜드, 유종, freshness, watch 상태는 보조 context입니다.
+- 상태 안내는 permission, GPS, loading, empty, failure가 같은 guidance system처럼 읽혀야 합니다.
+
+`core:designsystem`의 공통 primitive는 시각 리듬과 재사용 가능한 chrome을 제공합니다. 예를 들어 metric, supporting info, row, guidance, status banner 같은 구성요소입니다. 하지만 feature별 정책은 designsystem에 넣지 않습니다.
+
+예시는 브랜드 표시입니다.
+
+- station list에서는 가격/거리 비교 속도를 위해 브랜드 텍스트보다 브랜드 아이콘 중심입니다.
+- watchlist에서는 저장 항목 식별이 중요하므로 브랜드 아이콘과 visible brand label을 함께 보여줍니다.
+
+즉 "브랜드를 어떻게 표시할지"의 최종 화면 정책은 feature가 소유하고, 브랜드 아이콘/라벨 primitive는 designsystem이 제공합니다.
+
+접근성 semantics와 test tag도 UI 계약입니다. 테스트 selector를 정리한다는 이유로 semantics를 제거하면 안 됩니다. 제거가 필요하면 대체 테스트와 접근성 설명을 함께 마련해야 합니다.
 ## 15. 테스트 전략과 검증 명령
 
 ## 16. 작업 유형별 수정 위치
