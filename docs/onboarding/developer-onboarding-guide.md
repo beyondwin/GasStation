@@ -1,6 +1,6 @@
-# 주니어 개발자를 위한 GasStation 인수인계 가이드
+# GasStation 개발자 온보딩 가이드
 
-이 문서는 GasStation을 처음 인수인계받는 주니어 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 따라갈 수 있도록 돕는 온보딩 핸드북입니다.
+이 문서는 GasStation을 처음 맡는 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 따라갈 수 있도록 돕는 온보딩 핸드북입니다.
 
 기존 문서의 단일 출처를 대체하지 않습니다. 세부 계약은 `docs/module-contracts.md`, 구조와 런타임 흐름은 `docs/architecture.md`, 상태는 `docs/state-model.md`, 오프라인 정책은 `docs/offline-strategy.md`, 테스트와 명령은 `docs/test-strategy.md`와 `docs/verification-matrix.md`를 우선합니다.
 
@@ -79,7 +79,7 @@ GasStation은 `app / feature / domain / data / core / tools / benchmark`로 나�
 :benchmark
 ```
 
-각 레이어를 주니어 관점에서 풀면 다음과 같습니다.
+각 레이어를 신규 개발자 관점에서 풀면 다음과 같습니다.
 
 | 레이어 | 쉽게 말하면 | 대표 모듈 | 여기에 두면 좋은 것 | 여기에 두면 안 되는 것 |
 | --- | --- | --- | --- | --- |
@@ -477,7 +477,7 @@ GasStation UI의 기본 정체성은 yellow, black, white입니다. 하지만 �
 문서만 바꿨다면 우선 아래 명령으로 공백/패치 오류를 확인합니다.
 
 ```bash
-git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/junior-handoff-guide.md
+git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/developer-onboarding-guide.md
 ```
 
 Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변경 계층에 맞는 테스트를 먼저 고르고, 공통 계약이나 release 전에는 `docs/verification-matrix.md`의 더 넓은 조합으로 확장합니다.

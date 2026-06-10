@@ -1,8 +1,8 @@
-# Junior Handoff Guide Design
+# Developer Onboarding Guide Design
 
 ## Summary
 
-Create a Korean junior-developer handoff guide for GasStation. The guide will be a single onboarding handbook that explains the product, project structure, technology choices, trade-offs, actual runtime/data flows, testing strategy, and interview/portfolio talking points.
+Create a Korean developer onboarding guide for GasStation. The guide will be a single onboarding handbook that explains the product, project structure, technology choices, trade-offs, actual runtime/data flows, testing strategy, and interview/portfolio talking points.
 
 The guide is not a replacement for the existing source-of-truth documents. It is a high-level, practical entry document that routes readers to the existing architecture, module contract, state, offline, test, verification, security, deployment, and performance documents when deeper detail is needed.
 
@@ -10,7 +10,7 @@ The guide is not a replacement for the existing source-of-truth documents. It is
 
 Primary output:
 
-- `docs/onboarding/junior-handoff-guide.md`
+- `docs/onboarding/developer-onboarding-guide.md`
 
 Navigation updates:
 
@@ -21,7 +21,7 @@ No changes should be made to `AGENTS.md`.
 
 ## Audience
 
-The primary reader is a junior Android developer who is inheriting this project for the first time.
+The primary reader is an Android developer who is joining or inheriting this project for the first time.
 
 The guide should help that reader answer four questions:
 
@@ -34,14 +34,14 @@ A secondary reader is an interviewer or reviewer. The document should include a 
 
 ## Placement Rationale
 
-Use `docs/onboarding/junior-handoff-guide.md` instead of expanding `README.md` or scattering content across existing documents.
+Use `docs/onboarding/developer-onboarding-guide.md` instead of expanding `README.md` or scattering content across existing documents.
 
 Reasons:
 
 - `README.md` already serves as the project overview and portfolio-facing landing document.
 - `docs/project-reading-guide.md` is a router, not a long-form teaching document.
 - `docs/architecture.md`, `docs/module-contracts.md`, `docs/state-model.md`, `docs/offline-strategy.md`, `docs/test-strategy.md`, and `docs/verification-matrix.md` already own specific source-of-truth details.
-- A junior handoff guide needs a narrative reading path, practical code anchors, and explanation of trade-offs in one place.
+- A developer onboarding guide needs a narrative reading path, practical code anchors, and explanation of trade-offs in one place.
 
 ## Scope
 
@@ -470,11 +470,11 @@ Include:
 
 For the spec document:
 
-- Run `git diff --check -- docs/superpowers/specs/2026-06-10-junior-handoff-guide-design.md`.
+- Run `git diff --check -- docs/superpowers/specs/2026-06-10-developer-onboarding-guide-design.md`.
 
 For the eventual guide implementation:
 
-- Run `git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/junior-handoff-guide.md`.
+- Run `git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/developer-onboarding-guide.md`.
 - Confirm referenced source files exist.
 - If only documentation links and the guide are changed, Gradle tests are not required.
 - If the implementation discovers stale current-contract documentation and updates architecture/state/offline/test docs, run the documentation verification command from `docs/verification-matrix.md`.
@@ -484,7 +484,7 @@ For the eventual guide implementation:
 Approved decisions:
 
 - Use one long guide rather than scattered edits.
-- Use `docs/onboarding/junior-handoff-guide.md`.
-- Include both practical junior onboarding and interview/portfolio explanation.
+- Use `docs/onboarding/developer-onboarding-guide.md`.
+- Include both practical developer onboarding and interview/portfolio explanation.
 - Add short navigation links in `README.md` and `docs/project-reading-guide.md`.
 - Do not edit `AGENTS.md`.

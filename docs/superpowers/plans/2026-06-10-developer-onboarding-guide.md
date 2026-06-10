@@ -1,10 +1,10 @@
-# Junior Handoff Guide Implementation Plan
+# Developer Onboarding Guide Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a Korean junior-developer handoff guide that explains GasStation's product purpose, architecture, technology choices, trade-offs, runtime flows, testing strategy, and interview/portfolio talking points.
+**Goal:** Add a Korean developer onboarding guide that explains GasStation's product purpose, architecture, technology choices, trade-offs, runtime flows, testing strategy, and interview/portfolio talking points.
 
-**Architecture:** This is a documentation-only change. The new long-form guide lives in `docs/onboarding/junior-handoff-guide.md`; existing source-of-truth docs remain authoritative and are linked rather than duplicated. `README.md` and `docs/project-reading-guide.md` get short navigation links only.
+**Architecture:** This is a documentation-only change. The new long-form guide lives in `docs/onboarding/developer-onboarding-guide.md`; existing source-of-truth docs remain authoritative and are linked rather than duplicated. `README.md` and `docs/project-reading-guide.md` get short navigation links only.
 
 **Tech Stack:** Markdown documentation, existing GasStation Android/Kotlin/Gradle project references, `git diff --check` verification.
 
@@ -12,8 +12,8 @@
 
 ## File Structure
 
-- Create: `docs/onboarding/junior-handoff-guide.md`
-  - Responsibility: Long-form Korean onboarding handbook for junior maintainers.
+- Create: `docs/onboarding/developer-onboarding-guide.md`
+  - Responsibility: Long-form Korean onboarding handbook for first-time maintainers.
   - It explains technology choices, code flows, modification entry points, verification, and interview explanations.
 - Modify: `README.md`
   - Responsibility: Add one short documentation-map link to the new guide.
@@ -24,7 +24,7 @@
 
 ## Source Documents To Keep Open
 
-- `docs/superpowers/specs/2026-06-10-junior-handoff-guide-design.md`
+- `docs/superpowers/specs/2026-06-10-developer-onboarding-guide-design.md`
 - `AGENTS.md`
 - `README.md`
 - `docs/project-reading-guide.md`
@@ -44,7 +44,7 @@
 ## Task 1: Create The Onboarding Guide Skeleton
 
 **Files:**
-- Create: `docs/onboarding/junior-handoff-guide.md`
+- Create: `docs/onboarding/developer-onboarding-guide.md`
 
 - [ ] **Step 1: Check the worktree**
 
@@ -58,12 +58,12 @@ Expected: no output, or only unrelated user changes that must not be touched.
 
 - [ ] **Step 2: Create the onboarding directory and guide skeleton**
 
-Create `docs/onboarding/junior-handoff-guide.md` with this exact top-level structure:
+Create `docs/onboarding/developer-onboarding-guide.md` with this exact top-level structure:
 
 ```markdown
-# 주니어 개발자를 위한 GasStation 인수인계 가이드
+# GasStation 개발자 온보딩 가이드
 
-이 문서는 GasStation을 처음 인수인계받는 주니어 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 따라갈 수 있도록 돕는 온보딩 핸드북입니다.
+이 문서는 GasStation을 처음 맡는 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 따라갈 수 있도록 돕는 온보딩 핸드북입니다.
 
 기존 문서의 단일 출처를 대체하지 않습니다. 세부 계약은 `docs/module-contracts.md`, 구조와 런타임 흐름은 `docs/architecture.md`, 상태는 `docs/state-model.md`, 오프라인 정책은 `docs/offline-strategy.md`, 테스트와 명령은 `docs/test-strategy.md`와 `docs/verification-matrix.md`를 우선합니다.
 
@@ -117,7 +117,7 @@ Create `docs/onboarding/junior-handoff-guide.md` with this exact top-level struc
 Run:
 
 ```bash
-test -f docs/onboarding/junior-handoff-guide.md && sed -n '1,80p' docs/onboarding/junior-handoff-guide.md
+test -f docs/onboarding/developer-onboarding-guide.md && sed -n '1,80p' docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: the file exists and prints the title plus all section headings.
@@ -127,8 +127,8 @@ Expected: the file exists and prints the title plus all section headings.
 Run:
 
 ```bash
-git add docs/onboarding/junior-handoff-guide.md
-git commit -m "docs: scaffold junior handoff guide"
+git add docs/onboarding/developer-onboarding-guide.md
+git commit -m "docs: scaffold developer onboarding guide"
 ```
 
 Expected: commit succeeds with only the new guide file.
@@ -136,7 +136,7 @@ Expected: commit succeeds with only the new guide file.
 ## Task 2: Write Product, Structure, And Technology Sections
 
 **Files:**
-- Modify: `docs/onboarding/junior-handoff-guide.md`
+- Modify: `docs/onboarding/developer-onboarding-guide.md`
 
 - [ ] **Step 1: Replace sections 1-6 with concrete content**
 
@@ -184,7 +184,7 @@ Add a short "더 깊게 볼 문서" paragraph in section 3 or 4 linking to:
 Run:
 
 ```bash
-rg -n "## [1-6]\\. |기술 스택 요약표|멀티모듈 Clean Architecture|settings.gradle.kts|Price" docs/onboarding/junior-handoff-guide.md
+rg -n "## [1-6]\\. |기술 스택 요약표|멀티모듈 Clean Architecture|settings.gradle.kts|Price" docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: output includes section headings, `settings.gradle.kts`, `Price`, and technology stack references.
@@ -194,16 +194,16 @@ Expected: output includes section headings, `settings.gradle.kts`, `Price`, and 
 Run:
 
 ```bash
-git add docs/onboarding/junior-handoff-guide.md
+git add docs/onboarding/developer-onboarding-guide.md
 git commit -m "docs: explain gasstation onboarding context"
 ```
 
-Expected: commit succeeds with only `docs/onboarding/junior-handoff-guide.md`.
+Expected: commit succeeds with only `docs/onboarding/developer-onboarding-guide.md`.
 
 ## Task 3: Write Runtime Flow Sections
 
 **Files:**
-- Modify: `docs/onboarding/junior-handoff-guide.md`
+- Modify: `docs/onboarding/developer-onboarding-guide.md`
 
 - [ ] **Step 1: Replace sections 7-14 with concrete runtime explanations**
 
@@ -299,7 +299,7 @@ Add links in sections 7-14 to:
 Run:
 
 ```bash
-rg -n "StationListViewModel|LocationStateMachine|StationSearchOrchestrator|hasCachedSnapshot|station_cache_snapshot|DemoSeedStartupHook|ProdSecretsStartupHook|WatchlistSummaryAssembler" docs/onboarding/junior-handoff-guide.md
+rg -n "StationListViewModel|LocationStateMachine|StationSearchOrchestrator|hasCachedSnapshot|station_cache_snapshot|DemoSeedStartupHook|ProdSecretsStartupHook|WatchlistSummaryAssembler" docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: all key terms appear in the guide.
@@ -309,16 +309,16 @@ Expected: all key terms appear in the guide.
 Run:
 
 ```bash
-git add docs/onboarding/junior-handoff-guide.md
+git add docs/onboarding/developer-onboarding-guide.md
 git commit -m "docs: document gasstation runtime flows"
 ```
 
-Expected: commit succeeds with only `docs/onboarding/junior-handoff-guide.md`.
+Expected: commit succeeds with only `docs/onboarding/developer-onboarding-guide.md`.
 
 ## Task 4: Write Workflow, Interview, Mistake, And Checklist Sections
 
 **Files:**
-- Modify: `docs/onboarding/junior-handoff-guide.md`
+- Modify: `docs/onboarding/developer-onboarding-guide.md`
 
 - [ ] **Step 1: Replace sections 15-22 with concrete maintainer guidance**
 
@@ -350,7 +350,7 @@ Section 15 must include these commands:
 ```
 
 ```bash
-git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/junior-handoff-guide.md
+git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/developer-onboarding-guide.md
 ```
 
 Section 16 must include a table with this shape:
@@ -414,7 +414,7 @@ Section 22 must include this checklist:
 Run:
 
 ```bash
-rg -n "3일 온보딩|첫 버그 수정|첫 기능 추가|면접|자주 실수|머지 전 체크리스트|git diff --check|:app:testDemoDebugUnitTest" docs/onboarding/junior-handoff-guide.md
+rg -n "3일 온보딩|첫 버그 수정|첫 기능 추가|면접|자주 실수|머지 전 체크리스트|git diff --check|:app:testDemoDebugUnitTest" docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: all workflow sections and verification commands appear.
@@ -424,11 +424,11 @@ Expected: all workflow sections and verification commands appear.
 Run:
 
 ```bash
-git add docs/onboarding/junior-handoff-guide.md
+git add docs/onboarding/developer-onboarding-guide.md
 git commit -m "docs: add handoff workflows and interview guide"
 ```
 
-Expected: commit succeeds with only `docs/onboarding/junior-handoff-guide.md`.
+Expected: commit succeeds with only `docs/onboarding/developer-onboarding-guide.md`.
 
 ## Task 5: Add Navigation Links
 
@@ -441,7 +441,7 @@ Expected: commit succeeds with only `docs/onboarding/junior-handoff-guide.md`.
 In `README.md`, under `## 문서 지도`, add this bullet immediately after `프로젝트 읽기 가이드`:
 
 ```markdown
-- [주니어 인수인계 가이드](docs/onboarding/junior-handoff-guide.md): 처음 인수인계받는 개발자를 위해 제품 목적, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 설명합니다.
+- [개발자 온보딩 가이드](docs/onboarding/developer-onboarding-guide.md): 처음 프로젝트를 맡은 개발자를 위해 제품 목적, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 설명합니다.
 ```
 
 - [ ] **Step 2: Add first-reading entry**
@@ -451,7 +451,7 @@ In `docs/project-reading-guide.md`, update the "먼저 볼 문서" list so the n
 ```markdown
 1. `AGENTS.md`
 2. `README.md`
-3. `docs/onboarding/junior-handoff-guide.md`
+3. `docs/onboarding/developer-onboarding-guide.md`
 4. `docs/architecture.md`
 5. `docs/module-contracts.md`
 6. `docs/agent-workflow.md`
@@ -464,7 +464,7 @@ In `docs/project-reading-guide.md`, update the "먼저 볼 문서" list so the n
 Then update the explanatory sentence below it to:
 
 ```markdown
-이 순서는 "운영 계약 -> 큰 그림 -> 주니어 인수인계 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
+이 순서는 "운영 계약 -> 큰 그림 -> 개발자 온보딩 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 -> 실행 명령" 순서입니다.
 ```
 
 - [ ] **Step 3: Add question-router row**
@@ -472,7 +472,7 @@ Then update the explanatory sentence below it to:
 In `docs/project-reading-guide.md`, under "질문별 가장 빠른 진입점", add this row after the operating-principles row:
 
 ```markdown
-| 처음 인수인계받는 개발자는 무엇부터 보면 되나 | `docs/onboarding/junior-handoff-guide.md`, `README.md`, `docs/architecture.md` |
+| 처음 프로젝트를 맡은 개발자는 무엇부터 보면 되나 | `docs/onboarding/developer-onboarding-guide.md`, `README.md`, `docs/architecture.md` |
 ```
 
 - [ ] **Step 4: Verify links**
@@ -480,7 +480,7 @@ In `docs/project-reading-guide.md`, under "질문별 가장 빠른 진입점", a
 Run:
 
 ```bash
-rg -n "주니어 인수인계 가이드|docs/onboarding/junior-handoff-guide.md" README.md docs/project-reading-guide.md
+rg -n "개발자 온보딩 가이드|docs/onboarding/developer-onboarding-guide.md" README.md docs/project-reading-guide.md
 ```
 
 Expected: output includes one README link, one first-reading list item, and one question-router row.
@@ -491,7 +491,7 @@ Run:
 
 ```bash
 git add README.md docs/project-reading-guide.md
-git commit -m "docs: link junior handoff guide"
+git commit -m "docs: link developer onboarding guide"
 ```
 
 Expected: commit succeeds with only `README.md` and `docs/project-reading-guide.md`.
@@ -499,7 +499,7 @@ Expected: commit succeeds with only `README.md` and `docs/project-reading-guide.
 ## Task 6: Final Verification And Cleanup
 
 **Files:**
-- Verify: `docs/onboarding/junior-handoff-guide.md`
+- Verify: `docs/onboarding/developer-onboarding-guide.md`
 - Verify: `README.md`
 - Verify: `docs/project-reading-guide.md`
 
@@ -508,7 +508,7 @@ Expected: commit succeeds with only `README.md` and `docs/project-reading-guide.
 Run:
 
 ```bash
-git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/junior-handoff-guide.md
+git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: no output and exit code 0.
@@ -518,7 +518,7 @@ Expected: no output and exit code 0.
 Run:
 
 ```bash
-rg -n "T[B]D|T[O]DO|F[I]XME|place[h]older|작성 예정|나중에" docs/onboarding/junior-handoff-guide.md
+rg -n "T[B]D|T[O]DO|F[I]XME|place[h]older|작성 예정|나중에" docs/onboarding/developer-onboarding-guide.md
 ```
 
 Expected: no output and exit code 1.
@@ -566,7 +566,7 @@ Expected: no output.
 
 Final report should include:
 
-- Created guide path: `docs/onboarding/junior-handoff-guide.md`
+- Created guide path: `docs/onboarding/developer-onboarding-guide.md`
 - Updated links: `README.md`, `docs/project-reading-guide.md`
 - Verification commands run and results
 - Any skipped Gradle tests with the reason: documentation-only change
@@ -575,7 +575,7 @@ Final report should include:
 
 Spec coverage:
 
-- `docs/onboarding/junior-handoff-guide.md` creation is covered by Tasks 1-4.
+- `docs/onboarding/developer-onboarding-guide.md` creation is covered by Tasks 1-4.
 - README link update is covered by Task 5.
 - `docs/project-reading-guide.md` link update is covered by Task 5.
 - No `AGENTS.md` edits are enforced by Task 6.
