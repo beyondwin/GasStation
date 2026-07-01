@@ -159,11 +159,17 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 
 ## 문서 지도
 
-- [작업자 운영 계약](AGENTS.md): 모든 변경에 적용되는 짧은 운영 계약입니다.
+현재 구조와 실행 명령의 기준은 live 문서와 실제 코드입니다. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 설계와 분석 이력을 보관하지만 현재 계약을 판단할 때는 아래 live 문서와 `settings.gradle.kts`를 우선합니다.
+
+### 시작과 학습
+
+- [프로젝트 읽기 가이드](docs/project-reading-guide.md): 사람과 에이전트가 목적별로 무엇을 먼저 읽을지 고르는 라우터입니다.
+- [개발자 온보딩 가이드](docs/onboarding/developer-onboarding-guide.md): 처음 프로젝트를 맡은 개발자를 위해 제품 목적, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 순서대로 설명합니다.
 - [기여 가이드](CONTRIBUTING.md): 새 기여자가 처음 실행할 명령, 머지 전 검증, 커밋 메시지 기준을 설명합니다.
-- [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
-- [프로젝트 읽기 가이드](docs/project-reading-guide.md): 처음 읽을 때 어떤 문서와 어떤 코드부터 볼지 정리합니다.
-- [개발자 온보딩 가이드](docs/onboarding/developer-onboarding-guide.md): 처음 프로젝트를 맡은 개발자를 위해 제품 목적, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 설명합니다.
+
+### 현재 계약
+
+- [작업자 운영 계약](AGENTS.md): 모든 변경에 적용되는 짧은 운영 계약입니다.
 - [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
 - [모듈 계약](docs/module-contracts.md): 각 모듈의 소유 범위와 변경 경계를 고정합니다.
@@ -171,12 +177,23 @@ seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
+- [보안 trade-off](docs/security-trade-offs.md): API key, cleartext, backup, certificate pinning, proxy 승격 조건을 설명합니다.
+- [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
+
+### 운영, 릴리스, 성능
+
 - [배포 절차](docs/deployment.md): 릴리스 준비, GitHub PR/tag 흐름, Android release 산출물과 공개 배포 전 보안 gate를 설명합니다.
 - [성능](docs/performance.md): hero macrobenchmark 정의, 실기기 측정값, baseline profile 경로와 제약을 정리합니다.
 - [Backend proxy ADR](docs/adr/2026-05-18-backend-proxy-escalation.md): Opinet API key를 backend proxy로 승격해야 하는 조건을 기록합니다.
+- [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
+- [릴리즈 노트](docs/release-notes/): 릴리스별 사용자 영향, 개발자 영향, 검증 결과를 보관합니다.
+
+### 이력과 근거
+
 - [심층 분석 리포트](docs/history/deep-analysis-report.md): 완료된 필수 수정과 조건부 승격 항목을 요약합니다.
 - [개선 분석](docs/history/improvement-analysis.md): 완료된 backlog 항목과 남은 개선 후보의 기준을 보관합니다.
-- `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다. 현재 구조와 실행 명령의 기준은 위 live 문서와 코드입니다.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/`: 완료되었거나 진행했던 설계/구현 계획의 이력을 보관합니다.
+- `docs/improvements/`: 특정 개선 패스의 설계와 구현 기록을 보관합니다.
 
 ## 5분 코드 투어
 
