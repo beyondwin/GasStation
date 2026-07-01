@@ -10,13 +10,32 @@
 
 ## 문서/계약 설명 갱신 확인
 
-코드를 바꾸지 않고 architecture, state, offline, module contract 문서를 갱신했을 때 최소 확인입니다.
+문서 변경은 세 가지로 나눠 확인합니다.
+
+### 1. 이력/근거 문서만 변경
+
+`docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`처럼 현재 계약이 아닌 이력이나 근거 문서만 바꿨다면 수정한 파일만 diff check합니다.
+
+```bash
+git diff --check -- <changed files>
+```
+
+이 경우 Gradle 테스트는 기본 필수가 아닙니다. 다만 문서가 현재 동작, 현재 모듈 경계, 현재 명령을 새로 주장한다면 아래 live 문서 변경 기준으로 올려 봅니다.
+
+### 2. live 계약 문서 변경
+
+코드를 바꾸지 않고 architecture, state, offline, module contract, workflow, test strategy, verification matrix 같은 live 문서를 갱신했을 때 최소 확인입니다.
 
 ```bash
 git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/security-trade-offs.md docs/performance.md docs/deployment.md docs/adr/*.md docs/release-notes/*.md
 ```
 
-`docs/superpowers/specs/`와 `docs/superpowers/plans/`는 과거 설계/계획 이력이므로 current contract 확인 명령에는 기본 포함하지 않습니다. 해당 이력 문서를 직접 수정했다면 수정한 파일 경로를 위 명령에 명시적으로 추가합니다.
+문서가 파일 경로, Gradle task, 활성 모듈, CI job을 언급한다면 실제 표면도 확인합니다.
+
+```bash
+sed -n '1,220p' settings.gradle.kts
+find docs -maxdepth 3 -type f | sort
+```
 
 문서 갱신이 이미 구현된 key handling, cleartext, backup, cache/event/state, location, brand label 계약을 설명한다면 아래 관련 테스트도 선택합니다.
 
@@ -38,6 +57,21 @@ git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING
 ```
 
 이 조합은 `StationEvent` 계약, retry/pruning 정책, station-list 상태 분리, watchlist event, 주소 lookup, 브랜드 label, cleartext resource, Android backup 비활성화, prod secret fail-fast 의미를 다시 확인합니다.
+
+### 3. README, demo story, 릴리스, 성능 문서 변경
+
+README, release notes, deployment, performance 문서가 현재 실행 결과나 측정값을 말한다면 diff check에 더해 해당 명령을 실행하거나 기존 증거를 명시합니다.
+
+```bash
+git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md docs/performance.md docs/verification-matrix.md docs/release-notes/*.md
+```
+
+대표 기준:
+
+- README의 빠른 검증 명령을 바꿨다면 같은 명령이나 더 좁은 관련 명령을 실행합니다.
+- demo story나 screenshot 전제를 바꿨다면 `:app:assembleDemoDebug` 또는 관련 UI test/benchmark 전제를 확인합니다.
+- 릴리스/배포 절차를 바꿨다면 `docs/deployment.md`의 절차와 이 문서의 릴리스/배포 확인 명령을 함께 봅니다.
+- 성능 수치나 benchmark journey를 바꿨다면 `docs/performance.md`와 이 문서의 Hero Benchmark Evidence 기준을 함께 봅니다.
 
 ## 빠른 로컬 확인
 
