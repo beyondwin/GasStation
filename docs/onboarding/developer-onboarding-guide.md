@@ -1,8 +1,21 @@
 # GasStation 개발자 온보딩 가이드
 
-이 문서는 GasStation을 처음 맡는 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 한 번에 따라갈 수 있도록 돕는 온보딩 핸드북입니다.
+이 문서는 GasStation을 처음 맡는 Android 개발자가 제품 목적, 프로젝트 구조, 기술 선택 이유, 실제 로직 흐름, 수정 위치, 검증 방법을 순서대로 이해하도록 돕는 학습용 핸드북입니다.
 
-기존 문서의 단일 출처를 대체하지 않습니다. 세부 계약은 `docs/module-contracts.md`, 구조와 런타임 흐름은 `docs/architecture.md`, 상태는 `docs/state-model.md`, 오프라인 정책은 `docs/offline-strategy.md`, 테스트와 명령은 `docs/test-strategy.md`와 `docs/verification-matrix.md`를 우선합니다.
+이 문서는 기존 단일 출처를 대체하지 않습니다. 현재 계약 판단은 `docs/project-reading-guide.md`가 안내하는 live 문서와 실제 코드를 우선합니다. 세부 계약은 `docs/module-contracts.md`, 구조와 런타임 흐름은 `docs/architecture.md`, 상태는 `docs/state-model.md`, 오프라인 정책은 `docs/offline-strategy.md`, 테스트와 명령은 `docs/test-strategy.md`와 `docs/verification-matrix.md`를 우선합니다.
+
+처음 읽을 때는 이 문서를 위에서 아래로 따라가도 됩니다. 실제 변경을 시작할 때는 아래 live 문서 표로 돌아가 현재 계약과 검증 범위를 다시 확인합니다.
+
+| 상황 | 먼저 확인할 live 문서 |
+| --- | --- |
+| 작업 원칙과 금지선 확인 | `AGENTS.md` |
+| 무엇을 읽을지 고르기 | `docs/project-reading-guide.md` |
+| 작업 순서와 체크리스트 확인 | `docs/agent-workflow.md` |
+| 모듈 위치 판단 | `docs/module-contracts.md` |
+| 구조와 런타임 흐름 판단 | `docs/architecture.md` |
+| 상태 ownership 판단 | `docs/state-model.md` |
+| cache/stale/failure/watchlist fallback 판단 | `docs/offline-strategy.md` |
+| 테스트 의미와 실행 명령 판단 | `docs/test-strategy.md`, `docs/verification-matrix.md` |
 
 ## 1. 이 프로젝트를 한 문장으로 이해하기
 
@@ -502,6 +515,8 @@ Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변�
 | 문서-only 변경 | 바꿀 문서와 실제 코드 앵커 | `docs/*`, 필요 시 `README.md` | `git diff --check`, 링크/파일 존재 확인 |
 
 수정 위치가 애매하면 `docs/module-contracts.md`를 먼저 봅니다. 구조 설명이 필요하면 `docs/architecture.md`, 상태가 헷갈리면 `docs/state-model.md`, 캐시/failure가 헷갈리면 `docs/offline-strategy.md`를 봅니다.
+
+여기부터는 학습을 실제 변경으로 연결하는 구간입니다. 코드 수정 전에는 `docs/project-reading-guide.md`의 목적별 경로와 `docs/agent-workflow.md`의 절차를 다시 확인하고, 변경하려는 계층의 테스트를 먼저 읽습니다.
 
 ## 17. 처음 맡은 개발자의 3일 온보딩 루트
 
