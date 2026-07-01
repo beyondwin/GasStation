@@ -23,6 +23,8 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 
 - `git status --short`로 기존 사용자 변경을 확인한다.
 - 실제 활성 모듈은 `settings.gradle.kts` 기준으로 판단한다.
+- 현재 구조와 동작 판단은 live 문서와 실제 코드를 우선한다.
+- `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 설계/분석 이력이다. 사용자가 이력 분석을 요청했거나 결정 배경이 필요할 때 근거로 보되, 현재 계약으로 바로 사용하지 않는다.
 - 관련 테스트 파일을 먼저 읽고 현재 계약을 파악한다.
 - 새 dependency를 추가하기 전에 같은 계층의 기존 패턴을 찾는다.
 - UI 작업이면 `core:designsystem` 토큰과 공통 component를 먼저 확인한다.
@@ -197,15 +199,23 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 
 ## Documentation Updates
 
-문서 업데이트 기준:
+문서 업데이트 기준은 "설명이 현재 코드와 사용자가 겪는 흐름을 바꾸는가"입니다. 일회성 설계와 구현 계획은 `docs/superpowers/specs/`와 `docs/superpowers/plans/`에 남기지만, 현재 계약이 바뀌면 아래 live 문서도 함께 확인합니다.
 
-- 모듈 책임이나 의존 방향이 바뀌면 `docs/architecture.md`와 `docs/module-contracts.md`
-- 상태 원천이나 lifecycle이 바뀌면 `docs/state-model.md`
-- 캐시, stale, refresh 실패, watchlist fallback이 바뀌면 `docs/offline-strategy.md`
-- 테스트 의미나 명령이 바뀌면 `docs/test-strategy.md`와 `docs/verification-matrix.md`
-- 성능 측정, benchmark journey, baseline profile 경로가 바뀌면 `docs/performance.md`와 `docs/verification-matrix.md`
-- README가 설명하는 대표 사용자 흐름이 바뀌면 `README.md`
-- 일회성 기능 설계나 구현 계획은 `docs/superpowers/specs/`와 `docs/superpowers/plans/`
+| 변경 유형 | 확인하거나 갱신할 문서 |
+| --- | --- |
+| 모듈 책임, 의존 방향, 새 위치 판단 | `docs/module-contracts.md`, `docs/architecture.md` |
+| 구조, 런타임 흐름, 데이터 흐름 | `docs/architecture.md`, 필요 시 `docs/project-reading-guide.md` |
+| 상태 원천, lifecycle, UI effect 의미 | `docs/state-model.md` |
+| 캐시, stale, refresh 실패, watchlist fallback | `docs/offline-strategy.md` |
+| UI 정보 위계, 디자인 토큰, 공통 primitive | `README.md`, `.impeccable.md`, `docs/architecture.md` |
+| 테스트 의미, 테스트 선택 기준 | `docs/test-strategy.md` |
+| 실제 Gradle 명령, CI 범위, 검증 깊이 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
+| 릴리스, 배포, 버전, 공개 배포 전 gate | `docs/deployment.md`, `CHANGELOG.md`, `docs/release-notes/` |
+| 성능 측정, benchmark journey, baseline profile | `docs/performance.md`, `docs/verification-matrix.md`, `README.md`의 Performance Snapshot |
+| 보안 결정, secret/key/proxy/backup trade-off | `docs/security-trade-offs.md`, `docs/adr/` |
+| 새 학습 경로, 온보딩 흐름, 문서 라우팅 | `docs/project-reading-guide.md`, `docs/onboarding/developer-onboarding-guide.md`, `README.md` 문서 지도 |
+
+문서만 바꿨더라도 현재 계약을 설명하는 문장이 바뀌면 실제 파일 경로, Gradle task, 모듈 include가 여전히 맞는지 확인합니다. 과거 이력 문서만 바꿨다면 수정한 파일을 명시해 `git diff --check -- <changed files>`를 우선 실행합니다.
 
 AGENTS.md에는 모든 작업자가 항상 알아야 하는 원칙만 추가한다. 특정 변경 유형에서만 필요한 긴 설명은 이 문서나 전문 문서로 보낸다.
 
@@ -214,6 +224,7 @@ AGENTS.md에는 모든 작업자가 항상 알아야 하는 원칙만 추가한�
 작업을 마치기 전에 확인한다.
 
 - 새 코드나 문서가 현재 활성 모듈 기준과 맞는가?
+- 문서 설명이 현재 코드, `settings.gradle.kts`, live 문서 기준과 충돌하지 않는가?
 - feature가 infra 구현을 직접 알게 되지 않았는가?
 - domain이 Android/UI/storage DTO를 노출하지 않는가?
 - data가 화면 상태나 문구를 소유하지 않는가?
