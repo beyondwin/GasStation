@@ -11,6 +11,7 @@
 - Android library 공통 unit test 의존성(`junit`, `kotlinx-coroutines-test`, `androidx.test:core`, `robolectric`)은 `gasstation.android.library` 컨벤션이 소유합니다.
 - Android 모듈은 최신 AndroidX가 요구하는 `compileSdk 37`을 사용하되, 안정 Robolectric 4.16.1의 지원 상한에 맞춰 로컬 unit test SDK를 `config/robolectric/robolectric.properties`의 API 36으로 고정합니다. app/library convention이 이 공통 test resource를 연결하며, API 37 동작은 Robolectric 안정 지원 전까지 connected test로 확인합니다.
 - Compose Android library의 UI test/debug 의존성(Compose test BOM, UI test JUnit4, UI tooling, UI test manifest)은 `gasstation.android.library.compose` 컨벤션이 소유합니다. 모듈 build file에는 Turbine, MockWebServer, `kotlin.test`, project test dependency, androidTest smoke dependency처럼 모듈별로 필요한 의존성만 둡니다.
+- Compose test rule은 `androidx.compose.ui.test.junit4.v2` 환경을 사용합니다. v2의 `StandardTestDispatcher` 기반 동기화 계약을 유지하고, deprecated v1 test-environment import는 `verifyNoDeprecatedComposeTestApis`가 차단합니다.
 - Compose 테스트 selector는 ASCII `testTag`를 사용하고, 한글 사용자 문구와 스크린 리더용 설명은 `contentDescription` 같은 접근성 semantics에 남깁니다.
 - 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel 테스트에서 `Dispatchers.Main`이 필요하면 feature-local rule/helper로 설정을 중앙화합니다. 현재 station-list 테스트는 `MainDispatcherRule`이 이 계약을 소유합니다.
 - Build velocity settings are valid only while the verification matrix stays green. If `parallel`, build cache, or configuration cache changes a task result, treat it as a build correctness issue and fix the build boundary before changing product behavior.
@@ -85,6 +86,12 @@
   Startup metric은 첫 frame이 아니라 사용 가능한 목록/empty/failure content 기준으로 보고합니다. `StationListFirstContentPolicy`와 `StartupDrawReporter` 테스트가 이 기준을 보호합니다.
 - Hero benchmark source set
   `benchmark`는 `com.android.test` 모듈의 main source set(`benchmark/src/main/kotlin`)에서 scenario와 baseline profile generator를 컴파일합니다. 실기기 증거 수집은 `connectedBenchmarkAndroidTest` 경로가 단일 기준입니다.
+
+## 코드 커버리지
+
+`coverageXmlReport`는 JaCoCo 0.8.15로 JVM 모듈과 Android debug unit-test 실행 데이터를 한 번에 수집합니다. app은 `demoDebug` authored class 전체와 prod 전용 class를 함께 분석하고, 나머지 Android 모듈은 debug authored class를 분석합니다. Hilt factory/module, Compose singleton, preview 생성 코드는 분모에서 제외합니다.
+
+통합 XML은 `build/reports/coverage/report.xml`에 생성되며 main/tag push의 Codecov 업로드가 이 파일을 사용합니다. 현재 커버리지는 신호 수집용이고, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking coverage threshold는 두지 않습니다.
 
 ## Mutation testing (변이 테스트)
 

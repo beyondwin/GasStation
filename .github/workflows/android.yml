@@ -22,9 +22,9 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Spotless + Lint + Module Boundaries
+      - name: Spotless + Lint + Contract Guards
         # Default lint focuses on production sources. Test-source lint is an explicit local/full-path opt-in.
-        run: ./gradlew spotlessCheck lint verifyModuleBoundaries --continue
+        run: ./gradlew spotlessCheck lint verifyModuleBoundaries verifyNoDeprecatedComposeTestApis --warning-mode fail --continue
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -48,6 +48,7 @@ jobs:
             :core:designsystem:testDebugUnitTest \
             :core:location:testDebugUnitTest \
             :core:network:test \
+            :core:observability:test \
             :data:settings:testDebugUnitTest \
             :data:station:testDebugUnitTest \
             :feature:settings:testDebugUnitTest \
@@ -55,7 +56,9 @@ jobs:
             :feature:watchlist:testDebugUnitTest \
             :app:testDemoDebugUnitTest \
             :app:testProdDebugUnitTest \
-            :tools:demo-seed:test
+            :app:compileDemoDebugAndroidTestKotlin \
+            :tools:demo-seed:test \
+            --warning-mode fail
 
   screenshot-tests:
     runs-on: ubuntu-latest
@@ -68,7 +71,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Roborazzi Screenshot Verification
         # Keep screenshot regression separate from the fast unit-test path.
-        run: ./gradlew verifyRoborazziDebug
+        run: ./gradlew verifyRoborazziDebug --warning-mode fail
       - name: Upload screenshot diffs on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -89,9 +92,9 @@ jobs:
         # Run assemble targets separately so parallel Gradle execution does not compile
         # both app flavors and benchmark in the same memory peak on GitHub runners.
         run: |
-          ./gradlew :app:assembleDemoDebug
-          ./gradlew :app:assembleProdDebug
-          ./gradlew :benchmark:assemble
+          ./gradlew :app:assembleDemoDebug --warning-mode fail
+          ./gradlew :app:assembleProdDebug --warning-mode fail
+          ./gradlew :benchmark:assemble --warning-mode fail
 
   release-assemble:
     runs-on: ubuntu-latest
@@ -104,7 +107,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Release Assemble
-        run: ./gradlew :app:assembleProdRelease
+        run: ./gradlew :app:assembleProdRelease --warning-mode fail
 
   coverage:
     runs-on: ubuntu-latest
@@ -119,32 +122,11 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Kover XML Report
-        run: ./gradlew koverXmlReport
+      - name: JaCoCo XML Report
+        run: ./gradlew coverageXmlReport --warning-mode fail
       - name: Upload to Codecov
         if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
         with:
           token: ${{ env.CODECOV_TOKEN }}
-          files: build/reports/kover/report.xml
-
-  dependency-freshness:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Dependency Updates Report
-        # Report-only: 신선도 신호일 뿐 빌드를 깨지 않는다.
-        # ben-manes versions 플러그인은 configuration-cache/parallel 비호환이라 둘 다 끈다.
-        continue-on-error: true
-        run: ./gradlew dependencyUpdates --no-configuration-cache --no-parallel
-      - name: Upload dependency report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-updates
-          path: build/dependencyUpdates/report.txt
+          files: build/reports/coverage/report.xml

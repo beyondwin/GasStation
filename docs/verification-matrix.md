@@ -123,7 +123,7 @@ git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md do
   :feature:watchlist:testDebugUnitTest \
   :feature:settings:testDebugUnitTest \
   verifyRoborazziDebug \
-  koverXmlReport \
+  coverageXmlReport \
   :app:assembleProdRelease
 ```
 
@@ -146,10 +146,6 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 라인 커버리지 숫자 너머의 신호를 측정·기록하는 명령입니다. 빌드를 깨는 게이트가 아니라 신호 수집용이며, 기본 PR gate에는 넣지 않습니다.
 
 ```bash
-# 의존성 신선도 스캔 — 비차단 CI job `dependency-freshness`로도 실행됩니다.
-# ben-manes versions 플러그인은 configuration-cache/parallel 비호환이라 둘 다 끕니다.
-./gradlew dependencyUpdates --no-configuration-cache --no-parallel
-
 # JVM 모듈 변이 테스트 — 온디맨드. 리포트는 각 모듈 build/reports/pitest/.
 # domain:station 은 mutationThreshold 40 floor 게이트라 점수가 떨어지면 실패한다.
 # domain:settings / domain:location 은 report-only 베이스라인이다.
@@ -158,14 +154,17 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew :domain:location:pitest
 ```
 
-모듈 경계 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
+의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
+
+모듈 경계 가드와 Compose v1 test API 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
 
 ```bash
 # 금지된 production 모듈 의존성 엣지를 검증한다. 의도된 core:location→domain:location 예외는 제외.
 ./gradlew verifyModuleBoundaries
+./gradlew verifyNoDeprecatedComposeTestApis
 ```
 
-> Kover 0.9.8 + AGP 9.3.0 조합에서 `koverXmlReport`가 app, core Android, data, feature의 debug unit-test variant와 JVM 모듈을 함께 집계하는 것을 확인해 기존 툴체인 호환성 보류는 해제했습니다. 다만 현재 coverage는 신호 수집용이며, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 `koverVerify`를 blocking gate로 승격하지 않습니다. 과거 보류 배경은 `docs/superpowers/specs/2026-06-06-verification-depth-hardening-design.md` Track 1 노트를 참조합니다.
+> `coverageXmlReport`는 JaCoCo 0.8.15로 전체 unit-test matrix를 실행하고 app, core Android, data, feature, JVM 모듈의 authored class를 `build/reports/coverage/report.xml`에 집계합니다. 현재 coverage는 신호 수집용이며, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking threshold로 승격하지 않습니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
 
 ## CI 연결
 
@@ -173,8 +172,8 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries), `unit-tests` (전 모듈 단위 테스트), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
-| `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`koverXmlReport`, unit-tests 완료 후 실행) |
+| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
 
 `prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.

@@ -1,9 +1,15 @@
-import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.SkipWhenEmpty
 import org.gradle.api.tasks.TaskAction
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 buildscript {
     dependencies {
@@ -26,6 +32,7 @@ buildscript {
 }
 
 plugins {
+    jacoco
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidLibrary) apply false
     alias(libs.plugins.androidTest) apply false
@@ -33,43 +40,17 @@ plugins {
     alias(libs.plugins.googleDevtoolsKsp) apply false
     alias(libs.plugins.googleDaggerHiltAndroid) apply false
     alias(libs.plugins.spotless) apply false
-    alias(libs.plugins.kover)
-    alias(libs.plugins.benManesVersions)
 }
 
-dependencies {
-    kover(project(":app"))
-    kover(project(":core:model"))
-    kover(project(":core:observability"))
-    kover(project(":core:designsystem"))
-    kover(project(":core:location"))
-    kover(project(":core:network"))
-    kover(project(":core:database"))
-    kover(project(":core:datastore"))
-    kover(project(":domain:location"))
-    kover(project(":domain:settings"))
-    kover(project(":domain:station"))
-    kover(project(":data:settings"))
-    kover(project(":data:station"))
-    kover(project(":feature:settings"))
-    kover(project(":feature:station-list"))
-    kover(project(":feature:watchlist"))
-    kover(project(":tools:demo-seed"))
+jacoco {
+    toolVersion = "0.8.15"
 }
 
-kover {
-    reports {
-        filters {
-            excludes {
-                classes(
-                    "*Hilt_*",
-                    "*_HiltModules*",
-                    "*_Factory*",
-                    "*_Provide*",
-                    "*ComposableSingletons*",
-                    "*Preview*Kt",
-                )
-            }
+subprojects {
+    if (path != ":benchmark") {
+        pluginManager.apply("jacoco")
+        extensions.configure<JacocoPluginExtension> {
+            toolVersion = "0.8.15"
         }
     }
 }
@@ -128,14 +109,46 @@ abstract class VerifyModuleBoundariesTask : DefaultTask() {
     )
 }
 
-fun isNonStable(version: String): Boolean {
-    val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { version.uppercase().contains(it) }
-    val regex = "^[0-9,.v-]+(-r)?$".toRegex()
-    return !stableKeyword && !regex.matches(version)
-}
+abstract class VerifyNoDeprecatedComposeTestApisTask : DefaultTask() {
+    @get:InputFiles
+    @get:SkipWhenEmpty
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: ConfigurableFileCollection
 
-tasks.withType<DependencyUpdatesTask>().configureEach {
-    rejectVersionIf { isNonStable(candidate.version) }
+    @TaskAction
+    fun verify() {
+        val forbiddenImports = listOf(
+            "import androidx.compose.ui.test.junit4.AndroidComposeTestRule",
+            "import androidx.compose.ui.test.junit4.createAndroidComposeRule",
+            "import androidx.compose.ui.test.junit4.createComposeRule",
+            "import androidx.compose.ui.test.junit4.createEmptyComposeRule",
+            "import androidx.compose.ui.test.AndroidComposeUiTestEnvironment",
+            "import androidx.compose.ui.test.runAndroidComposeUiTest",
+            "import androidx.compose.ui.test.runComposeUiTest",
+            "import androidx.compose.ui.test.runEmptyComposeUiTest",
+        )
+        val violations = sources.files
+            .sortedBy { it.invariantSeparatorsPath }
+            .flatMap { source ->
+                source.readLines().mapIndexedNotNull { index, line ->
+                    if (forbiddenImports.any(line::startsWith)) {
+                        "${source.invariantSeparatorsPath}:${index + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Deprecated Compose test APIs found; migrate imports to the official v2 packages:")
+                    violations.forEach { appendLine("  - $it") }
+                },
+            )
+        }
+        logger.lifecycle("Compose test API guard OK: deprecated v1 test-environment imports not found.")
+    }
 }
 
 // === 모듈 경계 가드 ===
@@ -178,6 +191,134 @@ val capturedModuleEdges: List<String> = subprojects.flatMap { sp ->
         .distinct()
 }
 val capturedModuleCount = subprojects.size
+
+tasks.register<VerifyNoDeprecatedComposeTestApisTask>("verifyNoDeprecatedComposeTestApis") {
+    group = "verification"
+    description = "Fails when deprecated Compose v1 test-environment APIs are imported."
+    sources.from(
+        fileTree(rootDir) {
+            include("**/src/test/**/*.kt", "**/src/androidTest/**/*.kt")
+            exclude(".worktrees/**", "**/build/**")
+        },
+    )
+}
+
+val coverageUnitTestTasks = listOf(
+    ":domain:location:test",
+    ":core:model:test",
+    ":domain:station:test",
+    ":domain:settings:test",
+    ":core:database:testDebugUnitTest",
+    ":core:datastore:testDebugUnitTest",
+    ":core:designsystem:testDebugUnitTest",
+    ":core:location:testDebugUnitTest",
+    ":core:network:test",
+    ":core:observability:test",
+    ":data:settings:testDebugUnitTest",
+    ":data:station:testDebugUnitTest",
+    ":feature:settings:testDebugUnitTest",
+    ":feature:station-list:testDebugUnitTest",
+    ":feature:watchlist:testDebugUnitTest",
+    ":app:testDemoDebugUnitTest",
+    ":app:testProdDebugUnitTest",
+    ":tools:demo-seed:test",
+)
+val coverageProjects = subprojects.filter { it.path != ":benchmark" }
+val coverageExcludes = listOf(
+    "**/*Hilt_*.*",
+    "**/*_HiltModules*.*",
+    "**/*_Factory*.*",
+    "**/*_Provide*.*",
+    "**/*ComposableSingletons*.*",
+    "**/*Preview*Kt*.*",
+)
+val jvmCoverageProjects = setOf(
+    ":core:model",
+    ":core:network",
+    ":core:observability",
+    ":domain:location",
+    ":domain:settings",
+    ":domain:station",
+    ":tools:demo-seed",
+)
+
+tasks.register<JacocoReport>("coverageXmlReport") {
+    group = "verification"
+    description = "Runs the complete unit-test matrix and writes the aggregated JaCoCo XML report."
+    dependsOn(
+        coverageUnitTestTasks,
+    )
+    executionData.from(
+        coverageProjects.map { project ->
+            project.fileTree(project.layout.buildDirectory) {
+                include(
+                    "jacoco/*.exec",
+                    "outputs/unit_test_code_coverage/**/*.exec",
+                )
+            }
+        },
+    )
+    sourceDirectories.from(
+        coverageProjects.flatMap { project ->
+            listOf(
+                project.layout.projectDirectory.dir("src/main/kotlin"),
+                project.layout.projectDirectory.dir("src/main/java"),
+                project.layout.projectDirectory.dir("src/demo/kotlin"),
+                project.layout.projectDirectory.dir("src/prod/kotlin"),
+            )
+        },
+    )
+    classDirectories.from(
+        coverageProjects.flatMap { project ->
+            if (project.path in jvmCoverageProjects) {
+                listOf(
+                    project.fileTree(project.layout.buildDirectory.dir("classes/kotlin/main")) {
+                        exclude(coverageExcludes)
+                    },
+                    project.fileTree(project.layout.buildDirectory.dir("classes/java/main")) {
+                        exclude(coverageExcludes)
+                    },
+                )
+            } else {
+                val variant = if (project.path == ":app") "demoDebug" else "debug"
+                buildList {
+                    add(
+                        project.fileTree(
+                            project.layout.buildDirectory.dir(
+                                "intermediates/built_in_kotlinc/$variant/compile${variant.replaceFirstChar(Char::uppercase)}Kotlin/classes",
+                            ),
+                        ) {
+                            exclude(coverageExcludes)
+                        },
+                    )
+                    if (project.path == ":app") {
+                        add(
+                            project.fileTree(
+                                project.layout.buildDirectory.dir(
+                                    "intermediates/built_in_kotlinc/prodDebug/compileProdDebugKotlin/classes",
+                                ),
+                            ) {
+                                include(
+                                    "com/gasstation/analytics/LogcatCrashReporter*.class",
+                                    "com/gasstation/di/ProdCrashReporterModule*.class",
+                                    "com/gasstation/di/ProdStartupModule*.class",
+                                    "com/gasstation/startup/ProdSecretsStartupHook*.class",
+                                )
+                                exclude(coverageExcludes)
+                            },
+                        )
+                    }
+                }
+            }
+        },
+    )
+    reports {
+        xml.required.set(true)
+        xml.outputLocation.set(layout.buildDirectory.file("reports/coverage/report.xml"))
+        html.required.set(false)
+        csv.required.set(false)
+    }
+}
 
 tasks.register<VerifyModuleBoundariesTask>("verifyModuleBoundaries") {
     group = "verification"

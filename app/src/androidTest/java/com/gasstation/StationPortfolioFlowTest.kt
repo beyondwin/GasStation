@@ -1,6 +1,6 @@
 package com.gasstation
 
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
@@ -11,7 +11,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.demo.seed.DemoSeedAssetLoader
 import com.gasstation.domain.settings.SettingsRepository
-import com.gasstation.feature.watchlist.WATCHLIST_CARD_CONTENT_DESCRIPTION
+import com.gasstation.feature.watchlist.WATCHLIST_CARD_TEST_TAG
 import com.gasstation.startup.DemoSeedStartupHook
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -67,7 +67,7 @@ class StationPortfolioFlowTest {
 
         rule.waitUntil(timeoutMillis = 10_000) {
             rule.onAllNodesWithTag(
-                WATCHLIST_CARD_CONTENT_DESCRIPTION,
+                WATCHLIST_CARD_TEST_TAG,
                 useUnmergedTree = true,
             )
                 .fetchSemanticsNodes().isNotEmpty()

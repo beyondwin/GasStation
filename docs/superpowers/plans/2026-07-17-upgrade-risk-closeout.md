@@ -4,17 +4,18 @@
 
 **Goal:** Remove the Compose test API and Gradle 10 deprecation risks exposed by the 2026-07-16 dependency refresh, preserve coverage output, and merge the verified result into local `main`.
 
-**Architecture:** Migrate all Compose test-environment factories to the official v2 package and add a source guard to prevent deprecated v1 factories from returning. Replace the per-project Kover plugin with Kover 0.9.8's official settings aggregation plugin so coverage remains multi-module without executing the Gradle-10-incompatible plugin code path.
+**Architecture:** Migrate all Compose test-environment factories to the official v2 package and add a source guard to prevent deprecated v1 factories from returning. Replace Kover with Gradle's JaCoCo integration because both Kover 0.9.8 application modes execute the same Gradle-10-incompatible dependency notation; aggregate the existing JVM and Android unit-test matrix into one report.
 
-**Tech Stack:** Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose UI Test 1.11.4, Kover 0.9.8 aggregation plugin, Robolectric 4.16.1.
+**Tech Stack:** Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose UI Test 1.11.4, JaCoCo 0.8.15, Robolectric 4.16.1.
 
 ## Global Constraints
 
-- Preserve production behavior, demo/prod flavor behavior, module boundaries, and the current `build/reports/kover/report.xml` upload path.
+- Preserve production behavior, demo/prod flavor behavior, module boundaries, and a single Codecov-compatible XML report.
 - Keep coverage report-only; do not introduce a coverage threshold.
 - Do not adopt an unreleased Kover build or vendor a patched third-party binary.
 - Keep the current Roborazzi goldens unless the v2 dispatcher creates a reviewed, deterministic renderer change.
 - Treat `--warning-mode fail` as the Gradle deprecation regression gate.
+- Replace any report-only plugin that still invokes a Gradle-10-removed API with a supported monitoring path instead of suppressing its warning.
 
 ---
 
@@ -35,7 +36,7 @@
 - Consumes: deprecated `androidx.compose.ui.test.junit4.create*Rule` imports.
 - Produces: `verifyNoDeprecatedComposeTestApis` and v2 factory imports under `androidx.compose.ui.test.junit4.v2`.
 
-- [ ] **Step 1: Add the source guard and prove RED**
+- [x] **Step 1: Add the source guard and prove RED**
 
 Add a cache-safe root verification task that scans `src/test` and `src/androidTest` Kotlin sources for the three deprecated factory import prefixes and reports each file. Run:
 
@@ -45,7 +46,7 @@ Add a cache-safe root verification task that scans `src/test` and `src/androidTe
 
 Expected: FAIL and list all seven current files.
 
-- [ ] **Step 2: Migrate the seven imports**
+- [x] **Step 2: Migrate the seven imports**
 
 Replace only these factories with their v2 package equivalents:
 
@@ -56,7 +57,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 
 Keep the tests and assertions otherwise unchanged until a failing test proves explicit dispatcher synchronization is required.
 
-- [ ] **Step 3: Prove GREEN and exercise dispatcher-sensitive tests**
+- [x] **Step 3: Prove GREEN and exercise dispatcher-sensitive tests**
 
 Run:
 
@@ -72,7 +73,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL`. If a v2 test remains in a queued state, add the smallest official `waitForIdle` or `runOnIdle` synchronization at that assertion and rerun the owning test first.
 
-- [ ] **Step 4: Add both deprecation gates to CI**
+- [x] **Step 4: Add both deprecation gates to CI**
 
 Add `verifyNoDeprecatedComposeTestApis` to `static-analysis` and run that job's Gradle invocation with `--warning-mode fail`.
 
@@ -95,10 +96,10 @@ Add `verifyNoDeprecatedComposeTestApis` to `static-analysis` and run that job's 
 - Modify: `docs/onboarding/developer-onboarding-guide.md`
 
 **Interfaces:**
-- Consumes: Kover 0.9.8 settings aggregation DSL and the repository's explicit unit-test task matrix.
-- Produces: root `koverXmlReport` at `build/reports/kover/report.xml`, with the existing generated-code exclusions.
+- Consumes: Gradle JaCoCo integration and the repository's explicit unit-test task matrix.
+- Produces: root `coverageXmlReport` at `build/reports/coverage/report.xml`, with the existing generated-code exclusions.
 
-- [ ] **Step 1: Capture the Gradle deprecation RED evidence**
+- [x] **Step 1: Capture the Gradle deprecation RED evidence**
 
 Run:
 
@@ -108,13 +109,13 @@ Run:
 
 Expected: FAIL with `DependencyProjectNotationConverter`, originating from `kotlinx.kover.gradle.plugin.appliers.PrepareKoverKt.prepare`.
 
-- [ ] **Step 2: Move coverage ownership to settings aggregation**
+- [x] **Step 2: Move coverage ownership to JaCoCo aggregation**
 
-Apply `org.jetbrains.kotlinx.kover.aggregation` version `0.9.8` in `settings.gradle.kts`, call `enableCoverage()`, exclude `:benchmark`, and preserve the existing Hilt/Compose/preview class filters. Remove the regular Kover plugin alias, convention plugin dependency/registration/file, per-module application calls, and root `kover(...)` dependency graph.
+The official Kover settings aggregation plugin was tested first and reproduced the same `DependencyProjectNotationConverter` warning from `KoverSettingsGradlePlugin.kt:56`. Remove Kover entirely, apply Gradle's JaCoCo integration at the root and active non-benchmark modules, and preserve the existing Hilt/Compose/preview class filters.
 
-Configure root `koverXmlReport` to depend on the same explicit JVM and Android debug unit-test tasks used by CI so a standalone report command remains complete and deterministic.
+Configure root `coverageXmlReport` to depend on the same explicit JVM and Android debug unit-test tasks used by CI so a standalone report command remains complete and deterministic.
 
-- [ ] **Step 3: Prove Gradle warning GREEN**
+- [x] **Step 3: Prove Gradle warning GREEN**
 
 Run:
 
@@ -124,19 +125,21 @@ Run:
 
 Expected: `BUILD SUCCESSFUL` with no deprecation failure.
 
-- [ ] **Step 4: Prove coverage parity**
+- [x] **Step 4: Prove coverage parity**
 
 Run:
 
 ```bash
-./gradlew clean koverXmlReport --warning-mode fail
+./gradlew clean coverageXmlReport --warning-mode fail
 ```
 
-Expected: `BUILD SUCCESSFUL`, `build/reports/kover/report.xml` exists, and the XML contains classes from `app`, Android core/data/feature modules, and JVM domain/core modules.
+Expected: `BUILD SUCCESSFUL`, `build/reports/coverage/report.xml` exists, and the XML contains classes and execution data from `app`, Android core/data/feature modules, and JVM domain/core modules.
 
-- [ ] **Step 5: Synchronize live documentation**
+- [x] **Step 5: Synchronize live documentation**
 
-Document that coverage now uses the official settings aggregation path, that `koverXmlReport` still owns the complete report, and that the Gradle 10 deprecation path is no longer applied. Do not rewrite historical release notes or completed plans.
+Document that coverage now uses JaCoCo 0.8.15, that `coverageXmlReport` owns the complete report, and that the Gradle 10 deprecation path is no longer applied. Do not rewrite historical release notes or completed plans.
+
+The final freshness scan exposed a second upstream deprecation in ben-manes versions 0.54.0 (`Task.project` at execution time). Remove that plugin and its non-blocking CI job, and replace them with weekly grouped Dependabot updates for Gradle and GitHub Actions.
 
 ### Task 3: Full verification, commit, and local-main merge
 
@@ -147,7 +150,7 @@ Document that coverage now uses the official settings aggregation path, that `ko
 - Consumes: warning-free build configuration, v2 Compose test factories, aggregated coverage.
 - Produces: a clean merge commit or fast-forward on local `main`.
 
-- [ ] **Step 1: Run full regression**
+- [x] **Step 1: Run full regression**
 
 Run the repository static, unit, screenshot, mutation, coverage, debug, benchmark, and release targets with `--warning-mode fail`.
 

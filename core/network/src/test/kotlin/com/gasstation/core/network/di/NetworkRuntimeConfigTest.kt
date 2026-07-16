@@ -100,7 +100,10 @@ class NetworkRuntimeConfigTest {
 
     @Test
     fun `network module exposes only opinet runtime helpers`() {
-        val methodNames = NetworkModule::class.java.declaredMethods.map { it.name }.sorted()
+        val methodNames = NetworkModule::class.java.declaredMethods
+            .filterNot { it.isSynthetic }
+            .map { it.name }
+            .sorted()
 
         assertEquals(
             listOf(

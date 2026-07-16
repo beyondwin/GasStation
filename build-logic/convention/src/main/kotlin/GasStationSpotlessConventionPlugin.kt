@@ -1,11 +1,28 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
 import org.gradle.kotlin.dsl.configure
+
+abstract class GasStationSpotlessSerializationService : BuildService<BuildServiceParameters.None>, AutoCloseable {
+    override fun close() = Unit
+}
 
 class GasStationSpotlessConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.diffplug.spotless")
+
+        val serializationService =
+            gradle.sharedServices.registerIfAbsent(
+                "gasStationSpotlessSerialization",
+                GasStationSpotlessSerializationService::class.java,
+            ) {
+                maxParallelUsages.set(1)
+            }
+        tasks.matching { it.name.startsWith("spotless") }.configureEach {
+            usesService(serializationService)
+        }
 
         extensions.configure<SpotlessExtension> {
             val ktlintVersion = "1.8.0"
