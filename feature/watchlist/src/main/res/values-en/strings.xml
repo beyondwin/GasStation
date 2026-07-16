@@ -12,6 +12,9 @@
     <!-- Row semantics and metadata -->
     <string name="watchlist_brand_description">%1$s brand</string>
     <string name="watchlist_row_meta">%1$s · %2$s</string>
+    <string name="watchlist_price_delta_rise">Up %1$d won</string>
+    <string name="watchlist_price_delta_fall">Down %1$d won</string>
+    <string name="watchlist_price_delta_neutral">No change</string>
     <string name="watchlist_remove_description">Remove from saved stations</string>
     <string name="watchlist_saved_state_description">Saved</string>
 

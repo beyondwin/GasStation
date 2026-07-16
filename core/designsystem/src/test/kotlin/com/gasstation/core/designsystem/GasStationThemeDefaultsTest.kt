@@ -3,6 +3,7 @@ package com.gasstation.core.designsystem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.gasstation.core.designsystem.component.GasStationCard
 import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationTopBar
@@ -69,6 +70,8 @@ class GasStationThemeDefaultsTest {
         assertEquals(ColorSurfaceInverseVariant, scheme.surfaceVariant)
         assertEquals(ColorSurface, scheme.onSurface)
         assertEquals(ColorNeutralLine, scheme.onSurfaceVariant)
+        assertTrue(contrastRatio(ColorSupportInfoOnDark, scheme.background) >= 4.5f)
+        assertTrue(contrastRatio(scheme.onErrorContainer, scheme.background) >= 4.5f)
     }
 
     @Test
@@ -101,6 +104,12 @@ class GasStationThemeDefaultsTest {
         )
         assertFalse(GasStationThemeDefaults.statusBarStyle.useDarkIcons)
     }
+}
+
+private fun contrastRatio(foreground: Color, background: Color): Float {
+    val lighter = maxOf(foreground.luminance(), background.luminance())
+    val darker = minOf(foreground.luminance(), background.luminance())
+    return (lighter + 0.05f) / (darker + 0.05f)
 }
 
 @Composable

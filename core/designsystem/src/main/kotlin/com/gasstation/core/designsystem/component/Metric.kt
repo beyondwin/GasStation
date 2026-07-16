@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,9 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.GasStationTheme
 
 enum class SupportingInfoSlot {
@@ -75,9 +73,9 @@ fun GasStationMetricBlock(
     unit: String,
     emphasis: GasStationMetricEmphasis,
     modifier: Modifier = Modifier,
-    labelColor: Color = ColorGray3,
-    numberColor: Color = ColorBlack,
-    unitColor: Color = ColorGray2,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    numberColor: Color = MaterialTheme.colorScheme.onBackground,
+    unitColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     val spacing = GasStationTheme.spacing
     val metaStyle = ChromeTextRole.Meta.style()
@@ -127,8 +125,8 @@ fun GasStationSupportingInfo(
     value: String,
     modifier: Modifier = Modifier,
     valueModifier: Modifier = Modifier,
-    labelColor: Color = ColorBlack,
-    valueColor: Color = ColorBlack,
+    labelColor: Color = MaterialTheme.colorScheme.onBackground,
+    valueColor: Color = MaterialTheme.colorScheme.onBackground,
     trailingContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val content = SupportingInfoContent(

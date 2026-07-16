@@ -45,8 +45,17 @@ class RoborazziWatchlistScreenTest {
 
     @Test
     fun five_saved_comparison_rows() {
+        renderFiveRows("watchlist-five-rows.png")
+    }
+
+    @Test
+    fun five_saved_comparison_rows_dark() {
+        renderFiveRows("watchlist-five-rows-dark.png", darkTheme = true)
+    }
+
+    private fun renderFiveRows(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
-            GasStationTheme {
+            GasStationTheme(darkTheme = darkTheme) {
                 WatchlistScreen(
                     uiState = fiveRowState(),
                     onAction = {},
@@ -58,13 +67,22 @@ class RoborazziWatchlistScreenTest {
         composeRule.onAllNodesWithTag(WATCHLIST_ROW_TAG, useUnmergedTree = true).assertCountEquals(5)
         composeRule.onNodeWithContentDescription("자영알뜰 브랜드").assertExists()
         composeRule.onNodeWithContentDescription("자가상표 브랜드").assertExists()
-        composeRule.onRoot().captureRoboImage("src/test/snapshots/watchlist-five-rows.png")
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
     }
 
     @Test
     fun empty_saved_comparison() {
+        renderEmpty("watchlist-empty.png")
+    }
+
+    @Test
+    fun empty_saved_comparison_dark() {
+        renderEmpty("watchlist-empty-dark.png", darkTheme = true)
+    }
+
+    private fun renderEmpty(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
-            GasStationTheme {
+            GasStationTheme(darkTheme = darkTheme) {
                 WatchlistScreen(
                     uiState = WatchlistUiState(),
                     onAction = {},
@@ -73,7 +91,7 @@ class RoborazziWatchlistScreenTest {
             }
         }
 
-        composeRule.onRoot().captureRoboImage("src/test/snapshots/watchlist-empty.png")
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
     }
 
     private fun fiveRowState(): WatchlistUiState {
@@ -92,7 +110,7 @@ class RoborazziWatchlistScreenTest {
                     distanceLabel = "${index + 1}.0km",
                     distanceNumberLabel = "${index + 1}.0",
                     distanceUnitLabel = "km",
-                    priceDeltaLabel = "-",
+                    priceDeltaWon = null,
                     lastSeenAt = Instant.parse("2026-07-17T02:00:00Z"),
                     lastSeenLabel = "7월 17일 11:00",
                     latitude = 37.49 + index * 0.001,

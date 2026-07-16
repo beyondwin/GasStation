@@ -6,6 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Locale
 
 class WatchlistSummaryUiModelTest {
     @Test
@@ -55,9 +56,24 @@ class WatchlistSummaryUiModelTest {
         assertEquals(
             "7월 17일 11:00",
             Instant.parse("2026-07-17T02:00:00Z")
-                .toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul")),
+                .toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul"), Locale.KOREAN),
         )
-        assertEquals("-", null.toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul")))
+        assertEquals("-", null.toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul"), Locale.KOREAN))
+    }
+
+    @Test
+    fun `last seen label follows English locale instead of leaking Korean date markers`() {
+        val originalLocale = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.US)
+            assertEquals(
+                "Jul 17, 11:00",
+                Instant.parse("2026-07-17T02:00:00Z")
+                    .toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul")),
+            )
+        } finally {
+            Locale.setDefault(originalLocale)
+        }
     }
 
     private fun item(priceWon: Int, lastSeenAt: Instant?) = WatchlistItemUiModel(
@@ -72,9 +88,9 @@ class WatchlistSummaryUiModelTest {
         distanceLabel = "0.3km",
         distanceNumberLabel = "0.3",
         distanceUnitLabel = "km",
-        priceDeltaLabel = "-",
+        priceDeltaWon = null,
         lastSeenAt = lastSeenAt,
-        lastSeenLabel = lastSeenAt.toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul")),
+        lastSeenLabel = lastSeenAt.toWatchlistLastSeenLabel(ZoneId.of("Asia/Seoul"), Locale.KOREAN),
         latitude = 37.49,
         longitude = 127.02,
     )

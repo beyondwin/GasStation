@@ -1,9 +1,5 @@
 package com.gasstation.feature.watchlist
 
-import androidx.compose.ui.graphics.Color
-import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorSupportError
-import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.GAS_STATION_DISTANCE_UNIT
 import com.gasstation.core.designsystem.GAS_STATION_WON_UNIT
 import com.gasstation.core.designsystem.gasStationBrandLabel
@@ -17,6 +13,7 @@ import com.gasstation.domain.station.model.WatchedStationSummary
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 data class WatchlistItemUiModel(
     val id: String,
@@ -30,7 +27,7 @@ data class WatchlistItemUiModel(
     val distanceLabel: String,
     val distanceNumberLabel: String,
     val distanceUnitLabel: String,
-    val priceDeltaLabel: String,
+    val priceDeltaWon: Int?,
     val priceDeltaTone: WatchlistPriceDeltaTone = WatchlistPriceDeltaTone.Neutral,
     val lastSeenAt: Instant?,
     val lastSeenLabel: String,
@@ -56,7 +53,7 @@ data class WatchlistItemUiModel(
         distanceLabel = summary.station.distance.gasStationDistanceLabel(),
         distanceNumberLabel = summary.station.distance.gasStationDistanceDigits(),
         distanceUnitLabel = GAS_STATION_DISTANCE_UNIT,
-        priceDeltaLabel = summary.priceDelta.toDeltaLabel(),
+        priceDeltaWon = summary.priceDelta.amountWonOrNull,
         priceDeltaTone = summary.priceDelta.direction.toTone(),
         lastSeenAt = summary.lastSeenAt,
         lastSeenLabel = summary.lastSeenAt.toWatchlistLastSeenLabel(),
@@ -71,24 +68,17 @@ enum class WatchlistPriceDeltaTone {
     Neutral,
 }
 
-private fun StationPriceDelta.toDeltaLabel(): String = amountWonOrNull?.let { "$it$GAS_STATION_WON_UNIT" } ?: "-"
-
 internal fun StationPriceDelta.PriceDirection.toTone(): WatchlistPriceDeltaTone = when (this) {
     StationPriceDelta.PriceDirection.RISE -> WatchlistPriceDeltaTone.Rise
     StationPriceDelta.PriceDirection.FALL -> WatchlistPriceDeltaTone.Fall
     StationPriceDelta.PriceDirection.NEUTRAL -> WatchlistPriceDeltaTone.Neutral
 }
 
-internal fun WatchlistPriceDeltaTone.toColor(): Color = when (this) {
-    WatchlistPriceDeltaTone.Rise -> ColorSupportError
-    WatchlistPriceDeltaTone.Fall -> ColorSupportInfo
-    WatchlistPriceDeltaTone.Neutral -> ColorGray2
-}
-
-internal fun Instant?.toWatchlistLastSeenLabel(zoneId: ZoneId = ZoneId.systemDefault()): String {
+internal fun Instant?.toWatchlistLastSeenLabel(zoneId: ZoneId = ZoneId.systemDefault(), locale: Locale = Locale.getDefault()): String {
     if (this == null) return "-"
 
-    return DateTimeFormatter.ofPattern("M월 d일 HH:mm")
+    val pattern = if (locale.language == Locale.KOREAN.language) "M월 d일 HH:mm" else "MMM d, HH:mm"
+    return DateTimeFormatter.ofPattern(pattern, locale)
         .withZone(zoneId)
         .format(this)
 }

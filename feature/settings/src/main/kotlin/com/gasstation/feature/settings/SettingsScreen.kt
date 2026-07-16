@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,9 +26,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorGray3
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationRowDivider
@@ -105,12 +103,12 @@ private fun SettingsGroupHeader(group: SettingsSectionGroup) {
         Text(
             text = stringResource(group.titleResId),
             style = GasStationTheme.typography.sectionTitle,
-            color = ColorBlack,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
             text = stringResource(group.subtitleResId),
             style = GasStationTheme.typography.meta,
-            color = ColorGray2,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -136,17 +134,17 @@ private fun SettingsMenuRow(section: SettingsSection, selectedLabel: StringResou
             Text(
                 text = stringResource(section.titleResId),
                 style = GasStationTheme.typography.cardTitle,
-                color = ColorBlack,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = selectedLabel.resolve(context),
                 style = GasStationTheme.typography.body,
-                color = ColorBlack,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = stringResource(section.subtitleResId),
                 style = GasStationTheme.typography.meta,
-                color = ColorGray3,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         LegacyChevronIcon()
@@ -155,17 +153,18 @@ private fun SettingsMenuRow(section: SettingsSection, selectedLabel: StringResou
 
 @Composable
 private fun LegacyChevronIcon() {
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     Canvas(modifier = Modifier.size(width = 10.dp, height = 16.dp)) {
         val strokeWidth = size.minDimension * 0.22f
         drawLine(
-            color = ColorGray2,
+            color = contentColor,
             start = center.copy(x = size.width * 0.2f, y = size.height * 0.15f),
             end = center.copy(x = size.width * 0.8f, y = size.height * 0.5f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = ColorGray2,
+            color = contentColor,
             start = center.copy(x = size.width * 0.8f, y = size.height * 0.5f),
             end = center.copy(x = size.width * 0.2f, y = size.height * 0.85f),
             strokeWidth = strokeWidth,

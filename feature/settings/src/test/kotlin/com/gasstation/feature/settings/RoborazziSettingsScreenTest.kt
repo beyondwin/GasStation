@@ -33,8 +33,17 @@ class RoborazziSettingsScreenTest {
 
     @Test
     fun settings_overview() {
+        renderOverview("settings-overview.png")
+    }
+
+    @Test
+    fun settings_overview_dark() {
+        renderOverview("settings-overview-dark.png", darkTheme = true)
+    }
+
+    private fun renderOverview(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
-            GasStationTheme {
+            GasStationTheme(darkTheme = darkTheme) {
                 SettingsScreen(
                     uiState = uiState,
                     onSectionClick = {},
@@ -42,14 +51,24 @@ class RoborazziSettingsScreenTest {
             }
         }
 
-        composeRule.onRoot().captureRoboImage("src/test/snapshots/settings-overview.png")
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
     }
 
     @Test
     @Config(qualifiers = "ko-rKR-w360dp-h1400dp-xhdpi")
     fun settings_brand_detail() {
+        renderBrandDetail("settings-brand-detail.png")
+    }
+
+    @Test
+    @Config(qualifiers = "ko-rKR-w360dp-h1400dp-xhdpi")
+    fun settings_brand_detail_dark() {
+        renderBrandDetail("settings-brand-detail-dark.png", darkTheme = true)
+    }
+
+    private fun renderBrandDetail(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
-            GasStationTheme {
+            GasStationTheme(darkTheme = darkTheme) {
                 SettingsDetailScreen(
                     section = SettingsSection.BrandFilter,
                     options = uiState.optionsFor(SettingsSection.BrandFilter),
@@ -59,6 +78,6 @@ class RoborazziSettingsScreenTest {
             }
         }
 
-        composeRule.onRoot().captureRoboImage("src/test/snapshots/settings-brand-detail.png")
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
     }
 }

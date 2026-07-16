@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,8 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorSurface
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
@@ -190,30 +189,30 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
                 Text(
                     text = station.priceNumberLabel,
                     style = GasStationTheme.typography.compactPriceHero,
-                    color = ColorBlack,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                 )
                 Text(
                     text = station.priceUnitLabel,
                     style = GasStationTheme.typography.meta,
-                    color = ColorGray2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
                 text = station.name,
                 style = GasStationTheme.typography.cardTitle,
-                color = ColorBlack,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stringResource(
                     R.string.watchlist_row_meta,
-                    station.priceDeltaLabel,
+                    station.semanticPriceDeltaLabel(),
                     station.lastSeenLabel,
                 ),
                 style = GasStationTheme.typography.meta,
-                color = ColorGray2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -223,7 +222,7 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
                 Text(
                     text = station.distanceLabel,
                     style = GasStationTheme.typography.metricValue,
-                    color = ColorBlack,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                 )
                 IconButton(
@@ -245,6 +244,21 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
             }
         },
     )
+}
+
+@Composable
+private fun WatchlistItemUiModel.semanticPriceDeltaLabel(): String = when (priceDeltaTone) {
+    WatchlistPriceDeltaTone.Rise -> stringResource(
+        R.string.watchlist_price_delta_rise,
+        requireNotNull(priceDeltaWon),
+    )
+
+    WatchlistPriceDeltaTone.Fall -> stringResource(
+        R.string.watchlist_price_delta_fall,
+        requireNotNull(priceDeltaWon),
+    )
+
+    WatchlistPriceDeltaTone.Neutral -> stringResource(R.string.watchlist_price_delta_neutral)
 }
 
 @Composable

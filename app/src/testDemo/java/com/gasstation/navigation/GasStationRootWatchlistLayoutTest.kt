@@ -1,0 +1,97 @@
+package com.gasstation.navigation
+
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
+import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.gasStationBrandLabel
+import com.gasstation.core.model.Brand
+import com.gasstation.feature.watchlist.WatchlistItemUiModel
+import com.gasstation.feature.watchlist.WatchlistScreen
+import com.gasstation.feature.watchlist.WatchlistSummaryUiModel
+import com.gasstation.feature.watchlist.WatchlistUiState
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.time.Instant
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
+class GasStationRootWatchlistLayoutTest {
+    @get:Rule
+    val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun `root scaffold keeps five complete dense rows above bottom navigation`() {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    GasStationRootScaffold(
+                        bottomBar = {
+                            GasStationBottomNavigation(
+                                selected = TopLevelDestination.Watchlist,
+                                watchlistEnabled = true,
+                                onNearby = {},
+                                onWatchlist = {},
+                                onSettings = {},
+                            )
+                        },
+                    ) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            WatchlistScreen(
+                                uiState = fiveRowState(),
+                                onAction = {},
+                                onNavigateNearby = {},
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        val rows = composeRule.onAllNodesWithTag("watchlist-card", useUnmergedTree = true).fetchSemanticsNodes()
+        assertEquals(5, rows.size)
+        val heights = rows.map { with(composeRule.density) { it.boundsInRoot.height.toDp() } }
+        assertTrue("Expected root rows in 108..116dp, got $heights", heights.all { it in 108.dp..116.dp })
+        val bottomNavigationTop = composeRule.onNodeWithTag(BOTTOM_NAV_WATCHLIST_TAG).fetchSemanticsNode().boundsInRoot.top
+        assertTrue(
+            "Expected fifth row above bottom navigation, row=${rows.last().boundsInRoot}, navTop=$bottomNavigationTop",
+            rows.last().boundsInRoot.bottom <= bottomNavigationTop,
+        )
+    }
+
+    private fun fiveRowState(): WatchlistUiState {
+        val items = listOf(Brand.SKE, Brand.GSC, Brand.SOL, Brand.RTO, Brand.ETC).mapIndexed { index, brand ->
+            WatchlistItemUiModel(
+                id = "station-${index + 1}",
+                name = "비교 주유소 ${index + 1}",
+                brand = brand,
+                brandLabel = brand.gasStationBrandLabel(),
+                priceWon = 1_680 + index * 10,
+                priceLabel = "${1_680 + index * 10}원",
+                priceNumberLabel = "${1_680 + index * 10}",
+                priceUnitLabel = "원",
+                distanceLabel = "${index + 1}.0km",
+                distanceNumberLabel = "${index + 1}.0",
+                distanceUnitLabel = "km",
+                priceDeltaWon = null,
+                lastSeenAt = Instant.parse("2026-07-17T02:00:00Z"),
+                lastSeenLabel = "7월 17일 11:00",
+                latitude = 37.49,
+                longitude = 127.02,
+            )
+        }
+        return WatchlistUiState(items, WatchlistSummaryUiModel.from(items))
+    }
+}

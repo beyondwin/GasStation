@@ -88,6 +88,23 @@ class WatchlistScreenTest {
     }
 
     @Test
+    fun `price change metadata names rise fall and no change instead of relying on color`() {
+        composeRule.setContent {
+            GasStationTheme {
+                WatchlistScreen(
+                    uiState = deltaState(),
+                    onAction = {},
+                    onNavigateNearby = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("상승 14원 · 7월 17일 11:00").assertExists()
+        composeRule.onNodeWithText("하락 27원 · 7월 17일 11:00").assertExists()
+        composeRule.onNodeWithText("변동 없음 · 7월 17일 11:00").assertExists()
+    }
+
+    @Test
     fun `remove action is a 48dp Korean-labelled target and dispatches station id`() {
         val actions = mutableListOf<WatchlistAction>()
         renderFiveRows(onAction = actions::add)
@@ -205,7 +222,7 @@ class WatchlistScreenTest {
                     distanceLabel = "${index + 1}.0km",
                     distanceNumberLabel = "${index + 1}.0",
                     distanceUnitLabel = "km",
-                    priceDeltaLabel = "-",
+                    priceDeltaWon = null,
                     lastSeenAt = Instant.parse("2026-07-17T02:00:00Z"),
                     lastSeenLabel = "7월 17일 11:00",
                     latitude = 37.49 + index * 0.001,
@@ -217,4 +234,32 @@ class WatchlistScreenTest {
             summary = WatchlistSummaryUiModel.from(items),
         )
     }
+
+    private fun deltaState(): WatchlistUiState = WatchlistUiState(
+        stations = listOf(
+            testItem("rise", 14, WatchlistPriceDeltaTone.Rise),
+            testItem("fall", 27, WatchlistPriceDeltaTone.Fall),
+            testItem("neutral", null, WatchlistPriceDeltaTone.Neutral),
+        ),
+    )
+
+    private fun testItem(id: String, deltaWon: Int?, tone: WatchlistPriceDeltaTone) = WatchlistItemUiModel(
+        id = id,
+        name = "테스트 주유소 $id",
+        brand = Brand.GSC,
+        brandLabel = Brand.GSC.gasStationBrandLabel(),
+        priceWon = 1_689,
+        priceLabel = "1,689원",
+        priceNumberLabel = "1,689",
+        priceUnitLabel = "원",
+        distanceLabel = "0.3km",
+        distanceNumberLabel = "0.3",
+        distanceUnitLabel = "km",
+        priceDeltaWon = deltaWon,
+        priceDeltaTone = tone,
+        lastSeenAt = Instant.parse("2026-07-17T02:00:00Z"),
+        lastSeenLabel = "7월 17일 11:00",
+        latitude = 37.49,
+        longitude = 127.02,
+    )
 }

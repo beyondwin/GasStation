@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,8 +19,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorSurface
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
@@ -132,7 +131,7 @@ internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier
                 Icon(
                     imageVector = Icons.Rounded.MyLocation,
                     contentDescription = null,
-                    tint = ColorGray2,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(iconSize.status)
                         .testTag(STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG),
@@ -140,7 +139,7 @@ internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier
                 Text(
                     text = addressLabel,
                     style = typography.body.copy(fontWeight = FontWeight.Bold),
-                    color = ColorBlack,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -150,7 +149,7 @@ internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier
         Text(
             text = conditionLabel,
             style = typography.meta,
-            color = ColorGray2,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

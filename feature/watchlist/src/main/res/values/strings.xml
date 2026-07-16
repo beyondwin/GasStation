@@ -12,6 +12,9 @@
     <!-- Row semantics and metadata -->
     <string name="watchlist_brand_description">%1$s 브랜드</string>
     <string name="watchlist_row_meta">%1$s · %2$s</string>
+    <string name="watchlist_price_delta_rise">상승 %1$d원</string>
+    <string name="watchlist_price_delta_fall">하락 %1$d원</string>
+    <string name="watchlist_price_delta_neutral">변동 없음</string>
     <string name="watchlist_remove_description">관심 주유소에서 제거</string>
     <string name="watchlist_saved_state_description">저장됨</string>
 

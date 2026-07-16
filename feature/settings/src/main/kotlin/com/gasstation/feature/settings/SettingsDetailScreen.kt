@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +29,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
@@ -77,7 +77,7 @@ fun SettingsDetailScreen(
                     Text(
                         text = stringResource(section.subtitleResId),
                         style = GasStationTheme.typography.body,
-                        color = ColorGray2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                 }
@@ -128,7 +128,6 @@ private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOpt
                 role = Role.RadioButton
             }
             .padding(vertical = 12.dp),
-        bodyColor = ColorGray2,
         leadingContent = leadingContent,
         trailingContent = if (option.isSelected) {
             { SelectedCheckIcon() }

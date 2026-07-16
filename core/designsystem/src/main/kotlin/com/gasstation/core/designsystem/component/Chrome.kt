@@ -196,13 +196,13 @@ fun GasStationSectionHeading(title: String, modifier: Modifier = Modifier, subti
         Text(
             text = title,
             style = ChromeTextRole.SectionTitle.style(),
-            color = ColorBlack,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
                 style = ChromeTextRole.Body.style(),
-                color = ColorGray2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

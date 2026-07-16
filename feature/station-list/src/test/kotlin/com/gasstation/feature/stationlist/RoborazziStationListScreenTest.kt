@@ -162,6 +162,11 @@ class RoborazziStationListScreenTest {
     }
 
     @Test
+    fun populated_dark_state() {
+        renderAndCapture("populated-dark.png", populatedState, darkTheme = true)
+    }
+
+    @Test
     fun empty_state() {
         renderAndCapture("empty.png", emptyState)
     }
@@ -191,10 +196,10 @@ class RoborazziStationListScreenTest {
         renderAndCapture("failure.png", failureState)
     }
 
-    private fun renderAndCapture(name: String, uiState: StationListUiState) {
+    private fun renderAndCapture(name: String, uiState: StationListUiState, darkTheme: Boolean = false) {
         val snackbarHostState = SnackbarHostState()
         composeRule.setContent {
-            GasStationTheme {
+            GasStationTheme(darkTheme = darkTheme) {
                 StationListScreen(
                     uiState = uiState,
                     snackbarHostState = snackbarHostState,

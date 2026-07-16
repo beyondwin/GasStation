@@ -242,7 +242,7 @@ ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:co
 
 The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs: `station-list-watch-toggle`, `bottom-nav-watchlist`, and `watchlist-card`. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
 
-`verifyRoborazziDebug`는 designsystem 및 Nearby shared states뿐 아니라 Watchlist 5행/200% font scale과 Settings overview/detail Urban Signal snapshot도 검증합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
+`verifyRoborazziDebug`는 designsystem, Nearby shared states, Watchlist 5행, Settings overview/detail의 Urban Signal light/dark snapshot을 검증합니다. Watchlist와 Settings의 200% font scale은 clipping과 scroll을 검증하는 Compose 접근성 테스트가 소유합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
 
 After a successful run, inspect generated JSON and trace artifacts:
 

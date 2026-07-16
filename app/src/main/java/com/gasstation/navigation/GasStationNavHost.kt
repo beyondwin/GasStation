@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -54,9 +55,7 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFir
         )
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0),
+    GasStationRootScaffold(
         bottomBar = {
             if (shouldShowBottomBar(currentRoute)) {
                 GasStationBottomNavigation(
@@ -96,6 +95,16 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFir
             )
         }
     }
+}
+
+@Composable
+internal fun GasStationRootScaffold(bottomBar: @Composable () -> Unit, content: @Composable (PaddingValues) -> Unit) {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0),
+        bottomBar = bottomBar,
+        content = content,
+    )
 }
 
 private fun NavGraphBuilder.gasStationDestinations(

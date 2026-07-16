@@ -19,12 +19,14 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -38,6 +40,7 @@ import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorGray4
 import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
+import com.gasstation.core.designsystem.ColorSupportInfoOnDark
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
@@ -86,7 +89,7 @@ internal fun StationCard(
                 text = station.name,
                 modifier = Modifier.testTag(STATION_LIST_CARD_TITLE_TAG),
                 style = GasStationTheme.typography.cardTitle,
-                color = ColorBlack,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -100,7 +103,7 @@ internal fun StationCard(
                 Text(
                     text = station.distanceLabel,
                     style = GasStationTheme.typography.metricValue,
-                    color = ColorBlack,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -132,7 +135,19 @@ private fun StationRowMetadata(station: StationListItemUiModel, fuelTypeLabel: S
 @Composable
 private fun PriceDeltaIndicator(label: String, tone: PriceDeltaTone, modifier: Modifier = Modifier) {
     val typography = GasStationTheme.typography
-    val color = tone.toColor()
+    val stockColor = tone.toColor()
+    val darkCanvas = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val color = when (tone) {
+        PriceDeltaTone.Rise -> if (darkCanvas) MaterialTheme.colorScheme.onErrorContainer else stockColor
+
+        PriceDeltaTone.Fall -> if (darkCanvas) {
+            ColorSupportInfoOnDark
+        } else {
+            stockColor
+        }
+
+        PriceDeltaTone.Neutral -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     if (tone == PriceDeltaTone.Neutral) {
         Text(
@@ -204,7 +219,7 @@ private fun FuelChip(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun WatchToggleButton(watched: Boolean, onClick: () -> Unit) {
     val iconTint = animateColorAsState(
-        targetValue = if (watched) ColorYellow else ColorGray2,
+        targetValue = if (watched) ColorYellow else MaterialTheme.colorScheme.onSurfaceVariant,
         label = "watch-toggle-icon",
     )
     val watchSavedLabel = stringResource(R.string.station_list_watch_saved)

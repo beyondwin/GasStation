@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,9 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.GasStationTheme
 
 enum class GasStationRowSlot {
@@ -77,8 +75,8 @@ fun GasStationRow(
     modifier: Modifier = Modifier,
     value: String? = null,
     body: String? = null,
-    titleColor: Color = ColorBlack,
-    bodyColor: Color = ColorGray2,
+    titleColor: Color = MaterialTheme.colorScheme.onBackground,
+    bodyColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     leadingContent: (@Composable RowScope.() -> Unit)? = null,
     trailingContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
@@ -125,7 +123,7 @@ fun GasStationRow(
 }
 
 @Composable
-fun GasStationRowDivider(modifier: Modifier = Modifier, color: Color = ColorGray) {
+fun GasStationRowDivider(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.outlineVariant) {
     Box(
         modifier = modifier
             .fillMaxWidth()

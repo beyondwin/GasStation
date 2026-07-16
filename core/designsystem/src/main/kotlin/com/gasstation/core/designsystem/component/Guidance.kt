@@ -9,12 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.gasstation.core.designsystem.ColorBlack
-import com.gasstation.core.designsystem.ColorGray2
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 
@@ -104,12 +104,12 @@ fun GasStationGuidanceCard(
                     Text(
                         text = content.title,
                         style = ChromeTextRole.SectionTitle.style(),
-                        color = ColorBlack,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = content.body,
                         style = ChromeTextRole.Body.style(),
-                        color = ColorGray2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

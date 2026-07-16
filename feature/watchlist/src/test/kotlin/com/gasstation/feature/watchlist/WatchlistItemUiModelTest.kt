@@ -11,15 +11,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Instant
+import java.util.Locale
 import java.util.TimeZone
 
 class WatchlistItemUiModelTest {
     @Test
-    fun `summary constructor exposes split legacy metric labels`() {
+    fun `summary constructor exposes split metrics and typed price delta`() {
         val originalTimeZone = TimeZone.getDefault()
+        val originalLocale = Locale.getDefault()
 
         try {
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"))
+            Locale.setDefault(Locale.KOREAN)
 
             val item = WatchlistItemUiModel(
                 WatchedStationSummary(
@@ -44,12 +47,13 @@ class WatchlistItemUiModelTest {
             assertEquals("0.3km", item.distanceLabel)
             assertEquals("0.3", item.distanceNumberLabel)
             assertEquals("km", item.distanceUnitLabel)
-            assertEquals("27원", item.priceDeltaLabel)
+            assertEquals(27, item.priceDeltaWon)
             assertEquals(WatchlistPriceDeltaTone.Fall, item.priceDeltaTone)
             assertEquals("4월 18일 12:00", item.lastSeenLabel)
             assertEquals(Instant.parse("2026-04-18T03:00:00Z"), item.lastSeenAt)
         } finally {
             TimeZone.setDefault(originalTimeZone)
+            Locale.setDefault(originalLocale)
         }
     }
 
@@ -70,12 +74,12 @@ class WatchlistItemUiModelTest {
             ),
         )
 
-        assertEquals("14원", item.priceDeltaLabel)
+        assertEquals(14, item.priceDeltaWon)
         assertEquals(WatchlistPriceDeltaTone.Rise, item.priceDeltaTone)
     }
 
     @Test
-    fun `summary constructor maps unchanged delta to neutral compact label`() {
+    fun `summary constructor maps unchanged delta to neutral with no amount`() {
         val item = WatchlistItemUiModel(
             WatchedStationSummary(
                 station = Station(
@@ -91,7 +95,7 @@ class WatchlistItemUiModelTest {
             ),
         )
 
-        assertEquals("-", item.priceDeltaLabel)
+        assertEquals(null, item.priceDeltaWon)
         assertEquals(WatchlistPriceDeltaTone.Neutral, item.priceDeltaTone)
     }
 
@@ -116,13 +120,6 @@ class WatchlistItemUiModelTest {
     }
 
     @Test
-    fun `watchlist price delta tone resolves stock colors`() {
-        assertEquals(com.gasstation.core.designsystem.ColorSupportError, WatchlistPriceDeltaTone.Rise.toColor())
-        assertEquals(com.gasstation.core.designsystem.ColorSupportInfo, WatchlistPriceDeltaTone.Fall.toColor())
-        assertEquals(com.gasstation.core.designsystem.ColorGray2, WatchlistPriceDeltaTone.Neutral.toColor())
-    }
-
-    @Test
     fun `direct constructor accepts explicit split metric labels`() {
         val item = WatchlistItemUiModel(
             id = "station-1",
@@ -136,7 +133,7 @@ class WatchlistItemUiModelTest {
             distanceLabel = "300m",
             distanceNumberLabel = "0.3",
             distanceUnitLabel = "km",
-            priceDeltaLabel = "직전 가격과 동일",
+            priceDeltaWon = null,
             lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
             lastSeenLabel = "4월 18일 12:00",
             latitude = 37.498095,
@@ -165,7 +162,7 @@ class WatchlistItemUiModelTest {
                 distanceLabel = "300m",
                 distanceNumberLabel = "0.3",
                 distanceUnitLabel = "km",
-                priceDeltaLabel = "직전 가격과 동일",
+                priceDeltaWon = null,
                 lastSeenAt = null,
                 lastSeenLabel = "4월 18일 12:00",
                 latitude = 37.498095,
