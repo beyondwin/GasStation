@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ internal const val STATION_LIST_DECISION_SAVINGS_TAG = "station-list-decision-sa
 
 @Composable
 internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary, modifier: Modifier = Modifier) {
+    val numericMetricStyle = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
     GasStationSummaryStrip(
         modifier = modifier
             .fillMaxWidth()
@@ -47,11 +49,11 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
         ) {
             Text(
                 text = stringResource(R.string.station_list_decision_count, summary.count),
+                style = numericMetricStyle,
                 color = ColorSurface,
                 modifier = Modifier.testTag(STATION_LIST_DECISION_COUNT_TAG),
             )
             Column(
-                modifier = Modifier.testTag(STATION_LIST_DECISION_LOWEST_TAG),
                 verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space4),
             ) {
                 Text(
@@ -64,7 +66,12 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
                     ),
                     color = ColorYellow,
                 )
-                Text(summary.lowestPriceWon.gasStationWonLabel(), color = ColorYellow)
+                Text(
+                    text = summary.lowestPriceWon.gasStationWonLabel(),
+                    style = numericMetricStyle,
+                    color = ColorYellow,
+                    modifier = Modifier.testTag(STATION_LIST_DECISION_LOWEST_TAG),
+                )
             }
             summary.averagePriceWon?.let { average ->
                 Text(
@@ -72,6 +79,7 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
                         R.string.station_list_decision_average,
                         average.gasStationWonLabel(),
                     ),
+                    style = numericMetricStyle,
                     color = ColorSurface,
                     modifier = Modifier.testTag(STATION_LIST_DECISION_AVERAGE_TAG),
                 )
@@ -82,6 +90,7 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
                         R.string.station_list_decision_savings,
                         savings.gasStationWonLabel(),
                     ),
+                    style = numericMetricStyle,
                     color = ColorSurface,
                     modifier = Modifier.testTag(STATION_LIST_DECISION_SAVINGS_TAG),
                 )

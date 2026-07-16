@@ -101,12 +101,9 @@ fun StationListRoute(
 @Composable
 internal fun StationListRouteCoordinatesEffect(uiState: StationListUiState, onCoordinatesAvailable: (Coordinates?) -> Unit) {
     val currentOnCoordinatesAvailable by rememberUpdatedState(onCoordinatesAvailable)
-    LaunchedEffect(
-        uiState.currentCoordinates,
-        uiState.permissionState,
-        uiState.isGpsEnabled,
-    ) {
-        currentOnCoordinatesAvailable(uiState.watchlistCoordinatesOrNull())
+    val availableCoordinates = uiState.watchlistCoordinatesOrNull()
+    LaunchedEffect(availableCoordinates) {
+        currentOnCoordinatesAvailable(availableCoordinates)
     }
 }
 

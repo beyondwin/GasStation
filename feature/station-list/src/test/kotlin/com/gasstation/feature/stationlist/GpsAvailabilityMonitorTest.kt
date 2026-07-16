@@ -128,6 +128,44 @@ class GpsAvailabilityMonitorTest {
         }
         assertEquals(listOf(coordinates, null, coordinates, null), distinctReports)
     }
+
+    @Test
+    fun `route re-evaluates stable coordinates when denied access recovery toggles`() {
+        val coordinates = Coordinates(37.498095, 127.027610)
+        var uiState by mutableStateOf(
+            StationListUiState(
+                currentCoordinates = coordinates,
+                permissionState = LocationPermissionState.Denied,
+                isGpsEnabled = true,
+                hasDeniedLocationAccess = false,
+            ),
+        )
+        val reportedCoordinates = mutableListOf<Coordinates?>()
+
+        composeRule.setContent {
+            StationListRouteCoordinatesEffect(
+                uiState = uiState,
+                onCoordinatesAvailable = reportedCoordinates::add,
+            )
+        }
+
+        composeRule.waitForIdle()
+        assertEquals(null, reportedCoordinates.last())
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(hasDeniedLocationAccess = true)
+        }
+        composeRule.waitForIdle()
+        assertEquals(coordinates, reportedCoordinates.last())
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(hasDeniedLocationAccess = false)
+        }
+        composeRule.waitForIdle()
+        assertEquals(null, reportedCoordinates.last())
+
+        assertEquals(listOf(null, coordinates, null), reportedCoordinates)
+    }
 }
 
 private fun stationListViewModelForRouteTest(

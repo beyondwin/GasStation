@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -17,8 +18,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.model.Brand
@@ -107,6 +110,38 @@ class StationListScreenTest {
         }
         composeRule.onNodeWithText("평균 1,696원", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("평균보다 7원 저렴", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `decision summary applies tabular numbers to every numeric metric`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = comparisonUiState(),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        listOf(
+            STATION_LIST_DECISION_COUNT_TAG,
+            STATION_LIST_DECISION_LOWEST_TAG,
+            STATION_LIST_DECISION_AVERAGE_TAG,
+            STATION_LIST_DECISION_SAVINGS_TAG,
+        ).forEach { tag ->
+            val textLayoutResults = mutableListOf<TextLayoutResult>()
+            composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                    action(textLayoutResults)
+                }
+            assertEquals(
+                "Expected $tag to use tabular numbers.",
+                "tnum",
+                textLayoutResults.single().layoutInput.style.fontFeatureSettings,
+            )
+        }
     }
 
     @Test
