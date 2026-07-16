@@ -19,12 +19,44 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
+import com.gasstation.core.designsystem.ColorSurface
+import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.component.GasStationSummaryStrip
+import com.gasstation.core.designsystem.gasStationWonLabel
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 
 internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
 internal const val STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG = "station-list-query-context-location-icon"
+
+@Composable
+internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary, modifier: Modifier = Modifier) {
+    GasStationSummaryStrip(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(STATION_LIST_DECISION_SUMMARY_TAG),
+    ) {
+        Text(stringResource(R.string.station_list_decision_count, summary.count), color = ColorSurface)
+        Text(
+            text = stringResource(
+                if (summary.isLowestPriceTied) {
+                    R.string.station_list_decision_tied_lowest
+                } else {
+                    R.string.station_list_decision_lowest
+                },
+            ),
+            color = ColorYellow,
+        )
+        Text(summary.lowestPriceWon.gasStationWonLabel(), color = ColorYellow)
+        summary.savingsWon?.let { savings ->
+            Text(
+                stringResource(R.string.station_list_decision_savings, savings.gasStationWonLabel()),
+                color = ColorSurface,
+            )
+        }
+    }
+}
 
 @Composable
 internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier = Modifier) {

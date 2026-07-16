@@ -8,11 +8,14 @@
     <string name="station_list_refresh_failed">Could not refresh the station list.</string>
 
     <!-- Top bar actions -->
+    <string name="station_list_title">Nearby stations</string>
     <string name="station_list_action_bookmark">Bookmarks</string>
     <string name="station_list_action_refresh">Refresh</string>
     <string name="station_list_action_settings">Settings</string>
 
     <!-- Sort toggle -->
+    <string name="station_list_sort_distance">Distance</string>
+    <string name="station_list_sort_price">Price</string>
     <string name="station_list_sort_by_distance">By distance</string>
     <string name="station_list_sort_by_price">By price</string>
     <string name="station_list_sort_state_distance">Sorted by distance</string>
@@ -25,6 +28,13 @@
     <string name="station_list_label_distance">Distance</string>
     <string name="station_list_price_unit">₩</string>
     <string name="station_list_price_format">₩%1$s</string>
+    <string name="station_list_brand_description">%1$s brand</string>
+
+    <!-- Decision summary -->
+    <string name="station_list_decision_count">%1$d stations</string>
+    <string name="station_list_decision_lowest">Lowest</string>
+    <string name="station_list_decision_tied_lowest">Tied lowest</string>
+    <string name="station_list_decision_savings">%1$s below average</string>
 
     <!-- Watch toggle -->
     <string name="station_list_watch_saved">Saved</string>

@@ -5,14 +5,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -42,11 +40,13 @@ import com.gasstation.core.designsystem.ColorSupportError
 import com.gasstation.core.designsystem.ColorSupportInfo
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
-import com.gasstation.core.designsystem.component.GasStationBrandIcon
-import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
+import com.gasstation.core.designsystem.component.GasStationComparisonRow
 import com.gasstation.core.designsystem.component.GasStationMetricBlock
 import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
+import com.gasstation.core.designsystem.component.UrbanSignalTokens
 
+internal const val STATION_LIST_ROW_TAG = "station-list-row"
 internal const val STATION_LIST_METRIC_ROW_TAG = "station-list-metric-row"
 internal const val STATION_LIST_CARD_TITLE_TAG = "station-list-card-title"
 internal const val STATION_LIST_PRICE_CHANGE_TAG = "station-list-price-change"
@@ -60,92 +60,72 @@ internal fun StationCard(
     onClick: () -> Unit,
     onWatchToggle: () -> Unit,
 ) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-
-    GasStationCard(
+    GasStationComparisonRow(
         modifier = modifier
-            .fillMaxWidth()
+            .heightIn(min = UrbanSignalTokens.mainRowMinHeight)
+            .testTag(STATION_LIST_ROW_TAG)
             .clickable(onClick = onClick),
-        contentPadding = PaddingValues(
-            horizontal = spacing.space16,
-            vertical = spacing.space16,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(spacing.space16),
-        ) {
+        leading = {
+            GasStationBrandLogoTile(
+                brand = station.brand,
+                contentDescription = stringResource(
+                    R.string.station_list_brand_description,
+                    station.brandLabel,
+                ),
+            )
+        },
+        primary = {
+            GasStationMetricBlock(
+                label = stringResource(R.string.station_list_label_price),
+                number = station.priceNumberLabel,
+                unit = station.priceUnitLabel,
+                emphasis = GasStationMetricEmphasis.Primary,
+                modifier = Modifier.testTag(STATION_LIST_METRIC_ROW_TAG),
+            )
+            Text(
+                text = station.name,
+                modifier = Modifier.testTag(STATION_LIST_CARD_TITLE_TAG),
+                style = GasStationTheme.typography.cardTitle,
+                color = ColorBlack,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            StationRowMetadata(station = station, fuelTypeLabel = fuelTypeLabel)
+        },
+        trailing = {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.space12),
+                modifier = Modifier.widthIn(max = 76.dp),
+                horizontalAlignment = Alignment.End,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(STATION_LIST_METRIC_ROW_TAG)
-                        .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.space16),
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    GasStationMetricBlock(
-                        modifier = Modifier
-                            .weight(1.35f)
-                            .fillMaxHeight(),
-                        label = stringResource(R.string.station_list_label_price),
-                        number = station.priceNumberLabel,
-                        unit = station.priceUnitLabel,
-                        emphasis = GasStationMetricEmphasis.Primary,
-                    )
-                    GasStationMetricBlock(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                        label = stringResource(R.string.station_list_label_distance),
-                        number = station.distanceNumberLabel,
-                        unit = station.distanceUnitLabel,
-                        emphasis = GasStationMetricEmphasis.Secondary,
-                    )
-                }
                 Text(
-                    text = station.name,
-                    modifier = Modifier.testTag(STATION_LIST_CARD_TITLE_TAG),
-                    style = typography.cardTitle,
+                    text = station.distanceLabel,
+                    style = GasStationTheme.typography.metricValue,
                     color = ColorBlack,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.space8),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FuelChip(
-                            text = fuelTypeLabel,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        GasStationBrandIcon(
-                            brand = station.brand,
-                            contentDescription = "${station.brandLabel} 브랜드",
-                        )
-                    }
-                    PriceDeltaIndicator(
-                        modifier = Modifier.testTag(STATION_LIST_PRICE_CHANGE_TAG),
-                        label = station.priceDeltaLabel,
-                        tone = station.priceDeltaTone,
-                    )
-                }
+                WatchToggleButton(station.isWatched, onWatchToggle)
             }
-            WatchToggleButton(
-                watched = station.isWatched,
-                onClick = onWatchToggle,
-            )
-        }
+        },
+    )
+}
+
+@Composable
+private fun StationRowMetadata(station: StationListItemUiModel, fuelTypeLabel: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FuelChip(
+            text = fuelTypeLabel,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        PriceDeltaIndicator(
+            label = station.priceDeltaLabel,
+            tone = station.priceDeltaTone,
+            modifier = Modifier.testTag(STATION_LIST_PRICE_CHANGE_TAG),
+        )
     }
 }
 

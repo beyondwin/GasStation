@@ -111,6 +111,9 @@ private fun stationListViewModelForRouteTest(
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
         updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
+        updateSearchRadius = settingsFixture.updateSearchRadius,
+        updateFuelType = settingsFixture.updateFuelType,
+        updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
         stationEventLogger = object : StationEventLogger {
             override fun log(event: com.gasstation.domain.station.model.StationEvent) = Unit

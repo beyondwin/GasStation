@@ -1,18 +1,34 @@
 package com.gasstation.feature.stationlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
+import com.gasstation.core.designsystem.ColorNeutralLine
 import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.component.GasStationComparisonRow
 import com.gasstation.core.designsystem.component.GasStationGuidanceCard
+import com.gasstation.core.designsystem.component.GasStationRowDivider
+
+internal const val STATION_LIST_SKELETON_ROW_TAG = "station-list-skeleton-row"
 
 @Composable
 internal fun PermissionRequired(modifier: Modifier = Modifier, onRequestPermissions: () -> Unit) {
@@ -40,19 +56,43 @@ internal fun GpsRequired(modifier: Modifier = Modifier, onOpenLocationSettings: 
 
 @Composable
 internal fun LoadingState(modifier: Modifier = Modifier) {
-    BrandedStateContainer(modifier = modifier) {
-        GasStationGuidanceCard(
-            title = stringResource(R.string.station_list_loading_title),
-            body = stringResource(R.string.station_list_loading_body),
-            leadingContent = {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    color = ColorBlack,
-                    strokeWidth = 3.dp,
-                )
-            },
-        )
+    val loadingLabel = stringResource(R.string.station_list_loading_title)
+    LazyColumn(
+        modifier = modifier.semantics { contentDescription = loadingLabel },
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        items(3) { index ->
+            GasStationComparisonRow(
+                modifier = Modifier.testTag(STATION_LIST_SKELETON_ROW_TAG),
+                leading = { LoadingPlaceholder(50.dp, 50.dp) },
+                primary = {
+                    LoadingPlaceholder(112.dp, 30.dp)
+                    LoadingPlaceholder(176.dp, 20.dp)
+                    LoadingPlaceholder(132.dp, 16.dp)
+                },
+                trailing = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        LoadingPlaceholder(58.dp, 20.dp)
+                        Spacer(Modifier.height(8.dp))
+                        LoadingPlaceholder(48.dp, 48.dp)
+                    }
+                },
+            )
+            if (index < 2) {
+                GasStationRowDivider()
+            }
+        }
     }
+}
+
+@Composable
+private fun LoadingPlaceholder(width: Dp, height: Dp) {
+    Box(
+        Modifier
+            .size(width, height)
+            .clip(RoundedCornerShape(6.dp))
+            .background(ColorNeutralLine.copy(alpha = 0.72f)),
+    )
 }
 
 @Composable

@@ -11,9 +11,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,14 +20,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,10 +49,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,13 +58,15 @@ import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
+import com.gasstation.core.designsystem.component.GasStationRowDivider
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
-import com.gasstation.core.model.SortOrder
 
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
+internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun StationListScreen(
     uiState: StationListUiState,
@@ -83,7 +78,6 @@ fun StationListScreen(
     onWatchlistClick: (() -> Unit)? = null,
     onFirstContentDrawn: () -> Unit = {},
 ) {
-    val bookmarkLabel = stringResource(R.string.station_list_action_bookmark)
     val refreshLabel = stringResource(R.string.station_list_action_refresh)
     val currentOnFirstContentDrawn by rememberUpdatedState(onFirstContentDrawn)
     val hasFirstUsableContent = uiState.hasFirstUsableContent()
@@ -107,30 +101,14 @@ fun StationListScreen(
             topBar = {
                 GasStationTopBar(
                     title = {
-                        SortToggleTitle(
-                            sortOrder = uiState.selectedSortOrder,
-                            onClick = { onAction(StationListAction.SortToggleRequested) },
-                        )
+                        Text(text = stringResource(R.string.station_list_title))
                     },
                     actions = {
-                        if (onWatchlistClick != null) {
-                            IconButton(
-                                modifier = Modifier
-                                    .testTag(STATION_LIST_WATCHLIST_ACTION_TAG)
-                                    .semantics { contentDescription = bookmarkLabel },
-                                onClick = onWatchlistClick,
-                            ) {
-                                Icon(imageVector = Icons.Outlined.BookmarkBorder, contentDescription = null)
-                            }
-                        }
                         IconButton(
                             modifier = Modifier.semantics { contentDescription = refreshLabel },
                             onClick = { onAction(StationListAction.RefreshRequested) },
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
-                        }
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.station_list_action_settings))
                         }
                     },
                 )
@@ -139,7 +117,9 @@ fun StationListScreen(
         ) { innerPadding ->
             AnimatedContent(
                 targetState = uiState.toBodyState(),
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
                 transitionSpec = { subtleContentTransform() },
                 label = "station-list-body",
             ) { bodyState ->
@@ -165,59 +145,14 @@ fun StationListScreen(
 }
 
 @Composable
-private fun SortToggleTitle(sortOrder: SortOrder, onClick: () -> Unit) {
-    val corner = GasStationTheme.corner
-    val stroke = GasStationTheme.stroke
-    val shape = RoundedCornerShape(corner.small)
-    val stateDesc = sortOrder.toStateDescription()
-    val nextActionLabel = sortOrder.toNextSortActionLabel()
-
-    Row(
-        modifier = Modifier
-            .clip(shape)
-            .border(width = stroke.default, color = ColorYellow, shape = shape)
-            .semantics { stateDescription = stateDesc }
-            .clickable(role = Role.Button, onClickLabel = nextActionLabel, onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SortToggleSegment(
-            label = stringResource(R.string.station_list_sort_by_distance),
-            selected = sortOrder == SortOrder.DISTANCE,
-        )
-        Box(modifier = Modifier.height(20.dp).width(stroke.default).background(ColorYellow))
-        SortToggleSegment(
-            label = stringResource(R.string.station_list_sort_by_price),
-            selected = sortOrder == SortOrder.PRICE,
-        )
-    }
-}
-
-@Composable
-private fun SortToggleSegment(label: String, selected: Boolean) {
-    val spacing = GasStationTheme.spacing
-    val typography = GasStationTheme.typography
-
-    Surface(
-        color = if (selected) ColorYellow else ColorBlack,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = spacing.space12, vertical = spacing.space8),
-            style = typography.chip.copy(fontWeight = FontWeight.Bold),
-            color = if (selected) ColorBlack else ColorYellow,
-        )
-    }
-}
-
-@Composable
 private fun StationListContent(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     val banners = StationListBannerModel.from(uiState)
     val spacing = GasStationTheme.spacing
+    val decisionSummary = StationListDecisionSummary.from(uiState.stations)
 
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = spacing.space16, vertical = spacing.space12),
-        verticalArrangement = Arrangement.spacedBy(spacing.space12),
     ) {
         items(
             items = banners,
@@ -227,7 +162,9 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
                 if (banner.detailArg != null) stringResource(resId, banner.detailArg) else stringResource(resId)
             }
             GasStationStatusBanner(
-                modifier = Modifier.animateContentSize(),
+                modifier = Modifier
+                    .padding(bottom = spacing.space8)
+                    .animateContentSize(),
                 text = stringResource(banner.titleResId),
                 detail = bannerDetail,
                 tone = banner.tone.toStatusTone(),
@@ -236,21 +173,47 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
         item {
             QueryContextSummary(uiState = uiState, modifier = Modifier.animateContentSize())
         }
+        item {
+            StationListFilterRail(
+                uiState = uiState,
+                onAction = onAction,
+                modifier = Modifier.padding(vertical = spacing.space8),
+            )
+        }
+        decisionSummary?.let { summary ->
+            item {
+                StationListDecisionSummaryStrip(
+                    summary = summary,
+                    modifier = Modifier.padding(bottom = spacing.space8),
+                )
+            }
+        }
         if (uiState.stations.isEmpty()) {
             item {
                 EmptyState(onAction = onAction, modifier = Modifier.animateContentSize())
             }
         } else {
-            items(uiState.stations, key = StationListItemUiModel::id) { station ->
+            itemsIndexed(
+                items = uiState.stations,
+                key = { _, station -> station.id },
+            ) { index, station ->
                 StationCard(
                     station = station,
                     fuelTypeLabel = uiState.selectedFuelType.toLabel(),
                     modifier = Modifier.animateContentSize(),
                     onClick = { onAction(StationListAction.StationClicked(station)) },
                     onWatchToggle = {
-                        onAction(StationListAction.WatchToggled(stationId = station.id, watched = !station.isWatched))
+                        onAction(
+                            StationListAction.WatchToggled(
+                                stationId = station.id,
+                                watched = !station.isWatched,
+                            ),
+                        )
                     },
                 )
+                if (index < uiState.stations.lastIndex) {
+                    GasStationRowDivider()
+                }
             }
         }
     }
@@ -322,16 +285,17 @@ private fun RefreshingStatusRail(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = spacing.space12, vertical = spacing.space8),
-            verticalArrangement = Arrangement.spacedBy(spacing.space8),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(spacing.space8),
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.space8),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(spacing.space8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
                     modifier = Modifier
                         .size(10.dp)
-                        .clip(RoundedCornerShape(999.dp)).background(ColorYellow),
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(ColorYellow),
                 )
                 Text(
                     text = stringResource(R.string.station_list_refresh_rail_title),
@@ -346,7 +310,9 @@ private fun RefreshingStatusRail(modifier: Modifier = Modifier) {
             )
             LinearProgressIndicator(
                 modifier = Modifier
-                    .fillMaxWidth().height(4.dp).clip(RoundedCornerShape(999.dp)),
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp)),
                 color = ColorYellow,
                 trackColor = ColorYellow.copy(alpha = 0.22f),
             )
@@ -364,16 +330,4 @@ private fun StationListBannerTone.toStatusTone(): GasStationStatusTone = when (t
     StationListBannerTone.Info -> GasStationStatusTone.Info
     StationListBannerTone.Warning -> GasStationStatusTone.Warning
     StationListBannerTone.Error -> GasStationStatusTone.Error
-}
-
-@Composable
-private fun SortOrder.toStateDescription(): String = when (this) {
-    SortOrder.DISTANCE -> stringResource(R.string.station_list_sort_state_distance)
-    SortOrder.PRICE -> stringResource(R.string.station_list_sort_state_price)
-}
-
-@Composable
-private fun SortOrder.toNextSortActionLabel(): String = when (this) {
-    SortOrder.DISTANCE -> stringResource(R.string.station_list_sort_action_to_price)
-    SortOrder.PRICE -> stringResource(R.string.station_list_sort_action_to_distance)
 }

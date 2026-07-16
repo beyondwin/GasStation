@@ -8,7 +8,10 @@ import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
+import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
+import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.logSafely
@@ -42,6 +45,9 @@ class StationListViewModel @Inject constructor(
     private val updateWatchState: UpdateWatchStateUseCase,
     private val observeUserPreferences: ObserveUserPreferencesUseCase,
     private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
+    private val updateSearchRadius: UpdateSearchRadiusUseCase,
+    private val updateFuelType: UpdateFuelTypeUseCase,
+    private val updateBrandFilter: UpdateBrandFilterUseCase,
     private val locationStateMachine: LocationStateMachine,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
@@ -143,6 +149,18 @@ class StationListViewModel @Inject constructor(
             )
 
             StationListAction.SortToggleRequested -> toggleSortOrder()
+
+            is StationListAction.SearchRadiusSelected -> viewModelScope.launch {
+                updateSearchRadius(action.radius)
+            }
+
+            is StationListAction.FuelTypeSelected -> viewModelScope.launch {
+                updateFuelType(action.fuelType)
+            }
+
+            is StationListAction.BrandFilterSelected -> viewModelScope.launch {
+                updateBrandFilter(action.brandFilter)
+            }
 
             is StationListAction.WatchToggled -> toggleWatchState(
                 stationId = action.stationId,

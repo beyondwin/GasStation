@@ -6,7 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,11 +31,72 @@ import org.robolectric.annotation.Config
 import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "ko")
+@Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
 class StationListScreenTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `nearby comparison chrome shows filters summary and flat rows`() {
+        val stations = listOf(
+            testStation(),
+            testStation().copy(id = "station-2", priceWon = 1_699, priceNumberLabel = "1,699"),
+            testStation().copy(
+                id = "station-3",
+                brand = Brand.RTO,
+                brandLabel = "자영알뜰",
+                priceWon = 1_709,
+                priceNumberLabel = "1,709",
+            ),
+        )
+
+        composeRule.setContent {
+            Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                StationListScreen(
+                    uiState = StationListUiState(
+                        permissionState = LocationPermissionState.PreciseGranted,
+                        stations = stations,
+                        selectedFuelType = FuelType.GASOLINE,
+                    ),
+                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                    onAction = {},
+                    onRequestPermissions = {},
+                    onOpenLocationSettings = {},
+                    onSettingsClick = {},
+                    onWatchlistClick = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("주변 주유소").assertExists()
+        composeRule.onNodeWithContentDescription("새로고침").assertExists()
+        composeRule.onAllNodesWithContentDescription("북마크").assertCountEquals(0)
+        composeRule.onAllNodesWithContentDescription("설정").assertCountEquals(0)
+        composeRule.onNodeWithTag("station-list-filter-rail").assertExists()
+        composeRule.onNodeWithTag("station-list-decision-summary").assertExists()
+        composeRule.onAllNodesWithTag("station-list-row", useUnmergedTree = true).assertCountEquals(3)
+        composeRule.onNodeWithContentDescription("자영알뜰 브랜드").assertExists()
+    }
+
+    @Test
+    fun `initial loading renders three flat skeleton rows`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    isLoading = true,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onAllNodesWithTag("station-list-skeleton-row", useUnmergedTree = true).assertCountEquals(3)
+    }
 
     @Test
     fun `query context shows current address only through dong and condition without old card copy`() {
@@ -157,7 +221,7 @@ class StationListScreenTest {
     }
 
     @Test
-    fun `station card aligns distance label height with price label height`() {
+    fun `station row keeps distance in the trailing comparison column`() {
         composeRule.setContent {
             StationListScreen(
                 uiState = StationListUiState(
@@ -191,20 +255,18 @@ class StationListScreenTest {
             )
         }
 
-        val priceLabelTop = composeRule
+        val priceBounds = composeRule
             .onNodeWithText("가격", useUnmergedTree = true)
             .fetchSemanticsNode()
-            .boundsInRoot.top
-        val distanceLabelTop = composeRule
-            .onNodeWithText("거리", useUnmergedTree = true)
+            .boundsInRoot
+        val distanceBounds = composeRule
+            .onNodeWithText("0.3km", useUnmergedTree = true)
             .fetchSemanticsNode()
-            .boundsInRoot.top
+            .boundsInRoot
 
-        assertEquals(
-            "Expected distance label to share the same top position as price label.",
-            priceLabelTop,
-            distanceLabelTop,
-            1f,
+        assertTrue(
+            "Expected trailing distance to sit to the right of the price hero.",
+            distanceBounds.left > priceBounds.left,
         )
     }
 
@@ -324,8 +386,10 @@ class StationListScreenTest {
 
         assertTrue("Expected metric row to stay inside the narrow screen.", metricBounds.right <= rootRight)
         assertTrue("Expected station title to stay inside the narrow screen.", titleBounds.right <= rootRight)
-        assertTrue("Expected fuel chip to leave room for the brand icon.", fuelChipBounds.right < brandIconBounds.left)
-        assertTrue("Expected brand icon to stay before the price delta.", brandIconBounds.right < priceComparisonBounds.left)
+        assertTrue("Expected brand logo tile to stay inside the narrow screen.", brandIconBounds.right <= rootRight)
+        assertTrue("Expected fuel chip to stay inside the narrow screen.", fuelChipBounds.right <= rootRight)
+        assertTrue("Expected price delta to stay inside the narrow screen.", priceComparisonBounds.right <= rootRight)
+        assertTrue("Expected fuel chip to leave room for the price delta.", fuelChipBounds.right < priceComparisonBounds.left)
     }
 
     @Test
@@ -776,7 +840,7 @@ class StationListScreenTest {
     }
 
     @Test
-    fun `top bar watchlist action uses bookmark copy`() {
+    fun `top bar exposes only the refresh action`() {
         composeRule.setContent {
             StationListScreen(
                 uiState = StationListUiState(
@@ -792,7 +856,9 @@ class StationListScreenTest {
             )
         }
 
-        composeRule.onNodeWithContentDescription("북마크").assertExists()
+        composeRule.onNodeWithContentDescription("새로고침").assertExists()
+        composeRule.onAllNodesWithContentDescription("북마크").assertCountEquals(0)
+        composeRule.onAllNodesWithContentDescription("설정").assertCountEquals(0)
     }
 
     @Test
@@ -813,8 +879,8 @@ class StationListScreenTest {
             )
         }
 
-        composeRule.onNodeWithContentDescription("북마크").assertExists()
-        composeRule.onNodeWithTag(STATION_LIST_WATCHLIST_ACTION_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithContentDescription("북마크").assertCountEquals(0)
+        composeRule.onAllNodesWithTag(STATION_LIST_WATCHLIST_ACTION_TAG, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onNodeWithContentDescription("저장").assertExists()
         composeRule.onNodeWithTag(STATION_LIST_WATCH_TOGGLE_TAG, useUnmergedTree = true).assertExists()
     }

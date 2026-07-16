@@ -56,6 +56,22 @@ class StationListViewModelTest {
     private val dispatcher = mainDispatcherRule.dispatcher
 
     @Test
+    fun `filter rail actions update preferences through domain use cases`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture()
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+
+        viewModel.onAction(StationListAction.SearchRadiusSelected(SearchRadius.KM_5))
+        viewModel.onAction(StationListAction.FuelTypeSelected(FuelType.DIESEL))
+        viewModel.onAction(StationListAction.BrandFilterSelected(BrandFilter.RTO))
+        advanceUntilIdle()
+
+        assertEquals(SearchRadius.KM_5, settings.currentPreferences.searchRadius)
+        assertEquals(FuelType.DIESEL, settings.currentPreferences.fuelType)
+        assertEquals(BrandFilter.RTO, settings.currentPreferences.brandFilter)
+    }
+
+    @Test
     fun `refresh with precise location builds query without map provider`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
@@ -1179,6 +1195,9 @@ private fun stationListViewModel(
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
         updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
+        updateSearchRadius = settingsFixture.updateSearchRadius,
+        updateFuelType = settingsFixture.updateFuelType,
+        updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
         stationEventLogger = analytics,
     )
@@ -1201,4 +1220,11 @@ private fun stationEntry(
     priceDelta = priceDelta,
     isWatched = isWatched,
     lastSeenAt = Instant.parse("2026-04-18T00:00:00Z"),
+)
+
+private fun emptySearchResult(): StationSearchResult = StationSearchResult(
+    stations = emptyList(),
+    freshness = StationFreshness.Stale,
+    fetchedAt = null,
+    hasCachedSnapshot = false,
 )

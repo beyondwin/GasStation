@@ -8,11 +8,14 @@
     <string name="station_list_refresh_failed">주유소 목록을 새로고침하지 못했습니다.</string>
 
     <!-- Top bar actions -->
+    <string name="station_list_title">주변 주유소</string>
     <string name="station_list_action_bookmark">북마크</string>
     <string name="station_list_action_refresh">새로고침</string>
     <string name="station_list_action_settings">설정</string>
 
     <!-- Sort toggle -->
+    <string name="station_list_sort_distance">거리순</string>
+    <string name="station_list_sort_price">가격순</string>
     <string name="station_list_sort_by_distance">거리순</string>
     <string name="station_list_sort_by_price">가격순</string>
     <string name="station_list_sort_state_distance">현재 거리순 정렬</string>
@@ -25,6 +28,13 @@
     <string name="station_list_label_distance">거리</string>
     <string name="station_list_price_unit">원</string>
     <string name="station_list_price_format">%1$s원</string>
+    <string name="station_list_brand_description">%1$s 브랜드</string>
+
+    <!-- Decision summary -->
+    <string name="station_list_decision_count">%1$d곳</string>
+    <string name="station_list_decision_lowest">최저가</string>
+    <string name="station_list_decision_tied_lowest">공동 최저가</string>
+    <string name="station_list_decision_savings">평균보다 %1$s 저렴</string>
 
     <!-- Watch toggle -->
     <string name="station_list_watch_saved">저장됨</string>
