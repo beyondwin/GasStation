@@ -43,7 +43,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`와 `koverXmlReport`를 실행합니다. 태그 push 자체가 Play Store 업로드를 수행하지는 않습니다.
+`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`와 `coverageXmlReport`를 실행합니다. 태그 push 자체가 Play Store 업로드를 수행하지는 않습니다.
 
 ## Android 산출물
 

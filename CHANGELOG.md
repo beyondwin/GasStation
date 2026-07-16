@@ -5,7 +5,10 @@
 ## Unreleased
 
 - Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose BOM 2026.06.01, Spotless 8.8.0/ktlint 1.8.0, PIT 1.25.7과 안정 AndroidX/빌드·테스트 의존성을 최신화했습니다. 최신 AndroidX의 compile API 37 요구를 수용하면서 target/Robolectric unit test SDK는 안정 지원 범위인 API 36으로 유지합니다.
-- Kover 0.9.8이 AGP 9.3.0 Android debug unit-test variant를 집계하는 것을 확인해 기존 Android 계측 호환성 보류를 해제했습니다. `koverXmlReport`는 Android/JVM 모듈을 함께 보고하며, coverage floor와 `koverVerify` 게이트 승격은 별도 결정으로 남깁니다.
+- Compose UI 테스트를 공식 v2 테스트 환경 API로 전환하고, deprecated v1 import를 막는 `verifyNoDeprecatedComposeTestApis` 가드와 demo instrumentation test 컴파일을 CI에 추가했습니다.
+- Kover 0.9.8의 미해결 Gradle 10 deprecation을 제거하기 위해 커버리지 수집을 최신 안정 JaCoCo 0.8.15로 교체했습니다. `coverageXmlReport`는 전체 JVM/Android unit-test matrix를 실행해 `build/reports/coverage/report.xml`에 통합 결과를 만들며, CI Gradle 경로는 `--warning-mode fail`로 새 deprecation을 차단합니다.
+- 최신 ben-manes versions 0.54.0의 Gradle 10 비호환 실행 경로를 제거하고, Gradle 의존성과 GitHub Actions를 매주 확인하는 Dependabot 설정으로 신선도 모니터링을 이전했습니다.
+- 멀티모듈 Spotless 검증은 프로젝트 전체 병렬 빌드를 유지하면서 ktlint 실행만 직렬화해 클래스 로더 경쟁으로 인한 간헐 실패를 제거했습니다.
 
 ## 1.2.0 - 2026-06-07
 

@@ -34,7 +34,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
   :feature:watchlist:testDebugUnitTest \
   :feature:settings:testDebugUnitTest \
   verifyRoborazziDebug \
-  koverXmlReport \
+  coverageXmlReport \
   :app:assembleProdRelease
 ```
 

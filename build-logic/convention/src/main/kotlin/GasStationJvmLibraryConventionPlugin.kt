@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("gasstation.spotless")
-        pluginManager.apply("gasstation.kover")
         pluginManager.apply("java-library")
         pluginManager.apply("org.jetbrains.kotlin.jvm")
 

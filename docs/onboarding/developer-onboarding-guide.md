@@ -129,7 +129,7 @@ GasStation은 `app / feature / domain / data / core / tools / benchmark`로 나�
 | Robolectric | Android/Compose 관련 unit test | 기기 없이 빠르게 Android resource/UI state를 검증하기 위해 | 로컬 피드백이 빠름 | 실제 device/provider 차이는 connected test가 필요함 | `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/*Test.kt` |
 | Roborazzi | screenshot regression | 디자인 시스템과 주요 화면의 시각 회귀를 잡기 위해 | UI 깨짐을 이미지로 확인 가능 | 의도적 디자인 변경 시 snapshot 갱신 책임이 생김 | `core/designsystem/src/test/snapshots/*`, `feature/station-list/src/test/snapshots/*` |
 | Macrobenchmark + baseline profile | startup/list/refresh/watchlist 성능 증거 | portfolio와 release evidence를 물리 기기 기준으로 남기기 위해 | 실제 사용자 흐름 기반 성능을 측정 | emulator 수치를 committed 성능으로 쓰면 안 됨 | `benchmark/src/main/kotlin/com/gasstation/benchmark/*` |
-| Kover + Pitest | coverage report와 mutation testing | 테스트가 단순 실행이 아니라 결함을 잡는지 보기 위해 | 테스트 품질 신호를 얻음 | Pitest는 느리고 일부 equivalent mutant를 해석해야 함 | `docs/test-strategy.md`, `domain/station/build.gradle.kts` |
+| JaCoCo + Pitest | coverage report와 mutation testing | 테스트가 단순 실행이 아니라 결함을 잡는지 보기 위해 | 테스트 품질 신호를 얻음 | Pitest는 느리고 일부 equivalent mutant를 해석해야 함 | `docs/test-strategy.md`, `domain/station/build.gradle.kts` |
 | Spotless + ktlint | formatting/lint gate | 코드 스타일과 review noise를 줄이기 위해 | 자동화된 일관성 | formatting만 통과한다고 설계가 좋은 것은 아님 | `build-logic/convention/src/main/kotlin/GasStationSpotlessConventionPlugin.kt` |
 
 ## 6. 기술별 선정 이유, 장점, 단점, 주의점
@@ -190,7 +190,7 @@ DataStore는 반경, 유종, 브랜드 필터, 정렬, 지도 앱 같은 `UserPr
 
 ### 테스트 도구
 
-Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회귀를, Macrobenchmark는 물리 기기 성능 증거를 담당합니다. Kover와 Pitest는 커버리지와 변이 테스트 신호를 보조로 제공합니다.
+Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회귀를, Macrobenchmark는 물리 기기 성능 증거를 담당합니다. JaCoCo와 Pitest는 커버리지와 변이 테스트 신호를 보조로 제공합니다.
 
 장점은 계층별로 빠른 테스트와 깊은 테스트를 나눌 수 있다는 점입니다. 단점은 모든 테스트를 항상 돌리면 피드백이 느려진다는 점입니다. 그래서 `docs/verification-matrix.md`에서 변경 유형별 명령을 고릅니다.
 ## 7. 앱 시작 흐름

@@ -1,7 +1,7 @@
 package com.gasstation.feature.stationlist
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.GetCurrentAddressUseCase
