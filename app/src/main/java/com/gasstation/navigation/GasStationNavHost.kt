@@ -38,12 +38,20 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFir
     val navController = rememberNavController()
     var originLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var originLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var lastWatchlistRoute by rememberSaveable { mutableStateOf<String?>(null) }
     val origin = originLatitude?.let { latitude ->
         originLongitude?.let { longitude -> Coordinates(latitude, longitude) }
     }
     val navigationState = TopLevelNavigationState(origin)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
+    val navigateTopLevel: (String) -> Unit = { route ->
+        lastWatchlistRoute = navigateTopLevelDestination(
+            navController = navController,
+            route = route,
+            lastWatchlistRoute = lastWatchlistRoute,
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -53,17 +61,17 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFir
                     selected = selectedTopLevelDestination(currentRoute),
                     watchlistEnabled = navigationState.watchlistEnabled,
                     onNearby = {
-                        navController.navigateTopLevel(GasStationDestination.StationList.route)
+                        navigateTopLevel(GasStationDestination.StationList.route)
                     },
                     onWatchlist = {
                         navigationState.origin?.let { availableOrigin ->
-                            navController.navigateTopLevel(
+                            navigateTopLevel(
                                 GasStationDestination.Watchlist.createRoute(availableOrigin),
                             )
                         }
                     },
                     onSettings = {
-                        navController.navigateTopLevel(GasStationDestination.Settings.route)
+                        navigateTopLevel(GasStationDestination.Settings.route)
                     },
                 )
             }
@@ -81,6 +89,7 @@ fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFir
                     originLatitude = coordinates?.latitude
                     originLongitude = coordinates?.longitude
                 },
+                onNavigateTopLevel = navigateTopLevel,
                 onStationListFirstContentDrawn = onStationListFirstContentDrawn,
             )
         }
@@ -91,6 +100,7 @@ private fun NavGraphBuilder.gasStationDestinations(
     navController: NavHostController,
     externalMapLauncher: ExternalMapLauncher,
     onCoordinatesAvailable: (Coordinates?) -> Unit,
+    onNavigateTopLevel: (String) -> Unit,
     onStationListFirstContentDrawn: () -> Unit,
 ) {
     composable(
@@ -162,21 +172,30 @@ private fun NavGraphBuilder.gasStationDestinations(
     ) {
         WatchlistRoute(
             onNavigateNearby = {
-                navController.navigateTopLevel(GasStationDestination.StationList.route)
+                onNavigateTopLevel(GasStationDestination.StationList.route)
             },
         )
     }
 }
 
-private fun NavHostController.navigateTopLevel(route: String) {
-    navigate(route) {
+internal fun navigateTopLevelDestination(navController: NavHostController, route: String, lastWatchlistRoute: String?): String? {
+    val nextWatchlistRoute = route.takeIf { it.isConcreteWatchlistRoute() }
+    if (nextWatchlistRoute != null && lastWatchlistRoute != null && nextWatchlistRoute != lastWatchlistRoute) {
+        navController.clearBackStack(lastWatchlistRoute)
+    }
+
+    navController.navigate(route) {
         launchSingleTop = TOP_LEVEL_NAVIGATION_POLICY.launchSingleTop
         restoreState = TOP_LEVEL_NAVIGATION_POLICY.restoreState
-        popUpTo(graph.startDestinationId) {
+        popUpTo(navController.graph.startDestinationId) {
             saveState = TOP_LEVEL_NAVIGATION_POLICY.saveState
         }
     }
+
+    return nextWatchlistRoute ?: lastWatchlistRoute
 }
+
+private fun String.isConcreteWatchlistRoute(): Boolean = startsWith("watchlist/") && this != GasStationDestination.Watchlist.route
 
 private fun forwardEnterTransition(): EnterTransition = fadeIn(
     animationSpec = tween(durationMillis = 180),
