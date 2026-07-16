@@ -69,10 +69,7 @@ fun GasStationBrandLogoTile(
 }
 
 @Composable
-fun GasStationSummaryStrip(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
+fun GasStationSummaryStrip(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Surface(
         modifier = modifier,
         color = ColorBlack,
@@ -114,10 +111,7 @@ fun GasStationComparisonRow(
 }
 
 @Composable
-fun GasStationNavigationBar(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
+fun GasStationNavigationBar(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     NavigationBar(
         modifier = modifier,
         containerColor = ColorBlack,

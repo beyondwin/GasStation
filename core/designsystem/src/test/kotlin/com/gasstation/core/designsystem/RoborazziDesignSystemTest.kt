@@ -9,9 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.component.GasStationGuidanceCard
 import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
 import com.gasstation.core.designsystem.component.GasStationComparisonRow
+import com.gasstation.core.designsystem.component.GasStationGuidanceCard
 import com.gasstation.core.designsystem.component.GasStationMetricBlock
 import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
 import com.gasstation.core.designsystem.component.GasStationNavigationBar
@@ -19,8 +19,8 @@ import com.gasstation.core.designsystem.component.GasStationNavigationBarItem
 import com.gasstation.core.designsystem.component.GasStationRow
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
-import com.gasstation.core.designsystem.component.GasStationSupportingInfo
 import com.gasstation.core.designsystem.component.GasStationSummaryStrip
+import com.gasstation.core.designsystem.component.GasStationSupportingInfo
 import com.gasstation.core.designsystem.component.UrbanSignalTokens
 import com.gasstation.core.model.Brand
 import com.github.takahirom.roborazzi.captureRoboImage
