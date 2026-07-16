@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Top bar -->
-    <string name="watchlist_title">Bookmarks</string>
-    <string name="watchlist_close">Close</string>
+    <string name="watchlist_title">Saved stations</string>
 
-    <!-- Card and icon semantic descriptions -->
-    <string name="watchlist_card_content_description">Saved station card</string>
-    <!-- "%1$s brand" -->
-    <string name="watchlist_brand_icon_content_description">%1$s brand</string>
+    <!-- Summary -->
+    <string name="watchlist_summary_count">%1$d saved</string>
+    <string name="watchlist_summary_average">Average %1$s</string>
+    <string name="watchlist_summary_latest_seen">Last checked %1$s</string>
+    <string name="watchlist_summary_no_seen">No check history</string>
+
+    <!-- Row semantics and metadata -->
+    <string name="watchlist_brand_description">%1$s brand</string>
+    <string name="watchlist_row_meta">%1$s · %2$s</string>
+    <string name="watchlist_remove_description">Remove from saved stations</string>
+    <string name="watchlist_saved_state_description">Saved</string>
 
     <!-- Metric labels -->
     <string name="watchlist_label_price">Price</string>
@@ -25,9 +31,6 @@
 
     <!-- Empty state -->
     <string name="watchlist_empty_title">No saved stations yet.</string>
-    <string name="watchlist_empty_subtitle">Bookmark stations from the list to track prices and distances in one place.</string>
-    <string name="watchlist_empty_next_step_label">Next step</string>
-    <string name="watchlist_empty_next_step_value">Tap a bookmark on the list screen to add one immediately.</string>
-    <string name="watchlist_empty_purpose_label">Purpose</string>
-    <string name="watchlist_empty_purpose_value">Compare prices and distances for your saved stations at a glance.</string>
+    <string name="watchlist_empty_body">Bookmark stations from the list to track prices and distances in one place.</string>
+    <string name="watchlist_empty_action">View nearby stations</string>
 </resources>

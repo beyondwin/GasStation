@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Top bar -->
-    <string name="watchlist_title">북마크</string>
-    <string name="watchlist_close">닫기</string>
+    <string name="watchlist_title">관심 주유소</string>
 
-    <!-- Card and icon semantic descriptions -->
-    <string name="watchlist_card_content_description">관심 주유소 카드</string>
-    <!-- "%1$s 브랜드" -->
-    <string name="watchlist_brand_icon_content_description">%1$s 브랜드</string>
+    <!-- Summary -->
+    <string name="watchlist_summary_count">저장한 %1$d곳</string>
+    <string name="watchlist_summary_average">평균 %1$s</string>
+    <string name="watchlist_summary_latest_seen">최근 확인 %1$s</string>
+    <string name="watchlist_summary_no_seen">최근 확인 기록 없음</string>
+
+    <!-- Row semantics and metadata -->
+    <string name="watchlist_brand_description">%1$s 브랜드</string>
+    <string name="watchlist_row_meta">%1$s · %2$s</string>
+    <string name="watchlist_remove_description">관심 주유소에서 제거</string>
+    <string name="watchlist_saved_state_description">저장됨</string>
 
     <!-- Metric labels -->
     <string name="watchlist_label_price">가격</string>
@@ -25,9 +31,6 @@
 
     <!-- Empty state -->
     <string name="watchlist_empty_title">저장한 주유소가 없습니다.</string>
-    <string name="watchlist_empty_subtitle">주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.</string>
-    <string name="watchlist_empty_next_step_label">다음 단계</string>
-    <string name="watchlist_empty_next_step_value">목록 화면에서 북마크를 눌러 바로 추가하세요.</string>
-    <string name="watchlist_empty_purpose_label">화면 목적</string>
-    <string name="watchlist_empty_purpose_value">저장한 주유소의 가격과 거리를 한 번에 비교합니다.</string>
+    <string name="watchlist_empty_body">주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.</string>
+    <string name="watchlist_empty_action">주변 주유소 보기</string>
 </resources>

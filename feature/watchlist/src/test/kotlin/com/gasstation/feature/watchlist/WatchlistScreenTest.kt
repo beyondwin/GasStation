@@ -2,17 +2,31 @@ package com.gasstation.feature.watchlist
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.gasStationBrandLabel
+import com.gasstation.core.designsystem.gasStationPriceDigits
+import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.MoneyWon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -23,316 +37,184 @@ import org.robolectric.annotation.Config
 import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "ko")
+@Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
 class WatchlistScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    fun `watchlist card renders brand icon beside brand label`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = listOf(
-                        WatchlistItemUiModel(
-                            id = "station-1",
-                            name = "테스트 주유소",
-                            brand = Brand.GSC,
-                            brandLabel = "GS칼텍스",
-                            priceWon = 1689,
-                            priceLabel = "1,689원",
-                            priceNumberLabel = "1,689",
-                            priceUnitLabel = "원",
-                            distanceLabel = "0.3km",
-                            distanceNumberLabel = "0.3",
-                            distanceUnitLabel = "km",
-                            priceDeltaLabel = "-",
-                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
-                            lastSeenLabel = "4월 18일 12:00",
-                            latitude = 37.498095,
-                            longitude = 127.02761,
-                        ),
-                    ),
-                ),
-                onCloseClick = {},
-            )
-        }
+    fun `five saved stations render as complete 108 to 116dp rows at default scale`() {
+        renderFiveRows()
 
-        composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
-        composeRule.onNodeWithText("GS칼텍스").assertExists()
-    }
-
-    @Test
-    fun `watchlist cards expose stable semantics hook`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = listOf(
-                        WatchlistItemUiModel(
-                            id = "station-1",
-                            name = "테스트 주유소",
-                            brand = Brand.GSC,
-                            brandLabel = "GS칼텍스",
-                            priceWon = 1689,
-                            priceLabel = "1689원",
-                            priceNumberLabel = "1689",
-                            priceUnitLabel = "원",
-                            distanceLabel = "300m",
-                            distanceNumberLabel = "0.3",
-                            distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
-                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
-                            lastSeenLabel = "4월 18일 12:00",
-                            latitude = 37.498095,
-                            longitude = 127.02761,
-                        ),
-                    ),
-                ),
-                onCloseClick = {},
-            )
-        }
-
-        composeRule.onAllNodesWithTag(
-            WATCHLIST_CARD_TEST_TAG,
-            useUnmergedTree = true,
-        )
-            .assertCountEquals(1)
-    }
-
-    @Test
-    fun `watchlist exposes root tag for benchmark resource id lookup`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = listOf(watchlistStation("station-1", "강남주유소", 1689, "1,689")),
-                ),
-                onCloseClick = {},
-            )
-        }
-
-        composeRule.onNodeWithTag(WATCHLIST_ROOT_TAG, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true).assertExists()
-    }
-
-    @Test
-    fun `watchlist keeps comparison metric columns aligned across cards`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = listOf(
-                        watchlistStation(
-                            id = "station-1",
-                            name = "가까운 주유소",
-                            priceWon = 999,
-                            priceNumberLabel = "999",
-                        ),
-                        watchlistStation(
-                            id = "station-2",
-                            name = "조금 먼 주유소",
-                            priceWon = 1899,
-                            priceNumberLabel = "1,899",
-                        ),
-                    ),
-                ),
-                onCloseClick = {},
-            )
-        }
-
-        val distanceMetricNodes = composeRule
-            .onAllNodesWithTag(WATCHLIST_DISTANCE_METRIC_TAG, useUnmergedTree = true)
+        val rowNodes = composeRule
+            .onAllNodesWithTag(WATCHLIST_ROW_TAG, useUnmergedTree = true)
             .fetchSemanticsNodes()
+        assertEquals(5, rowNodes.size)
 
-        assertEquals(2, distanceMetricNodes.size)
-        assertEquals(
-            distanceMetricNodes[0].boundsInRoot.left.toDouble(),
-            distanceMetricNodes[1].boundsInRoot.left.toDouble(),
-            0.5,
-        )
-    }
-
-    @Test
-    fun `watchlist uses bookmark copy across title and empty state`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = emptyList(),
-                ),
-                onCloseClick = {},
-            )
+        val rowHeights = rowNodes.map { node ->
+            with(composeRule.density) { node.boundsInRoot.height.toDp() }
         }
+        assertTrue("Expected every dense row in 108..116dp, got $rowHeights", rowHeights.all { it in 108.dp..116.dp })
 
-        composeRule.onNodeWithText("북마크").assertExists()
-        composeRule.onNodeWithText("저장한 주유소가 없습니다.").assertExists()
-        composeRule.onNodeWithText("주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.").assertExists()
-        composeRule.onNodeWithText("목록 화면에서 북마크를 눌러 바로 추가하세요.").assertExists()
-        composeRule.onNodeWithText("저장한 주유소의 가격과 거리를 한 번에 비교합니다.").assertExists()
-    }
-
-    @Test
-    fun `watchlist top bar exposes close action`() {
-        var closeClicks = 0
-
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = emptyList(),
-                ),
-                onCloseClick = { closeClicks += 1 },
-            )
-        }
-
-        composeRule.onNodeWithContentDescription("닫기").assertExists()
-        composeRule.onNodeWithContentDescription("닫기").performClick()
-
-        assertEquals(1, closeClicks)
-    }
-
-    @Test
-    fun `watchlist empty card stays in the upper portion of the screen`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = emptyList(),
-                ),
-                onCloseClick = {},
-            )
-        }
-
-        val rootBounds = composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val emptyTitleTop = composeRule
-            .onNodeWithText("저장한 주유소가 없습니다.", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot.top
-
+        val viewportBottom = with(composeRule.density) { 800.dp.toPx() }
         assertTrue(
-            "Expected empty watchlist card to sit in the upper portion of the screen (titleTop=$emptyTitleTop, rootHeight=${rootBounds.height})",
-            emptyTitleTop < rootBounds.height * 0.3f,
+            "Expected all five rows complete inside 800dp, bottom=${rowNodes.last().boundsInRoot.bottom}",
+            rowNodes.last().boundsInRoot.bottom <= viewportBottom,
         )
     }
 
     @Test
-    fun `watchlist shows delta indicator to the right of change value`() {
-        composeRule.setContent {
-            WatchlistScreen(
-                uiState = WatchlistUiState(
-                    stations = listOf(
-                        WatchlistItemUiModel(
-                            id = "station-1",
-                            name = "테스트 주유소",
-                            brand = Brand.GSC,
-                            brandLabel = "GS칼텍스",
-                            priceWon = 2022,
-                            priceLabel = "2,022원",
-                            priceNumberLabel = "2,022",
-                            priceUnitLabel = "원",
-                            distanceLabel = "0.3km",
-                            distanceNumberLabel = "0.3",
-                            distanceUnitLabel = "km",
-                            priceDeltaLabel = "17원",
-                            priceDeltaTone = WatchlistPriceDeltaTone.Rise,
-                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
-                            lastSeenLabel = "4월 18일 12:00",
-                            latitude = 37.498095,
-                            longitude = 127.02761,
-                        ),
-                    ),
-                ),
-                onCloseClick = {},
-            )
+    fun `dense rows use real compact brand logos without duplicate visible labels`() {
+        renderFiveRows()
+
+        listOf("SK에너지", "GS칼텍스", "S-OIL", "자영알뜰", "자가상표").forEach { label ->
+            composeRule.onNodeWithContentDescription("$label 브랜드").apply {
+                assertExists()
+                assertWidthIsEqualTo(34.dp)
+                assertHeightIsEqualTo(34.dp)
+            }
         }
-
-        val changeValueBounds = composeRule
-            .onNodeWithTag(WATCHLIST_CHANGE_VALUE_TAG, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val deltaIndicatorBounds = composeRule
-            .onNodeWithTag(WATCHLIST_DELTA_INDICATOR_TAG, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-
-        assertTrue(deltaIndicatorBounds.left > changeValueBounds.right)
-        assertEquals(changeValueBounds.top, deltaIndicatorBounds.top, 2f)
+        composeRule.onAllNodesWithText("자영알뜰").assertCountEquals(0)
+        composeRule.onAllNodesWithText("자가상표").assertCountEquals(0)
     }
 
     @Test
-    fun `watchlist constrains long saved station identity and large metrics`() {
-        val longName = "서울특별시강남구테헤란로초장문테스트주유소직영점"
-        val longBrandLabel = "현대오일뱅크직영초장문브랜드라벨"
+    fun `saved comparison summary exposes count average and latest check`() {
+        renderFiveRows()
 
+        composeRule.onNodeWithText("저장한 5곳").assertExists()
+        composeRule.onNodeWithText("평균 1,700원").assertExists()
+        composeRule.onNodeWithText("최근 확인 7월 17일 11:00").assertExists()
+    }
+
+    @Test
+    fun `remove action is a 48dp Korean-labelled target and dispatches station id`() {
+        val actions = mutableListOf<WatchlistAction>()
+        renderFiveRows(onAction = actions::add)
+
+        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-1").apply {
+            assertHeightIsAtLeast(48.dp)
+            performClick()
+        }
+        composeRule.onAllNodesWithContentDescription("관심 주유소에서 제거").assertCountEquals(5)
+        assertEquals(listOf(WatchlistAction.RemoveClicked("station-1")), actions)
+    }
+
+    @Test
+    fun `top level watchlist has title only and no close refresh or location controls`() {
+        renderFiveRows()
+
+        composeRule.onNodeWithText("관심 주유소").assertExists()
+        composeRule.onNodeWithContentDescription("닫기").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("새로고침").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("현재 위치").assertDoesNotExist()
+    }
+
+    @Test
+    fun `two hundred percent font scale expands rows and scrolls without clipping identity price or action`() {
+        val currentDensity = composeRule.density
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(
+                    density = currentDensity.density,
+                    fontScale = 2f,
+                ),
+            ) {
+                GasStationTheme {
+                    Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                        WatchlistScreen(
+                            uiState = fiveRowState(),
+                            onAction = {},
+                            onNavigateNearby = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val firstRowHeight = composeRule
+            .onAllNodesWithTag(WATCHLIST_ROW_TAG, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .first()
+            .boundsInRoot.height
+        assertTrue(
+            "Expected accessibility row to expand beyond the default cap.",
+            with(currentDensity) { firstRowHeight.toDp() > 116.dp },
+        )
+        composeRule.onNodeWithText("1,680").assertIsDisplayed()
+        composeRule.onNodeWithText("강남 제일 주유소").assertIsDisplayed()
+        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-1").assertIsDisplayed()
+
+        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-5").performScrollTo()
+        composeRule.onNodeWithText("1,720").assertIsDisplayed()
+        composeRule.onNodeWithText("비교 주유소 5").assertIsDisplayed()
+        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-5").assertIsDisplayed()
+    }
+
+    @Test
+    fun `empty guidance explains saving and navigates to Nearby`() {
+        var nearbyClicks = 0
+        composeRule.setContent {
+            GasStationTheme {
                 WatchlistScreen(
-                    uiState = WatchlistUiState(
-                        stations = listOf(
-                            WatchlistItemUiModel(
-                                id = "station-1",
-                                name = longName,
-                                brand = Brand.HDO,
-                                brandLabel = longBrandLabel,
-                                priceWon = 123_456_789,
-                                priceLabel = "123,456,789원",
-                                priceNumberLabel = "123,456,789",
-                                priceUnitLabel = "원",
-                                distanceLabel = "123.4km",
-                                distanceNumberLabel = "123.4",
-                                distanceUnitLabel = "km",
-                                priceDeltaLabel = "999원",
-                                priceDeltaTone = WatchlistPriceDeltaTone.Rise,
-                                lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
-                                lastSeenLabel = "4월 18일 12:00",
-                                latitude = 37.498095,
-                                longitude = 127.02761,
-                            ),
-                        ),
-                    ),
-                    onCloseClick = {},
+                    uiState = WatchlistUiState(),
+                    onAction = {},
+                    onNavigateNearby = { nearbyClicks += 1 },
                 )
             }
         }
 
-        val cardBounds = composeRule
-            .onNodeWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val distanceMetricBounds = composeRule
-            .onNodeWithTag(WATCHLIST_DISTANCE_METRIC_TAG, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val nameBounds = composeRule
-            .onNodeWithText(longName, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val brandLabelBounds = composeRule
-            .onNodeWithText(longBrandLabel, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val brandIconBounds = composeRule
-            .onNodeWithContentDescription("$longBrandLabel 브랜드", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-
-        assertTrue("Expected distance metric to stay inside the card.", distanceMetricBounds.right <= cardBounds.right)
-        assertTrue("Expected long station name to stay inside the card.", nameBounds.right <= cardBounds.right)
-        assertTrue("Expected long brand label to stay inside the card.", brandLabelBounds.right <= cardBounds.right)
-        assertTrue("Expected visible brand label to remain after the brand icon.", brandLabelBounds.left > brandIconBounds.right)
+        composeRule.onNodeWithText("저장한 주유소가 없습니다.").assertExists()
+        composeRule.onNodeWithText("주변 주유소 보기").performClick()
+        assertEquals(1, nearbyClicks)
     }
 
-    private fun watchlistStation(id: String, name: String, priceWon: Int, priceNumberLabel: String) = WatchlistItemUiModel(
-        id = id,
-        name = name,
-        brand = Brand.GSC,
-        brandLabel = "GS칼텍스",
-        priceWon = priceWon,
-        priceLabel = "${priceNumberLabel}원",
-        priceNumberLabel = priceNumberLabel,
-        priceUnitLabel = "원",
-        distanceLabel = "0.3km",
-        distanceNumberLabel = "0.3",
-        distanceUnitLabel = "km",
-        priceDeltaLabel = "-",
-        lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
-        lastSeenLabel = "4월 18일 12:00",
-        latitude = 37.498095,
-        longitude = 127.02761,
-    )
+    @Test
+    fun `row tag preserves legacy watchlist card selector value`() {
+        assertEquals("watchlist-card", WATCHLIST_ROW_TAG)
+        assertEquals(WATCHLIST_ROW_TAG, WATCHLIST_CARD_TEST_TAG)
+    }
+
+    private fun renderFiveRows(onAction: (WatchlistAction) -> Unit = {}) {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    WatchlistScreen(
+                        uiState = fiveRowState(),
+                        onAction = onAction,
+                        onNavigateNearby = {},
+                    )
+                }
+            }
+        }
+    }
+
+    private fun fiveRowState(): WatchlistUiState {
+        val items = listOf(Brand.SKE, Brand.GSC, Brand.SOL, Brand.RTO, Brand.ETC)
+            .mapIndexed { index, brand ->
+                val price = 1_680 + index * 10
+                WatchlistItemUiModel(
+                    id = "station-${index + 1}",
+                    name = if (index == 0) "강남 제일 주유소" else "비교 주유소 ${index + 1}",
+                    brand = brand,
+                    brandLabel = brand.gasStationBrandLabel(),
+                    priceWon = price,
+                    priceLabel = MoneyWon(price).gasStationPriceLabel(),
+                    priceNumberLabel = MoneyWon(price).gasStationPriceDigits(),
+                    priceUnitLabel = "원",
+                    distanceLabel = "${index + 1}.0km",
+                    distanceNumberLabel = "${index + 1}.0",
+                    distanceUnitLabel = "km",
+                    priceDeltaLabel = "-",
+                    lastSeenAt = Instant.parse("2026-07-17T02:00:00Z"),
+                    lastSeenLabel = "7월 17일 11:00",
+                    latitude = 37.49 + index * 0.001,
+                    longitude = 127.02 + index * 0.001,
+                )
+            }
+        return WatchlistUiState(
+            stations = items,
+            summary = WatchlistSummaryUiModel.from(items),
+        )
+    }
 }
