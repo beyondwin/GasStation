@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">주유주유소</string>
+    <string name="nav_nearby">주변</string>
+    <string name="nav_watchlist">관심</string>
+    <string name="nav_settings">설정</string>
+    <string name="nav_watchlist_disabled">현재 위치 확인 후 사용 가능</string>
 </resources>

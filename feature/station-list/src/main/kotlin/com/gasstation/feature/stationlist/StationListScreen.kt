@@ -67,7 +67,6 @@ internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
 internal const val STATION_LIST_REFRESH_RAIL_TAG = "station-list-refresh-rail"
 
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun StationListScreen(
     uiState: StationListUiState,
@@ -75,8 +74,6 @@ fun StationListScreen(
     onAction: (StationListAction) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenLocationSettings: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onWatchlistClick: (() -> Unit)? = null,
     onFirstContentDrawn: () -> Unit = {},
 ) {
     val refreshLabel = stringResource(R.string.station_list_action_refresh)

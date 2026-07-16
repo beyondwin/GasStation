@@ -69,8 +69,6 @@ class StationListScreenTest {
                     onAction = {},
                     onRequestPermissions = {},
                     onOpenLocationSettings = {},
-                    onSettingsClick = {},
-                    onWatchlistClick = {},
                 )
             }
         }
@@ -95,7 +93,6 @@ class StationListScreenTest {
                     onAction = {},
                     onRequestPermissions = {},
                     onOpenLocationSettings = {},
-                    onSettingsClick = {},
                 )
             }
         }
@@ -121,7 +118,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -154,7 +150,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -175,7 +170,6 @@ class StationListScreenTest {
                         onAction = {},
                         onRequestPermissions = {},
                         onOpenLocationSettings = {},
-                        onSettingsClick = {},
                     )
                 }
             }
@@ -213,7 +207,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -235,7 +228,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -256,7 +248,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -282,7 +273,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -303,7 +293,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -345,7 +334,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -395,7 +383,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -446,7 +433,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -498,7 +484,6 @@ class StationListScreenTest {
                     onAction = {},
                     onRequestPermissions = {},
                     onOpenLocationSettings = {},
-                    onSettingsClick = {},
                 )
             }
         }
@@ -567,7 +552,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -607,7 +591,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -662,7 +645,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -706,7 +688,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -730,7 +711,6 @@ class StationListScreenTest {
                 onAction = actions::add,
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -754,7 +734,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -776,7 +755,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -801,7 +779,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -824,7 +801,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -848,7 +824,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -870,7 +845,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -892,7 +866,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -918,7 +891,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = { locationSettingsOpened = true },
-                onSettingsClick = {},
             )
         }
 
@@ -945,7 +917,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -966,7 +937,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -988,7 +958,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -1009,8 +978,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
-                onWatchlistClick = {},
             )
         }
 
@@ -1032,8 +999,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
-                onWatchlistClick = {},
             )
         }
 
@@ -1057,7 +1022,6 @@ class StationListScreenTest {
                 onAction = actions::add,
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -1083,7 +1047,6 @@ class StationListScreenTest {
                 onAction = actions::add,
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -1108,7 +1071,6 @@ class StationListScreenTest {
                 onAction = actions::add,
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
             )
         }
 
@@ -1134,7 +1096,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
                 onFirstContentDrawn = { callbackCount += 1 },
             )
         }
@@ -1163,7 +1124,6 @@ class StationListScreenTest {
                 onAction = {},
                 onRequestPermissions = {},
                 onOpenLocationSettings = {},
-                onSettingsClick = {},
                 onFirstContentDrawn = { callbackCount += 1 },
             )
         }
@@ -1229,7 +1189,6 @@ class StationListScreenTest {
                     onAction = {},
                     onRequestPermissions = {},
                     onOpenLocationSettings = {},
-                    onSettingsClick = {},
                 )
             }
         }

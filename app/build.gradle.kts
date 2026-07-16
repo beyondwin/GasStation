@@ -80,10 +80,13 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.profileinstaller)
 
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
     kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)

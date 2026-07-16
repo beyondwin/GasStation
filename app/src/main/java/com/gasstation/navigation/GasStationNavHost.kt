@@ -7,13 +7,25 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.gasstation.core.model.Coordinates
 import com.gasstation.feature.settings.SettingsDetailRoute
 import com.gasstation.feature.settings.SettingsRoute
 import com.gasstation.feature.settings.SettingsSection
@@ -24,86 +36,144 @@ import com.gasstation.map.ExternalMapLauncher
 @Composable
 fun GasStationNavHost(externalMapLauncher: ExternalMapLauncher, onStationListFirstContentDrawn: () -> Unit = {}) {
     val navController = rememberNavController()
+    var originLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var originLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    val origin = originLatitude?.let { latitude ->
+        originLongitude?.let { longitude -> Coordinates(latitude, longitude) }
+    }
+    val navigationState = TopLevelNavigationState(origin)
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = GasStationDestination.StationList.route,
-    ) {
-        composable(
-            route = GasStationDestination.StationList.route,
-            enterTransition = { forwardEnterTransition() },
-            exitTransition = { forwardExitTransition() },
-            popEnterTransition = { backwardEnterTransition() },
-            popExitTransition = { backwardExitTransition() },
-        ) {
-            StationListRoute(
-                onSettingsClick = { navController.navigate(GasStationDestination.Settings.route) },
-                onWatchlistClick = { coordinates ->
-                    navController.navigate(GasStationDestination.Watchlist.createRoute(coordinates))
-                },
-                onOpenExternalMap = { effect ->
-                    externalMapLauncher.open(
-                        provider = effect.provider,
-                        stationName = effect.stationName,
-                        originLatitude = effect.originLatitude,
-                        originLongitude = effect.originLongitude,
-                        latitude = effect.latitude,
-                        longitude = effect.longitude,
-                    )
-                },
-                onFirstContentDrawn = onStationListFirstContentDrawn,
-            )
-        }
-        composable(
-            route = GasStationDestination.Settings.route,
-            enterTransition = { forwardEnterTransition() },
-            exitTransition = { forwardExitTransition() },
-            popEnterTransition = { backwardEnterTransition() },
-            popExitTransition = { backwardExitTransition() },
-        ) {
-            SettingsRoute(
-                onCloseClick = { navController.popBackStack() },
-                onSectionClick = { section ->
-                    navController.navigate(GasStationDestination.SettingsDetail.createRoute(section))
-                },
-            )
-        }
-        composable(
-            route = GasStationDestination.SettingsDetail.route,
-            arguments = listOf(
-                navArgument(GasStationDestination.SettingsDetail.SECTION_ARG) {
-                    type = NavType.StringType
-                },
-            ),
-            enterTransition = { forwardEnterTransition() },
-            exitTransition = { forwardExitTransition() },
-            popEnterTransition = { backwardEnterTransition() },
-            popExitTransition = { backwardExitTransition() },
-        ) { backStackEntry ->
-            val routeSegment = requireNotNull(
-                backStackEntry.arguments?.getString(GasStationDestination.SettingsDetail.SECTION_ARG),
-            )
-            val section = SettingsSection.requireFromRouteSegment(routeSegment)
-            val settingsBackStackEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(GasStationDestination.Settings.route)
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            if (shouldShowBottomBar(currentRoute)) {
+                GasStationBottomNavigation(
+                    selected = selectedTopLevelDestination(currentRoute),
+                    watchlistEnabled = navigationState.watchlistEnabled,
+                    onNearby = {
+                        navController.navigateTopLevel(GasStationDestination.StationList.route)
+                    },
+                    onWatchlist = {
+                        navigationState.origin?.let { availableOrigin ->
+                            navController.navigateTopLevel(
+                                GasStationDestination.Watchlist.createRoute(availableOrigin),
+                            )
+                        }
+                    },
+                    onSettings = {
+                        navController.navigateTopLevel(GasStationDestination.Settings.route)
+                    },
+                )
             }
-
-            SettingsDetailRoute(
-                section = section,
-                onBackClick = { navController.popBackStack() },
-                viewModelStoreOwner = settingsBackStackEntry,
+        },
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = GasStationDestination.StationList.route,
+            modifier = Modifier.padding(innerPadding),
+        ) {
+            gasStationDestinations(
+                navController = navController,
+                externalMapLauncher = externalMapLauncher,
+                onCoordinatesAvailable = { coordinates ->
+                    originLatitude = coordinates?.latitude
+                    originLongitude = coordinates?.longitude
+                },
+                onStationListFirstContentDrawn = onStationListFirstContentDrawn,
             )
         }
-        composable(
-            route = GasStationDestination.Watchlist.route,
-            enterTransition = { forwardEnterTransition() },
-            exitTransition = { forwardExitTransition() },
-            popEnterTransition = { backwardEnterTransition() },
-            popExitTransition = { backwardExitTransition() },
-        ) {
-            WatchlistRoute(
-                onCloseClick = { navController.popBackStack() },
-            )
+    }
+}
+
+private fun NavGraphBuilder.gasStationDestinations(
+    navController: NavHostController,
+    externalMapLauncher: ExternalMapLauncher,
+    onCoordinatesAvailable: (Coordinates?) -> Unit,
+    onStationListFirstContentDrawn: () -> Unit,
+) {
+    composable(
+        route = GasStationDestination.StationList.route,
+        enterTransition = { forwardEnterTransition() },
+        exitTransition = { forwardExitTransition() },
+        popEnterTransition = { backwardEnterTransition() },
+        popExitTransition = { backwardExitTransition() },
+    ) {
+        StationListRoute(
+            onCoordinatesAvailable = onCoordinatesAvailable,
+            onOpenExternalMap = { effect ->
+                externalMapLauncher.open(
+                    provider = effect.provider,
+                    stationName = effect.stationName,
+                    originLatitude = effect.originLatitude,
+                    originLongitude = effect.originLongitude,
+                    latitude = effect.latitude,
+                    longitude = effect.longitude,
+                )
+            },
+            onFirstContentDrawn = onStationListFirstContentDrawn,
+        )
+    }
+    composable(
+        route = GasStationDestination.Settings.route,
+        enterTransition = { forwardEnterTransition() },
+        exitTransition = { forwardExitTransition() },
+        popEnterTransition = { backwardEnterTransition() },
+        popExitTransition = { backwardExitTransition() },
+    ) {
+        SettingsRoute(
+            onSectionClick = { section ->
+                navController.navigate(GasStationDestination.SettingsDetail.createRoute(section))
+            },
+        )
+    }
+    composable(
+        route = GasStationDestination.SettingsDetail.route,
+        arguments = listOf(
+            navArgument(GasStationDestination.SettingsDetail.SECTION_ARG) {
+                type = NavType.StringType
+            },
+        ),
+        enterTransition = { forwardEnterTransition() },
+        exitTransition = { forwardExitTransition() },
+        popEnterTransition = { backwardEnterTransition() },
+        popExitTransition = { backwardExitTransition() },
+    ) { backStackEntry ->
+        val routeSegment = requireNotNull(
+            backStackEntry.arguments?.getString(GasStationDestination.SettingsDetail.SECTION_ARG),
+        )
+        val settingsBackStackEntry = remember(backStackEntry) {
+            navController.getBackStackEntry(GasStationDestination.Settings.route)
+        }
+
+        SettingsDetailRoute(
+            section = SettingsSection.requireFromRouteSegment(routeSegment),
+            onBackClick = navController::popBackStack,
+            viewModelStoreOwner = settingsBackStackEntry,
+        )
+    }
+    composable(
+        route = GasStationDestination.Watchlist.route,
+        enterTransition = { forwardEnterTransition() },
+        exitTransition = { forwardExitTransition() },
+        popEnterTransition = { backwardEnterTransition() },
+        popExitTransition = { backwardExitTransition() },
+    ) {
+        WatchlistRoute(
+            onNavigateNearby = {
+                navController.navigateTopLevel(GasStationDestination.StationList.route)
+            },
+        )
+    }
+}
+
+private fun NavHostController.navigateTopLevel(route: String) {
+    navigate(route) {
+        launchSingleTop = TOP_LEVEL_NAVIGATION_POLICY.launchSingleTop
+        restoreState = TOP_LEVEL_NAVIGATION_POLICY.restoreState
+        popUpTo(graph.startDestinationId) {
+            saveState = TOP_LEVEL_NAVIGATION_POLICY.saveState
         }
     }
 }

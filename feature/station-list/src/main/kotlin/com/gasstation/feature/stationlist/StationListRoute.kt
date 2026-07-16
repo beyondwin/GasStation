@@ -26,10 +26,8 @@ import kotlinx.coroutines.flow.collectLatest
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun StationListRoute(
-    onSettingsClick: () -> Unit,
-    onWatchlistClick: (Coordinates) -> Unit,
+    onCoordinatesAvailable: (Coordinates?) -> Unit,
     onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Unit,
-    onCoordinatesAvailable: (Coordinates?) -> Unit = {},
     onFirstContentDrawn: () -> Unit = {},
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
@@ -89,10 +87,6 @@ fun StationListRoute(
         onRequestPermissions = { permissionState.launchMultiplePermissionRequest() },
         onOpenLocationSettings = {
             context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-        },
-        onSettingsClick = onSettingsClick,
-        onWatchlistClick = uiState.watchlistCoordinatesOrNull()?.let { coordinates ->
-            { onWatchlistClick(coordinates) }
         },
         onFirstContentDrawn = onFirstContentDrawn,
     )

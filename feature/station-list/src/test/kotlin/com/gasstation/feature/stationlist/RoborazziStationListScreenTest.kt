@@ -201,8 +201,6 @@ class RoborazziStationListScreenTest {
                     onAction = {},
                     onRequestPermissions = {},
                     onOpenLocationSettings = {},
-                    onSettingsClick = {},
-                    onWatchlistClick = null,
                 )
             }
         }
