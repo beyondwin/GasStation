@@ -156,7 +156,7 @@ Run the repository static, unit, screenshot, mutation, coverage, debug, benchmar
 
 Expected: `BUILD SUCCESSFUL` with zero Gradle deprecations and no test failures.
 
-- [ ] **Step 2: Inspect and commit the branch**
+- [x] **Step 2: Inspect and commit the branch**
 
 Run `git diff --check`, inspect the complete diff, and commit with:
 
@@ -164,6 +164,6 @@ Run `git diff --check`, inspect the complete diff, and commit with:
 git commit -m "chore: close dependency upgrade risks"
 ```
 
-- [ ] **Step 3: Merge and verify local main**
+- [x] **Step 3: Merge and verify local main**
 
 Switch to `main`, merge `codex/resolve-upgrade-risks`, rerun the warning gate plus representative full regression on the merged path, and confirm `git status --short` is empty.
