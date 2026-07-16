@@ -43,14 +43,18 @@ class DemoSeedGenerator(private val fetcher: DemoSeedStationFetcher) {
         originLabel: String = GANGNAM_STATION_EXIT_2_LABEL,
     ): DemoSeedDocument {
         val snapshots = DemoSeedQueryMatrix.all().map { query ->
+            val fetchedStations = fetcher.fetchStations(
+                origin = origin,
+                radius = query.radius,
+                fuelType = query.fuelType,
+            )
+            val stations = (fetchedStations + DemoPortfolioStations.forQuery(query.radius, query.fuelType))
+                .distinctBy(DemoSeedRemoteStation::stationId)
+
             DemoSeedSnapshot(
                 radiusMeters = query.radius.meters,
                 fuelType = query.fuelType.name,
-                stations = fetcher.fetchStations(
-                    origin = origin,
-                    radius = query.radius,
-                    fuelType = query.fuelType,
-                ).map { station ->
+                stations = stations.map { station ->
                     DemoSeedStation(
                         stationId = station.stationId,
                         brandCode = station.brandCode,

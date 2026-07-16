@@ -16,7 +16,7 @@ private const val COARSE_LOCATION_PERMISSION = "android.permission.ACCESS_COARSE
 private const val FINE_LOCATION_PERMISSION = "android.permission.ACCESS_FINE_LOCATION"
 private const val REFRESH_ACTION_DESCRIPTION = "새로고침"
 private const val REFRESH_RAIL_TITLE = "가격 갱신 중"
-private const val STATION_LIST_WATCHLIST_ACTION_TAG = "station-list-watchlist-action"
+private const val BOTTOM_NAV_WATCHLIST_TAG = "bottom-nav-watchlist"
 private const val STATION_LIST_WATCH_TOGGLE_TAG = "station-list-watch-toggle"
 private const val WATCHLIST_CARD_TAG = "watchlist-card"
 
@@ -79,8 +79,8 @@ internal fun MacrobenchmarkScope.openWatchlistWithSavedStation() {
         label = "station-list watch toggle resource id '$STATION_LIST_WATCH_TOGGLE_TAG'",
     )
     clickStable(
-        selector = resourceId(STATION_LIST_WATCHLIST_ACTION_TAG),
-        label = "station-list watchlist action resource id '$STATION_LIST_WATCHLIST_ACTION_TAG'",
+        selector = resourceId(BOTTOM_NAV_WATCHLIST_TAG),
+        label = "watchlist bottom navigation resource id '$BOTTOM_NAV_WATCHLIST_TAG'",
     )
     waitForObject(
         selector = resourceId(WATCHLIST_CARD_TAG),

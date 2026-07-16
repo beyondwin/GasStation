@@ -80,11 +80,13 @@ UI 작업은 station list를 기준 화면으로 본다. 이 화면이 가격, �
 1. `core:designsystem`의 color, typography, spacing, component를 먼저 확인한다.
 2. feature 내부에 중복된 metric, supporting block, status surface가 있으면 shared primitive 후보인지 판단한다.
 3. 가격은 첫 번째 시선, 거리는 두 번째 판단 기준으로 유지한다.
-4. station list card에서는 브랜드 텍스트보다 브랜드 아이콘 중심 계약을 유지한다.
-5. watchlist에서는 저장 항목 식별을 위해 브랜드 label 표시 계약을 유지한다.
+4. station list에서는 borderless price-first row와 실제 브랜드 아이콘 계약을 유지하고 visible 브랜드 텍스트를 추가하지 않는다.
+5. watchlist에서도 실제 브랜드 로고만 보여주며 visible 브랜드 label을 반복하지 않는다.
 6. 상태 화면은 permission, GPS, loading, empty, blocking failure가 같은 guidance system처럼 읽히게 한다.
 7. semantics, content description, test tag를 제거할 때는 대체 테스트를 함께 만든다.
 8. Compose `testTag`는 도구용 selector이므로 안정적인 ASCII 값을 쓰고, 사용자/스크린 리더 문구는 `contentDescription` 같은 접근성 semantics로 분리한다.
+
+Urban Signal 기준 canvas는 `#FFFCF2`, black chrome은 `#222222`, yellow signal은 `#FFDC00`입니다. 최상위 화면은 `주변·관심·설정` bottom navigation을 사용하고 SettingsDetail에서만 숨깁니다.
 
 UI 변경 후에는 screenshot/readme story가 glanceable speed에서 여전히 읽히는지 확인한다.
 
@@ -155,10 +157,12 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 
 규칙:
 
-- 기준 좌표는 navigation argument와 `SavedStateHandle`에서 온다.
+- 기준 좌표는 app navigation state가 관리하는 최신 좌표 payload와 `SavedStateHandle`에서 온다. 좌표 변경 시 이전 concrete watchlist route는 재사용하지 않는다.
 - 별도 위치 조회나 refresh 세션 상태를 들고 있지 않는다.
 - 저장 항목은 최신 캐시가 없어도 가격 히스토리와 저장된 좌표/브랜드/이름으로 가능한 만큼 복원한다.
-- watchlist card는 브랜드 icon과 label을 함께 보여주는 현재 계약을 유지한다.
+- 기본 row는 108–116dp로 360dp × 800dp에서 다섯 개 complete row를 보여주고, 200% font scale에서는 clipping 없이 확장·scroll한다.
+- 실제 브랜드 icon만 보여주며 visible label은 반복하지 않는다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`를 사용한다.
+- connected와 benchmark의 top-level 진입 selector는 `bottom-nav-watchlist`, 저장/행 selector는 각각 `station-list-watch-toggle`, `watchlist-card`다.
 
 변경 전 확인 파일:
 

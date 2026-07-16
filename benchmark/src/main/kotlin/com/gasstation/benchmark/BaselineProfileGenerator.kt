@@ -21,6 +21,7 @@ class BaselineProfileGenerator {
         waitForStationListContent()
         refreshStationList()
         scrollStationList()
+        // Save one station, then enter Watchlist through the persistent bottom navigation.
         openWatchlistWithSavedStation()
     }
 }

@@ -282,6 +282,22 @@
           "priceWon": 2005,
           "latitude": 37.473582895492136,
           "longitude": 127.0397384288739
+        },
+        {
+          "stationId": "DEMO-RTO-001",
+          "brandCode": "RTO",
+          "name": "행복드림 알뜰주유소",
+          "priceWon": 1968,
+          "latitude": 37.4935,
+          "longitude": 127.0258
+        },
+        {
+          "stationId": "DEMO-ETC-001",
+          "brandCode": "ETC",
+          "name": "우리동네 주유소",
+          "priceWon": 1987,
+          "latitude": 37.5004,
+          "longitude": 127.0321
         }
       ]
     },
@@ -5643,6 +5659,42 @@
         },
         {
           "priceWon": 1998,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "DEMO-ETC-001",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 2014,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 2006,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1987,
+          "fetchedAtEpochMillis": 1776501938392
+        }
+      ]
+    },
+    {
+      "stationId": "DEMO-RTO-001",
+      "fuelType": "GASOLINE",
+      "entries": [
+        {
+          "priceWon": 1957,
+          "fetchedAtEpochMillis": 1776329138392
+        },
+        {
+          "priceWon": 1962,
+          "fetchedAtEpochMillis": 1776415538392
+        },
+        {
+          "priceWon": 1968,
           "fetchedAtEpochMillis": 1776501938392
         }
       ]

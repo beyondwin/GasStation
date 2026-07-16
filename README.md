@@ -14,19 +14,19 @@
 
 ## 미리보기
 
-`prod` 기준 주요 화면입니다.
+재현 가능한 `demo` 경로에서 캡처한 Urban Signal UI 주요 화면입니다.
 
 <p align="center">
-  <img width="31%" alt="주유주유소 가까운 주유소 목록 화면" src="docs/readme-assets/playstore_11.png">
-  <img width="31%" alt="주유주유소 한 번의 터치 길 안내 화면" src="docs/readme-assets/playstore_22.png">
-  <img width="31%" alt="주유주유소 찾기 설정 화면" src="docs/readme-assets/playstore_33.png">
+  <img width="31%" alt="가격 우선 가까운 주유소 화면" src="docs/readme-assets/playstore_11.png">
+  <img width="31%" alt="다섯 곳을 한눈에 비교하는 관심 주유소 화면" src="docs/readme-assets/playstore_22.png">
+  <img width="31%" alt="실제 브랜드 타일을 사용하는 브랜드 필터 상세 화면" src="docs/readme-assets/playstore_33.png">
 </p>
 
 ## 빠른 요약
 
 | 항목 | 내용 |
 | --- | --- |
-| 사용자 플로우 | 현재 위치 조회 -> 목록 확인 -> 북마크 저장 -> watchlist 비교 -> 외부 지도 열기 |
+| 사용자 플로우 | 현재 위치 조회 -> 주변 목록 확인 -> 관심 저장 -> 관심 목록 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
 | 현재 앱 버전 | `1.2.0` (`versionCode` 8) |
@@ -43,9 +43,11 @@
 - 목록은 stale 결과를 유지하고, 일시적 `Timeout`/`Network` 실패는 `data:station`에서 1회 재시도합니다. 성공한 refresh는 7일 보관 기준으로 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
 - `StationListViewModel`은 최종 UI state/effect 조합에 집중하고, 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, refresh retry는 `StationRetryPolicy`가 맡습니다.
 - `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. `CrashReporter` 같은 비치명 예외 보고 계약은 `core:observability`가 소유하고, 앱이 flavor별 구현을 바인딩합니다.
-- 주유소 목록 카드는 가격과 거리 가독성을 우선하고, 유종 chip 옆에는 브랜드 텍스트 없이 브랜드 아이콘만 배치합니다.
+- 주변 주유소는 테두리 없는 price-first row로 보여주며, 가격을 32sp hero로 두고 거리·역명·유종·실제 브랜드 로고를 보조 정보로 배치합니다.
+- `#FFFCF2` canvas, `#222222` black chrome, `#FFDC00` yellow signal을 공통 토큰으로 사용하고 `주변·관심·설정` bottom navigation을 유지합니다. 설정 상세에서는 bottom navigation을 숨깁니다.
+- 관심 목록은 108–116dp 기본 row에 28sp 가격과 실제 브랜드 로고를 배치해 360dp × 800dp에서 다섯 개 완전한 행을 보여줍니다. 200% 글꼴에서는 행이 확장되고 화면이 스크롤됩니다.
 - `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `FuelType`, `SearchRadius` 같은 값 객체 행동과 공유 vocabulary는 `core:model`에 두어 data, settings, network, designsystem이 `domain:station`을 거치지 않고 사용합니다.
-- `core:designsystem`의 metric, supporting-info, row, guidance primitive와 브랜드 표시 라벨을 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다.
+- `core:designsystem`의 Urban Signal token, metric, row, guidance primitive와 실제 브랜드 drawable mapping을 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`를 사용합니다.
 - 설정 메인 화면과 상세 선택 화면은 route는 다르지만 같은 `SettingsViewModel` 상태를 공유하고, 쓰기는 explicit domain use case로만 흘립니다.
 - `prod` 검색 파이프라인은 로컬 KATEC 좌표 변환 + Opinet 호출만 사용하고, `demo`는 같은 규칙을 seed 데이터로 재현합니다.
 
@@ -116,8 +118,8 @@ flowchart LR
 2. ViewModel은 `domain:location` 유스케이스와 `UserPreferences`를 조합해 검색 입력만 담는 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
 3. 현재 주소 라벨은 `domain:location`의 `AddressLabelNormalizer`가 행정동 중심으로 정규화하고, `core:location`은 Android 지오코더 후보를 그 규칙에 통과시킵니다.
 4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷은 유지됩니다. `Timeout`/`Network` 실패는 500ms 뒤 한 번 재시도하고, `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
-5. 목록에서 저장한 주유소는 watchlist 화면에서 가격 변화와 거리 기준으로 다시 비교할 수 있습니다.
-6. 주유소 카드 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다.
+5. 목록에서 저장한 주유소는 `주변·관심·설정` bottom navigation의 관심 화면에서 가격 변화와 거리 기준으로 다시 비교할 수 있습니다.
+6. 주유소 행 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다.
 
 ## 실행 모드
 

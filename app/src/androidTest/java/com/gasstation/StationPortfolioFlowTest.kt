@@ -1,10 +1,10 @@
 package com.gasstation
 
+import android.Manifest
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,7 +19,9 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
 import javax.inject.Inject
 
 @HiltAndroidTest
@@ -34,10 +36,29 @@ class StationPortfolioFlowTest {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    @get:Rule
+    @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
-    @get:Rule
+    @get:Rule(order = 1)
+    val locationPermissionRule = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val packageName = instrumentation.targetContext.packageName
+                instrumentation.uiAutomation.grantRuntimePermission(
+                    packageName,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                )
+                instrumentation.uiAutomation.grantRuntimePermission(
+                    packageName,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                )
+                base.evaluate()
+            }
+        }
+    }
+
+    @get:Rule(order = 2)
     val rule = createAndroidComposeRule<MainActivity>()
 
     @Before
@@ -50,20 +71,15 @@ class StationPortfolioFlowTest {
         reseedDemoDatabase()
 
         rule.waitUntil(timeoutMillis = 10_000) {
-            rule.onAllNodesWithContentDescription("저장")
+            rule.onAllNodesWithTag("station-list-watch-toggle", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        rule.onAllNodesWithContentDescription("저장")
+        rule.onAllNodesWithTag("station-list-watch-toggle", useUnmergedTree = true)
             .onFirst()
             .performClick()
 
-        rule.waitUntil(timeoutMillis = 10_000) {
-            rule.onAllNodesWithContentDescription("북마크")
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-
-        rule.onNodeWithContentDescription("북마크").performClick()
+        rule.onNodeWithTag("bottom-nav-watchlist", useUnmergedTree = true).performClick()
 
         rule.waitUntil(timeoutMillis = 10_000) {
             rule.onAllNodesWithTag(

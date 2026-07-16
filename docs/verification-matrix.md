@@ -202,8 +202,8 @@ demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.
 대표 시나리오:
 
 - seed를 적재한 목록 화면 진입
-- 북마크 저장
-- watchlist 화면 이동
+- `station-list-watch-toggle`로 관심 저장
+- `bottom-nav-watchlist`로 관심 화면 이동 후 `watchlist-card` 확인
 
 ## 위치 Geocoder 기기 smoke
 
@@ -240,7 +240,9 @@ Hero benchmarks require a physical device for committed performance numbers. Emu
 ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest
 ```
 
-The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs for the save action, top-bar bookmark action, and watchlist card. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs: `station-list-watch-toggle`, `bottom-nav-watchlist`, and `watchlist-card`. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+
+`verifyRoborazziDebug`는 designsystem 및 Nearby shared states뿐 아니라 Watchlist 5행/200% font scale과 Settings overview/detail Urban Signal snapshot도 검증합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
 
 After a successful run, inspect generated JSON and trace artifacts:
 

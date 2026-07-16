@@ -26,14 +26,14 @@
 | `core:network` | `LocalKoreanCoordinateTransformTest`, `NetworkStationFetcherTest`, `ProxyStationFetcherTest`, `NetworkRuntimeConfigTest` | 좌표 변환, direct/proxy 원격 fetcher, endpoint 모드 설정 주입과 proxy base URL 검증 |
 | `core:location` | `AddressLabelFormatterTest`, `AndroidForegroundLocationProviderSurfaceTest`, `AndroidForegroundLocationProviderTest`, `DefaultLocationRepositoryTest`, `LocationAvailabilityFlowTest`, `LocationPermissionStateTest`, `GeocoderAsyncLookupTest`, `AndroidAddressResolverDeviceTest` | Android 위치 조회 표면, API 33+ 지오코더 callback wrapping, Android Address 후보 변환과 domain 정규화 적용, domain location 구현, availability broadcast 반영, device-backed callback smoke |
 | `core:datastore` | `UserPreferencesSerializerTest`, `AndroidUserPreferencesDataSourceTest` | storage-local 설정 DTO 직렬화와 DataStore 업데이트 |
-| `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest` | 브랜드 anchor 색상, tinted surface token, typography/spacing token, metric/supporting-info/row/status/guidance chrome 계약, `Brand`별 아이콘과 표시 label 매핑 |
+| `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest`, Roborazzi snapshot | Urban Signal `#FFFCF2`/`#222222`/`#FFDC00` token, typography/spacing, chrome와 shared primitive, 실제 `Brand` drawable 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, 알 수 없는 enum name fallback |
 | `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
-| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest` | 위치 상태 전이, query/cache/failure orchestration, extraction 이후 UI state composition/effect/action dispatch, stale/approximate guidance, 주소 컨텍스트 표시, 가격 우선 카드, 긴 역명/가격/유종 clipping 방지, route lifecycle 기반 availability 관찰과 권한/GPS recovery, first usable content 기준 |
-| `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest` | 설정 요약/상세 화면 계약, 그룹/row hierarchy, selected check affordance, 긴 현재값 row clipping 방지 |
-| `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest` | 북마크 비교 화면 상태와 표시, `CompareViewed` event, brand label 보존, metric column alignment, 긴 저장 항목/큰 가격 clipping 방지 |
+| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, query/cache/failure orchestration, price-first row와 typed summary, stale/empty/permission/GPS/failure, 긴 역명/가격/유종 clipping 방지, route lifecycle 기반 availability 관찰과 권한/GPS recovery, first usable content 기준 |
+| `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest`, Roborazzi overview/detail | 설정 상태, update use case dispatch, flat row, 실제 브랜드 tile, route/summary 계약 |
+| `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 관심 비교 상태, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
 | `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 인텐트 |
-| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `StationPortfolioFlowTest` | seed 적재, 고정 위치, 실제 북마크 플로우 |
+| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `StationPortfolioFlowTest` | seed 적재, 고정 위치, RTO/ETC portfolio row, `station-list-watch-toggle` -> `bottom-nav-watchlist` -> `watchlist-card` 실제 관심 플로우 |
 | `benchmark` | `StationListBenchmark`, `BaselineProfileGenerator`, `GasStationBenchmarkActions` | startup-to-first-content, list scroll, refresh, watchlist 진입, baseline profile journey |
 | `tools:demo-seed` | `DemoSeedGeneratorTest` | seed 생성기와 질의 매트릭스 |
 
@@ -45,7 +45,7 @@
 
 - startup hook이 DB와 선호를 고정 상태로 리셋하는지
 - 고정 위치 override가 실제 런타임에 들어오는지
-- 목록 -> 북마크 저장 -> watchlist 이동 플로우가 실제 기기 테스트에서 동작하는지
+- 목록 -> 관심 저장 -> `bottom-nav-watchlist` -> `watchlist-card` 플로우가 실제 기기 테스트에서 동작하는지
 - benchmark가 반복 가능한 데이터 경로를 기준으로 측정되는지
 
 ### `prod`
@@ -70,12 +70,12 @@
   Android 지오코더는 `대한민국`, `KR`, 건물 동, 도로명 조각을 섞어 줄 수 있습니다. 순수 정규화는 `domain:location`, Android `Address` 후보 변환은 `core:location` 테스트로 나눠 목록 상단에 raw 주소가 그대로 노출되지 않게 막습니다.
 - `AndroidAddressResolverDeviceTest`
   API 33+ Geocoder callback path를 실제 기기/에뮬레이터에서 확인하는 connected smoke test입니다. Provider 출력은 기기와 네트워크 상태에 따라 달라지므로 주소 문자열이 아니라 terminal domain result 도달만 검증합니다.
-- `BrandLabels`
-  station list, watchlist, settings가 같은 브랜드 표시 label을 공유하므로 RTX 같은 canonical label 회귀를 한 곳에서 막습니다.
+- `BrandIconTest` / feature Roborazzi
+  RTO/RTX/NHO -> `ic_rtx`, ETC -> `ic_etc`와 나머지 실제 drawable mapping, Watchlist의 visible brand label 미반복을 함께 막습니다.
 - Theme/string cleanup
   Feature-owned user copy는 `app`이나 `core:designsystem`으로 이동하지 않습니다. 화면 semantics와 test tag가 회귀 방어선입니다.
 - Compose semantics/test tag cleanup
-  테스트용 식별자는 사용자 표시 문자열과 분리합니다. watchlist card처럼 스크린 리더에 필요한 한글 설명은 유지하되, 테스트는 안정적인 ASCII tag를 선택합니다.
+  테스트용 식별자는 사용자 표시 문자열과 분리합니다. 스크린 리더에 필요한 한글 설명은 유지하되, 테스트는 `station-list-watch-toggle`, `bottom-nav-watchlist`, `watchlist-card` 같은 안정적인 ASCII tag를 선택합니다.
 - Station-list Main dispatcher test setup
   `StationListViewModelTest`의 `Dispatchers.setMain/resetMain` 반복은 `MainDispatcherRule`로 묶어 scheduler 기대를 한 곳에서 관리합니다.
 - `DemoSeedStartupHook`

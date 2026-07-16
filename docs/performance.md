@@ -50,7 +50,7 @@ The baseline profile generator covers:
 - Station-list scroll
 - Watchlist entry after saving a station
 
-The generator and its companion `openWatchlistFrameTiming` benchmark depend on the station-list save action, top-bar bookmark action, and watchlist card appearing within the benchmark helper timeout. Those elements are selected through Compose test tags exposed as resource IDs so benchmark selectors stay separate from Korean accessibility copy. See Known Limitations for the current status of those two scenarios.
+The generator and its companion `openWatchlistFrameTiming` benchmark depend on `station-list-watch-toggle`, the persistent `bottom-nav-watchlist` tab, and `watchlist-card` appearing within the benchmark helper timeout. These ASCII test tags are exposed as resource IDs so benchmark selectors stay separate from Korean accessibility copy. See Known Limitations for the current status of those two scenarios.
 
 ## Commands
 
@@ -70,7 +70,7 @@ The `:app` `benchmark` build type forks `release` with `isDebuggable=false`, `is
 ## Known Limitations
 
 - **Baseline profile not installed.** `BaselineProfileGenerator.collectHeroJourney` did not produce a committed physical-device profile in the latest measured run, so compilation mode stays at `verify`. Startup numbers above are realistic for first-install / post-update users and represent a lower-bound improvement target once a baseline profile is generated.
-- **`openWatchlistFrameTiming` not yet re-measured on a physical device.** On 2026-06-07 the benchmark helper launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and waits for stable resource-id selectors before interacting with the station list or watchlist: `station-list-watch-toggle`, `station-list-watchlist-action`, and `watchlist-card`. The code assembles, but this release-readiness pass did not have a physical device attached, so no new `openWatchlistFrameTiming` JSON or trace artifact was generated. Keep README performance numbers unchanged until `ANDROID_SERIAL=<physical device> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest` passes and `find benchmark/build/outputs/connected_android_test_additional_output -name '*benchmarkData.json' -print` shows a new source JSON.
+- **`openWatchlistFrameTiming` not yet re-measured on a physical device.** The benchmark helper launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and waits for `station-list-watch-toggle`, `bottom-nav-watchlist`, and `watchlist-card`. Task 8 verified the same selector flow on a Pixel 8 API 37 emulator, and `:benchmark:assemble` keeps the production benchmark contract compiled, but no new physical-device JSON or trace artifact was generated. Keep README performance numbers unchanged until `ANDROID_SERIAL=<physical device> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest` passes and `find benchmark/build/outputs/connected_android_test_additional_output -name '*benchmarkData.json' -print` shows a new source JSON.
 - **Cooling and thermal state not enforced.** macrobenchmark warned about `SUSTAINED_PERFORMANCE_MODE` being unavailable; results above are the median over 10 startup iterations and 5 frame iterations, which mitigates but does not eliminate device-side thermal variance. Re-run on a cooled device before committing future numbers if comparisons span multiple firmware revisions.
 
 ## APK Size (demo flavor)

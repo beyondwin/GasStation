@@ -8,6 +8,7 @@
 | --- | --- | --- | --- |
 | 영속 선호 상태 | `UserPreferences` | 프로세스 재시작 이후에도 유지 | 반경, 유종, 브랜드, 정렬, 지도 앱 |
 | 목록 위치 상태 | `LocationStateMachine` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS availability, 현재 좌표, 주소 라벨, denied-access, recovery refresh flag |
+| navigation 좌표 payload | `GasStationNavHost` | app navigation graph 생존 동안 유지 | 관심 tab 활성화와 watchlist 거리 기준 route |
 | 목록 검색 상태 | `StationSearchOrchestrator` | `StationListViewModel` 생존 동안만 유지 | active query, cache snapshot state, observed search result, pending blocking refresh failure |
 | 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
@@ -65,6 +66,8 @@
 
 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
+목록 좌표는 app에 navigation payload로도 전달됩니다. 이는 watchlist의 거리 기준과 관심 tab 활성화에만 쓰이며, 검색 정책이나 위치 세션의 소유권을 app으로 옮기지 않습니다. 좌표가 바뀌면 이전 concrete watchlist route를 제거해 restore가 stale 좌표를 재사용하지 않게 합니다.
+
 `StationListViewModel`은 `StationSearchResult.stations` source list가 같고 freshness나 metadata만 바뀐 emission에서는 기존 `StationListItemUiModel` list identity를 재사용합니다. 이 최적화는 UI projection 내부 구현이며, 캐시 존재 여부나 blocking failure 의미를 바꾸지 않습니다.
 
 `StationSearchResult`의 의미:
@@ -100,7 +103,7 @@
 
 - 기준 좌표는 `SavedStateHandle`에서 읽습니다.
 - 데이터는 `ObserveWatchlistUseCase` 구독 결과를 그대로 `WatchlistUiState`로 바꿉니다.
-- 권한, GPS, 새로고침 플래그는 다시 들고 있지 않습니다.
+- 권한, GPS, 새로고침 플래그, snackbar undo는 다시 들고 있지 않습니다.
 
 즉 watchlist 화면은 "어떤 좌표를 기준으로 거리 계산을 할지"와 "저장 항목 요약이 무엇인지"만 알면 됩니다.
 

@@ -2,6 +2,7 @@ package com.gasstation.demo.seed
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import org.junit.Assert.assertEquals
@@ -73,5 +74,10 @@ class DemoSeedAssetLoaderTest {
         assertEquals(DemoSeedOrigin.coordinates.latitude, document.origin.latitude, 0.0)
         assertEquals(DemoSeedOrigin.coordinates.longitude, document.origin.longitude, 0.0)
         assertEquals(expectedMatrix, actualMatrix)
+        val portfolioSnapshot = document.queries.single {
+            it.radiusMeters == SearchRadius.KM_3.meters && it.fuelType == FuelType.GASOLINE.name
+        }
+        assertEquals(true, portfolioSnapshot.stations.any { it.brandCode == Brand.RTO.name })
+        assertEquals(true, portfolioSnapshot.stations.any { it.brandCode == Brand.ETC.name })
     }
 }

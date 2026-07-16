@@ -6,7 +6,7 @@
 
 | 용어 | 뜻 |
 | --- | --- |
-| watchlist(북마크) | UI에서 저장한 주유소를 비교하는 기능. 코드와 모듈 이름은 `watchlist`, 화면 문구는 주로 "북마크"를 사용 |
+| watchlist(관심) | UI에서 저장한 주유소를 비교하는 기능. 코드와 모듈 이름은 `watchlist`, 화면 문구는 "관심"을 사용 |
 | 스냅샷 | 특정 캐시 버킷에 대해 마지막으로 저장한 주유소 목록 |
 | 스냅샷 마커 | `station_cache_snapshot` 한 행. 빈 결과도 "성공한 조회"로 구분하기 위해 따로 유지 |
 | stale | 저장된 결과는 있지만 `StationCachePolicy` 기준 5분을 넘긴 상태 |
@@ -84,7 +84,7 @@ flowchart LR
 | `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 검색 결과/watchlist 읽기 모델 조립, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체, `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
 | `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 |
-| `core:designsystem` | `GasStationTheme`, 색상/타이포 token, 카드/배너/탑바, metric/supporting-info/row/guidance 공유 UI primitive, 브랜드 아이콘 리소스와 표시 라벨 매핑 |
+| `core:designsystem` | `GasStationTheme`, Urban Signal 색상/타이포/spacing token, bottom/top chrome, metric/row/guidance 공유 UI primitive, 실제 브랜드 drawable 매핑 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
 | `core:network` | direct Opinet과 proxy 두 endpoint 모드를 `StationNetworkSource` 계약으로 추상화(`NetworkStationFetcher` vs `ProxyStationFetcher`), Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화. endpoint 모드와 base URL은 `app`이 주입한 `NetworkRuntimeConfig`만 따름 |
 | `core:database` | Room DB, DAO, migration |
@@ -98,16 +98,19 @@ flowchart LR
 
 ## Presentation hierarchy
 
-화면 정보 위계는 `core:designsystem`의 공통 primitive를 먼저 통과합니다. 가격과 거리처럼 비교 판단에 쓰이는 숫자는 `GasStationMetricBlock`과 `GasStationMetricEmphasis`를 사용하고, 보조 정보는 `GasStationSupportingInfo`, 설정 행은 `GasStationRow`, 권한/GPS/loading/empty/failure 안내는 `GasStationGuidanceCard`, stale/approximate 같은 목록 상단 상태는 `GasStationStatusBanner`로 표현합니다.
+화면 정보 위계는 `core:designsystem`의 공통 primitive를 먼저 통과합니다. canvas는 `#FFFCF2`, black chrome은 `#222222`, yellow decision signal은 `#FFDC00`입니다. 가격과 거리처럼 비교 판단에 쓰이는 숫자는 metric primitive를 사용하고, Nearby/Watchlist는 borderless row, Settings는 flat row, 권한/GPS/loading/empty/failure는 guidance primitive, stale/approximate는 status banner로 표현합니다.
 
-이 primitive들은 배치와 텍스트 역할만 소유합니다. "브랜드 label을 목록에서는 숨기고 watchlist에서는 보인다", "GPS가 loading보다 먼저 보인다", "어떤 실패 문구를 쓴다" 같은 화면별 판단은 계속 `feature:*`가 소유합니다.
+이 primitive들은 배치와 텍스트 역할만 소유합니다. "브랜드 label을 숨긴다", "GPS가 loading보다 먼저 보인다", "어떤 실패 문구를 쓴다" 같은 화면별 판단은 계속 `feature:*`가 소유합니다.
 
 화면별 핵심 계약:
 
-- `feature:station-list`: 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 유종 chip 옆 아이콘 중심으로만 노출하고 visible brand label은 렌더링하지 않습니다.
-- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh rail을, `StationListCards.kt`는 카드와 watch toggle을, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 query context와 body 분기를 맡습니다.
-- `feature:watchlist`: 같은 metric 위계를 쓰지만 저장 항목 식별을 위해 brand icon과 visible brand label을 함께 보여줍니다.
+- `feature:station-list`: 32sp 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 실제 drawable 아이콘만 노출하고 visible brand label은 렌더링하지 않습니다.
+- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh/filter rail을, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 typed summary와 body 분기를 맡습니다.
+- `feature:watchlist`: 28sp 가격과 108–116dp 기본 row로 저장 항목을 비교합니다. 실제 brand icon만 보여주며 visible label은 반복하지 않고, 200% 글꼴에서는 row가 확장되어 scroll됩니다.
 - `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
+- `app`: `주변·관심·설정` bottom navigation의 tab별 state/scroll을 `saveState`/`restoreState`로 보존하고 SettingsDetail에서만 bottom navigation을 숨깁니다.
+
+브랜드 자산은 생성하거나 recolor하지 않습니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`, SKE/GSC/HDO/SOL/E1G/SKG는 각 checked-in drawable을 사용합니다.
 
 ## 런타임 흐름
 
@@ -120,7 +123,7 @@ flowchart LR
 5. `StationSearchOrchestrator`는 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만들고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
 6. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 ViewModel은 active query를 새 조건으로 전환하고 `RefreshNearbyStationsUseCase`를 호출합니다. 브랜드 필터와 정렬은 캐시 키에는 없지만, 화면은 새 조건으로 즉시 읽기 모델을 다시 만들고 원격 성공 시 같은 버킷 스냅샷을 최신 데이터로 교체합니다.
 7. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
-8. ViewModel은 loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합을 맡고, UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 카드의 브랜드 영역은 유종 chip과 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
+8. ViewModel은 loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합을 맡고, UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
 
 첫 usable content가 렌더링되면 `feature:station-list`가 순수 policy로 이 상태를 판단하고, `app`의 Compose host가 그 신호를 받아 `reportFullyDrawn()`을 한 번 호출합니다. 이 연결은 startup metric 보고용이며, 검색 정책이나 cache/stale 판단은 계속 feature/data/domain 경계에 남습니다.
 
@@ -143,12 +146,12 @@ flowchart LR
 2. 상세 화면은 별도 ViewModel을 만들지 않고, `GasStationNavHost`에서 settings back stack owner를 공유받아 같은 `SettingsViewModel`을 사용합니다.
 3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신되고, 목록 화면도 같은 값을 즉시 반영합니다.
 
-### 4. watchlist(북마크) 화면
+### 4. watchlist(관심) 화면
 
-1. 목록 화면은 현재 좌표를 nav argument로 넘겨 `WatchlistRoute`로 이동합니다.
+1. 목록 화면이 전달한 최신 좌표는 app navigation state의 payload로 유지됩니다. 좌표가 없으면 관심 tab은 disabled semantics를 노출하며, 좌표가 바뀌면 이전 concrete route를 제거하고 새 payload route로 이동합니다.
 2. `WatchlistViewModel`은 `SavedStateHandle`에서 기준 좌표를 읽고 `ObserveWatchlistUseCase`를 바로 구독합니다.
 3. 저장소는 `watched_station`, station별 최신 캐시, 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다. 최신 캐시는 DAO가 stationId 선행 index와 deterministic tie-breaker로 station별 한 행만 반환합니다.
-4. 화면은 별도 세션 상태 없이 요약 카드만 렌더링합니다.
+4. 화면은 별도 위치 조회, refresh session, snackbar undo 없이 summary와 저장 행을 렌더링합니다. 이 좌표 payload는 navigation state이며 검색/위치 비즈니스 정책은 아닙니다.
 
 ## flavor와 startup hook
 

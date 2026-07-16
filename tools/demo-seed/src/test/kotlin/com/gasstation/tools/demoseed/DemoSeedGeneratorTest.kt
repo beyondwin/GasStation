@@ -1,5 +1,6 @@
 package com.gasstation.tools.demoseed
 
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
@@ -97,7 +98,11 @@ class DemoSeedGeneratorTest {
         val document = DemoSeedJsonWriter.gson.fromJson(outputFile.readText(), DemoSeedDocument::class.java)
         assertEquals(15, document.queries.size)
         assertEquals("Gangnam Station Exit 2", document.origin.label)
-        assertEquals(2, document.history.size)
+        val portfolioSnapshot = document.queries.single {
+            it.radiusMeters == SearchRadius.KM_3.meters && it.fuelType == FuelType.GASOLINE.name
+        }
+        assertTrue(portfolioSnapshot.stations.any { it.brandCode == Brand.RTO.name })
+        assertTrue(portfolioSnapshot.stations.any { it.brandCode == Brand.ETC.name })
         assertTrue(document.history.any { it.stationId == "station-1" && it.fuelType == FuelType.GASOLINE.name })
         assertTrue(document.history.any { it.stationId == "station-2" && it.fuelType == FuelType.GASOLINE.name })
     }
