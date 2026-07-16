@@ -100,12 +100,15 @@ git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md do
 ```bash
 ./gradlew \
   :tools:demo-seed:test \
+  :tools:demo-seed:verifyDemoSeedAsset \
   :app:testDemoDebugUnitTest \
   :app:testProdDebugUnitTest \
   :app:assembleDemoDebug \
   :app:assembleProdDebug \
   :benchmark:assemble
 ```
+
+`verifyDemoSeedAsset`는 `opinet.apikey`나 네트워크 없이 체크인된 `app/src/demo/assets/demo-station-seed.json`의 15개 query matrix, origin/version, history key·가격·timestamp, RTO/ETC portfolio station을 검증합니다. `:tools:demo-seed:test`도 실제 체크인 asset을 읽어 같은 계약을 CI에서 보호합니다. 반면 `generateDemoSeed`는 실제 Opinet 데이터를 갱신하는 운영자용 live refresh이므로 로컬 `opinet.apikey`가 필요하며 자동화 gate에 포함하지 않습니다.
 
 ## 머지 전 권장 회귀 세트
 

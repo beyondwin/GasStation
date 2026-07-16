@@ -138,13 +138,19 @@ flowchart LR
 opinet.apikey=
 ```
 
-demo seed를 다시 생성하려면 아래 태스크를 사용합니다.
+체크인된 demo seed가 생성기 계약과 일치하는지는 키나 네트워크 없이 검증합니다. 이 명령은 15개 query matrix, origin/version, history 정합성, 알뜰/자가상표 portfolio station을 확인하며 `:tools:demo-seed:test` CI 경로에서도 같은 asset을 검사합니다.
+
+```bash
+./gradlew :tools:demo-seed:verifyDemoSeedAsset
+```
+
+실제 Opinet 데이터를 다시 수집해 demo seed를 갱신할 때만 아래 live refresh 태스크를 사용합니다.
 
 ```bash
 ./gradlew :tools:demo-seed:generateDemoSeed
 ```
 
-seed 생성과 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니다.
+live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용합니다. 키가 없을 때 기존 asset으로 조용히 fallback하지 않으며, deterministic verification은 위 별도 태스크가 담당합니다.
 
 ## 릴리즈
 
