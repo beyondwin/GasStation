@@ -191,6 +191,7 @@ private fun testStationUiModel() = StationListItemUiModel(
     name = "테스트 주유소",
     brand = com.gasstation.core.model.Brand.GSC,
     brandLabel = "GS칼텍스",
+    priceWon = 1_689,
     priceLabel = "1,689원",
     distanceLabel = "0.3km",
     priceNumberLabel = "1,689",

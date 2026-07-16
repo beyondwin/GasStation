@@ -20,6 +20,7 @@ class StationListItemUiModelTest {
 
         assertEquals("32원", item.priceDeltaLabel)
         assertEquals(Brand.GSC, item.brand)
+        assertEquals(1_689, item.priceWon)
         assertEquals(PriceDeltaTone.Rise, item.priceDeltaTone)
     }
 
