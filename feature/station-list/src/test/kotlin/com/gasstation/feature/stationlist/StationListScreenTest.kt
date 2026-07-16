@@ -2,10 +2,12 @@ package com.gasstation.feature.stationlist
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.FuelType
@@ -77,6 +80,112 @@ class StationListScreenTest {
         composeRule.onNodeWithTag("station-list-decision-summary").assertExists()
         composeRule.onAllNodesWithTag("station-list-row", useUnmergedTree = true).assertCountEquals(3)
         composeRule.onNodeWithContentDescription("자영알뜰 브랜드").assertExists()
+    }
+
+    @Test
+    fun `decision summary visibly renders count lowest average and savings`() {
+        composeRule.setContent {
+            Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                StationListScreen(
+                    uiState = comparisonUiState(),
+                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                    onAction = {},
+                    onRequestPermissions = {},
+                    onOpenLocationSettings = {},
+                    onSettingsClick = {},
+                )
+            }
+        }
+
+        listOf(
+            STATION_LIST_DECISION_COUNT_TAG,
+            STATION_LIST_DECISION_LOWEST_TAG,
+            STATION_LIST_DECISION_AVERAGE_TAG,
+            STATION_LIST_DECISION_SAVINGS_TAG,
+        ).forEach { tag ->
+            composeRule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
+        }
+        composeRule.onNodeWithText("평균 1,696원", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("평균보다 7원 저렴", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "en-rUS-w360dp-h800dp-xhdpi")
+    fun `decision summary localizes average copy in English`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = comparisonUiState(),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Average 1,696원", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `decision summary remains within 360dp bounds at two times font scale`() {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = 2f),
+            ) {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    StationListScreen(
+                        uiState = comparisonUiState(),
+                        snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                        onAction = {},
+                        onRequestPermissions = {},
+                        onOpenLocationSettings = {},
+                        onSettingsClick = {},
+                    )
+                }
+            }
+        }
+
+        val stripBounds = composeRule
+            .onNodeWithTag(STATION_LIST_DECISION_SUMMARY_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        listOf(
+            STATION_LIST_DECISION_COUNT_TAG,
+            STATION_LIST_DECISION_LOWEST_TAG,
+            STATION_LIST_DECISION_AVERAGE_TAG,
+            STATION_LIST_DECISION_SAVINGS_TAG,
+        ).forEach { tag ->
+            val bounds = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+            assertTrue("Expected $tag to start inside the summary strip.", bounds.left >= stripBounds.left)
+            assertTrue("Expected $tag to end inside the summary strip.", bounds.right <= stripBounds.right)
+            assertTrue("Expected $tag to start below the summary top.", bounds.top >= stripBounds.top)
+            assertTrue("Expected $tag to end above the summary bottom.", bounds.bottom <= stripBounds.bottom)
+        }
+    }
+
+    @Test
+    fun `single station summary omits average and savings`() {
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(testStation()),
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+                onSettingsClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_COUNT_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_AVERAGE_TAG, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_SAVINGS_TAG, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -470,6 +579,20 @@ class StationListScreenTest {
         composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("가격 갱신 중").assertExists()
         composeRule.onNodeWithText("주변 주유소를 불러오는 중입니다.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `cached refresh query context begins below the rail`() {
+        setCachedRefreshContent(fontScale = 1f)
+
+        assertQueryContextBeginsBelowRefreshRail()
+    }
+
+    @Test
+    fun `cached refresh query context begins below the rail at two times font scale`() {
+        setCachedRefreshContent(fontScale = 2f)
+
+        assertQueryContextBeginsBelowRefreshRail()
     }
 
     @Test
@@ -1046,4 +1169,52 @@ class StationListScreenTest {
         latitude = 37.498095,
         longitude = 127.02761,
     )
+
+    private fun comparisonUiState() = StationListUiState(
+        permissionState = LocationPermissionState.PreciseGranted,
+        stations = listOf(
+            testStation(),
+            testStation().copy(id = "station-2", priceWon = 1_699, priceNumberLabel = "1,699"),
+            testStation().copy(id = "station-3", priceWon = 1_701, priceNumberLabel = "1,701"),
+        ),
+    )
+
+    private fun setCachedRefreshContent(fontScale: Float) {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale),
+            ) {
+                StationListScreen(
+                    uiState = comparisonUiState().copy(
+                        currentAddressLabel = "서울특별시 강남구 역삼동",
+                        isRefreshing = true,
+                    ),
+                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                    onAction = {},
+                    onRequestPermissions = {},
+                    onOpenLocationSettings = {},
+                    onSettingsClick = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+    }
+
+    private fun assertQueryContextBeginsBelowRefreshRail() {
+        val railBounds = composeRule
+            .onNodeWithTag(STATION_LIST_REFRESH_RAIL_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val queryBounds = composeRule
+            .onNodeWithTag(STATION_LIST_QUERY_CONTEXT_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+
+        assertTrue(
+            "Expected query context to begin below the refresh rail " +
+                "(railBottom=${railBounds.bottom}, queryTop=${queryBounds.top}).",
+            queryBounds.top >= railBounds.bottom,
+        )
+    }
 }

@@ -29,6 +29,10 @@ import com.gasstation.core.model.SearchRadius
 
 internal const val STATION_LIST_QUERY_CONTEXT_TAG = "station-list-query-context"
 internal const val STATION_LIST_QUERY_CONTEXT_LOCATION_ICON_TAG = "station-list-query-context-location-icon"
+internal const val STATION_LIST_DECISION_COUNT_TAG = "station-list-decision-count"
+internal const val STATION_LIST_DECISION_LOWEST_TAG = "station-list-decision-lowest"
+internal const val STATION_LIST_DECISION_AVERAGE_TAG = "station-list-decision-average"
+internal const val STATION_LIST_DECISION_SAVINGS_TAG = "station-list-decision-savings"
 
 @Composable
 internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary, modifier: Modifier = Modifier) {
@@ -37,23 +41,51 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
             .fillMaxWidth()
             .testTag(STATION_LIST_DECISION_SUMMARY_TAG),
     ) {
-        Text(stringResource(R.string.station_list_decision_count, summary.count), color = ColorSurface)
-        Text(
-            text = stringResource(
-                if (summary.isLowestPriceTied) {
-                    R.string.station_list_decision_tied_lowest
-                } else {
-                    R.string.station_list_decision_lowest
-                },
-            ),
-            color = ColorYellow,
-        )
-        Text(summary.lowestPriceWon.gasStationWonLabel(), color = ColorYellow)
-        summary.savingsWon?.let { savings ->
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space8),
+        ) {
             Text(
-                stringResource(R.string.station_list_decision_savings, savings.gasStationWonLabel()),
+                text = stringResource(R.string.station_list_decision_count, summary.count),
                 color = ColorSurface,
+                modifier = Modifier.testTag(STATION_LIST_DECISION_COUNT_TAG),
             )
+            Column(
+                modifier = Modifier.testTag(STATION_LIST_DECISION_LOWEST_TAG),
+                verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space4),
+            ) {
+                Text(
+                    text = stringResource(
+                        if (summary.isLowestPriceTied) {
+                            R.string.station_list_decision_tied_lowest
+                        } else {
+                            R.string.station_list_decision_lowest
+                        },
+                    ),
+                    color = ColorYellow,
+                )
+                Text(summary.lowestPriceWon.gasStationWonLabel(), color = ColorYellow)
+            }
+            summary.averagePriceWon?.let { average ->
+                Text(
+                    text = stringResource(
+                        R.string.station_list_decision_average,
+                        average.gasStationWonLabel(),
+                    ),
+                    color = ColorSurface,
+                    modifier = Modifier.testTag(STATION_LIST_DECISION_AVERAGE_TAG),
+                )
+            }
+            summary.savingsWon?.let { savings ->
+                Text(
+                    text = stringResource(
+                        R.string.station_list_decision_savings,
+                        savings.gasStationWonLabel(),
+                    ),
+                    color = ColorSurface,
+                    modifier = Modifier.testTag(STATION_LIST_DECISION_SAVINGS_TAG),
+                )
+            }
         }
     }
 }

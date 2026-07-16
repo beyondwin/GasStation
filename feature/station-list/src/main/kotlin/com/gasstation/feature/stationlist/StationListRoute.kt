@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -28,6 +29,7 @@ fun StationListRoute(
     onSettingsClick: () -> Unit,
     onWatchlistClick: (Coordinates) -> Unit,
     onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Unit,
+    onCoordinatesAvailable: (Coordinates?) -> Unit = {},
     onFirstContentDrawn: () -> Unit = {},
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
@@ -61,6 +63,11 @@ fun StationListRoute(
         }
     }
 
+    StationListRouteCoordinatesEffect(
+        uiState = uiState,
+        onCoordinatesAvailable = onCoordinatesAvailable,
+    )
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
@@ -89,6 +96,18 @@ fun StationListRoute(
         },
         onFirstContentDrawn = onFirstContentDrawn,
     )
+}
+
+@Composable
+internal fun StationListRouteCoordinatesEffect(uiState: StationListUiState, onCoordinatesAvailable: (Coordinates?) -> Unit) {
+    val currentOnCoordinatesAvailable by rememberUpdatedState(onCoordinatesAvailable)
+    LaunchedEffect(
+        uiState.currentCoordinates,
+        uiState.permissionState,
+        uiState.isGpsEnabled,
+    ) {
+        currentOnCoordinatesAvailable(uiState.watchlistCoordinatesOrNull())
+    }
 }
 
 @OptIn(ExperimentalPermissionsApi::class)

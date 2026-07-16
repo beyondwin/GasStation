@@ -65,6 +65,7 @@ import com.gasstation.core.designsystem.component.GasStationTopBar
 
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
+internal const val STATION_LIST_REFRESH_RAIL_TAG = "station-list-refresh-rail"
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -223,7 +224,6 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
 private fun StationListResultsPane(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     val pullToRefreshState = rememberPullToRefreshState()
     val showTopLoadingRail = uiState.isRefreshing || uiState.isLoading
-    val refreshRailInset = if (showTopLoadingRail) 58.dp else 0.dp
 
     PullToRefreshBox(
         isRefreshing = showTopLoadingRail,
@@ -242,30 +242,29 @@ private fun StationListResultsPane(uiState: StationListUiState, onAction: (Stati
             }
         },
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            StationListContent(
-                uiState = uiState,
-                onAction = onAction,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = refreshRailInset)
-                    .alpha(if (uiState.isLoading) 0.82f else 1f),
-            )
-
+        Column(modifier = Modifier.fillMaxSize()) {
             AnimatedVisibility(
                 visible = showTopLoadingRail,
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(horizontal = GasStationTheme.spacing.space16)
                     .padding(top = GasStationTheme.spacing.space12),
                 enter = fadeIn(animationSpec = tween(durationMillis = 150)) +
                     slideInVertically(animationSpec = tween(durationMillis = 180), initialOffsetY = { -it / 2 }),
-                exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
+                    slideOutVertically(animationSpec = tween(durationMillis = 180), targetOffsetY = { -it / 2 }),
                 label = "station-list-refresh-rail",
             ) {
-                RefreshingStatusRail()
+                RefreshingStatusRail(modifier = Modifier.testTag(STATION_LIST_REFRESH_RAIL_TAG))
             }
+            StationListContent(
+                uiState = uiState,
+                onAction = onAction,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .alpha(if (uiState.isLoading) 0.82f else 1f),
+            )
         }
     }
 }

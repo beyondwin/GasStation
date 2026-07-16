@@ -1,6 +1,9 @@
 package com.gasstation.feature.stationlist
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import com.gasstation.core.model.Coordinates
@@ -76,6 +79,54 @@ class GpsAvailabilityMonitorTest {
         shadowOf(composeRule.activity.mainLooper).idle()
         composeRule.waitForIdle()
         assertEquals(false, viewModel.uiState.value.isGpsEnabled)
+    }
+
+    @Test
+    fun `route reports usable coordinates and clears them when policy becomes unavailable`() {
+        val coordinates = Coordinates(37.498095, 127.027610)
+        var uiState by mutableStateOf(
+            StationListUiState(
+                currentCoordinates = coordinates,
+                permissionState = LocationPermissionState.PreciseGranted,
+                isGpsEnabled = true,
+            ),
+        )
+        val reportedCoordinates = mutableListOf<Coordinates?>()
+
+        composeRule.setContent {
+            StationListRouteCoordinatesEffect(
+                uiState = uiState,
+                onCoordinatesAvailable = { availableCoordinates: Coordinates? ->
+                    reportedCoordinates.add(availableCoordinates)
+                },
+            )
+        }
+
+        composeRule.waitForIdle()
+        assertEquals(coordinates, reportedCoordinates.last())
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(isGpsEnabled = false)
+        }
+        composeRule.waitForIdle()
+        assertEquals(null, reportedCoordinates.last())
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(isGpsEnabled = true)
+        }
+        composeRule.waitForIdle()
+        assertEquals(coordinates, reportedCoordinates.last())
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(permissionState = LocationPermissionState.Denied)
+        }
+        composeRule.waitForIdle()
+        assertEquals(null, reportedCoordinates.last())
+
+        val distinctReports = reportedCoordinates.filterIndexed { index, value ->
+            index == 0 || reportedCoordinates[index - 1] != value
+        }
+        assertEquals(listOf(coordinates, null, coordinates, null), distinctReports)
     }
 }
 
