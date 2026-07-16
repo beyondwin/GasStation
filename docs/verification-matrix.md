@@ -165,7 +165,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew verifyModuleBoundaries
 ```
 
-> 커버리지 진실성 게이트(Track 1, `koverVerify`)는 **보류** 상태입니다. Kover 0.9.1이 AGP 9.1.1의 Android variant를 계측하지 못하는 툴체인 호환성 한계 때문이며, AGP 9.x를 지원하는 Kover 릴리스가 나오면 재개합니다. 배경은 `docs/superpowers/specs/2026-06-06-verification-depth-hardening-design.md` Track 1 보류 노트를 참조합니다.
+> Kover 0.9.8 + AGP 9.3.0 조합에서 `koverXmlReport`가 app, core Android, data, feature의 debug unit-test variant와 JVM 모듈을 함께 집계하는 것을 확인해 기존 툴체인 호환성 보류는 해제했습니다. 다만 현재 coverage는 신호 수집용이며, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 `koverVerify`를 blocking gate로 승격하지 않습니다. 과거 보류 배경은 `docs/superpowers/specs/2026-06-06-verification-depth-hardening-design.md` Track 1 노트를 참조합니다.
 
 ## CI 연결
 

@@ -62,6 +62,7 @@ class DemoSeedGeneratorTest {
                                 coordinates = Coordinates(latitude = 37.498, longitude = 127.028),
                             ),
                         )
+
                         SearchRadius.KM_4 -> listOf(
                             DemoSeedRemoteStation(
                                 stationId = "station-1",
@@ -78,6 +79,7 @@ class DemoSeedGeneratorTest {
                                 coordinates = Coordinates(latitude = 37.499, longitude = 127.029),
                             ),
                         )
+
                         SearchRadius.KM_5 -> emptyList()
                     }
                 }

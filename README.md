@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/beyondwin/GasStation/actions/workflows/android.yml/badge.svg)](https://github.com/beyondwin/GasStation/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-7F52FF.svg?logo=kotlin)](https://kotlinlang.org)
-[![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.03.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF.svg?logo=kotlin)](https://kotlinlang.org)
+[![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.06.01-4285F4.svg)](https://developer.android.com/jetpack/compose/bom)
 [![minSdk](https://img.shields.io/badge/minSdk-24-3DDC84.svg)](https://developer.android.com/about/versions)
 
 > GasStation is a Korean Android app that helps drivers compare nearby gas stations by current location, price, distance, brand, fuel type, and watchlist state, then hands off to the user's preferred external map for turn-by-turn navigation. The codebase ships an 18-module Clean Architecture setup with Jetpack Compose, Hilt, Room, and a deterministic `demo` flavor that mirrors the real Opinet API path.

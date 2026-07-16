@@ -4,7 +4,8 @@
 
 ## Unreleased
 
-릴리스 후 다음 변경 사항을 기록합니다.
+- Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose BOM 2026.06.01, Spotless 8.8.0/ktlint 1.8.0, PIT 1.25.7과 안정 AndroidX/빌드·테스트 의존성을 최신화했습니다. 최신 AndroidX의 compile API 37 요구를 수용하면서 target/Robolectric unit test SDK는 안정 지원 범위인 API 36으로 유지합니다.
+- Kover 0.9.8이 AGP 9.3.0 Android debug unit-test variant를 집계하는 것을 확인해 기존 Android 계측 호환성 보류를 해제했습니다. `koverXmlReport`는 Android/JVM 모듈을 함께 보고하며, coverage floor와 `koverVerify` 게이트 승격은 별도 결정으로 남깁니다.
 
 ## 1.2.0 - 2026-06-07
 

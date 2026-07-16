@@ -32,6 +32,7 @@ plugins {
     alias(libs.plugins.jetbrainsKotlinJvm) apply false
     alias(libs.plugins.googleDevtoolsKsp) apply false
     alias(libs.plugins.googleDaggerHiltAndroid) apply false
+    alias(libs.plugins.spotless) apply false
     alias(libs.plugins.kover)
     alias(libs.plugins.benManesVersions)
 }

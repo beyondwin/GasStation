@@ -41,11 +41,13 @@ class NetworkSecurityConfigResourceTest {
                             cleartextBaseConfigCount += 1
                         }
                     }
+
                     "domain-config" -> {
                         if (xml.getAttributeBooleanValue(null, "cleartextTrafficPermitted", false)) {
                             cleartextDomainConfigCount += 1
                         }
                     }
+
                     "domain" -> {
                         val includeSubdomains = xml.getAttributeBooleanValue(null, "includeSubdomains", false)
                         domains += xml.nextText() to includeSubdomains

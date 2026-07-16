@@ -60,13 +60,17 @@ class LocationStateMachine @Inject constructor(
         }
 
         LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
+
         LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
+
         LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
+
         is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
     }
 
     suspend fun resolveAddressLabel(coordinates: Coordinates): String? = when (val result = getCurrentAddress(coordinates)) {
         is LocationAddressLookupResult.Success -> normalizeCurrentAddressLabel(result.addressLabel)
+
         LocationAddressLookupResult.Unavailable,
         is LocationAddressLookupResult.Error,
         -> null

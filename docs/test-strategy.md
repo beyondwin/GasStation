@@ -9,6 +9,7 @@
 - `prod`는 실제 API 키/네트워크를 요구하는 대신, 빌드/그래프/런타임 설정 경로가 깨지지 않는지를 unit/assemble 수준에서 확인합니다.
 - 이미 문서로 약속한 사용자 흐름은 가능한 한 테스트 파일 이름으로도 추적 가능해야 합니다.
 - Android library 공통 unit test 의존성(`junit`, `kotlinx-coroutines-test`, `androidx.test:core`, `robolectric`)은 `gasstation.android.library` 컨벤션이 소유합니다.
+- Android 모듈은 최신 AndroidX가 요구하는 `compileSdk 37`을 사용하되, 안정 Robolectric 4.16.1의 지원 상한에 맞춰 로컬 unit test SDK를 `config/robolectric/robolectric.properties`의 API 36으로 고정합니다. app/library convention이 이 공통 test resource를 연결하며, API 37 동작은 Robolectric 안정 지원 전까지 connected test로 확인합니다.
 - Compose Android library의 UI test/debug 의존성(Compose test BOM, UI test JUnit4, UI tooling, UI test manifest)은 `gasstation.android.library.compose` 컨벤션이 소유합니다. 모듈 build file에는 Turbine, MockWebServer, `kotlin.test`, project test dependency, androidTest smoke dependency처럼 모듈별로 필요한 의존성만 둡니다.
 - Compose 테스트 selector는 ASCII `testTag`를 사용하고, 한글 사용자 문구와 스크린 리더용 설명은 `contentDescription` 같은 접근성 semantics에 남깁니다.
 - 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel 테스트에서 `Dispatchers.Main`이 필요하면 feature-local rule/helper로 설정을 중앙화합니다. 현재 station-list 테스트는 `MainDispatcherRule`이 이 계약을 소유합니다.

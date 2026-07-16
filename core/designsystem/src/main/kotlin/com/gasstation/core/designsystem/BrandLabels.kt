@@ -18,6 +18,7 @@ fun Brand.gasStationBrandLabel(): String = when (this) {
 
 fun BrandFilter.gasStationBrandFilterLabel(): String = when (this) {
     BrandFilter.ALL -> "전체"
+
     BrandFilter.SKE,
     BrandFilter.GSC,
     BrandFilter.HDO,

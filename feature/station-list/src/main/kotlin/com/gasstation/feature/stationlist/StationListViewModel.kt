@@ -302,6 +302,7 @@ class StationListViewModel @Inject constructor(
             try {
                 when (val outcome = searchOrchestrator.refresh(query)) {
                     RefreshOutcome.Success -> Unit
+
                     is RefreshOutcome.Failed -> {
                         handleRefreshFailure(query, outcome.reason)
                     }
@@ -378,6 +379,7 @@ private fun LocationAcquisitionResult.failureEventType(): String? = when (this) 
 
 private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = when (this) {
     StationRefreshFailureReason.Timeout -> StringResource.fromId(R.string.station_list_refresh_timeout)
+
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
     StationRefreshFailureReason.Unknown,

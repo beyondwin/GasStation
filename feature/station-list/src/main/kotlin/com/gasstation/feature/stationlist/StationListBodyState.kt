@@ -17,8 +17,12 @@ internal sealed interface StationListBodyState {
 internal fun StationListUiState.toBodyState(): StationListBodyState = when {
     permissionState == LocationPermissionState.Denied &&
         !(hasDeniedLocationAccess && currentCoordinates != null) -> StationListBodyState.PermissionRequired
+
     !isGpsEnabled -> StationListBodyState.GpsRequired
+
     isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
+
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
+
     else -> StationListBodyState.Results
 }

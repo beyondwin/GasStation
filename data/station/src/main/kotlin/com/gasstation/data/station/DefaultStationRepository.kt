@@ -154,6 +154,7 @@ class DefaultStationRepository @Inject constructor(
                     reason = result.reason,
                     cause = result.cause,
                 )
+
                 is RemoteStationFetchResult.Success -> result
             }
         }

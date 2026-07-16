@@ -65,9 +65,11 @@ fun StationListRoute(
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 is StationListEffect.OpenExternalMap -> onOpenExternalMap(effect)
+
                 StationListEffect.OpenLocationSettings -> {
                     context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 }
+
                 is StationListEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message.resolve(context))
             }
         }

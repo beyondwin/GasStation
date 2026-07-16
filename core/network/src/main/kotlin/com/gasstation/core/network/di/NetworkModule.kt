@@ -48,6 +48,7 @@ object NetworkModule {
             opinetService = provideOpinetService(provideOpinetBaseUrl()),
             opinetApiKey = config.opinetApiKey,
         )
+
         StationEndpointMode.Proxy -> ProxyStationFetcher(
             proxyStationService = provideProxyStationService(config.stationBaseUrl),
         )

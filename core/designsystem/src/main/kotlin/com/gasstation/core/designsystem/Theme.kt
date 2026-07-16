@@ -68,7 +68,9 @@ fun GasStationTheme(
         ) -> {
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+
         darkTheme -> GasStationThemeDefaults.darkColorScheme
+
         else -> GasStationThemeDefaults.lightColorScheme
     }
 

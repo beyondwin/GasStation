@@ -146,13 +146,17 @@ fun StationListScreen(
                 val fillModifier = Modifier.fillMaxSize()
                 when (bodyState) {
                     StationListBodyState.PermissionRequired -> PermissionRequired(fillModifier, onRequestPermissions)
+
                     StationListBodyState.GpsRequired -> GpsRequired(fillModifier, onOpenLocationSettings)
+
                     StationListBodyState.InitialLoading -> LoadingState(modifier = fillModifier)
+
                     is StationListBodyState.Failure -> FailureState(
                         reason = bodyState.reason,
                         modifier = fillModifier,
                         onAction = onAction,
                     )
+
                     StationListBodyState.Results -> StationListResultsPane(uiState, onAction, fillModifier)
                 }
             }

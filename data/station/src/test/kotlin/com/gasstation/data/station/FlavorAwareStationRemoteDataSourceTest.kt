@@ -85,8 +85,7 @@ class FlavorAwareStationRemoteDataSourceTest {
     )
 }
 
-private class RecordingDefaultStationRemoteDataSource(private val result: RemoteStationFetchResult) :
-    StationRemoteDataSource {
+private class RecordingDefaultStationRemoteDataSource(private val result: RemoteStationFetchResult) : StationRemoteDataSource {
     var calls = 0
         private set
 
@@ -96,8 +95,7 @@ private class RecordingDefaultStationRemoteDataSource(private val result: Remote
     }
 }
 
-private class RecordingSeedStationRemoteDataSource(private val result: RemoteStationFetchResult) :
-    SeedStationRemoteDataSource {
+private class RecordingSeedStationRemoteDataSource(private val result: RemoteStationFetchResult) : SeedStationRemoteDataSource {
     var calls = 0
         private set
 

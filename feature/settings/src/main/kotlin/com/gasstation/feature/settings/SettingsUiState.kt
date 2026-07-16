@@ -45,6 +45,7 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             isSelected = searchRadius == option,
         )
     }
+
     SettingsSection.FuelType -> FuelType.entries.map { option ->
         SettingOptionUiModel(
             label = option.toLabel(),
@@ -54,6 +55,7 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             isSelected = fuelType == option,
         )
     }
+
     SettingsSection.BrandFilter -> BrandFilter.entries.map { option ->
         SettingOptionUiModel(
             label = option.toLabel(),
@@ -64,6 +66,7 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             brandIconBrand = option.brand,
         )
     }
+
     SettingsSection.SortOrder -> SortOrder.entries.map { option ->
         SettingOptionUiModel(
             label = option.toLabel(),
@@ -73,6 +76,7 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             isSelected = sortOrder == option,
         )
     }
+
     SettingsSection.MapProvider -> MapProvider.entries.map { option ->
         SettingOptionUiModel(
             label = option.toLabel(),
@@ -116,6 +120,7 @@ internal fun BrandFilter.toLabel(): StringResource = StringResource.raw(gasStati
 
 private fun BrandFilter.toDescription(): StringResource = when (this) {
     BrandFilter.ALL -> StringResource.fromId(R.string.settings_brand_all_desc)
+
     BrandFilter.SKE,
     BrandFilter.GSC,
     BrandFilter.HDO,
@@ -125,6 +130,7 @@ private fun BrandFilter.toDescription(): StringResource = when (this) {
     BrandFilter.NHO,
     BrandFilter.ETC,
     -> StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf(gasStationBrandFilterLabel()))
+
     BrandFilter.E1G,
     BrandFilter.SKG,
     -> StringResource.fromId(R.string.settings_brand_charger_filter_desc, listOf(gasStationBrandFilterLabel()))

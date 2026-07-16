@@ -88,6 +88,7 @@ private fun MapProvider.mapUri(
     val encodedName = URLEncoder.encode(stationName, Charsets.UTF_8.name())
     return when (this) {
         MapProvider.TMAP -> "tmap://route?goalx=$longitude&goaly=$latitude&goalname=$encodedName&reqCoordType=KTM&resCoordType=WGS84"
+
         MapProvider.KAKAO_NAVI -> buildList {
             originLatitude?.let { startLatitude ->
                 originLongitude?.let { startLongitude ->
@@ -101,6 +102,7 @@ private fun MapProvider.mapUri(
             separator = "&",
             prefix = "kakaomap://route?",
         )
+
         MapProvider.NAVER_MAP -> "nmap://route/car?dlat=$latitude&dlng=$longitude&dname=$encodedName"
     }
 }

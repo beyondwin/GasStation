@@ -73,6 +73,7 @@ class StationSearchOrchestrator @Inject constructor(
 
         when (activeQueryState.value.cacheState) {
             CachedSnapshotState.Present -> clearBlockingFailure()
+
             CachedSnapshotState.Absent -> {
                 pendingBlockingFailure.value = null
                 mutableBlockingFailure.value = reason
@@ -157,6 +158,7 @@ sealed interface RefreshOutcome {
 
 private fun StationRefreshFailureReason?.toStationListFailureReason(): StationListFailureReason = when (this) {
     StationRefreshFailureReason.Timeout -> StationListFailureReason.RefreshTimedOut
+
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
     StationRefreshFailureReason.Unknown,

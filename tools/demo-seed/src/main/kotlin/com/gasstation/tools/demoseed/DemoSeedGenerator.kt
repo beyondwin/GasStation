@@ -123,6 +123,7 @@ private class SharedNetworkSeedStationFetcher(private val fetcher: NetworkStatio
                     coordinates = station.coordinates,
                 )
             }
+
             NetworkStationFetchResult.Failure -> error(
                 "Shared network fetcher failed for ${radius.name}/${fuelType.name}.",
             )

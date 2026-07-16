@@ -38,6 +38,10 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                 vectorDrawables.useSupportLibrary = true
             }
 
+            sourceSets.getByName("test").resources.directories.add(
+                rootProject.file("config/robolectric").absolutePath,
+            )
+
             buildFeatures {
                 compose = true
                 buildConfig = true
@@ -65,9 +69,6 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                 checkDependencies = true
                 checkTestSources = lintTestSourcesEnabled.get()
                 ignoreTestSources = !lintTestSourcesEnabled.get()
-                sarifReport = true
-                htmlReport = true
-                xmlReport = false
             }
         }
 

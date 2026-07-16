@@ -44,6 +44,7 @@ class StationRetryPolicy @Inject constructor(private val stationEventLogger: Sta
         StationRefreshFailureReason.Timeout,
         StationRefreshFailureReason.Network,
         -> true
+
         StationRefreshFailureReason.InvalidPayload,
         StationRefreshFailureReason.Unknown,
         -> false

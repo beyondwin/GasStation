@@ -16,19 +16,25 @@ class LogcatStationEventLogger @Inject constructor() : StationEventLogger {
         is StationEvent.SearchRefreshed -> {
             "search_refreshed radius=${radius.name} fuelType=${fuelType.name} sortOrder=${sortOrder.name} stale=$stale"
         }
+
         is StationEvent.WatchToggled -> {
             "watch_toggled stationId=$stationId watched=$watched"
         }
+
         is StationEvent.CompareViewed -> "compare_viewed count=$count"
+
         is StationEvent.ExternalMapOpened -> {
             "external_map_opened stationId=$stationId provider=${provider.name}"
         }
+
         is StationEvent.RefreshFailed -> {
             "refresh_failed reason=${reason::class.java.simpleName}"
         }
+
         is StationEvent.LocationFailed -> {
             "location_failed resultType=$resultType"
         }
+
         is StationEvent.RetryAttempted -> {
             "retry_attempted originalReason=${originalReason::class.java.simpleName} succeeded=$succeeded"
         }

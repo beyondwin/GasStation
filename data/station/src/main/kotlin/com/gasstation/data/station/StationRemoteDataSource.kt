@@ -43,6 +43,7 @@ class DefaultStationRemoteDataSource @Inject constructor(private val stationNetw
                     )
                 },
             )
+
             NetworkStationFetchResult.Failure -> RemoteStationFetchResult.Failure(
                 reason = StationRefreshFailureReason.InvalidPayload,
             )

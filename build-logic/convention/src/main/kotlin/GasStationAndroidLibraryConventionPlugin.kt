@@ -30,6 +30,10 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             }
 
+            sourceSets.getByName("test").resources.directories.add(
+                rootProject.file("config/robolectric").absolutePath,
+            )
+
             compileOptions {
                 isCoreLibraryDesugaringEnabled = true
                 sourceCompatibility = JavaVersion.VERSION_17
@@ -53,9 +57,6 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
                 checkDependencies = false
                 checkTestSources = lintTestSourcesEnabled.get()
                 ignoreTestSources = !lintTestSourcesEnabled.get()
-                sarifReport = true
-                htmlReport = true
-                xmlReport = false
             }
         }
 

@@ -38,6 +38,7 @@ private fun WatchedStationEntity.resolveStation(
     val latestPrice = historyForContext.firstOrNull()
     return when {
         cachedSnapshot != null -> cachedSnapshot
+
         latestPrice != null -> {
             val stationCoordinates = Coordinates.ofOrNull(latitude, longitude) ?: return null
             val price = MoneyWon.ofOrNull(latestPrice.priceWon) ?: return null
@@ -50,6 +51,7 @@ private fun WatchedStationEntity.resolveStation(
                 coordinates = stationCoordinates,
             )
         }
+
         else -> null
     }
 }
@@ -63,10 +65,12 @@ private fun resolvePriceDelta(cachedStation: StationCacheEntity?, historyForCont
             ).firstOrNull()?.priceWon,
             currentPriceWon = cachedStation.priceWon,
         )
+
         historyForContext.isNotEmpty() -> StationPriceDelta.from(
             previousPriceWon = historyForContext.drop(1).firstOrNull()?.priceWon,
             currentPriceWon = historyForContext.first().priceWon,
         )
+
         else -> StationPriceDelta.Unavailable
     }
 

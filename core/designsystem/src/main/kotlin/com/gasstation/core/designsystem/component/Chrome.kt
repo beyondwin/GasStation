@@ -296,6 +296,7 @@ private fun StatusBannerSymbol(visual: StatusBannerToneVisual, modifier: Modifie
                     cap = StrokeCap.Square,
                 )
             }
+
             StatusBannerSymbolMark.Dot -> {
                 drawCircle(
                     color = markColor,
@@ -303,6 +304,7 @@ private fun StatusBannerSymbol(visual: StatusBannerToneVisual, modifier: Modifie
                     center = center,
                 )
             }
+
             StatusBannerSymbolMark.Check -> {
                 drawLine(
                     color = markColor,
@@ -319,6 +321,7 @@ private fun StatusBannerSymbol(visual: StatusBannerToneVisual, modifier: Modifie
                     cap = StrokeCap.Square,
                 )
             }
+
             StatusBannerSymbolMark.Triangle -> {
                 val triangle = Path().apply {
                     moveTo(size.width * 0.5f, size.height * 0.18f)
@@ -328,6 +331,7 @@ private fun StatusBannerSymbol(visual: StatusBannerToneVisual, modifier: Modifie
                 }
                 drawPath(path = triangle, color = markColor)
             }
+
             StatusBannerSymbolMark.Cross -> {
                 drawLine(
                     color = markColor,
@@ -365,6 +369,7 @@ internal fun GasStationStatusTone.visual(): StatusBannerToneVisual = when (this)
         symbolContentColor = ColorWhite,
         symbolMark = StatusBannerSymbolMark.Bar,
     )
+
     GasStationStatusTone.Info -> StatusBannerToneVisual(
         surfaceColor = Color(0xFFE9F2FF),
         borderColor = ColorSupportInfo,
@@ -373,6 +378,7 @@ internal fun GasStationStatusTone.visual(): StatusBannerToneVisual = when (this)
         symbolContentColor = ColorWhite,
         symbolMark = StatusBannerSymbolMark.Dot,
     )
+
     GasStationStatusTone.Success -> StatusBannerToneVisual(
         surfaceColor = Color(0xFFEAF7ED),
         borderColor = ColorSupportSuccess,
@@ -381,6 +387,7 @@ internal fun GasStationStatusTone.visual(): StatusBannerToneVisual = when (this)
         symbolContentColor = ColorWhite,
         symbolMark = StatusBannerSymbolMark.Check,
     )
+
     GasStationStatusTone.Warning -> StatusBannerToneVisual(
         surfaceColor = Color(0xFFFFF3A3),
         borderColor = ColorBlack,
@@ -389,6 +396,7 @@ internal fun GasStationStatusTone.visual(): StatusBannerToneVisual = when (this)
         symbolContentColor = ColorYellow,
         symbolMark = StatusBannerSymbolMark.Triangle,
     )
+
     GasStationStatusTone.Error -> StatusBannerToneVisual(
         surfaceColor = Color(0xFFFFEBEE),
         borderColor = ColorSupportError,

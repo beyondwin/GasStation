@@ -11,6 +11,7 @@ dependencies {
 }
 
 pitest {
+    pitestVersion.set(libs.versions.pitestEngine)
     targetClasses.set(setOf("com.gasstation.domain.station.*"))
     targetTests.set(setOf("com.gasstation.domain.station.*"))
     threads.set(2)

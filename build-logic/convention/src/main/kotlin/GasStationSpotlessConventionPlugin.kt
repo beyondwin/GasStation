@@ -8,7 +8,7 @@ class GasStationSpotlessConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.diffplug.spotless")
 
         extensions.configure<SpotlessExtension> {
-            val ktlintVersion = "1.5.0"
+            val ktlintVersion = "1.8.0"
 
             kotlin {
                 target("src/**/*.kt")
