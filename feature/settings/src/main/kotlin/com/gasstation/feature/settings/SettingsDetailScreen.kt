@@ -1,28 +1,24 @@
 package com.gasstation.feature.settings
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -32,21 +28,19 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorGray2
-import com.gasstation.core.designsystem.ColorSurface
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
-import com.gasstation.core.designsystem.component.GasStationBrandIcon
-import com.gasstation.core.designsystem.component.GasStationCard
+import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
 import com.gasstation.core.designsystem.component.GasStationRow
 import com.gasstation.core.designsystem.component.GasStationRowDivider
-import com.gasstation.core.designsystem.component.GasStationSectionHeading
 import com.gasstation.core.designsystem.component.GasStationTopBar
+import com.gasstation.core.designsystem.component.UrbanSignalTokens
 
 internal const val SETTINGS_SELECTED_CHECK_TAG = "settings-selected-check"
 internal const val SETTINGS_OPTIONS_GROUP_TAG = "settings-options-group"
+internal const val SETTINGS_BRAND_LOGO_TAG_PREFIX = "settings-brand-logo-"
 
 @Composable
 fun SettingsDetailScreen(
@@ -75,28 +69,29 @@ fun SettingsDetailScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .testTag(SETTINGS_OPTIONS_GROUP_TAG)
                     .padding(innerPadding),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    GasStationCard(
-                        modifier = Modifier.testTag(SETTINGS_OPTIONS_GROUP_TAG),
-                    ) {
-                        GasStationSectionHeading(
-                            title = stringResource(section.group.titleResId),
-                            subtitle = stringResource(section.subtitleResId),
-                        )
-                        options.forEachIndexed { index, option ->
-                            SettingsDetailOptionRow(
-                                section = section,
-                                option = option,
-                                onClick = { onOptionClick(option) },
-                            )
-                            if (index != options.lastIndex) {
-                                SettingsDetailDivider()
-                            }
-                        }
+                    Text(
+                        text = stringResource(section.subtitleResId),
+                        style = GasStationTheme.typography.body,
+                        color = ColorGray2,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
+                itemsIndexed(
+                    items = options,
+                    key = { _, option -> option.action.toString() },
+                ) { index, option ->
+                    SettingsDetailOptionRow(
+                        section = section,
+                        option = option,
+                        onClick = { onOptionClick(option) },
+                    )
+                    if (index < options.lastIndex) {
+                        GasStationRowDivider()
                     }
                 }
             }
@@ -107,131 +102,40 @@ fun SettingsDetailScreen(
 @Composable
 private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOptionUiModel, onClick: () -> Unit) {
     val context = LocalContext.current
+    val leadingContent: (@Composable RowScope.() -> Unit)? = option.brandIconBrand
+        ?.takeIf { section == SettingsSection.BrandFilter }
+        ?.let { brand ->
+            {
+                GasStationBrandLogoTile(
+                    brand = brand,
+                    contentDescription = null,
+                    modifier = Modifier.testTag("$SETTINGS_BRAND_LOGO_TAG_PREFIX${brand.name}"),
+                    tileSize = UrbanSignalTokens.compactLogoTileSize,
+                    logoSize = UrbanSignalTokens.compactLogoSize,
+                )
+            }
+        }
+
     GasStationRow(
         title = option.label.resolve(context),
         body = option.subtitle?.resolve(context),
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize()
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(GasStationTheme.corner.small))
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp)
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics {
                 selected = option.isSelected
                 role = Role.RadioButton
-            },
+            }
+            .padding(vertical = 12.dp),
         bodyColor = ColorGray2,
-        leadingContent = if (section == SettingsSection.BrandFilter) {
-            { SettingsDetailBrandLeadingSlot(option = option) }
-        } else {
-            null
-        },
+        leadingContent = leadingContent,
         trailingContent = if (option.isSelected) {
             { SelectedCheckIcon() }
         } else {
             null
         },
     )
-}
-
-@Composable
-private fun SettingsDetailBrandLeadingSlot(option: SettingOptionUiModel) {
-    val context = LocalContext.current
-    val brand = option.brandIconBrand
-    if (brand != null) {
-        GasStationBrandIcon(
-            brand = brand,
-            contentDescription = stringResource(R.string.settings_brand_icon_content_description, option.label.resolve(context)),
-        )
-    } else {
-        AllBrandFilterIcon()
-    }
-}
-
-@Composable
-private fun AllBrandFilterIcon() {
-    Canvas(modifier = Modifier.size(30.dp)) {
-        val iconSize = size.minDimension
-        val strokeWidth = iconSize * 0.065f
-
-        fun drawPump(topLeft: Offset, bodySize: Size, fill: Color, windowColor: Color) {
-            val cornerRadius = CornerRadius(iconSize * 0.045f, iconSize * 0.045f)
-            drawRoundRect(
-                color = fill,
-                topLeft = topLeft,
-                size = bodySize,
-                cornerRadius = cornerRadius,
-            )
-            drawRoundRect(
-                color = ColorBlack,
-                topLeft = topLeft,
-                size = bodySize,
-                cornerRadius = cornerRadius,
-                style = Stroke(width = strokeWidth),
-            )
-
-            val windowInsetX = bodySize.width * 0.20f
-            val windowTop = topLeft.y + bodySize.height * 0.18f
-            val windowSize = Size(
-                width = bodySize.width * 0.60f,
-                height = bodySize.height * 0.22f,
-            )
-            drawRoundRect(
-                color = windowColor,
-                topLeft = Offset(topLeft.x + windowInsetX, windowTop),
-                size = windowSize,
-                cornerRadius = CornerRadius(iconSize * 0.025f, iconSize * 0.025f),
-            )
-
-            val baseY = topLeft.y + bodySize.height + iconSize * 0.045f
-            drawLine(
-                color = ColorBlack,
-                start = Offset(topLeft.x - iconSize * 0.015f, baseY),
-                end = Offset(topLeft.x + bodySize.width + iconSize * 0.015f, baseY),
-                strokeWidth = strokeWidth,
-                cap = StrokeCap.Round,
-            )
-        }
-
-        drawPump(
-            topLeft = Offset(iconSize * 0.10f, iconSize * 0.36f),
-            bodySize = Size(iconSize * 0.24f, iconSize * 0.38f),
-            fill = ColorYellow,
-            windowColor = ColorBlack,
-        )
-        drawPump(
-            topLeft = Offset(iconSize * 0.66f, iconSize * 0.36f),
-            bodySize = Size(iconSize * 0.24f, iconSize * 0.38f),
-            fill = ColorYellow,
-            windowColor = ColorBlack,
-        )
-        drawPump(
-            topLeft = Offset(iconSize * 0.34f, iconSize * 0.18f),
-            bodySize = Size(iconSize * 0.32f, iconSize * 0.56f),
-            fill = ColorSurface,
-            windowColor = ColorYellow,
-        )
-
-        drawLine(
-            color = ColorBlack,
-            start = Offset(iconSize * 0.68f, iconSize * 0.34f),
-            end = Offset(iconSize * 0.82f, iconSize * 0.44f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = ColorBlack,
-            start = Offset(iconSize * 0.82f, iconSize * 0.44f),
-            end = Offset(iconSize * 0.82f, iconSize * 0.62f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-    }
-}
-
-@Composable
-private fun SettingsDetailDivider() {
-    GasStationRowDivider()
 }
 
 @Composable

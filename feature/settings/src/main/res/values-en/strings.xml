@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Top bar -->
-    <string name="settings_title">Search settings</string>
+    <string name="settings_title">Settings</string>
     <string name="settings_close">Close</string>
     <string name="settings_back">Back</string>
 

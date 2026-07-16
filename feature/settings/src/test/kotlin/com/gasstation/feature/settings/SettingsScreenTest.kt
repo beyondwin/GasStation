@@ -2,9 +2,17 @@ package com.gasstation.feature.settings
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -13,8 +21,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.gasstation.core.designsystem.component.gasStationBrandIconResource
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
@@ -32,7 +42,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "ko")
+@Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
 class SettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
@@ -42,100 +52,33 @@ class SettingsScreenTest {
     private fun StringResource.resolve(): String = resolve(context)
 
     @Test
-    fun `settings menu rows are laid out vertically`() {
+    fun `settings overview has title no close and separate title value body`() {
         val uiState = SettingsUiState.from(UserPreferences.default())
+        val radiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
 
         composeRule.setContent {
             SettingsScreen(
                 uiState = uiState,
-                onCloseClick = {},
                 onSectionClick = {},
             )
         }
 
-        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
-        val fuelTypeLabel = uiState.selectedLabelFor(SettingsSection.FuelType).resolve()
-
-        val searchRadiusTop = composeRule
-            .onNodeWithText("찾기 범위 : $searchRadiusLabel")
-            .fetchSemanticsNode()
-            .boundsInRoot.top
-        val fuelTypeTop = composeRule
-            .onNodeWithText("오일 타입 : $fuelTypeLabel")
-            .fetchSemanticsNode()
-            .boundsInRoot.top
-
-        assertTrue("Expected settings rows to stack vertically", fuelTypeTop > searchRadiusTop)
+        composeRule.onNodeWithText("설정").assertExists()
+        composeRule.onNodeWithContentDescription("닫기").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings-group-Explore").assertExists()
+        composeRule.onNodeWithText("찾기 범위").assertExists()
+        composeRule.onNodeWithText(radiusLabel).assertExists()
+        composeRule.onNodeWithText("주변 주유소를 불러올 반경을 정합니다.").assertExists()
+        composeRule.onAllNodesWithText("찾기 범위 : $radiusLabel").assertCountEquals(0)
     }
 
     @Test
-    fun `settings menu groups rows under section headings`() {
+    fun `settings overview preserves grouped flat rows`() {
         val uiState = SettingsUiState.from(UserPreferences.default())
 
         composeRule.setContent {
             SettingsScreen(
                 uiState = uiState,
-                onCloseClick = {},
-                onSectionClick = {},
-            )
-        }
-
-        assertTrue(composeRule.onAllNodesWithText("탐색 설정").fetchSemanticsNodes().isNotEmpty())
-
-        val exploreHeadingBounds = composeRule
-            .onNodeWithText("탐색 설정", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
-        val searchRadiusBounds = composeRule
-            .onNodeWithText(
-                "찾기 범위 : $searchRadiusLabel",
-                useUnmergedTree = true,
-            )
-            .fetchSemanticsNode()
-            .boundsInRoot
-        composeRule
-            .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
-            .performScrollToNode(hasText("표시 설정"))
-        assertTrue(composeRule.onAllNodesWithText("표시 설정").fetchSemanticsNodes().isNotEmpty())
-
-        val displayHeadingBounds = composeRule
-            .onNodeWithText("표시 설정", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-        val sortOrderLabel = uiState.selectedLabelFor(SettingsSection.SortOrder).resolve()
-        val sortOrderBounds = composeRule
-            .onNodeWithText(
-                "정렬기준 : $sortOrderLabel",
-                useUnmergedTree = true,
-            )
-            .fetchSemanticsNode()
-            .boundsInRoot
-
-        composeRule
-            .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
-            .performScrollToNode(hasText("연결 설정"))
-        assertTrue(composeRule.onAllNodesWithText("연결 설정").fetchSemanticsNodes().isNotEmpty())
-
-        assertTrue(
-            "Expected 탐색 설정 heading to appear above its grouped options.",
-            exploreHeadingBounds.top < searchRadiusBounds.top,
-        )
-        assertTrue(
-            "Expected 표시 설정 heading to appear above its grouped option.",
-            displayHeadingBounds.top < sortOrderBounds.top,
-        )
-        assertTrue(composeRule.onAllNodesWithText("연결 설정").fetchSemanticsNodes().isNotEmpty())
-    }
-
-    @Test
-    fun `settings menu renders a dedicated group container for each section`() {
-        val uiState = SettingsUiState.from(UserPreferences.default())
-
-        composeRule.setContent {
-            SettingsScreen(
-                uiState = uiState,
-                onCloseClick = {},
                 onSectionClick = {},
             )
         }
@@ -144,57 +87,18 @@ class SettingsScreenTest {
             composeRule
                 .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
                 .performScrollToNode(hasTestTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}"))
-            composeRule
-                .onNodeWithTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}")
-                .assertExists()
+            composeRule.onNodeWithTag("$SETTINGS_GROUP_TAG_PREFIX${group.name}").assertExists()
         }
-    }
-
-    @Test
-    fun `settings menu renders flat rows inside each group container`() {
-        val uiState = SettingsUiState.from(UserPreferences.default())
-
-        composeRule.setContent {
-            SettingsScreen(
-                uiState = uiState,
-                onCloseClick = {},
-                onSectionClick = {},
-            )
-        }
-
         SettingsSection.entries.forEach { section ->
             composeRule
                 .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
                 .performScrollToNode(hasTestTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}"))
-            composeRule
-                .onNodeWithTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}")
-                .assertExists()
+            composeRule.onNodeWithTag("$SETTINGS_ROW_TAG_PREFIX${section.routeSegment}").assertExists()
         }
     }
 
     @Test
-    fun `settings menu combines option title and current value into one line`() {
-        val uiState = SettingsUiState.from(UserPreferences.default())
-
-        composeRule.setContent {
-            SettingsScreen(
-                uiState = uiState,
-                onCloseClick = {},
-                onSectionClick = {},
-            )
-        }
-
-        val searchRadiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
-
-        composeRule.onNodeWithText(
-            "찾기 범위 : $searchRadiusLabel",
-        ).assertExists()
-        composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(0)
-        composeRule.onAllNodesWithText(searchRadiusLabel).assertCountEquals(0)
-    }
-
-    @Test
-    fun `settings menu constrains long current values without changing row rhythm`() {
+    fun `settings current value and description stay inside row at 200 percent font scale`() {
         val uiState = SettingsUiState(
             searchRadius = SearchRadius.KM_5,
             fuelType = FuelType.PREMIUM_GASOLINE,
@@ -203,208 +107,134 @@ class SettingsScreenTest {
             mapProvider = MapProvider.KAKAO_NAVI,
         )
         val brandLabel = uiState.selectedLabelFor(SettingsSection.BrandFilter).resolve()
-        val brandRowText = "주유소 브랜드 : $brandLabel"
 
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
-                SettingsScreen(
-                    uiState = uiState,
-                    onCloseClick = {},
-                    onSectionClick = {},
-                )
+            CompositionLocalProvider(LocalDensity provides Density(density = 2f, fontScale = 2f)) {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    SettingsScreen(
+                        uiState = uiState,
+                        onSectionClick = {},
+                    )
+                }
             }
         }
 
         composeRule
             .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
-            .performScrollToNode(hasText(brandRowText))
-
+            .performScrollToNode(hasTestTag("$SETTINGS_ROW_TAG_PREFIX${SettingsSection.BrandFilter.routeSegment}"))
         val rowBounds = composeRule
             .onNodeWithTag("$SETTINGS_ROW_TAG_PREFIX${SettingsSection.BrandFilter.routeSegment}", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
-        val textBounds = composeRule
-            .onNodeWithText(brandRowText, useUnmergedTree = true)
+        val titleBounds = composeRule
+            .onNodeWithText("주유소 브랜드", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val valueBounds = composeRule
+            .onNodeWithText(brandLabel, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val bodyBounds = composeRule
+            .onNodeWithText("브랜드 범위를 좁혀 비교 기준을 빠르게 맞춥니다.", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
 
-        assertTrue("Expected long settings value to stay inside its row.", textBounds.right <= rowBounds.right)
-        composeRule.onAllNodesWithText(brandLabel).assertCountEquals(0)
+        listOf(titleBounds, valueBounds, bodyBounds).forEach { bounds ->
+            assertTrue("Expected expanded text to stay inside its row: $bounds vs $rowBounds", bounds in rowBounds)
+        }
+        assertTrue("Expected value to stack below the title at large font scale.", valueBounds.top >= titleBounds.bottom)
+        assertTrue("Expected body to stack below the current value at large font scale.", bodyBounds.top >= valueBounds.bottom)
     }
 
     @Test
-    fun `settings detail rows are laid out vertically`() {
+    fun `settings detail shows description once and flat radio rows`() {
+        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.SearchRadius)
+
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.SearchRadius,
-                options = listOf(
-                    SettingOptionUiModel(
-                        label = StringResource.raw("3km"),
-                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
-                        meta = StringResource.fromId(R.string.settings_selected_meta),
-                        action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
-                        isSelected = true,
-                    ),
-                    SettingOptionUiModel(
-                        label = StringResource.raw("4km"),
-                        subtitle = StringResource.fromId(R.string.settings_radius_km4_desc),
-                        meta = null,
-                        action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_4),
-                        isSelected = false,
-                    ),
-                ),
+                options = options,
                 onBackClick = {},
                 onOptionClick = {},
             )
         }
 
-        val firstOptionTop = composeRule.onNodeWithText("3km").fetchSemanticsNode().boundsInRoot.top
-        val secondOptionTop = composeRule.onNodeWithText("4km").fetchSemanticsNode().boundsInRoot.top
-
-        assertTrue("Expected detail rows to stack vertically", secondOptionTop > firstOptionTop)
-    }
-
-    @Test
-    fun `settings detail screen keeps parent group hierarchy inside a single card`() {
-        composeRule.setContent {
-            SettingsDetailScreen(
-                section = SettingsSection.SearchRadius,
-                options = listOf(
-                    SettingOptionUiModel(
-                        label = StringResource.raw("3km"),
-                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
-                        meta = StringResource.fromId(R.string.settings_selected_meta),
-                        action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
-                        isSelected = true,
-                    ),
-                ),
-                onBackClick = {},
-                onOptionClick = {},
-            )
-        }
-
-        composeRule.onAllNodesWithText("찾기 범위").assertCountEquals(1)
-        composeRule.onNodeWithText("탐색 설정").assertExists()
-        composeRule.onNodeWithText("주변 주유소를 불러올 반경을 정합니다.").assertExists()
+        composeRule.onNodeWithContentDescription("뒤로가기").assertExists()
+        composeRule.onAllNodesWithText("주변 주유소를 불러올 반경을 정합니다.").assertCountEquals(1)
+        composeRule.onNodeWithText("탐색 설정").assertDoesNotExist()
         composeRule.onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG).assertExists()
-    }
-
-    @Test
-    fun `selected detail option relies on a larger check icon instead of current selection text`() {
-        composeRule.setContent {
-            SettingsDetailScreen(
-                section = SettingsSection.SearchRadius,
-                options = listOf(
-                    SettingOptionUiModel(
-                        label = StringResource.raw("3km"),
-                        subtitle = StringResource.fromId(R.string.settings_radius_km3_desc),
-                        meta = StringResource.fromId(R.string.settings_selected_meta),
-                        action = SettingsAction.SearchRadiusSelected(SearchRadius.KM_3),
-                        isSelected = true,
-                    ),
-                ),
-                onBackClick = {},
-                onOptionClick = {},
-            )
+        options.forEach { option ->
+            val actualRole = composeRule
+                .onNodeWithText(option.label.resolve())
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Role)
+            assertEquals(Role.RadioButton, actualRole)
         }
-
-        val subtitleBounds = composeRule
-            .onNodeWithText("가장 촘촘하게 주변 가격을 비교합니다.", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-
-        composeRule.onAllNodesWithText("현재 선택").assertCountEquals(0)
-        composeRule
-            .onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true)
-            .assertHeightIsAtLeast(24.dp)
-
-        val checkBounds = composeRule
-            .onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-
-        assertTrue(
-            "Expected selected check icon to stay above the descriptive subtitle.",
-            checkBounds.top < subtitleBounds.top,
-        )
+        composeRule.onNodeWithText("3km").assertIsSelected().assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithText("4km").assertIsNotSelected().assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true).assertExists()
     }
 
     @Test
-    fun `brand filter detail renders icons for concrete brands only`() {
+    fun `brand filter detail uses real assets visible labels and no duplicate icon announcement`() {
+        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
+
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.BrandFilter,
-                options = listOf(
-                    SettingOptionUiModel(
-                        label = StringResource.raw("전체"),
-                        subtitle = StringResource.fromId(R.string.settings_brand_all_desc),
-                        meta = StringResource.fromId(R.string.settings_selected_meta),
-                        action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
-                        isSelected = true,
-                        brandIconBrand = null,
-                    ),
-                    SettingOptionUiModel(
-                        label = StringResource.raw("GS칼텍스"),
-                        subtitle = StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf("GS칼텍스")),
-                        meta = null,
-                        action = SettingsAction.BrandFilterSelected(BrandFilter.GSC),
-                        isSelected = false,
-                        brandIconBrand = Brand.GSC,
-                    ),
-                ),
+                options = options,
                 onBackClick = {},
                 onOptionClick = {},
             )
         }
 
-        composeRule.onNodeWithContentDescription("GS칼텍스 브랜드").assertExists()
-        composeRule.onNodeWithContentDescription("전체 브랜드").assertDoesNotExist()
-    }
-
-    @Test
-    fun `brand filter all option aligns with concrete brand rows`() {
-        composeRule.setContent {
-            SettingsDetailScreen(
-                section = SettingsSection.BrandFilter,
-                options = listOf(
-                    SettingOptionUiModel(
-                        label = StringResource.raw("전체"),
-                        subtitle = StringResource.fromId(R.string.settings_brand_all_desc),
-                        meta = StringResource.fromId(R.string.settings_selected_meta),
-                        action = SettingsAction.BrandFilterSelected(BrandFilter.ALL),
-                        isSelected = true,
-                        brandIconBrand = null,
-                    ),
-                    SettingOptionUiModel(
-                        label = StringResource.raw("SK에너지"),
-                        subtitle = StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf("SK에너지")),
-                        meta = null,
-                        action = SettingsAction.BrandFilterSelected(BrandFilter.SKE),
-                        isSelected = false,
-                        brandIconBrand = Brand.SKE,
-                    ),
-                ),
-                onBackClick = {},
-                onOptionClick = {},
-            )
+        composeRule.onNodeWithText("전체").assertExists()
+        composeRule.onNodeWithTag("settings-brand-logo-ALL").assertDoesNotExist()
+        listOf(BrandFilter.RTO, BrandFilter.RTX, BrandFilter.NHO, BrandFilter.ETC).forEach { filter ->
+            composeRule
+                .onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG)
+                .performScrollToNode(hasText(filter.toLabel().resolve()))
+            composeRule.onNodeWithText(filter.toLabel().resolve()).assertExists()
+            composeRule.onNodeWithTag("settings-brand-logo-${filter.name}", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithContentDescription("${filter.toLabel().resolve()} 브랜드").assertDoesNotExist()
         }
-
-        val allLabelLeft = composeRule
-            .onNodeWithText("전체", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-            .left
-        val skEnergyLabelLeft = composeRule
-            .onNodeWithText("SK에너지", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot
-            .left
 
         assertEquals(
-            "Expected 전체 to reserve the same leading slot as concrete brand rows.",
-            skEnergyLabelLeft,
-            allLabelLeft,
-            1f,
+            com.gasstation.core.designsystem.R.drawable.ic_rtx,
+            Brand.RTO.gasStationBrandIconResource(),
+        )
+        assertEquals(
+            com.gasstation.core.designsystem.R.drawable.ic_rtx,
+            Brand.RTX.gasStationBrandIconResource(),
+        )
+        assertEquals(
+            com.gasstation.core.designsystem.R.drawable.ic_rtx,
+            Brand.NHO.gasStationBrandIconResource(),
+        )
+        assertEquals(
+            com.gasstation.core.designsystem.R.drawable.ic_etc,
+            Brand.ETC.gasStationBrandIconResource(),
         )
     }
+
+    @Test
+    fun `all brand option has no logo and keeps text inset contract explicit`() {
+        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
+
+        composeRule.setContent {
+            SettingsDetailScreen(
+                section = SettingsSection.BrandFilter,
+                options = options,
+                onBackClick = {},
+                onOptionClick = {},
+            )
+        }
+
+        composeRule.onNodeWithText("전체").assertLeftPositionInRootIsEqualTo(16.dp)
+        composeRule.onNodeWithTag("settings-brand-logo-ALL").assertDoesNotExist()
+    }
+
+    private operator fun androidx.compose.ui.geometry.Rect.contains(other: androidx.compose.ui.geometry.Rect): Boolean =
+        other.left >= left && other.top >= top && other.right <= right && other.bottom <= bottom
 }

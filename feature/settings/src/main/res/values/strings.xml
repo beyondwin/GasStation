@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Top bar -->
-    <string name="settings_title">찾기 설정</string>
+    <string name="settings_title">설정</string>
     <string name="settings_close">닫기</string>
     <string name="settings_back">뒤로가기</string>
 
