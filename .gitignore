@@ -19,6 +19,7 @@ local.properties
 .orchestrator/
 .superpowers/
 .codex/
+.worktrees/
 
 # signing and local secrets
 *.jks
