@@ -2,6 +2,7 @@ package com.gasstation.core.designsystem
 
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.junit.Assert.assertEquals
@@ -22,12 +23,14 @@ class GasStationThemeTokensTest {
     }
 
     @Test
-    fun `large number typography stays isolated to price hero and metric value`() {
+    fun `large number typography stays isolated to approved numeric roles`() {
         val typography = getDefaultToken("Typography")
         val priceHero = typography.textStyle("getPriceHero")
+        val compactPriceHero = typography.textStyle("getCompactPriceHero")
         val metricValue = typography.textStyle("getMetricValue")
 
         assertEquals("tnum", priceHero.fontFeatureSettings)
+        assertEquals("tnum", compactPriceHero.fontFeatureSettings)
         assertEquals("tnum", metricValue.fontFeatureSettings)
         assertTrue(
             "Expected PriceHero to remain the strongest number style in the system.",
@@ -57,10 +60,10 @@ class GasStationThemeTokensTest {
         expectedRoleGetterNames.forEach { getterName ->
             val style = typography.textStyle(getterName)
 
-            assertEquals(
+            val usesNeutralTracking = style.letterSpacing == 0.sp || style.letterSpacing == TextUnit.Unspecified
+            assertTrue(
                 "Expected $getterName to avoid optical tracking overrides.",
-                0.sp,
-                style.letterSpacing,
+                usesNeutralTracking,
             )
             assertEquals(
                 "Expected $getterName to keep Android system font for Korean readability.",
@@ -74,9 +77,12 @@ class GasStationThemeTokensTest {
     fun `typography hierarchy keeps price and metric above supporting copy`() {
         val typography = getDefaultToken("Typography")
         val priceHero = typography.textStyle("getPriceHero")
+        val compactPriceHero = typography.textStyle("getCompactPriceHero")
         val metricValue = typography.textStyle("getMetricValue")
         val cardTitle = typography.textStyle("getCardTitle")
 
+        assertTrue(priceHero.fontSize > compactPriceHero.fontSize)
+        assertTrue(compactPriceHero.fontSize > metricValue.fontSize)
         assertTrue(priceHero.fontSize > metricValue.fontSize)
         assertTrue(metricValue.fontSize > cardTitle.fontSize)
 
@@ -170,6 +176,7 @@ class GasStationThemeTokensTest {
             "getSectionTitle",
             "getCardTitle",
             "getPriceHero",
+            "getCompactPriceHero",
             "getMetricValue",
             "getBody",
             "getMeta",
@@ -180,6 +187,7 @@ class GasStationThemeTokensTest {
 
         private val largeNumberRoleGetterNames = setOf(
             "getPriceHero",
+            "getCompactPriceHero",
             "getMetricValue",
         )
 

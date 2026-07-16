@@ -1,18 +1,28 @@
 package com.gasstation.core.designsystem
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.component.GasStationGuidanceCard
+import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
+import com.gasstation.core.designsystem.component.GasStationComparisonRow
 import com.gasstation.core.designsystem.component.GasStationMetricBlock
 import com.gasstation.core.designsystem.component.GasStationMetricEmphasis
+import com.gasstation.core.designsystem.component.GasStationNavigationBar
+import com.gasstation.core.designsystem.component.GasStationNavigationBarItem
 import com.gasstation.core.designsystem.component.GasStationRow
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationSupportingInfo
+import com.gasstation.core.designsystem.component.GasStationSummaryStrip
+import com.gasstation.core.designsystem.component.UrbanSignalTokens
+import com.gasstation.core.model.Brand
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -112,5 +122,108 @@ class RoborazziDesignSystemTest {
             }
         }
         composeRule.onRoot().captureRoboImage("src/test/snapshots/supporting-info.png")
+    }
+
+    @Test
+    fun urban_signal_summary_strip_renders() {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(Modifier.padding(16.dp)) {
+                    GasStationSummaryStrip(Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "최저가",
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(text = "1,689원")
+                    }
+                }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/urban-signal-summary-strip.png")
+    }
+
+    @Test
+    fun urban_signal_main_brand_tile_renders() {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(Modifier.padding(16.dp)) {
+                    GasStationBrandLogoTile(
+                        brand = Brand.SKE,
+                        contentDescription = "SK에너지",
+                    )
+                }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/urban-signal-main-brand-tile.png")
+    }
+
+    @Test
+    fun urban_signal_compact_brand_tile_renders() {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(Modifier.padding(16.dp)) {
+                    GasStationBrandLogoTile(
+                        brand = Brand.GSC,
+                        contentDescription = "GS칼텍스",
+                        tileSize = UrbanSignalTokens.compactLogoTileSize,
+                        logoSize = UrbanSignalTokens.compactLogoSize,
+                    )
+                }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/urban-signal-compact-brand-tile.png")
+    }
+
+    @Test
+    fun urban_signal_comparison_row_renders() {
+        composeRule.setContent {
+            GasStationTheme {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    GasStationComparisonRow(
+                        leading = {
+                            GasStationBrandLogoTile(
+                                brand = Brand.SOL,
+                                contentDescription = "S-OIL",
+                                tileSize = UrbanSignalTokens.compactLogoTileSize,
+                                logoSize = UrbanSignalTokens.compactLogoSize,
+                            )
+                        },
+                        primary = {
+                            Text(text = "도심 셀프주유소")
+                            Text(text = "0.3km")
+                        },
+                        trailing = {
+                            Text(text = "1,689원")
+                        },
+                    )
+                }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/urban-signal-comparison-row.png")
+    }
+
+    @Test
+    fun urban_signal_navigation_bar_renders() {
+        composeRule.setContent {
+            GasStationTheme {
+                Column {
+                    GasStationNavigationBar(Modifier.fillMaxWidth()) {
+                        GasStationNavigationBarItem(
+                            selected = true,
+                            onClick = {},
+                            icon = { Text(text = "₩") },
+                            label = { Text(text = "주유소") },
+                        )
+                        GasStationNavigationBarItem(
+                            selected = false,
+                            onClick = {},
+                            icon = { Text(text = "★") },
+                            label = { Text(text = "관심") },
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/urban-signal-navigation-bar.png")
     }
 }

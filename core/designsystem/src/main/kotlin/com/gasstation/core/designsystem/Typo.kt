@@ -15,6 +15,7 @@ data class GasStationTypography(
     val sectionTitle: TextStyle,
     val cardTitle: TextStyle,
     val priceHero: TextStyle,
+    val compactPriceHero: TextStyle,
     val metricValue: TextStyle,
     val body: TextStyle,
     val meta: TextStyle,
@@ -65,6 +66,13 @@ internal val DefaultGasStationTypography = GasStationTypography(
         fontSize = 32.sp,
         lineHeight = 34.sp,
         letterSpacing = 0.sp,
+        fontFeatureSettings = "tnum",
+    ),
+    compactPriceHero = TextStyle(
+        fontFamily = DefaultFontFamily,
+        fontWeight = FontWeight.Black,
+        fontSize = 28.sp,
+        lineHeight = 30.sp,
         fontFeatureSettings = "tnum",
     ),
     metricValue = TextStyle(

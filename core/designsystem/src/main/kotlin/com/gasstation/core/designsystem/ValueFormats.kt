@@ -12,6 +12,8 @@ fun MoneyWon.gasStationPriceDigits(): String = DecimalFormat("#,###").format(val
 
 fun MoneyWon.gasStationPriceLabel(): String = "${gasStationPriceDigits()}$GAS_STATION_WON_UNIT"
 
+fun Int.gasStationWonLabel(): String = MoneyWon(this).gasStationPriceLabel()
+
 fun DistanceMeters.gasStationDistanceDigits(): String = DecimalFormat("#,##0.0").format(value / 1000.0)
 
 fun DistanceMeters.gasStationDistanceLabel(): String = "${gasStationDistanceDigits()}$GAS_STATION_DISTANCE_UNIT"

@@ -17,6 +17,11 @@ class ValueFormatsTest {
     }
 
     @Test
+    fun `typed won integer uses canonical formatting`() {
+        assertEquals("1,689원", 1689.gasStationWonLabel())
+    }
+
+    @Test
     fun `distance digits render one decimal kilometer`() {
         assertEquals("0.3", DistanceMeters(300).gasStationDistanceDigits())
     }

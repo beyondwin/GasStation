@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -127,7 +128,7 @@ internal data class StatusBannerToneVisual(
 @Composable
 fun GasStationBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(
-        modifier = modifier.background(ColorYellow),
+        modifier = modifier.background(MaterialTheme.colorScheme.background),
         content = content,
     )
 }
@@ -166,27 +167,21 @@ fun GasStationCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val corner = GasStationTheme.corner
-    val stroke = GasStationTheme.stroke
     val spacing = GasStationTheme.spacing
 
     Surface(
         modifier = modifier,
-        color = ColorBlack,
-        shape = RoundedCornerShape(corner.large),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(corner.medium),
     ) {
-        Surface(
-            modifier = Modifier.padding(stroke.default),
-            color = ColorWhite,
-            shape = RoundedCornerShape(corner.medium),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(spacing.space12),
-                content = content,
-            )
-        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(spacing.space12),
+            content = content,
+        )
     }
 }
 

@@ -37,7 +37,7 @@ object GasStationThemeDefaults {
         onSecondaryContainer = ColorBlack,
         tertiary = ColorNeutralMuted,
         onTertiary = ColorSurface,
-        background = ColorYellow,
+        background = ColorSurface,
         onBackground = ColorBlack,
         surface = ColorSurface,
         onSurface = ColorBlack,

@@ -8,6 +8,7 @@ val ColorBlack = Color(0xFF222222)
 val ColorSurface = Color(0xFFFFFCF2)
 val ColorSurfaceRaised = Color(0xFFFFF8DC)
 val ColorSurfaceMuted = Color(0xFFFFF0B3)
+val ColorLogoTile = Color(0xFFFFFFFF)
 val ColorSurfaceInverse = ColorBlack
 val ColorSurfaceInverseVariant = Color(0xFF343126)
 

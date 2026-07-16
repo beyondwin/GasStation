@@ -53,6 +53,13 @@ class GasStationThemeDefaultsTest {
     }
 
     @Test
+    fun `light theme uses ivory canvas and keeps yellow as primary signal`() {
+        assertEquals(ColorSurface, GasStationThemeDefaults.lightColorScheme.background)
+        assertEquals(ColorSurface, GasStationThemeDefaults.lightColorScheme.surface)
+        assertEquals(ColorYellow, GasStationThemeDefaults.lightColorScheme.primary)
+    }
+
+    @Test
     fun `dark color scheme keeps brand anchors with tinted inverse surfaces`() {
         val scheme = GasStationThemeDefaults.darkColorScheme
 
