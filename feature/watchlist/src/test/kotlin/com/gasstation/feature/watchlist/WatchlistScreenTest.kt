@@ -20,6 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ko")
@@ -38,6 +39,7 @@ class WatchlistScreenTest {
                             name = "테스트 주유소",
                             brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
+                            priceWon = 1689,
                             priceLabel = "1,689원",
                             priceNumberLabel = "1,689",
                             priceUnitLabel = "원",
@@ -45,6 +47,7 @@ class WatchlistScreenTest {
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
                             priceDeltaLabel = "-",
+                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
                             lastSeenLabel = "4월 18일 12:00",
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -70,6 +73,7 @@ class WatchlistScreenTest {
                             name = "테스트 주유소",
                             brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
+                            priceWon = 1689,
                             priceLabel = "1689원",
                             priceNumberLabel = "1689",
                             priceUnitLabel = "원",
@@ -77,6 +81,7 @@ class WatchlistScreenTest {
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
                             priceDeltaLabel = "직전 가격과 동일",
+                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
                             lastSeenLabel = "4월 18일 12:00",
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -99,7 +104,7 @@ class WatchlistScreenTest {
         composeRule.setContent {
             WatchlistScreen(
                 uiState = WatchlistUiState(
-                    stations = listOf(watchlistStation("station-1", "강남주유소", "1,689")),
+                    stations = listOf(watchlistStation("station-1", "강남주유소", 1689, "1,689")),
                 ),
                 onCloseClick = {},
             )
@@ -118,11 +123,13 @@ class WatchlistScreenTest {
                         watchlistStation(
                             id = "station-1",
                             name = "가까운 주유소",
+                            priceWon = 999,
                             priceNumberLabel = "999",
                         ),
                         watchlistStation(
                             id = "station-2",
                             name = "조금 먼 주유소",
+                            priceWon = 1899,
                             priceNumberLabel = "1,899",
                         ),
                     ),
@@ -214,6 +221,7 @@ class WatchlistScreenTest {
                             name = "테스트 주유소",
                             brand = Brand.GSC,
                             brandLabel = "GS칼텍스",
+                            priceWon = 2022,
                             priceLabel = "2,022원",
                             priceNumberLabel = "2,022",
                             priceUnitLabel = "원",
@@ -222,6 +230,7 @@ class WatchlistScreenTest {
                             distanceUnitLabel = "km",
                             priceDeltaLabel = "17원",
                             priceDeltaTone = WatchlistPriceDeltaTone.Rise,
+                            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
                             lastSeenLabel = "4월 18일 12:00",
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -260,6 +269,7 @@ class WatchlistScreenTest {
                                 name = longName,
                                 brand = Brand.HDO,
                                 brandLabel = longBrandLabel,
+                                priceWon = 123_456_789,
                                 priceLabel = "123,456,789원",
                                 priceNumberLabel = "123,456,789",
                                 priceUnitLabel = "원",
@@ -268,6 +278,7 @@ class WatchlistScreenTest {
                                 distanceUnitLabel = "km",
                                 priceDeltaLabel = "999원",
                                 priceDeltaTone = WatchlistPriceDeltaTone.Rise,
+                                lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
                                 lastSeenLabel = "4월 18일 12:00",
                                 latitude = 37.498095,
                                 longitude = 127.02761,
@@ -306,11 +317,12 @@ class WatchlistScreenTest {
         assertTrue("Expected visible brand label to remain after the brand icon.", brandLabelBounds.left > brandIconBounds.right)
     }
 
-    private fun watchlistStation(id: String, name: String, priceNumberLabel: String) = WatchlistItemUiModel(
+    private fun watchlistStation(id: String, name: String, priceWon: Int, priceNumberLabel: String) = WatchlistItemUiModel(
         id = id,
         name = name,
         brand = Brand.GSC,
         brandLabel = "GS칼텍스",
+        priceWon = priceWon,
         priceLabel = "${priceNumberLabel}원",
         priceNumberLabel = priceNumberLabel,
         priceUnitLabel = "원",
@@ -318,6 +330,7 @@ class WatchlistScreenTest {
         distanceNumberLabel = "0.3",
         distanceUnitLabel = "km",
         priceDeltaLabel = "-",
+        lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
         lastSeenLabel = "4월 18일 12:00",
         latitude = 37.498095,
         longitude = 127.02761,

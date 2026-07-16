@@ -37,6 +37,7 @@ class WatchlistItemUiModelTest {
             )
 
             assertEquals("1,689원", item.priceLabel)
+            assertEquals(1689, item.priceWon)
             assertEquals("1,689", item.priceNumberLabel)
             assertEquals("원", item.priceUnitLabel)
             assertEquals(Brand.GSC, item.brand)
@@ -46,6 +47,7 @@ class WatchlistItemUiModelTest {
             assertEquals("27원", item.priceDeltaLabel)
             assertEquals(WatchlistPriceDeltaTone.Fall, item.priceDeltaTone)
             assertEquals("4월 18일 12:00", item.lastSeenLabel)
+            assertEquals(Instant.parse("2026-04-18T03:00:00Z"), item.lastSeenAt)
         } finally {
             TimeZone.setDefault(originalTimeZone)
         }
@@ -127,6 +129,7 @@ class WatchlistItemUiModelTest {
             name = "테스트 주유소",
             brand = Brand.GSC,
             brandLabel = "GS칼텍스",
+            priceWon = 1689,
             priceLabel = "1689원",
             priceNumberLabel = "1689",
             priceUnitLabel = "원",
@@ -134,6 +137,7 @@ class WatchlistItemUiModelTest {
             distanceNumberLabel = "0.3",
             distanceUnitLabel = "km",
             priceDeltaLabel = "직전 가격과 동일",
+            lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
             lastSeenLabel = "4월 18일 12:00",
             latitude = 37.498095,
             longitude = 127.02761,
@@ -154,6 +158,7 @@ class WatchlistItemUiModelTest {
                 name = "테스트 주유소",
                 brand = Brand.GSC,
                 brandLabel = "GS칼텍스",
+                priceWon = 1689,
                 priceLabel = "1689원",
                 priceNumberLabel = "",
                 priceUnitLabel = "원",
@@ -161,6 +166,7 @@ class WatchlistItemUiModelTest {
                 distanceNumberLabel = "0.3",
                 distanceUnitLabel = "km",
                 priceDeltaLabel = "직전 가격과 동일",
+                lastSeenAt = null,
                 lastSeenLabel = "4월 18일 12:00",
                 latitude = 37.498095,
                 longitude = 127.02761,

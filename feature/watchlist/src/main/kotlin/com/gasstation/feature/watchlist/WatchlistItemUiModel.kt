@@ -23,6 +23,7 @@ data class WatchlistItemUiModel(
     val name: String,
     val brand: Brand = Brand.ETC,
     val brandLabel: String,
+    val priceWon: Int,
     val priceLabel: String,
     val priceNumberLabel: String,
     val priceUnitLabel: String,
@@ -31,6 +32,7 @@ data class WatchlistItemUiModel(
     val distanceUnitLabel: String,
     val priceDeltaLabel: String,
     val priceDeltaTone: WatchlistPriceDeltaTone = WatchlistPriceDeltaTone.Neutral,
+    val lastSeenAt: Instant?,
     val lastSeenLabel: String,
     val latitude: Double,
     val longitude: Double,
@@ -47,6 +49,7 @@ data class WatchlistItemUiModel(
         name = summary.station.name,
         brand = summary.station.brand,
         brandLabel = summary.station.brand.gasStationBrandLabel(),
+        priceWon = summary.station.price.value,
         priceLabel = summary.station.price.gasStationPriceLabel(),
         priceNumberLabel = summary.station.price.gasStationPriceDigits(),
         priceUnitLabel = GAS_STATION_WON_UNIT,
@@ -55,7 +58,8 @@ data class WatchlistItemUiModel(
         distanceUnitLabel = GAS_STATION_DISTANCE_UNIT,
         priceDeltaLabel = summary.priceDelta.toDeltaLabel(),
         priceDeltaTone = summary.priceDelta.direction.toTone(),
-        lastSeenLabel = summary.lastSeenAt.toLabel(),
+        lastSeenAt = summary.lastSeenAt,
+        lastSeenLabel = summary.lastSeenAt.toWatchlistLastSeenLabel(),
         latitude = summary.station.coordinates.latitude,
         longitude = summary.station.coordinates.longitude,
     )
@@ -81,10 +85,10 @@ internal fun WatchlistPriceDeltaTone.toColor(): Color = when (this) {
     WatchlistPriceDeltaTone.Neutral -> ColorGray2
 }
 
-private fun Instant?.toLabel(): String {
-    if (this == null) return "마지막 확인 기록 없음"
+internal fun Instant?.toWatchlistLastSeenLabel(zoneId: ZoneId = ZoneId.systemDefault()): String {
+    if (this == null) return "-"
 
     return DateTimeFormatter.ofPattern("M월 d일 HH:mm")
-        .withZone(ZoneId.systemDefault())
+        .withZone(zoneId)
         .format(this)
 }

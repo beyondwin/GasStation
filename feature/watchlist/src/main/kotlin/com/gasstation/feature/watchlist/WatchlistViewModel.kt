@@ -6,17 +6,21 @@ import androidx.lifecycle.viewModelScope
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.logSafely
+import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
+import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
     observeWatchlist: ObserveWatchlistUseCase,
+    private val updateWatchState: UpdateWatchStateUseCase,
     savedStateHandle: SavedStateHandle,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
@@ -25,20 +29,40 @@ class WatchlistViewModel @Inject constructor(
         longitude = savedStateHandle.requiredCoordinate("longitude"),
     )
     private var hasLoggedCompareViewed = false
+    private var stationsById: Map<String, Station> = emptyMap()
 
     val uiState = observeWatchlist(origin)
         .map { summaries ->
+            stationsById = summaries.associate { it.station.id to it.station }
             if (!hasLoggedCompareViewed) {
                 hasLoggedCompareViewed = true
                 stationEventLogger.logSafely(StationEvent.CompareViewed(count = summaries.size))
             }
-            WatchlistUiState(stations = summaries.map(::WatchlistItemUiModel))
+            val stations = summaries.map(::WatchlistItemUiModel)
+            WatchlistUiState(
+                stations = stations,
+                summary = WatchlistSummaryUiModel.from(stations),
+            )
         }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = WatchlistUiState(),
         )
+
+    fun onAction(action: WatchlistAction) {
+        when (action) {
+            is WatchlistAction.RemoveClicked -> {
+                val station = stationsById[action.stationId] ?: return
+                viewModelScope.launch {
+                    updateWatchState(station, false)
+                    stationEventLogger.logSafely(
+                        StationEvent.WatchToggled(stationId = station.id, watched = false),
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun SavedStateHandle.requiredCoordinate(key: String): Double {
