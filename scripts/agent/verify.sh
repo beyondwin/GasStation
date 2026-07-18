@@ -47,10 +47,28 @@ if [[ "$scope" != auto ]]; then
   add_scope "$scope"
 else
   if ((${#changed_files[@]} == 0)); then
+    base_commit=
+    for candidate in refs/remotes/origin/main refs/heads/main; do
+      if git -C "$repo_root" show-ref --verify --quiet "$candidate"; then
+        if candidate_base=$(git -C "$repo_root" merge-base "$candidate" HEAD 2>/dev/null); then
+          base_commit=$candidate_base
+          break
+        fi
+      fi
+    done
+    if [[ -z "$base_commit" ]]; then
+      echo "verify: auto scope has no usable origin/main or local main merge base; pass an explicit scope" >&2
+      exit 65
+    fi
     while IFS= read -r file; do
       [[ -n "$file" ]] && changed_files+=("$file")
     done < <(
-      { git -C "$repo_root" diff --name-only HEAD; git -C "$repo_root" ls-files --others --exclude-standard; } | sort -u
+      {
+        git -C "$repo_root" diff --name-only "$base_commit"...HEAD
+        git -C "$repo_root" diff --name-only
+        git -C "$repo_root" diff --cached --name-only
+        git -C "$repo_root" ls-files --others --exclude-standard
+      } | LC_ALL=C sort -u
     )
   fi
   for file in "${changed_files[@]}"; do

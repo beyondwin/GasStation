@@ -28,6 +28,66 @@ assert_contains "$release" ":app:assembleProdRelease"
 unknown=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file tools/new-path/file.kt)
 assert_contains "$unknown" "scopes: fast"
 
+fixture=$(mktemp -d)
+trap 'rm -rf "$fixture"' EXIT
+
+make_verify_repo() {
+  local target=$1
+  make_git_repo "$target"
+  git -C "$target" branch -M main
+  mkdir -p "$target/scripts/agent" "$target/docs" "$target/core/database"
+  cp "$repo_root/scripts/agent/verify.sh" "$target/scripts/agent/verify.sh"
+  printf 'initial docs\n' > "$target/docs/architecture.md"
+  printf 'initial database\n' > "$target/core/database/Contract.kt"
+  git -C "$target" add scripts/agent/verify.sh docs/architecture.md core/database/Contract.kt
+  git -C "$target" commit -qm "test: add verifier fixtures"
+}
+
+commit_app_change() {
+  local target=$1
+  git -C "$target" switch -qc agent-setup
+  mkdir -p "$target/app"
+  printf 'plugins {}\n' > "$target/app/build.gradle.kts"
+  git -C "$target" add app/build.gradle.kts
+  git -C "$target" commit -qm "test: add committed app change"
+}
+
+make_verify_repo "$fixture/local-main"
+commit_app_change "$fixture/local-main"
+local_main=$("$fixture/local-main/scripts/agent/verify.sh" auto --dry-run)
+assert_contains "$local_main" "scopes: app"
+
+make_verify_repo "$fixture/no-base"
+git -C "$fixture/no-base" switch -qc agent-setup
+git -C "$fixture/no-base" branch -D main >/dev/null
+if no_base_output=$("$fixture/no-base/scripts/agent/verify.sh" auto --dry-run 2>&1); then
+  fail "auto accepted a repository without a usable main base"
+else
+  no_base_status=$?
+fi
+[[ "$no_base_status" -ne 0 ]] || fail "auto without a usable base returned zero"
+assert_contains "$no_base_output" "pass an explicit scope"
+assert_not_contains "$no_base_output" "scopes:"
+
+make_verify_repo "$fixture/unrelated-remote"
+commit_app_change "$fixture/unrelated-remote"
+empty_tree=$(git -C "$fixture/unrelated-remote" mktree </dev/null)
+unrelated_commit=$(printf 'unrelated remote main\n' | git -C "$fixture/unrelated-remote" commit-tree "$empty_tree")
+git -C "$fixture/unrelated-remote" update-ref refs/remotes/origin/main "$unrelated_commit"
+unrelated_remote=$("$fixture/unrelated-remote/scripts/agent/verify.sh" auto --dry-run)
+assert_contains "$unrelated_remote" "scopes: app"
+
+make_verify_repo "$fixture/union"
+commit_app_change "$fixture/union"
+printf 'staged docs\n' > "$fixture/union/docs/architecture.md"
+git -C "$fixture/union" add docs/architecture.md
+printf 'unstaged database\n' > "$fixture/union/core/database/Contract.kt"
+mkdir -p "$fixture/union/feature/station-list"
+printf 'untracked UI\n' > "$fixture/union/feature/station-list/Screen.kt"
+union=$("$fixture/union/scripts/agent/verify.sh" auto --dry-run)
+assert_contains "$union" "scopes: app data docs ui"
+assert_not_contains "$union" "scopes: fast"
+
 if unknown_error=$("$repo_root/scripts/agent/verify.sh" unknown --dry-run 2>&1); then
   fail "unknown scope was accepted"
 else
