@@ -27,20 +27,36 @@ import com.gasstation.core.designsystem.gasStationPriceDigits
 import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.MoneyWon
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ko-rKR-w360dp-h800dp-xhdpi")
 class WatchlistScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private lateinit var originalTimeZone: TimeZone
+
+    @Before
+    fun setUp() {
+        originalTimeZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"))
+    }
+
+    @After
+    fun tearDown() {
+        TimeZone.setDefault(originalTimeZone)
+    }
 
     @Test
     fun `five saved stations render as complete 108 to 116dp rows at default scale`() {
