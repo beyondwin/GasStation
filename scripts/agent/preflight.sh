@@ -17,6 +17,7 @@ repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
   echo "preflight: not inside a Git repository" >&2
   exit 2
 }
+invocation_cwd=$(pwd -P)
 
 git_dir=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 git_common=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
@@ -29,6 +30,7 @@ if [[ -z "$branch" ]]; then branch=detached; fi
 if [[ "$git_dir" == "$git_common" ]]; then worktree_kind=primary; else worktree_kind=linked; fi
 
 echo "repo: $repo_root"
+echo "invocation-cwd: $invocation_cwd"
 echo "head: $head_commit"
 echo "branch: $branch"
 echo "worktree: $worktree_kind"
@@ -57,7 +59,8 @@ echo "python: ${python_line:-missing}"
 gradle_ok=false
 if [[ -x "$repo_root/gradlew" ]]; then
   gradle_ok=true
-  echo "gradle-wrapper: present"
+  gradle_version=$(sed -En 's#^distributionUrl=.*gradle-([0-9][0-9.]*)-(bin|all)\.zip.*#\1#p' "$repo_root/gradle/wrapper/gradle-wrapper.properties" 2>/dev/null | sed -n '1p')
+  echo "gradle-wrapper: present version=${gradle_version:-unknown}"
 else
   echo "gradle-wrapper: missing"
 fi

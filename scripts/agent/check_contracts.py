@@ -9,7 +9,10 @@ accidental attempt to commit them.
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +32,46 @@ PERSONAL_PATH = re.compile(
 )
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 DIFF_CHECK_ISSUE = re.compile(r"^(.*?):(?:(\d+):)?\s*(.*)$")
+REPO_HOOK_TARGET = re.compile(r"^(scripts/agent/[A-Za-z0-9_.-]+)$")
+ROOT_HOOK_TARGET = re.compile(
+    r"^\$\(git rev-parse --show-toplevel\)/(scripts/agent/[A-Za-z0-9_.-]+)$"
+)
+CI_REQUIRED_FILES = (
+    ROOT_LIVE_MARKDOWN
+    + [f"docs/{name}" for name in DOC_LIVE_MARKDOWN]
+    + [
+        ".codex/config.toml",
+        ".codex/hooks.json",
+        ".claude/settings.json",
+        ".github/workflows/android.yml",
+        "docs/AGENTS.md",
+        "core/database/AGENTS.md",
+        "benchmark/AGENTS.md",
+    ]
+)
+CI_REQUIRED_ANCHORS = {
+    "AGENTS.md": ["scripts/agent/preflight.sh", "scripts/agent/verify.sh auto"],
+    "docs/AGENTS.md": ["scripts/agent/verify.sh docs", "docs/superpowers/"],
+    "core/database/AGENTS.md": [
+        "StationSearchResult.hasCachedSnapshot",
+        "fallbackToDestructiveMigration",
+    ],
+    "benchmark/AGENTS.md": ["demoBenchmark", "ANDROID_SERIAL"],
+    ".codex/config.toml": ["hooks = true"],
+    ".github/workflows/android.yml": ["fetch-depth: 0", "GASSTATION_CI_BASE_REF"],
+}
+HOOK_CONFIG_EVENTS = {
+    ".codex/hooks.json": {
+        "SessionStart": "scripts/agent/preflight.sh",
+        "PreToolUse": "scripts/agent/pre_tool_policy.py",
+        "Stop": "scripts/agent/stop_check.py",
+    },
+    ".claude/settings.json": {
+        "PreToolUse": "scripts/agent/pre_tool_policy.py",
+        "PostToolUse": "scripts/agent/check-contracts.sh",
+        "SubagentStop": "scripts/agent/check-contracts.sh",
+    },
+}
 
 
 def issue(path, line: int, message: str) -> str:
@@ -219,23 +262,220 @@ def check_shell_syntax(root: Path) -> list[str]:
     return issues
 
 
-def check_diff(root: Path) -> list[str]:
+def hook_commands(value):
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key == "command" and isinstance(nested, str):
+                yield nested
+            else:
+                yield from hook_commands(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from hook_commands(nested)
+
+
+def event_command_hooks(value):
+    if not isinstance(value, list):
+        return
+    for group in value:
+        if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+            continue
+        for hook in group["hooks"]:
+            if not isinstance(hook, dict):
+                continue
+            command = hook.get("command")
+            if (
+                hook.get("type") == "command"
+                and isinstance(command, str)
+                and command.strip()
+            ):
+                yield command
+
+
+def exact_hook_target(token: str):
+    for pattern in (REPO_HOOK_TARGET, ROOT_HOOK_TARGET):
+        match = pattern.fullmatch(token)
+        if match:
+            return match.group(1)
+    return None
+
+
+def command_hook_targets(command: str) -> list[str]:
+    try:
+        words = shlex.split(command, comments=True, posix=True)
+    except ValueError:
+        return []
+    index = 0
+    while index < len(words) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[index]):
+        index += 1
+    if index < len(words) and Path(words[index]).name == "command":
+        index += 1
+    if index < len(words) and Path(words[index]).name == "env":
+        index += 1
+        while index < len(words) and (
+            re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[index])
+            or words[index].startswith("-")
+        ):
+            index += 1
+    if index >= len(words):
+        return []
+
+    executable = Path(words[index]).name
+    executable_target = exact_hook_target(words[index])
+    if executable_target:
+        return [executable_target]
+    if executable not in {"bash", "sh", "python", "python3"}:
+        return []
+    for token in words[index + 1 :]:
+        if token == "--command" or (
+            token.startswith("-")
+            and not token.startswith("--")
+            and "c" in token[1:]
+        ):
+            return []
+        if token == "--" or token.startswith(("-", "+")):
+            continue
+        target = exact_hook_target(token)
+        return [target] if target else []
+    return []
+
+
+def command_named_targets(command: str) -> list[str]:
+    try:
+        words = shlex.split(command, comments=True, posix=True)
+    except ValueError:
+        return []
+    return [target for word in words if (target := exact_hook_target(word))]
+
+
+def check_ci_contracts(root: Path) -> list[str]:
+    issues: list[str] = []
+    for relative in CI_REQUIRED_FILES:
+        if not (root / relative).is_file():
+            issues.append(issue(relative, 1, "required CI contract file missing"))
+
+    for relative, anchors in CI_REQUIRED_ANCHORS.items():
+        contract = root / relative
+        if not contract.is_file():
+            continue
+        text = contract.read_text(errors="replace")
+        for anchor in anchors:
+            if anchor not in text:
+                issues.append(issue(relative, 1, "required contract anchor missing"))
+
+    configured_targets = set()
+    for relative, required_events in HOOK_CONFIG_EVENTS.items():
+        config = root / relative
+        if not config.is_file():
+            continue
+        try:
+            payload = json.loads(config.read_text())
+        except json.JSONDecodeError as error:
+            issues.append(issue(relative, error.lineno, "malformed JSON hook config"))
+            continue
+        hooks = payload.get("hooks") if isinstance(payload, dict) else None
+        if not isinstance(hooks, dict):
+            issues.append(issue(relative, 1, "hook config must contain a hooks object"))
+            continue
+        for event, expected_target in required_events.items():
+            if event not in hooks:
+                issues.append(issue(relative, 1, f"required hook event missing: {event}"))
+                continue
+            event_value = hooks[event]
+            if not isinstance(event_value, list) or not event_value:
+                issues.append(
+                    issue(
+                        relative,
+                        1,
+                        f"required hook event must be a non-empty list: {event}",
+                    )
+                )
+                continue
+            event_commands = list(event_command_hooks(event_value))
+            event_targets = {
+                target
+                for command in event_commands
+                for target in command_hook_targets(command)
+            }
+            if not event_commands:
+                issues.append(
+                    issue(
+                        relative,
+                        1,
+                        f"required hook event has no well-formed command hook: {event}",
+                    )
+                )
+            elif expected_target not in event_targets:
+                issues.append(
+                    issue(
+                        relative,
+                        1,
+                        f"required hook target missing for {event}: {expected_target}",
+                    )
+                )
+        for command in hook_commands(hooks):
+            configured_targets.update(command_named_targets(command))
+
+    for target in sorted(configured_targets):
+        if not (root / target).is_file():
+            issues.append(issue(target, 1, "configured hook target missing"))
+    return issues
+
+
+def parse_diff_issues(output: str) -> list[str]:
+    issues: list[str] = []
+    for line in output.splitlines():
+        if not line:
+            continue
+        match = DIFF_CHECK_ISSUE.match(line)
+        if match:
+            path, line_number, message = match.groups()
+            issues.append(issue(path, int(line_number or 1), message))
+        else:
+            issues.append(issue("git-diff", 1, line.strip()))
+    return issues
+
+
+def run_diff_check(root: Path, arguments: list[str]) -> list[str]:
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--check"], text=True, capture_output=True
+        ["git", "-C", str(root), "diff", "--check"] + arguments,
+        text=True,
+        capture_output=True,
     )
     if result.returncode:
-        issues: list[str] = []
-        for line in result.stdout.splitlines():
-            if not line:
-                continue
-            match = DIFF_CHECK_ISSUE.match(line)
-            if match:
-                path, line_number, message = match.groups()
-                issues.append(issue(path, int(line_number or 1), message))
-            else:
-                issues.append(issue("git-diff", 1, line.strip()))
+        issues = parse_diff_issues(result.stdout)
         return issues or [issue("git-diff", 1, "git diff --check failed")]
     return []
+
+
+def commit_exists(root: Path, reference: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--quiet", f"{reference}^{{commit}}"],
+        text=True,
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def check_diff(root: Path, ci: bool = False) -> list[str]:
+    issues = run_diff_check(root, [])
+    issues += run_diff_check(root, ["--cached"])
+    if not ci:
+        return issues
+
+    configured_base = os.environ.get("GASSTATION_CI_BASE_REF", "").strip()
+    all_zero_sha = configured_base and set(configured_base) == {"0"}
+    if configured_base and not all_zero_sha:
+        if not commit_exists(root, configured_base):
+            issues.append(issue("git-diff", 1, "configured CI diff base is not a commit"))
+            return issues
+        base = configured_base
+    elif commit_exists(root, "HEAD^"):
+        base = "HEAD^"
+    else:
+        return issues
+    issues += run_diff_check(root, [f"{base}...HEAD"])
+    return issues
 
 
 def main() -> int:
@@ -262,7 +502,9 @@ def main() -> int:
         issues += check_live_links(root)
         issues += check_build_contract(root)
         issues += check_shell_syntax(root)
-        issues += check_diff(root)
+        issues += check_diff(root, ci=args.ci)
+        if args.ci:
+            issues += check_ci_contracts(root)
     if issues:
         for issue in sorted(set(issues)):
             print(f"ERROR: {issue}", file=sys.stderr)

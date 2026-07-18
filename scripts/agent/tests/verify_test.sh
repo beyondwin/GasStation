@@ -18,8 +18,22 @@ assert_contains "$data" "scopes: data"
 assert_contains "$data" ":core:database:testDebugUnitTest"
 
 app=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file app/build.gradle.kts)
-assert_contains "$app" "scopes: app"
+assert_contains "$app" "scopes: app release"
 assert_contains "$app" ":app:assembleProdDebug"
+assert_contains "$app" ":app:assembleProdRelease"
+
+release_source=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file app/src/release/kotlin/ReleaseConfig.kt)
+assert_contains "$release_source" "scopes: app release"
+
+release_workflow=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file .github/workflows/release.yml)
+assert_contains "$release_workflow" "scopes: app release"
+
+publish_workflow=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file .github/workflows/publish-play.yml)
+assert_contains "$publish_workflow" "scopes: app release"
+
+ordinary_workflow=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file .github/workflows/android.yml)
+assert_contains "$ordinary_workflow" "scopes: app"
+assert_not_contains "$ordinary_workflow" "scopes: app release"
 
 release=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file docs/deployment.md)
 assert_contains "$release" "scopes: docs release"
@@ -85,7 +99,7 @@ printf 'unstaged database\n' > "$fixture/union/core/database/Contract.kt"
 mkdir -p "$fixture/union/feature/station-list"
 printf 'untracked UI\n' > "$fixture/union/feature/station-list/Screen.kt"
 union=$("$fixture/union/scripts/agent/verify.sh" auto --dry-run)
-assert_contains "$union" "scopes: app data docs ui"
+assert_contains "$union" "scopes: app release data docs ui"
 assert_not_contains "$union" "scopes: fast"
 
 if unknown_error=$("$repo_root/scripts/agent/verify.sh" unknown --dry-run 2>&1); then

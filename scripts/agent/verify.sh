@@ -86,6 +86,14 @@ else
       core/model/*|core/network/*|core/observability/*|core/database/*|core/datastore/*|core/location/*|domain/*|data/*)
         add_scope data
         ;;
+      app/build.gradle.kts|app/src/release/*|app/src/prodRelease/*|app/*release*|app/*signing*|app/*version*)
+        add_scope app
+        add_scope release
+        ;;
+      .github/workflows/*release*|.github/workflows/*publish*|.github/workflows/*deploy*)
+        add_scope app
+        add_scope release
+        ;;
       app/*|benchmark/*|build-logic/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|.github/workflows/*)
         add_scope app
         ;;

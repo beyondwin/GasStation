@@ -10,11 +10,14 @@ trap 'rm -rf "$fixture"' EXIT
 make_git_repo "$fixture/repo"
 
 clean_output=$(cd "$fixture/repo" && "$repo_root/scripts/agent/preflight.sh" --hook)
+fixture_repo_cwd=$(cd "$fixture/repo" && pwd -P)
+assert_contains "$clean_output" "invocation-cwd: $fixture_repo_cwd"
 assert_contains "$clean_output" "branch:"
 assert_contains "$clean_output" "worktree: primary"
 assert_contains "$clean_output" "dirty: clean"
 assert_contains "$clean_output" "modules: 1"
 assert_contains "$clean_output" "python:"
+assert_contains "$clean_output" "gradle-wrapper: present version=9.6.1"
 assert_contains "$clean_output" "ledger: none detected"
 
 mkdir -p "$fixture/repo/.superpowers/sdd"
