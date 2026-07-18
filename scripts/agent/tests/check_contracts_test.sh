@@ -22,7 +22,7 @@ EOF
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 make_git_repo "$fixture/repo"
-mkdir -p "$fixture/repo/app" "$fixture/repo/docs" "$fixture/repo/.codex"
+mkdir -p "$fixture/repo/app" "$fixture/repo/docs" "$fixture/repo/.codex" "$fixture/repo/.github/workflows"
 cat > "$fixture/repo/app/build.gradle.kts" <<'EOF'
 android {
     compileSdk = 37
@@ -40,10 +40,38 @@ EOF
 printf '# Guide\n' > "$fixture/repo/docs/guide.md"
 printf 'Java 21+, Android SDK 37, Python 3.9+.\n' > "$fixture/repo/CONTRIBUTING.md"
 printf '[features]\nhooks = true\n' > "$fixture/repo/.codex/config.toml"
+cat > "$fixture/repo/.github/workflows/android.yml" <<'EOF'
+name: Android CI
+jobs:
+  agent-contracts:
+    runs-on: ubuntu-latest
+  static-analysis:
+    runs-on: ubuntu-latest
+EOF
 git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
+
+cat > "$fixture/repo/.github/workflows/android.yml" <<'EOF'
+name: Android CI
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+EOF
+if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/workflow.out" 2>&1; then
+  fail "workflow without agent-contracts job was accepted"
+fi
+assert_contains "$(cat "$fixture/workflow.out")" ".github/workflows/android.yml:1: agent-contracts job missing"
+assert_error_locations "$(cat "$fixture/workflow.out")"
+cat > "$fixture/repo/.github/workflows/android.yml" <<'EOF'
+name: Android CI
+jobs:
+  agent-contracts:
+    runs-on: ubuntu-latest
+  static-analysis:
+    runs-on: ubuntu-latest
+EOF
 
 printf '[Broken](docs/missing.md)\n' >> "$fixture/repo/README.md"
 if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/broken.out" 2>&1; then

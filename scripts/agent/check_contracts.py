@@ -128,6 +128,18 @@ def check_build_contract(root: Path) -> list[str]:
                 f"Android SDK {compile_sdk.group(1)} contract missing",
             )
         )
+
+    workflow = root / ".github" / "workflows" / "android.yml"
+    if workflow.exists() and not re.search(
+        r"(?m)^  agent-contracts:\s*$", workflow.read_text()
+    ):
+        issues.append(
+            issue(
+                ".github/workflows/android.yml",
+                1,
+                "agent-contracts job missing",
+            )
+        )
     return issues
 
 
@@ -230,6 +242,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path)
     parser.add_argument("--quick", action="store_true")
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="run the full contract check for CI",
+    )
     args = parser.parse_args()
     root = (
         args.root

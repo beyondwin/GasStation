@@ -77,6 +77,24 @@ git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md do
 
 문서/리팩터링/가벼운 변경 후 가장 먼저 돌릴 조합입니다.
 
+live 계약 문서, 링크, 경로, toolchain/version/module 계약은 Gradle 없이 다음 checker로 확인합니다.
+
+```bash
+scripts/agent/check-contracts.sh
+```
+
+| Scope | 실행 범위 |
+| --- | --- |
+| `docs` | live 문서 링크, 경로, toolchain/version/module 계약 |
+| `fast` | 가벼운 host-side 회귀와 demo assemble |
+| `ui` | designsystem/feature UI test와 Roborazzi |
+| `data` | model/domain/data/database 회귀와 module boundary |
+| `app` | demo/prod app test와 debug assemble, benchmark assemble |
+| `release` | 기존 머지 전 회귀와 prod release assemble |
+| `auto` | changed path를 보수적으로 위 scope에 매핑 |
+
+Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와 assemble은 명시적인 `scripts/agent/verify.sh <scope>` 호출이 소유합니다.
+
 ```bash
 ./gradlew \
   :core:model:test \
@@ -176,9 +194,9 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis + verifyCiRobolectricRuntime), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
-| `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
-| `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis + verifyCiRobolectricRuntime), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
+| `push` tag `v*` | PR 범위(`agent-contracts` 포함) + `release-assemble` + `coverage` |
 
 `prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
 `assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
