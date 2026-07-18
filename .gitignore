@@ -18,7 +18,10 @@ local.properties
 .gstack/
 .orchestrator/
 .superpowers/
-.codex/
+# Tracked Codex project policy lives in .codex/config.toml and .codex/hooks.json.
+.codex/*
+!.codex/config.toml
+!.codex/hooks.json
 .worktrees/
 
 # signing and local secrets

@@ -1,0 +1,43 @@
+{
+  "description": "GasStation repository safety and context hooks.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"$(git rev-parse --show-toplevel)/scripts/agent/preflight.sh\" --hook",
+            "timeout": 15,
+            "statusMessage": "Checking GasStation workspace state"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$(git rev-parse --show-toplevel)/scripts/agent/pre_tool_policy.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking GasStation command policy"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$(git rev-parse --show-toplevel)/scripts/agent/stop_check.py\"",
+            "timeout": 15,
+            "statusMessage": "Checking GasStation completion evidence"
+          }
+        ]
+      }
+    ]
+  }
+}
