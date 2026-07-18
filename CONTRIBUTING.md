@@ -4,9 +4,10 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 
 ## 시작하기
 
-1. JDK 17, Android SDK 35.
-2. `~/.gradle/gradle.properties`에 `opinet.apikey`를 둘 수 있습니다. `demo` 빌드는 키 없이 동작합니다.
-3. 처음에는 `demo`로 검증하세요.
+1. Java 21 이상, Android SDK 37. 앱의 Java/Kotlin bytecode target은 JVM 17입니다.
+2. 저장소의 agent script와 Codex/Claude hook은 Python 3.9 이상 표준 라이브러리만 사용합니다.
+3. `~/.gradle/gradle.properties`에 `opinet.apikey`를 둘 수 있습니다. `demo` 빌드는 키 없이 동작합니다.
+4. 처음에는 `demo`로 검증하세요.
 
 ```bash
 ./gradlew :app:assembleDemoDebug

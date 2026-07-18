@@ -6,6 +6,9 @@ GasStation 작업자는 이 파일을 먼저 읽는다. 이 파일은 모든 변
 
 - 변경 전 `git status --short`로 기존 사용자 변경을 확인한다.
 - 활성 모듈은 파일시스템에 남은 디렉터리가 아니라 `settings.gradle.kts`의 Gradle include 기준으로 판단한다.
+- 판단 우선순위는 실제 코드와 `settings.gradle.kts` -> live 계약 문서 -> `docs/superpowers/`, `docs/history/`, `docs/improvements/` 이력 문서 순서다.
+- 중단된 작업을 재개할 때는 새 branch/worktree를 만들기 전에 `git worktree list`, `git status --short`, 관련 diff, 기존 `.superpowers/sdd/progress.md`를 확인한다.
+- 비사소한 변경 전 `scripts/agent/preflight.sh`, 완료 주장 전 `scripts/agent/verify.sh auto`를 기본 진입점으로 사용한다.
 - 새 의존성이나 새 위치를 정하기 전에 `docs/module-contracts.md`를 먼저 확인한다.
 - 실제 작업 순서, 테스트 선택, 최종 체크리스트는 `docs/agent-workflow.md`를 따른다.
 
@@ -44,6 +47,10 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 - watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 화면이다.
 - UI 변경은 접근성, semantics, test tag 계약을 제거하지 않는다. 제거가 필요하면 대체 테스트를 함께 만든다.
 - 문서가 약속하는 사용자 흐름을 바꾸면 테스트와 README/demo story도 함께 점검한다.
+- 진단, 리뷰, 설명 요청은 사용자가 구현까지 요청하지 않았다면 읽기 전용 범위로 다룬다.
+- Graphify 같은 생성형 분석은 live 문서 -> focused `rg` -> 실제 코드/테스트 추적으로 관계를 확인하기 어려울 때만 사용한다.
+- push, PR, tag, release, publish, deploy는 명시된 작업 범위에 포함될 때만 수행한다.
+- 완료 보고에는 변경 파일, 실행 명령과 결과, 미검증 영역, local/remote 상태를 포함한다.
 
 ## Required Reading By Task
 

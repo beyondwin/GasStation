@@ -120,4 +120,11 @@ assert_contains "$(cat "$fixture/shell.out")" "shell syntax error"
 assert_error_locations "$(cat "$fixture/shell.out")"
 assert_not_contains "$(cat "$fixture/shell.out")" "$fixture/repo"
 
+if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
+  for required in docs/AGENTS.md core/database/AGENTS.md benchmark/AGENTS.md; do
+    [[ -f "$repo_root/$required" ]] || fail "missing nested contract: $required"
+  done
+  "$repo_root/scripts/agent/check-contracts.sh"
+fi
+
 echo "check_contracts_test: PASS"

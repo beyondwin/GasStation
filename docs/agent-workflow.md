@@ -30,6 +30,19 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 - UI 작업이면 `core:designsystem` 토큰과 공통 component를 먼저 확인한다.
 - 상태/캐시 작업이면 `docs/state-model.md`와 `docs/offline-strategy.md`를 먼저 읽는다.
 
+## Continuation And Worktrees
+
+비사소한 변경은 먼저 `scripts/agent/preflight.sh`로 branch, linked worktree, dirty path, Java, Android SDK, 기존 progress ledger를 확인합니다.
+
+이전 작업을 이어갈 때는 다음 순서를 지킵니다.
+
+1. `git worktree list`에서 이미 만든 작업 공간이 있는지 확인합니다.
+2. 대상 worktree의 `git status --short`, 관련 diff, `.superpowers/sdd/progress.md`를 읽습니다.
+3. 미커밋 변경과 마지막으로 통과한 검증을 확인한 뒤 같은 작업을 이어갑니다.
+4. linked worktree에 `local.properties`만 없다면 `scripts/agent/bootstrap-worktree.sh`를 사용합니다.
+
+기존 변경을 자동 stash/reset/clean하지 않으며, 같은 목적의 branch나 worktree를 중복 생성하지 않습니다.
+
 ## Module Placement
 
 모듈 위치 판단의 단일 출처는 `docs/module-contracts.md`다. 이 문서는 절차 문서이므로 전체 모듈 표를 반복하지 않는다.

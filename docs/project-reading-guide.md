@@ -46,8 +46,8 @@
 
 ## 에이전트 Fast Path
 
-1. `git status --short`로 기존 사용자 변경을 확인합니다.
-2. `AGENTS.md`를 읽고 항상 적용되는 운영 계약을 확인합니다.
+1. `scripts/agent/preflight.sh`로 branch, worktree, dirty state, toolchain, 기존 ledger를 확인합니다.
+2. 루트 `AGENTS.md`와 현재 경로에 더 가까운 중첩 `AGENTS.md`를 읽습니다.
 3. `settings.gradle.kts`에서 활성 모듈을 확인합니다.
 4. 이 문서의 "변경 목적별 바로 열 파일"과 "질문별 가장 빠른 진입점"에서 목적에 맞는 현재 계약 문서를 고릅니다.
 5. 관련 테스트 파일을 먼저 읽고 현재 계약을 확인합니다.
