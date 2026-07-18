@@ -74,8 +74,13 @@ else
 fi
 
 progress_file="$repo_root/.superpowers/sdd/progress.md"
-if [[ -f "$progress_file" ]] && grep -qE '(^|[[:space:]])- \[ \]' "$progress_file"; then
-  echo "ledger: unfinished .superpowers/sdd/progress.md"
+if [[ -f "$progress_file" ]]; then
+  completed_count=$(grep -Ec '^Task[[:space:]]+[0-9]+:[[:space:]]+complete([[:space:]]|$)' "$progress_file" || true)
+  pending=no
+  if grep -qE '(^|[[:space:]])-?[[:space:]]*\[[[:space:]]\]|^Task[[:space:]]+[0-9]+:[[:space:]]+(pending|in[_ -]?progress|blocked|unfinished)([[:space:]]|$)' "$progress_file"; then
+    pending=yes
+  fi
+  echo "ledger: .superpowers/sdd/progress.md exists completed=$completed_count pending=$pending"
 else
   echo "ledger: none detected"
 fi

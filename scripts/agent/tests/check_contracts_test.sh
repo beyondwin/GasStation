@@ -124,6 +124,19 @@ if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
   for required in docs/AGENTS.md core/database/AGENTS.md benchmark/AGENTS.md; do
     [[ -f "$repo_root/$required" ]] || fail "missing nested contract: $required"
   done
+  assert_contract_anchor() {
+    local path=$1
+    local anchor=$2
+    grep -Fq -- "$anchor" "$repo_root/$path" || fail "missing contract anchor in $path: $anchor"
+  }
+  assert_contract_anchor AGENTS.md 'scripts/agent/preflight.sh'
+  assert_contract_anchor AGENTS.md 'scripts/agent/verify.sh auto'
+  assert_contract_anchor docs/AGENTS.md 'scripts/agent/verify.sh docs'
+  assert_contract_anchor docs/AGENTS.md 'docs/superpowers/'
+  assert_contract_anchor core/database/AGENTS.md 'StationSearchResult.hasCachedSnapshot'
+  assert_contract_anchor core/database/AGENTS.md 'fallbackToDestructiveMigration'
+  assert_contract_anchor benchmark/AGENTS.md 'demoBenchmark'
+  assert_contract_anchor benchmark/AGENTS.md 'ANDROID_SERIAL'
   "$repo_root/scripts/agent/check-contracts.sh"
 fi
 
