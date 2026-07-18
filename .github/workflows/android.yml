@@ -12,6 +12,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Robolectric API 36 requires Java 21+, while production bytecode remains JVM 17.
+  CI_JAVA_VERSION: "21"
+
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
@@ -20,11 +24,11 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Spotless + Lint + Contract Guards
         # Default lint focuses on production sources. Test-source lint is an explicit local/full-path opt-in.
-        run: ./gradlew spotlessCheck lint verifyModuleBoundaries verifyNoDeprecatedComposeTestApis --warning-mode fail --continue
+        run: ./gradlew spotlessCheck lint verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime --warning-mode fail --continue
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -33,7 +37,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit Tests
         # Regular unit-test tasks exclude Roborazzi screenshot classes; screenshot-tests owns screenshot regression.
@@ -67,7 +71,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Roborazzi Screenshot Verification
         # Keep screenshot regression separate from the fast unit-test path.
@@ -86,7 +90,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Assemble
         # Run assemble targets separately so parallel Gradle execution does not compile
@@ -104,7 +108,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: Release Assemble
         run: ./gradlew :app:assembleProdRelease --warning-mode fail
@@ -120,7 +124,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
       - name: JaCoCo XML Report
         run: ./gradlew coverageXmlReport --warning-mode fail

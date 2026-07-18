@@ -2,7 +2,9 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -151,6 +153,55 @@ abstract class VerifyNoDeprecatedComposeTestApisTask : DefaultTask() {
     }
 }
 
+abstract class VerifyCiRobolectricRuntimeTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val workflowFile: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val robolectricConfigFile: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val workflow = workflowFile.get().asFile.readText()
+        val ciJavaVersion = Regex(
+            pattern = "(?m)^\\s*CI_JAVA_VERSION:\\s*[\\\"]?(\\d+)[\\\"]?\\s*$",
+        ).find(workflow)?.groupValues?.get(1)?.toInt()
+            ?: throw GradleException(
+                "Android CI must declare a top-level CI_JAVA_VERSION for the shared Gradle runtime.",
+            )
+        val javaVersionDeclarations = Regex(
+            pattern = "(?m)^\\s*java-version:\\s*(.+?)\\s*$",
+        ).findAll(workflow).map { it.groupValues[1] }.toList()
+        val expectedJavaVersionReference = "\${{ env.CI_JAVA_VERSION }}"
+        if (
+            javaVersionDeclarations.isEmpty() ||
+            javaVersionDeclarations.any { it != expectedJavaVersionReference }
+        ) {
+            throw GradleException(
+                "Every Android CI setup-java step must use $expectedJavaVersionReference; found " +
+                    javaVersionDeclarations.joinToString(),
+            )
+        }
+        val robolectricSdk = java.util.Properties().run {
+            robolectricConfigFile.get().asFile.inputStream().use(::load)
+            getProperty("sdk")?.toIntOrNull()
+        } ?: throw GradleException("config/robolectric/robolectric.properties must declare a numeric sdk.")
+        val minimumJavaVersion = if (robolectricSdk >= 36) 21 else 17
+
+        if (ciJavaVersion < minimumJavaVersion) {
+            throw GradleException(
+                "Robolectric SDK $robolectricSdk requires Java $minimumJavaVersion or newer, " +
+                    "but Android CI declares Java $ciJavaVersion.",
+            )
+        }
+        logger.lifecycle(
+            "CI/Robolectric runtime OK: Java $ciJavaVersion supports test SDK $robolectricSdk.",
+        )
+    }
+}
+
 // === 모듈 경계 가드 ===
 // docs/module-contracts.md / docs/architecture.md 의 "의도된" 모듈 경계를 코드로 고정한다.
 // 의도된 예외: core:location -> domain:location (위치를 플랫폼 인프라로 둔 결정, architecture.md:97).
@@ -200,6 +251,15 @@ tasks.register<VerifyNoDeprecatedComposeTestApisTask>("verifyNoDeprecatedCompose
             include("**/src/test/**/*.kt", "**/src/androidTest/**/*.kt")
             exclude(".worktrees/**", "**/build/**")
         },
+    )
+}
+
+tasks.register<VerifyCiRobolectricRuntimeTask>("verifyCiRobolectricRuntime") {
+    group = "verification"
+    description = "Fails when the CI Java runtime cannot execute the configured Robolectric SDK."
+    workflowFile.set(layout.projectDirectory.file(".github/workflows/android.yml"))
+    robolectricConfigFile.set(
+        layout.projectDirectory.file("config/robolectric/robolectric.properties"),
     )
 }
 

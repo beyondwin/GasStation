@@ -4,7 +4,7 @@
 
 ## 전제
 
-- Java 17 기준입니다.
+- Gradle과 Robolectric 검증은 Java 21 이상 기준입니다. 앱의 Java/Kotlin bytecode target은 JVM 17입니다.
 - `prod` 앱을 실제로 실행하려면 사용자 로컬 `opinet.apikey`가 필요합니다. `demo` 실행과 assemble에는 키가 필요 없습니다.
 - benchmark 모듈은 `demo` 데이터를 대상으로 동작합니다.
 
@@ -159,12 +159,13 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
-모듈 경계 가드와 Compose v1 test API 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
+모듈 경계 가드, Compose v1 test API 가드, CI Java/Robolectric 호환성 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
 
 ```bash
 # 금지된 production 모듈 의존성 엣지를 검증한다. 의도된 core:location→domain:location 예외는 제외.
 ./gradlew verifyModuleBoundaries
 ./gradlew verifyNoDeprecatedComposeTestApis
+./gradlew verifyCiRobolectricRuntime
 ```
 
 > `coverageXmlReport`는 JaCoCo 0.8.15로 전체 unit-test matrix를 실행하고 app, core Android, data, feature, JVM 모듈의 authored class를 `build/reports/coverage/report.xml`에 집계합니다. 현재 coverage는 신호 수집용이며, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking threshold로 승격하지 않습니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
@@ -175,7 +176,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `pull_request` | `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis + verifyCiRobolectricRuntime), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위 + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | PR 범위 + `release-assemble` + `coverage` |
 
