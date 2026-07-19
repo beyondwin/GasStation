@@ -12,12 +12,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -34,12 +38,14 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.domain.location.LocationPermissionState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -188,6 +194,61 @@ class StationListScreenTest {
         composeRule.onNodeWithTag(etcOptionTag).assertIsDisplayed()
         composeRule.onNodeWithTag(etcOptionTag)
             .performClick()
+
+        assertEquals(listOf(StationListAction.BrandFilterSelected(BrandFilter.ETC)), actions)
+    }
+
+    @Test
+    @Config(qualifiers = "ko-rKR-w320dp-h260dp-xhdpi")
+    fun `brand filter menu remains contained and selectable at two times font scale`() {
+        val actions = mutableListOf<StationListAction>()
+        setFilterContent(
+            actions = actions,
+            width = 320.dp,
+            height = 260.dp,
+            fontScale = 2f,
+        )
+        composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
+
+        val rootBounds = composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val menuBounds = composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        assertBoundsContained("brand menu", menuBounds, rootBounds)
+
+        val titleNode = composeRule.onNodeWithText("브랜드 선택", useUnmergedTree = true)
+            .assertTextEquals("브랜드 선택")
+        assertTextFitsHorizontally("brand menu title", titleNode, menuBounds, rootBounds)
+
+        BrandFilter.entries.forEach { brandFilter ->
+            val label = brandFilter.gasStationBrandFilterLabel()
+            val textNode = filterOptionTextNode(brandFilter, label)
+                .assertTextEquals(label)
+            assertTextFitsHorizontally("${brandFilter.name} option label", textNode, menuBounds, rootBounds)
+        }
+
+        val etcOptionTag = "$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ETC.name}"
+        composeRule.onNodeWithTag(etcOptionTag).assertIsNotDisplayed()
+
+        composeRule.onNodeWithTag(etcOptionTag).performScrollTo()
+        val scrolledMenuBounds = composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val etcOption = composeRule.onNodeWithTag(etcOptionTag)
+            .assertIsDisplayed()
+        assertBoundsContained(
+            label = "fully visible ETC option",
+            inner = etcOption.fetchSemanticsNode().boundsInRoot,
+            outer = scrolledMenuBounds,
+        )
+        assertBoundsContained(
+            label = "ETC option inside root",
+            inner = etcOption.fetchSemanticsNode().boundsInRoot,
+            outer = rootBounds,
+        )
+        etcOption.performClick()
 
         assertEquals(listOf(StationListAction.BrandFilterSelected(BrandFilter.ETC)), actions)
     }
@@ -1406,21 +1467,70 @@ class StationListScreenTest {
         actions: MutableList<StationListAction> = mutableListOf(),
         width: androidx.compose.ui.unit.Dp = 360.dp,
         height: androidx.compose.ui.unit.Dp = 800.dp,
+        fontScale: Float = 1f,
     ) {
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = width, height = height)) {
-                StationListScreen(
-                    uiState = StationListUiState(
-                        permissionState = LocationPermissionState.PreciseGranted,
-                        stations = listOf(testStation()),
-                    ),
-                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                    onAction = actions::add,
-                    onRequestPermissions = {},
-                    onOpenLocationSettings = {},
-                )
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                Box(modifier = Modifier.size(width = width, height = height)) {
+                    StationListScreen(
+                        uiState = StationListUiState(
+                            permissionState = LocationPermissionState.PreciseGranted,
+                            stations = listOf(testStation()),
+                        ),
+                        snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                        onAction = actions::add,
+                        onRequestPermissions = {},
+                        onOpenLocationSettings = {},
+                    )
+                }
             }
         }
+    }
+
+    private fun filterOptionTextNode(brandFilter: BrandFilter, label: String): SemanticsNodeInteraction = composeRule.onNode(
+        matcher = hasText(label) and hasAnyAncestor(
+            hasTestTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${brandFilter.name}"),
+        ),
+        useUnmergedTree = true,
+    )
+
+    private fun assertTextFitsHorizontally(
+        label: String,
+        node: SemanticsNodeInteraction,
+        menuBounds: androidx.compose.ui.geometry.Rect,
+        rootBounds: androidx.compose.ui.geometry.Rect,
+    ) {
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        assertHorizontallyContained(label, bounds, menuBounds)
+        assertHorizontallyContained("$label inside root", bounds, rootBounds)
+
+        val textLayoutResults = mutableListOf<TextLayoutResult>()
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+            action(textLayoutResults)
+        }
+        val layoutResult = textLayoutResults.single()
+        assertFalse(
+            "Expected $label to render without horizontal overflow " +
+                "(size=${layoutResult.size}, lines=${layoutResult.lineCount}, " +
+                "constraints=${layoutResult.layoutInput.constraints}).",
+            layoutResult.didOverflowWidth,
+        )
+    }
+
+    private fun assertHorizontallyContained(
+        label: String,
+        inner: androidx.compose.ui.geometry.Rect,
+        outer: androidx.compose.ui.geometry.Rect,
+    ) {
+        assertTrue("Expected $label left edge inside container: inner=$inner outer=$outer", inner.left >= outer.left)
+        assertTrue("Expected $label right edge inside container: inner=$inner outer=$outer", inner.right <= outer.right)
+    }
+
+    private fun assertBoundsContained(label: String, inner: androidx.compose.ui.geometry.Rect, outer: androidx.compose.ui.geometry.Rect) {
+        assertHorizontallyContained(label, inner, outer)
+        assertTrue("Expected $label top edge inside container: inner=$inner outer=$outer", inner.top >= outer.top)
+        assertTrue("Expected $label bottom edge inside container: inner=$inner outer=$outer", inner.bottom <= outer.bottom)
     }
 
     private fun assertMinimumTouchHeight(tag: String) {

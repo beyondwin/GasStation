@@ -83,7 +83,9 @@ internal fun <T> StationListFilterMenu(
             text = title,
             style = GasStationTheme.typography.meta,
             color = ColorBlack,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         )
         options.forEach { option ->
             StationListFilterMenuRow(
