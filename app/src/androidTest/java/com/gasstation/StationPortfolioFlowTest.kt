@@ -1,13 +1,18 @@
 package com.gasstation
 
 import android.Manifest
+import android.graphics.Rect
 import android.os.SystemClock
 import android.view.MotionEvent
+import android.view.View
+import android.view.WindowInsets
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
@@ -22,10 +27,13 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 import org.junit.runners.model.Statement
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -94,9 +102,26 @@ class StationPortfolioFlowTest {
     }
 
     @Test
-    fun demoFilterMenu_dismissesWithSystemBackAndOutsideTap() {
+    fun demoFilterMenu_dismissesWithSystemBack_keepsNearbyActive() {
         reseedDemoDatabase()
+        openRadiusFilterMenu()
 
+        Espresso.pressBack()
+        waitForFilterMenuDismissal()
+        assertNearbyRemainsActive()
+    }
+
+    @Test
+    fun demoFilterMenu_dismissesWithInAppOutsideTap_keepsNearbyActive() {
+        reseedDemoDatabase()
+        openRadiusFilterMenu()
+
+        tapInertTitleAreaOutsideFilterMenu()
+        waitForFilterMenuDismissal()
+        assertNearbyRemainsActive()
+    }
+
+    private fun openRadiusFilterMenu() {
         rule.waitUntil(timeoutMillis = 10_000) {
             rule.onAllNodesWithTag("station-list-filter-radius", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -104,15 +129,6 @@ class StationPortfolioFlowTest {
 
         rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).performClick()
         waitForFilterMenu()
-
-        Espresso.pressBack()
-        waitForFilterMenuDismissal()
-
-        rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).performClick()
-        waitForFilterMenu()
-
-        tapOutsideFilterMenu()
-        waitForFilterMenuDismissal()
     }
 
     private fun waitForFilterMenu() {
@@ -129,21 +145,66 @@ class StationPortfolioFlowTest {
         }
     }
 
-    private fun tapOutsideFilterMenu() {
+    private fun tapInertTitleAreaOutsideFilterMenu() {
         val decorView = rule.activity.window.decorView
+        val decorLocation = IntArray(2).also(decorView::getLocationOnScreen)
+        val safeContentBounds = appVisibleSafeContentBoundsInScreen(decorView, decorLocation)
+        val popupBounds = rule.onNodeWithTag(
+            "station-list-filter-menu",
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().boundsInWindow
+        val popupBoundsInScreen = Rect(
+            (popupBounds.left + decorLocation[0]).roundToInt(),
+            (popupBounds.top + decorLocation[1]).roundToInt(),
+            (popupBounds.right + decorLocation[0]).roundToInt(),
+            (popupBounds.bottom + decorLocation[1]).roundToInt(),
+        )
+        val titleNode = rule.onNodeWithTag(
+            "station-list-title",
+            useUnmergedTree = true,
+        ).fetchSemanticsNode()
+        val titleBounds = titleNode.boundsInWindow
+        val x = (titleBounds.center.x + decorLocation[0]).roundToInt()
+        val y = (titleBounds.center.y + decorLocation[1]).roundToInt()
+
+        assertFalse("Title tap target must remain inert", titleNode.config.contains(SemanticsActions.OnClick))
+        assertTrue("Title tap must be inside app-visible safe content", safeContentBounds.contains(x, y))
+        assertFalse("Title tap must be outside popup bounds", popupBoundsInScreen.contains(x, y))
+
         val eventTime = SystemClock.uptimeMillis()
-        val x = decorView.width.toFloat() - 1f
-        val y = decorView.height.toFloat() - 1f
         val instrumentation = InstrumentationRegistry.getInstrumentation()
 
-        MotionEvent.obtain(eventTime, eventTime, MotionEvent.ACTION_DOWN, x, y, 0).also { event ->
+        MotionEvent.obtain(eventTime, eventTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0).also { event ->
             instrumentation.sendPointerSync(event)
             event.recycle()
         }
-        MotionEvent.obtain(eventTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0).also { event ->
+        MotionEvent.obtain(eventTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0).also { event ->
             instrumentation.sendPointerSync(event)
             event.recycle()
         }
+    }
+
+    private fun appVisibleSafeContentBoundsInScreen(decorView: View, decorLocation: IntArray): Rect {
+        val visibleFrame = Rect().also(decorView::getWindowVisibleDisplayFrame)
+        val systemBars = decorView.rootWindowInsets
+            ?.getInsets(WindowInsets.Type.systemBars())
+            ?: error("System bar insets must be available before injecting an outside tap")
+        val edgeMargin = (24 * decorView.resources.displayMetrics.density).roundToInt()
+        return Rect(
+            maxOf(visibleFrame.left, decorLocation[0] + systemBars.left) + edgeMargin,
+            maxOf(visibleFrame.top, decorLocation[1] + systemBars.top) + edgeMargin,
+            minOf(visibleFrame.right, decorLocation[0] + decorView.width - systemBars.right) - edgeMargin,
+            minOf(visibleFrame.bottom, decorLocation[1] + decorView.height - systemBars.bottom) - edgeMargin,
+        ).also { bounds ->
+            assertTrue("Safe app content bounds must be non-empty", bounds.width() > 0 && bounds.height() > 0)
+        }
+    }
+
+    private fun assertNearbyRemainsActive() {
+        assertFalse("Outside tap must not finish MainActivity", rule.activity.isFinishing)
+        assertFalse("Outside tap must not destroy MainActivity", rule.activity.isDestroyed)
+        rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).assertIsSelected()
+        rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).fetchSemanticsNode()
     }
 
     private fun reseedDemoDatabase() {

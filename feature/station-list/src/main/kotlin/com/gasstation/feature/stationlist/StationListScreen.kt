@@ -66,6 +66,7 @@ import com.gasstation.core.designsystem.component.GasStationTopBar
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
 internal const val STATION_LIST_REFRESH_RAIL_TAG = "station-list-refresh-rail"
+internal const val STATION_LIST_TITLE_TAG = "station-list-title"
 
 @Composable
 fun StationListScreen(
@@ -99,7 +100,10 @@ fun StationListScreen(
             topBar = {
                 GasStationTopBar(
                     title = {
-                        Text(text = stringResource(R.string.station_list_title))
+                        Text(
+                            text = stringResource(R.string.station_list_title),
+                            modifier = Modifier.testTag(STATION_LIST_TITLE_TAG),
+                        )
                     },
                     actions = {
                         IconButton(
