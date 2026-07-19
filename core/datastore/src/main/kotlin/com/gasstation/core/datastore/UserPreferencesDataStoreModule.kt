@@ -14,12 +14,20 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object UserPreferencesDataStoreModule {
 
+    @Volatile
+    private var processDataStore: DataStore<StoredUserPreferences>? = null
+
     @Provides
     @Singleton
-    fun provideUserPreferencesDataStore(@ApplicationContext context: Context): DataStore<StoredUserPreferences> = DataStoreFactory.create(
-        serializer = UserPreferencesSerializer,
-        produceFile = { context.filesDir.resolve(USER_PREFERENCES_FILE_NAME) },
-    )
+    fun provideUserPreferencesDataStore(@ApplicationContext context: Context): DataStore<StoredUserPreferences> =
+        processDataStore ?: synchronized(this) {
+            processDataStore ?: DataStoreFactory.create(
+                serializer = UserPreferencesSerializer,
+                produceFile = {
+                    context.applicationContext.filesDir.resolve(USER_PREFERENCES_FILE_NAME)
+                },
+            ).also { processDataStore = it }
+        }
 
     @Provides
     @Singleton
