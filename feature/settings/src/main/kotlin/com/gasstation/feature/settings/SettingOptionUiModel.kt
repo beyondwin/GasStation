@@ -10,4 +10,5 @@ data class SettingOptionUiModel(
     val action: SettingsAction,
     val isSelected: Boolean,
     val brandIconBrand: Brand? = null,
+    val brandIconTag: String? = null,
 )

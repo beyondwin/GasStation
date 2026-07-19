@@ -1,6 +1,7 @@
 package com.gasstation.feature.settings
 
 import com.gasstation.core.designsystem.string.StringResource
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
@@ -11,23 +12,24 @@ import org.junit.Test
 
 class SettingsUiStateTest {
     @Test
-    fun `brand filter option uses canonical rtx label`() {
+    fun `brand filter options expose one grouped alteul entry in filter order`() {
         val uiState = SettingsUiState(
             searchRadius = SearchRadius.KM_3,
             fuelType = FuelType.GASOLINE,
-            brandFilter = BrandFilter.RTX,
+            brandFilter = BrandFilter.ALTEUL,
             sortOrder = SortOrder.DISTANCE,
             mapProvider = MapProvider.TMAP,
         )
+        val options = uiState.optionsFor(SettingsSection.BrandFilter)
 
-        val expectedLabel = StringResource.raw("고속도로알뜰")
-
-        assertEquals(expectedLabel, uiState.selectedLabelFor(SettingsSection.BrandFilter))
         assertEquals(
-            expectedLabel,
-            uiState.optionsFor(SettingsSection.BrandFilter)
-                .single { it.action == SettingsAction.BrandFilterSelected(BrandFilter.RTX) }
-                .label,
+            listOf("전체", "SK에너지", "GS칼텍스", "현대오일뱅크", "S-OIL", "알뜰", "E1", "SK가스", "자가상표"),
+            options.map { (it.label as StringResource.Raw).value },
         )
+        val alteulOption = options.single { it.action == SettingsAction.BrandFilterSelected(BrandFilter.ALTEUL) }
+        assertEquals(StringResource.raw("알뜰"), uiState.selectedLabelFor(SettingsSection.BrandFilter))
+        assertEquals(StringResource.fromId(R.string.settings_brand_alteul_desc), alteulOption.subtitle)
+        assertEquals(Brand.RTO, alteulOption.brandIconBrand)
+        assertEquals("ALTEUL", alteulOption.brandIconTag)
     }
 }

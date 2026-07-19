@@ -46,6 +46,7 @@
 
     <!-- Brand filter descriptions -->
     <string name="settings_brand_all_desc">Compare prices from all brands without filtering.</string>
+    <string name="settings_brand_alteul_desc">Shows all Alteul stations.</string>
     <string name="settings_brand_station_filter_desc">Show only %1$s stations.</string>
     <string name="settings_brand_charger_filter_desc">Show only %1$s charging stations.</string>
 

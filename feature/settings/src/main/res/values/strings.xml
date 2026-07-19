@@ -46,6 +46,7 @@
 
     <!-- Brand filter descriptions -->
     <string name="settings_brand_all_desc">브랜드 제한 없이 가까운 가격을 한 번에 확인합니다.</string>
+    <string name="settings_brand_alteul_desc">알뜰주유소 전체를 표시합니다.</string>
     <!-- "%1$s 주유소만 골라 비교합니다." -->
     <string name="settings_brand_station_filter_desc">%1$s 주유소만 골라 비교합니다.</string>
     <!-- "%1$s 충전소만 골라 비교합니다." -->

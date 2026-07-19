@@ -109,7 +109,9 @@ private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOpt
                 GasStationBrandLogoTile(
                     brand = brand,
                     contentDescription = null,
-                    modifier = Modifier.testTag("$SETTINGS_BRAND_LOGO_TAG_PREFIX${brand.name}"),
+                    modifier = Modifier.testTag(
+                        "$SETTINGS_BRAND_LOGO_TAG_PREFIX${requireNotNull(option.brandIconTag)}",
+                    ),
                     tileSize = UrbanSignalTokens.compactLogoTileSize,
                     logoSize = UrbanSignalTokens.compactLogoSize,
                 )

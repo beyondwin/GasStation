@@ -102,7 +102,7 @@ class SettingsScreenTest {
         val uiState = SettingsUiState(
             searchRadius = SearchRadius.KM_5,
             fuelType = FuelType.PREMIUM_GASOLINE,
-            brandFilter = BrandFilter.RTX,
+            brandFilter = BrandFilter.ALTEUL,
             sortOrder = SortOrder.PRICE,
             mapProvider = MapProvider.KAKAO_NAVI,
         )
@@ -177,7 +177,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `brand filter detail uses real assets visible labels and no duplicate icon announcement`() {
+    fun `brand filter detail exposes one grouped alteul row and stable logo tag`() {
         val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
 
         composeRule.setContent {
@@ -191,14 +191,16 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("전체").assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-ALL").assertDoesNotExist()
-        listOf(BrandFilter.RTO, BrandFilter.RTX, BrandFilter.NHO, BrandFilter.ETC).forEach { filter ->
-            composeRule
-                .onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG)
-                .performScrollToNode(hasText(filter.toLabel().resolve()))
-            composeRule.onNodeWithText(filter.toLabel().resolve()).assertExists()
-            composeRule.onNodeWithTag("settings-brand-logo-${filter.name}", useUnmergedTree = true).assertExists()
-            composeRule.onNodeWithContentDescription("${filter.toLabel().resolve()} 브랜드").assertDoesNotExist()
-        }
+        composeRule
+            .onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG)
+            .performScrollToNode(hasText("알뜰"))
+        composeRule.onNodeWithText("알뜰").assertExists()
+        composeRule.onNodeWithText("알뜰주유소 전체를 표시합니다.").assertExists()
+        composeRule.onNodeWithTag("settings-brand-logo-ALTEUL", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("settings-brand-logo-RTO").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings-brand-logo-RTX").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings-brand-logo-NHO").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("알뜰 브랜드").assertDoesNotExist()
 
         assertEquals(
             com.gasstation.core.designsystem.R.drawable.ic_rtx,

@@ -2,6 +2,7 @@ package com.gasstation.data.settings
 
 import com.gasstation.core.datastore.StoredUserPreferences
 import com.gasstation.core.datastore.UserPreferencesDataSource
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -66,6 +67,29 @@ class DefaultSettingsRepositoryTest {
     }
 
     @Test
+    fun `legacy alteul filter names restore as grouped alteul`() = runBlocking {
+        listOf("RTO", "RTX", "NHO").forEach { legacyName ->
+            val repository = DefaultSettingsRepository(
+                dataSource = InMemoryUserPreferencesDataSource(
+                    StoredUserPreferences.Default.copy(brandFilterName = legacyName),
+                ),
+            )
+
+            assertEquals(BrandFilter.ALTEUL, repository.observeUserPreferences().first().brandFilter)
+        }
+    }
+
+    @Test
+    fun `grouped alteul selection saves its stable filter name`() = runBlocking {
+        val dataSource = InMemoryUserPreferencesDataSource(StoredUserPreferences.Default)
+        val repository = DefaultSettingsRepository(dataSource)
+
+        repository.updateUserPreferences { it.copy(brandFilter = BrandFilter.ALTEUL) }
+
+        assertEquals("ALTEUL", dataSource.current.brandFilterName)
+    }
+
+    @Test
     fun `updateUserPreferences re-emits to an active collector`() = runBlocking {
         val repository = DefaultSettingsRepository(
             dataSource = InMemoryUserPreferencesDataSource(StoredUserPreferences.Default),
@@ -96,6 +120,9 @@ class DefaultSettingsRepositoryTest {
 
 private class InMemoryUserPreferencesDataSource(initial: StoredUserPreferences) : UserPreferencesDataSource {
     private val state = MutableStateFlow(initial)
+
+    val current: StoredUserPreferences
+        get() = state.value
 
     override val userPreferences: Flow<StoredUserPreferences> = state
 

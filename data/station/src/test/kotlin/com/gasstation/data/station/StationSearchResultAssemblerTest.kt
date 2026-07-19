@@ -59,6 +59,25 @@ class StationSearchResultAssemblerTest {
         assertEquals(listOf("ok"), result.stations.map { it.station.id })
     }
 
+    @Test
+    fun `toSearchResult returns every alteul source brand for the grouped filter`() {
+        val result = listOf(
+            cacheRow(stationId = "rto", latitude = 37.499095, longitude = 127.028610, brandCode = "RTO"),
+            cacheRow(stationId = "rtx", latitude = 37.500095, longitude = 127.029610, brandCode = "RTX"),
+            cacheRow(stationId = "nho", latitude = 37.501095, longitude = 127.030610, brandCode = "NHO"),
+            cacheRow(stationId = "ske", latitude = 37.502095, longitude = 127.031610, brandCode = "SKE"),
+        ).toSearchResult(
+            query = query.copy(brandFilter = BrandFilter.ALTEUL),
+            watchedStationIds = emptySet(),
+            historyRowsByStationId = emptyMap(),
+            fetchedAt = now,
+            cachePolicy = StationCachePolicy(),
+            now = now,
+        )
+
+        assertEquals(listOf("rto", "rtx", "nho"), result.stations.map { it.station.id })
+    }
+
     private fun cacheRow(
         stationId: String,
         latitude: Double,

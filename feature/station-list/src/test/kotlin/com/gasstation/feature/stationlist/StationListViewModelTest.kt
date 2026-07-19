@@ -63,12 +63,12 @@ class StationListViewModelTest {
 
         viewModel.onAction(StationListAction.SearchRadiusSelected(SearchRadius.KM_5))
         viewModel.onAction(StationListAction.FuelTypeSelected(FuelType.DIESEL))
-        viewModel.onAction(StationListAction.BrandFilterSelected(BrandFilter.RTO))
+        viewModel.onAction(StationListAction.BrandFilterSelected(BrandFilter.ALTEUL))
         advanceUntilIdle()
 
         assertEquals(SearchRadius.KM_5, settings.currentPreferences.searchRadius)
         assertEquals(FuelType.DIESEL, settings.currentPreferences.fuelType)
-        assertEquals(BrandFilter.RTO, settings.currentPreferences.brandFilter)
+        assertEquals(BrandFilter.ALTEUL, settings.currentPreferences.brandFilter)
     }
 
     @Test

@@ -31,14 +31,15 @@ class SharedEnumContractTest {
     }
 
     @Test
-    fun `brand filters keep stable identities and match by brand`() {
+    fun `brand filters keep stable grouped identities and match by brand`() {
         assertEquals(
-            listOf("ALL", "SKE", "GSC", "HDO", "SOL", "RTO", "RTX", "NHO", "ETC", "E1G", "SKG"),
+            listOf("ALL", "SKE", "GSC", "HDO", "SOL", "ALTEUL", "E1G", "SKG", "ETC"),
             BrandFilter.entries.map { it.name },
         )
 
         assertTrue(BrandFilter.ALL.matches(Brand.GSC))
         assertTrue(BrandFilter.GSC.matches(Brand.GSC))
+        assertTrue(BrandFilter.ALTEUL.matches(Brand.RTO))
         assertFalse(BrandFilter.GSC.matches(Brand.SKE))
     }
 

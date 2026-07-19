@@ -1,6 +1,7 @@
 package com.gasstation.feature.settings
 
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
+import com.gasstation.core.designsystem.gasStationBrandFilterIconBrand
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -63,7 +64,8 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
             meta = option.selectedMeta(brandFilter == option),
             action = SettingsAction.BrandFilterSelected(option),
             isSelected = brandFilter == option,
-            brandIconBrand = option.brand,
+            brandIconBrand = option.gasStationBrandFilterIconBrand(),
+            brandIconTag = option.takeUnless { it == BrandFilter.ALL }?.name,
         )
     }
 
@@ -125,11 +127,10 @@ private fun BrandFilter.toDescription(): StringResource = when (this) {
     BrandFilter.GSC,
     BrandFilter.HDO,
     BrandFilter.SOL,
-    BrandFilter.RTO,
-    BrandFilter.RTX,
-    BrandFilter.NHO,
     BrandFilter.ETC,
     -> StringResource.fromId(R.string.settings_brand_station_filter_desc, listOf(gasStationBrandFilterLabel()))
+
+    BrandFilter.ALTEUL -> StringResource.fromId(R.string.settings_brand_alteul_desc)
 
     BrandFilter.E1G,
     BrandFilter.SKG,

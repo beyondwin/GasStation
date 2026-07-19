@@ -2,6 +2,7 @@ package com.gasstation.data.settings
 
 import com.gasstation.core.datastore.StoredUserPreferences
 import com.gasstation.core.datastore.UserPreferencesDataSource
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ private fun StoredUserPreferences.toDomain(): UserPreferences {
     return UserPreferences(
         searchRadius = enumOrDefault(searchRadiusName, defaults.searchRadius),
         fuelType = enumOrDefault(fuelTypeName, defaults.fuelType),
-        brandFilter = enumOrDefault(brandFilterName, defaults.brandFilter),
+        brandFilter = parseBrandFilter(brandFilterName),
         sortOrder = enumOrDefault(sortOrderName, defaults.sortOrder),
         mapProvider = enumOrDefault(mapProviderName, defaults.mapProvider),
     )
@@ -36,6 +37,11 @@ private fun UserPreferences.toStored(): StoredUserPreferences = StoredUserPrefer
     sortOrderName = sortOrder.name,
     mapProviderName = mapProvider.name,
 )
+
+private fun parseBrandFilter(value: String): BrandFilter = when (value) {
+    "RTO", "RTX", "NHO" -> BrandFilter.ALTEUL
+    else -> enumOrDefault(value, BrandFilter.ALL)
+}
 
 private inline fun <reified T : Enum<T>> enumOrDefault(value: String, default: T): T =
     runCatching { enumValueOf<T>(value) }.getOrDefault(default)

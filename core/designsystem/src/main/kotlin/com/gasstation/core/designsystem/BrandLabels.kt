@@ -18,16 +18,24 @@ fun Brand.gasStationBrandLabel(): String = when (this) {
 
 fun BrandFilter.gasStationBrandFilterLabel(): String = when (this) {
     BrandFilter.ALL -> "전체"
+    BrandFilter.SKE -> Brand.SKE.gasStationBrandLabel()
+    BrandFilter.GSC -> Brand.GSC.gasStationBrandLabel()
+    BrandFilter.HDO -> Brand.HDO.gasStationBrandLabel()
+    BrandFilter.SOL -> Brand.SOL.gasStationBrandLabel()
+    BrandFilter.ALTEUL -> "알뜰"
+    BrandFilter.E1G -> Brand.E1G.gasStationBrandLabel()
+    BrandFilter.SKG -> Brand.SKG.gasStationBrandLabel()
+    BrandFilter.ETC -> Brand.ETC.gasStationBrandLabel()
+}
 
-    BrandFilter.SKE,
-    BrandFilter.GSC,
-    BrandFilter.HDO,
-    BrandFilter.SOL,
-    BrandFilter.RTO,
-    BrandFilter.RTX,
-    BrandFilter.NHO,
-    BrandFilter.ETC,
-    BrandFilter.E1G,
-    BrandFilter.SKG,
-    -> requireNotNull(brand).gasStationBrandLabel()
+fun BrandFilter.gasStationBrandFilterIconBrand(): Brand? = when (this) {
+    BrandFilter.ALL -> null
+    BrandFilter.SKE -> Brand.SKE
+    BrandFilter.GSC -> Brand.GSC
+    BrandFilter.HDO -> Brand.HDO
+    BrandFilter.SOL -> Brand.SOL
+    BrandFilter.ALTEUL -> Brand.RTO
+    BrandFilter.E1G -> Brand.E1G
+    BrandFilter.SKG -> Brand.SKG
+    BrandFilter.ETC -> Brand.ETC
 }
