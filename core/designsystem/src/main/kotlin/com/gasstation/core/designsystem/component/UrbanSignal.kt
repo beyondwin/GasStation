@@ -41,6 +41,8 @@ object UrbanSignalTokens {
     val compactLogoTileSize = 44.dp
     val compactLogoSize = 34.dp
     val compactRowMinHeight = 108.dp
+    val filterMenuLogoTileSize = 32.dp
+    val filterMenuLogoSize = 24.dp
     val minimumTouchTarget = 48.dp
 }
 

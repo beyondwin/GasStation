@@ -23,6 +23,11 @@
     <string name="station_list_sort_action_to_price">가격순으로 정렬</string>
     <string name="station_list_sort_action_to_distance">거리순으로 정렬</string>
 
+    <!-- Filter menus -->
+    <string name="station_list_filter_radius_title">검색 반경</string>
+    <string name="station_list_filter_fuel_title">유종 선택</string>
+    <string name="station_list_filter_brand_title">브랜드 선택</string>
+
     <!-- Metric labels -->
     <string name="station_list_label_price">가격</string>
     <string name="station_list_label_distance">거리</string>

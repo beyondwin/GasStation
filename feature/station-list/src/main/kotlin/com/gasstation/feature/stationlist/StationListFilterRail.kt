@@ -1,17 +1,18 @@
 package com.gasstation.feature.stationlist
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,14 +21,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
+import com.gasstation.core.designsystem.gasStationBrandFilterIconBrand
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -37,7 +39,15 @@ import com.gasstation.core.model.SortOrder
 internal const val STATION_LIST_FILTER_RAIL_TAG = "station-list-filter-rail"
 
 @Composable
-internal fun StationListFilterRail(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
+internal fun StationListFilterRail(
+    uiState: StationListUiState,
+    onAction: (StationListAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expandedMenuName by rememberSaveable { mutableStateOf<String?>(null) }
+    val expandedMenu = expandedMenuName?.let(StationListFilterMenuKind::valueOf)
+    val dismissMenu = { expandedMenuName = null }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -52,65 +62,129 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                 stringResource(R.string.station_list_sort_price)
             },
             onClick = { onAction(StationListAction.SortToggleRequested) },
+            showMenuIndicator = false,
         )
         FilterMenuChip(
-            selected = uiState.selectedRadius,
-            options = SearchRadius.entries.map { it to it.toLabel() },
-            onSelected = { onAction(StationListAction.SearchRadiusSelected(it)) },
-        )
+            label = uiState.selectedRadius.toLabel(),
+            testTag = STATION_LIST_RADIUS_FILTER_TAG,
+            expanded = expandedMenu == StationListFilterMenuKind.Radius,
+            onClick = { expandedMenuName = StationListFilterMenuKind.Radius.name },
+        ) {
+            StationListFilterMenu(
+                expanded = true,
+                title = stringResource(R.string.station_list_filter_radius_title),
+                options = SearchRadius.entries.map { radius ->
+                    StationListFilterOption(radius, radius.toLabel(), radius.name)
+                },
+                selected = uiState.selectedRadius,
+                onDismissRequest = dismissMenu,
+                onSelected = { radius ->
+                    dismissMenu()
+                    onAction(StationListAction.SearchRadiusSelected(radius))
+                },
+            )
+        }
         FilterMenuChip(
-            selected = uiState.selectedFuelType,
-            options = FuelType.entries.map { it to it.toLabel() },
-            onSelected = { onAction(StationListAction.FuelTypeSelected(it)) },
-        )
+            label = uiState.selectedFuelType.toLabel(),
+            testTag = STATION_LIST_FUEL_FILTER_TAG,
+            expanded = expandedMenu == StationListFilterMenuKind.Fuel,
+            onClick = { expandedMenuName = StationListFilterMenuKind.Fuel.name },
+        ) {
+            StationListFilterMenu(
+                expanded = true,
+                title = stringResource(R.string.station_list_filter_fuel_title),
+                options = FuelType.entries.map { fuelType ->
+                    StationListFilterOption(fuelType, fuelType.toLabel(), fuelType.name)
+                },
+                selected = uiState.selectedFuelType,
+                onDismissRequest = dismissMenu,
+                onSelected = { fuelType ->
+                    dismissMenu()
+                    onAction(StationListAction.FuelTypeSelected(fuelType))
+                },
+            )
+        }
         FilterMenuChip(
-            selected = uiState.selectedBrandFilter,
-            options = BrandFilter.entries.map { it to it.gasStationBrandFilterLabel() },
-            onSelected = { onAction(StationListAction.BrandFilterSelected(it)) },
-        )
-    }
-}
-
-@Composable
-private fun <T> FilterMenuChip(selected: T, options: List<Pair<T, String>>, onSelected: (T) -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Box {
-        FilterActionChip(
-            label = options.first { it.first == selected }.second,
-            onClick = { expanded = true },
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (value, label) ->
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    onClick = {
-                        expanded = false
-                        onSelected(value)
-                    },
-                    trailingIcon = if (value == selected) {
-                        { Icon(Icons.Rounded.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
-                )
-            }
+            label = uiState.selectedBrandFilter.gasStationBrandFilterLabel(),
+            testTag = STATION_LIST_BRAND_FILTER_TAG,
+            expanded = expandedMenu == StationListFilterMenuKind.Brand,
+            onClick = { expandedMenuName = StationListFilterMenuKind.Brand.name },
+        ) {
+            StationListFilterMenu(
+                expanded = true,
+                title = stringResource(R.string.station_list_filter_brand_title),
+                options = BrandFilter.entries.map { brandFilter ->
+                    StationListFilterOption(
+                        value = brandFilter,
+                        label = brandFilter.gasStationBrandFilterLabel(),
+                        testKey = brandFilter.name,
+                        brand = brandFilter.gasStationBrandFilterIconBrand(),
+                    )
+                },
+                selected = uiState.selectedBrandFilter,
+                onDismissRequest = dismissMenu,
+                onSelected = { brandFilter ->
+                    dismissMenu()
+                    onAction(StationListAction.BrandFilterSelected(brandFilter))
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun FilterActionChip(label: String, onClick: () -> Unit) {
+private fun FilterMenuChip(
+    label: String,
+    testTag: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    menu: @Composable () -> Unit,
+) {
+    Box {
+        FilterActionChip(
+            label = label,
+            onClick = onClick,
+            modifier = Modifier.testTag(testTag),
+            expanded = expanded,
+            showMenuIndicator = true,
+        )
+        if (expanded) {
+            menu()
+        }
+    }
+}
+
+@Composable
+private fun FilterActionChip(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+    showMenuIndicator: Boolean = false,
+) {
     Surface(
+        modifier = modifier.defaultMinSize(minHeight = 48.dp),
         color = ColorBlack,
         contentColor = ColorYellow,
         shape = RoundedCornerShape(50),
+        border = if (expanded) BorderStroke(2.dp, ColorYellow) else null,
         onClick = onClick,
     ) {
-        Text(
-            text = label,
-            style = GasStationTheme.typography.chip,
+        Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            maxLines = 1,
-        )
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = GasStationTheme.typography.chip,
+                maxLines = 1,
+            )
+            if (showMenuIndicator && expanded) {
+                Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null)
+            } else if (showMenuIndicator) {
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+            }
+        }
     }
 }

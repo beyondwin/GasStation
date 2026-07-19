@@ -15,6 +15,8 @@ class UrbanSignalContractsTest {
         assertEquals(44.dp, UrbanSignalTokens.compactLogoTileSize)
         assertEquals(34.dp, UrbanSignalTokens.compactLogoSize)
         assertEquals(108.dp, UrbanSignalTokens.compactRowMinHeight)
+        assertEquals(32.dp, UrbanSignalTokens.filterMenuLogoTileSize)
+        assertEquals(24.dp, UrbanSignalTokens.filterMenuLogoSize)
         assertEquals(48.dp, UrbanSignalTokens.minimumTouchTarget)
         assertEquals(28.sp, GasStationThemeDefaults.typography.compactPriceHero.fontSize)
         assertEquals("tnum", GasStationThemeDefaults.typography.compactPriceHero.fontFeatureSettings)

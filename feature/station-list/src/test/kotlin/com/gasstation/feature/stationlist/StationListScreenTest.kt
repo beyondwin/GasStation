@@ -7,12 +7,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -24,8 +32,11 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.espresso.Espresso
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
 import com.gasstation.domain.location.LocationPermissionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,6 +53,135 @@ class StationListScreenTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `filter radius menu selects an option once`() {
+        val actions = mutableListOf<StationListAction>()
+        setFilterContent(actions = actions)
+
+        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithText("검색 반경").assertExists()
+        SearchRadius.entries.forEach { radius ->
+            assertFilterOptionText(radius.name, radius.toLabel())
+        }
+        composeRule.onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${SearchRadius.KM_4.name}")
+            .performClick()
+
+        assertEquals(listOf(StationListAction.SearchRadiusSelected(SearchRadius.KM_4)), actions)
+    }
+
+    @Test
+    fun `filter fuel menu contains every option below the shared menu`() {
+        setFilterContent()
+
+        composeRule.onNodeWithTag(STATION_LIST_FUEL_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertExists()
+        composeRule.onNodeWithText("유종 선택").assertExists()
+        FuelType.entries.forEach { fuelType ->
+            assertFilterOptionText(fuelType.name, filterFuelLabel(fuelType))
+        }
+    }
+
+    @Test
+    fun `filter brand menu shows grouped alteul and omits individual alteul labels`() {
+        setFilterContent()
+
+        composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithText("브랜드 선택").assertExists()
+        composeRule.onNodeWithText("알뜰").assertExists()
+        composeRule.onNodeWithText("자가상표").assertExists()
+        listOf("자영알뜰", "고속도로알뜰", "농협알뜰").forEach { label ->
+            composeRule.onAllNodesWithText(label).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun `filter rail keeps exactly one menu open when a different chip is tapped`() {
+        setFilterContent()
+
+        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
+        composeRule.onNodeWithTag(STATION_LIST_FUEL_FILTER_TAG).performClick()
+
+        composeRule.onAllNodesWithTag(STATION_LIST_FILTER_MENU_TAG).assertCountEquals(1)
+        composeRule.onNodeWithText("유종 선택").assertExists()
+    }
+
+    @Test
+    fun `filter menu dismisses when system back is pressed`() {
+        setFilterContent()
+        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
+
+        Espresso.pressBack()
+        composeRule.waitForIdle()
+        dismissFilterMenuIfStillOpen()
+
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `filter menu dismisses when its popup is tapped outside`() {
+        setFilterContent()
+        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true)
+            .performTouchInput { click(Offset(1f, 1f)) }
+        composeRule.waitForIdle()
+        dismissFilterMenuIfStillOpen()
+
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `filter chips and options keep radio selection touch targets and brand logos`() {
+        setFilterContent()
+
+        listOf(
+            STATION_LIST_RADIUS_FILTER_TAG,
+            STATION_LIST_FUEL_FILTER_TAG,
+            STATION_LIST_BRAND_FILTER_TAG,
+        ).forEach(::assertMinimumTouchHeight)
+        composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ALL.name}")
+            .assertIsSelected()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+        BrandFilter.entries.forEach { brandFilter ->
+            assertMinimumTouchHeight("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${brandFilter.name}")
+        }
+        composeRule.onAllNodesWithTag("$STATION_LIST_FILTER_BRAND_LOGO_TAG_PREFIX${BrandFilter.ALL.name}")
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag(
+            "$STATION_LIST_FILTER_BRAND_LOGO_TAG_PREFIX${BrandFilter.ALTEUL.name}",
+            useUnmergedTree = true,
+        ).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "ko-rKR-w320dp-h800dp-xhdpi")
+    fun `filter menu stays on screen and last brand option remains selectable`() {
+        val actions = mutableListOf<StationListAction>()
+        setFilterContent(actions = actions, width = 320.dp)
+        composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
+
+        val rootBounds = composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val menuBounds = composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        assertTrue("Expected menu left edge inside root.", menuBounds.left >= rootBounds.left)
+        assertTrue("Expected menu right edge inside root.", menuBounds.right <= rootBounds.right)
+        assertTrue("Expected menu top edge inside root.", menuBounds.top >= rootBounds.top)
+        assertTrue("Expected menu bottom edge inside root.", menuBounds.bottom <= rootBounds.bottom)
+
+        composeRule.onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ETC.name}")
+            .performClick()
+
+        assertEquals(listOf(StationListAction.BrandFilterSelected(BrandFilter.ETC)), actions)
+    }
 
     @Test
     fun `nearby comparison chrome shows filters summary and flat rows`() {
@@ -1173,6 +1313,59 @@ class StationListScreenTest {
             testStation().copy(id = "station-3", priceWon = 1_701, priceNumberLabel = "1,701"),
         ),
     )
+
+    private fun setFilterContent(
+        actions: MutableList<StationListAction> = mutableListOf(),
+        width: androidx.compose.ui.unit.Dp = 360.dp,
+    ) {
+        composeRule.setContent {
+            Box(modifier = Modifier.size(width = width, height = 800.dp)) {
+                StationListScreen(
+                    uiState = StationListUiState(
+                        permissionState = LocationPermissionState.PreciseGranted,
+                        stations = listOf(testStation()),
+                    ),
+                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                    onAction = actions::add,
+                    onRequestPermissions = {},
+                    onOpenLocationSettings = {},
+                )
+            }
+        }
+    }
+
+    private fun assertMinimumTouchHeight(tag: String) {
+        val height = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .height
+        val minimumHeight = with(composeRule.density) { 48.dp.toPx() }
+        assertTrue("Expected $tag to be at least 48dp tall.", height >= minimumHeight)
+    }
+
+    private fun dismissFilterMenuIfStillOpen() {
+        if (composeRule.onAllNodesWithTag(STATION_LIST_FILTER_MENU_TAG).fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG)
+                .performSemanticsAction(SemanticsActions.Dismiss) { action -> action() }
+        }
+    }
+
+    private fun assertFilterOptionText(testKey: String, expected: String) {
+        val text = composeRule
+            .onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX$testKey")
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.Text]
+            .joinToString(separator = "") { it.text }
+        assertEquals(expected, text)
+    }
+
+    private fun filterFuelLabel(fuelType: FuelType): String = when (fuelType) {
+        FuelType.GASOLINE -> "휘발유"
+        FuelType.DIESEL -> "경유"
+        FuelType.PREMIUM_GASOLINE -> "고급휘발유"
+        FuelType.KEROSENE -> "등유"
+        FuelType.LPG -> "LPG"
+    }
 
     private fun setCachedRefreshContent(fontScale: Float) {
         composeRule.setContent {

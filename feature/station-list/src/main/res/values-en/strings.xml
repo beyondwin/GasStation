@@ -23,6 +23,11 @@
     <string name="station_list_sort_action_to_price">Sort by price</string>
     <string name="station_list_sort_action_to_distance">Sort by distance</string>
 
+    <!-- Filter menus -->
+    <string name="station_list_filter_radius_title">Search radius</string>
+    <string name="station_list_filter_fuel_title">Fuel type</string>
+    <string name="station_list_filter_brand_title">Brand</string>
+
     <!-- Metric labels -->
     <string name="station_list_label_price">Price</string>
     <string name="station_list_label_distance">Distance</string>
