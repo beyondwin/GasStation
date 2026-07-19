@@ -43,12 +43,7 @@ internal const val STATION_LIST_FILTER_SELECTED_CHECK_TAG_PREFIX = "station-list
 
 internal enum class StationListFilterMenuKind { Radius, Fuel, Brand }
 
-internal data class StationListFilterOption<T>(
-    val value: T,
-    val label: String,
-    val testKey: String,
-    val brand: Brand? = null,
-)
+internal data class StationListFilterOption<T>(val value: T, val label: String, val testKey: String, val brand: Brand? = null)
 
 @Composable
 internal fun <T> StationListFilterMenu(
@@ -101,11 +96,7 @@ internal fun <T> StationListFilterMenu(
 }
 
 @Composable
-private fun <T> StationListFilterMenuRow(
-    option: StationListFilterOption<T>,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun <T> StationListFilterMenuRow(option: StationListFilterOption<T>, selected: Boolean, onClick: () -> Unit) {
     val contentColor = if (selected) ColorYellow else ColorBlack
     val backgroundColor = if (selected) ColorBlack else ColorSurface
     Row(

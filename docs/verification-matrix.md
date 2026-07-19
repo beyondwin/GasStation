@@ -128,6 +128,38 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
 
 `verifyDemoSeedAsset`는 `opinet.apikey`나 네트워크 없이 체크인된 `app/src/demo/assets/demo-station-seed.json`의 15개 query matrix, origin/version, history key·가격·timestamp, RTO/ETC portfolio station을 검증합니다. `:tools:demo-seed:test`도 실제 체크인 asset을 읽어 같은 계약을 CI에서 보호합니다. 반면 `generateDemoSeed`는 실제 Opinet 데이터를 갱신하는 운영자용 live refresh이므로 로컬 `opinet.apikey`가 필요하며 자동화 gate에 포함하지 않습니다.
 
+## Nearby 고밀도 UI 집중 회귀
+
+Nearby 요약·필터·가격 이력, 알뜰 그룹 migration, icon-only navigation처럼 이번 경계에 직접 닿는 계약은 다음 조합으로 확인합니다.
+
+```bash
+./gradlew \
+  verifyModuleBoundaries \
+  :core:model:test \
+  :core:designsystem:testDebugUnitTest \
+  :data:settings:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :app:compileDemoDebugAndroidTestKotlin
+```
+
+Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해 record한 뒤 같은 모듈을 verify합니다.
+
+```bash
+./gradlew \
+  :core:designsystem:recordRoborazziDebug \
+  :feature:station-list:recordRoborazziDebug \
+  :feature:settings:recordRoborazziDebug
+
+./gradlew \
+  :core:designsystem:verifyRoborazziDebug \
+  :feature:station-list:verifyRoborazziDebug \
+  :feature:settings:verifyRoborazziDebug
+```
+
 ## 머지 전 권장 회귀 세트
 
 모듈 단위 회귀를 폭넓게 확인하는 조합입니다. 공유 값 객체/enum/label 이동, 주소 정규화, observability 경계, settings dependency cleanup, station retry/pruning, station-list 상태 projection 회귀를 함께 막습니다.
@@ -264,7 +296,7 @@ ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:co
 
 The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs: `station-list-watch-toggle`, `bottom-nav-watchlist`, and `watchlist-card`. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
 
-`verifyRoborazziDebug`는 designsystem, Nearby shared states, Watchlist 5행, Settings overview/detail의 Urban Signal light/dark snapshot을 검증합니다. Watchlist와 Settings의 200% font scale은 clipping과 scroll을 검증하는 Compose 접근성 테스트가 소유합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
+`verifyRoborazziDebug`는 designsystem icon-only navigation, Nearby populated light/dark와 shared states, `radius_menu_open_state`·`fuel_menu_open_state`·`brand_menu_open_state`, Watchlist 5행, Settings overview/detail과 BrandFilter light/dark snapshot을 검증합니다. 320dp menu containment와 큰 글꼴 summary/station metadata, Watchlist/Settings의 200% font scale은 Compose 접근성 테스트가 소유합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
 
 After a successful run, inspect generated JSON and trace artifacts:
 

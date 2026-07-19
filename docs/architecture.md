@@ -105,12 +105,14 @@ flowchart LR
 화면별 핵심 계약:
 
 - `feature:station-list`: 32sp 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 실제 drawable 아이콘만 노출하고 visible brand label은 렌더링하지 않습니다.
-- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh/filter rail을, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 typed summary와 body 분기를 맡습니다.
+- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh를, `StationListFilterRail.kt`와 `StationListFilterMenu.kt`는 filter chip과 anchored menu를, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListPriceHistoryUiModel.kt`는 명시적인 가격 이력 표시 상태를, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 typed summary와 body 분기를 맡습니다.
 - `feature:watchlist`: 28sp 가격과 108–116dp 기본 row로 저장 항목을 비교합니다. 실제 brand icon만 보여주며 visible label은 반복하지 않고, 200% 글꼴에서는 row가 확장되어 scroll됩니다.
 - `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
 - `app`: `주변·관심·설정` bottom navigation의 tab별 state/scroll을 `saveState`/`restoreState`로 보존하고 SettingsDetail에서만 bottom navigation을 숨깁니다.
 
 브랜드 자산은 생성하거나 recolor하지 않습니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`, SKE/GSC/HDO/SOL/E1G/SKG는 각 checked-in drawable을 사용합니다.
+
+실제 주유소 identity는 `Brand.RTO`, `Brand.RTX`, `Brand.NHO`로 보존합니다. 선택 UI만 `BrandFilter.ALTEUL` 하나로 그룹화하고 `matches()`가 세 identity를 모두 포함합니다. 화면에 표시하는 이름과 drawable은 계속 개별 `Brand`가 결정하며, `BrandFilter.ETC`는 선택 목록의 마지막에 둡니다.
 
 ## 런타임 흐름
 

@@ -33,5 +33,6 @@ internal fun StationListPriceHistoryUiModel.toTone(): PriceDeltaTone = when (thi
     -> PriceDeltaTone.Neutral
 
     is StationListPriceHistoryUiModel.Increased -> PriceDeltaTone.Rise
+
     is StationListPriceHistoryUiModel.Decreased -> PriceDeltaTone.Fall
 }

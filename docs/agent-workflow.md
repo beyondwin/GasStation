@@ -98,6 +98,8 @@ UI 작업은 station list를 기준 화면으로 본다. 이 화면이 가격, �
 6. 상태 화면은 permission, GPS, loading, empty, blocking failure가 같은 guidance system처럼 읽히게 한다.
 7. semantics, content description, test tag를 제거할 때는 대체 테스트를 함께 만든다.
 8. Compose `testTag`는 도구용 selector이므로 안정적인 ASCII 값을 쓰고, 사용자/스크린 리더 문구는 `contentDescription` 같은 접근성 semantics로 분리한다.
+9. filter menu는 anchor 정렬, viewport 안쪽 배치, 선택 항목의 색/체크 표시, 작은 화면에서 마지막 항목까지의 scroll을 함께 확인한다.
+10. icon-only navigation은 탭 `contentDescription`, 선택/활성 semantics, 비활성 `stateDescription`, 48dp touch target, 안정적인 ASCII test tag를 확인한다.
 
 Urban Signal 기준 canvas는 `#FFFCF2`, black chrome은 `#222222`, yellow signal은 `#FFDC00`입니다. 최상위 화면은 `주변·관심·설정` bottom navigation을 사용하고 SettingsDetail에서만 숨깁니다.
 

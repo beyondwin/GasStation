@@ -43,11 +43,11 @@
 - 목록은 stale 결과를 유지하고, 일시적 `Timeout`/`Network` 실패는 `data:station`에서 1회 재시도합니다. 성공한 refresh는 7일 보관 기준으로 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
 - `StationListViewModel`은 최종 UI state/effect 조합에 집중하고, 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, refresh retry는 `StationRetryPolicy`가 맡습니다.
 - `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. `CrashReporter` 같은 비치명 예외 보고 계약은 `core:observability`가 소유하고, 앱이 flavor별 구현을 바인딩합니다.
-- 주변 주유소는 테두리 없는 price-first row로 보여주며, 가격을 32sp hero로 두고 거리·역명·유종·실제 브랜드 로고를 보조 정보로 배치합니다.
-- `#FFFCF2` canvas, `#222222` black chrome, `#FFDC00` yellow signal을 공통 토큰으로 사용하고 `주변·관심·설정` bottom navigation을 유지합니다. 설정 상세에서는 bottom navigation을 숨깁니다.
+- 주변 주유소는 테두리 없는 price-first row로 보여주며, 가격을 32sp hero로 두고 거리·역명·유종·실제 브랜드 로고를 보조 정보로 배치합니다. 상단 요약은 최저가·검색 건수와 평균가·절약액을 두 줄로 압축하고, 반경·유종·브랜드 chip은 같은 anchored menu 패턴을 사용합니다. 가격 이력은 보조 `가격` label이나 `-` 대신 `가격 이력 없음`, `변동 없음`, `▲ N원`, `▼ N원`을 명시합니다.
+- `#FFFCF2` canvas, `#222222` black chrome, `#FFDC00` yellow signal을 공통 토큰으로 사용하고 icon-only `주변·관심·설정` bottom navigation을 유지합니다. 탭 이름, 선택/비활성 상태, 48dp touch target은 접근성 semantics로 보존하고 설정 상세에서는 bottom navigation을 숨깁니다.
 - 관심 목록은 108–116dp 기본 row에 28sp 가격과 실제 브랜드 로고를 배치해 360dp × 800dp에서 다섯 개 완전한 행을 보여줍니다. 200% 글꼴에서는 행이 확장되고 화면이 스크롤됩니다.
 - `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `FuelType`, `SearchRadius` 같은 값 객체 행동과 공유 vocabulary는 `core:model`에 두어 data, settings, network, designsystem이 `domain:station`을 거치지 않고 사용합니다.
-- `core:designsystem`의 Urban Signal token, metric, row, guidance primitive와 실제 브랜드 drawable mapping을 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`를 사용합니다.
+- `core:designsystem`의 Urban Signal token, metric, row, guidance primitive와 실제 브랜드 drawable mapping을 station list, watchlist, settings가 공유해 같은 정보 위계를 반복합니다. 실제 주유소 identity인 RTO/RTX/NHO는 유지하면서 필터와 설정에서는 `알뜰` 하나로 묶고, `자가상표`는 마지막에 둡니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`를 사용합니다.
 - 설정 메인 화면과 상세 선택 화면은 route는 다르지만 같은 `SettingsViewModel` 상태를 공유하고, 쓰기는 explicit domain use case로만 흘립니다.
 - `prod` 검색 파이프라인은 로컬 KATEC 좌표 변환 + Opinet 호출만 사용하고, `demo`는 같은 규칙을 seed 데이터로 재현합니다.
 

@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-- 전체 앱을 Urban Signal UI로 전환했습니다. 주변 화면은 가격 우선 flat row와 typed summary를, 관심 화면은 실제 브랜드 로고와 5행 고밀도 비교를, 설정은 flat overview/detail을 사용합니다. `주변·관심·설정` bottom navigation, 200% 글꼴 확장, RTO/RTX/NHO 및 ETC demo seed, Watchlist/Settings Roborazzi와 최신 README 스크린샷을 함께 고정했습니다.
+- 전체 앱을 Urban Signal UI로 전환했습니다. 주변 화면은 가격 우선 flat row, 최저가·건수/평균가·절약액의 2줄 요약, 공통 anchored filter menu, 명시적인 가격 이력 상태를 사용합니다. 관심 화면은 실제 브랜드 로고와 5행 고밀도 비교를, 설정은 flat overview/detail과 단일 `알뜰` 그룹을 사용하며 `자가상표`를 마지막에 둡니다. icon-only `주변·관심·설정` bottom navigation, 200% 글꼴 확장, RTO/RTX/NHO 및 ETC demo seed, Roborazzi와 최신 README 스크린샷을 함께 고정했습니다.
 - Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose BOM 2026.06.01, Spotless 8.8.0/ktlint 1.8.0, PIT 1.25.7과 안정 AndroidX/빌드·테스트 의존성을 최신화했습니다. 최신 AndroidX의 compile API 37 요구를 수용하면서 target/Robolectric unit test SDK는 안정 지원 범위인 API 36으로 유지합니다.
 - Compose UI 테스트를 공식 v2 테스트 환경 API로 전환하고, deprecated v1 import를 막는 `verifyNoDeprecatedComposeTestApis` 가드와 demo instrumentation test 컴파일을 CI에 추가했습니다.
 - Kover 0.9.8의 미해결 Gradle 10 deprecation을 제거하기 위해 커버리지 수집을 최신 안정 JaCoCo 0.8.15로 교체했습니다. `coverageXmlReport`는 전체 JVM/Android unit-test matrix를 실행해 `build/reports/coverage/report.xml`에 통합 결과를 만들며, CI Gradle 경로는 `--warning-mode fail`로 새 deprecation을 차단합니다.

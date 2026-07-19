@@ -40,11 +40,7 @@ internal const val STATION_LIST_FILTER_RAIL_TAG = "station-list-filter-rail"
 internal const val STATION_LIST_FILTER_CHEVRON_TAG_PREFIX = "station-list-filter-chevron-"
 
 @Composable
-internal fun StationListFilterRail(
-    uiState: StationListUiState,
-    onAction: (StationListAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+internal fun StationListFilterRail(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
     var expandedMenuName by rememberSaveable { mutableStateOf<String?>(null) }
     val expandedMenu = expandedMenuName?.let(StationListFilterMenuKind::valueOf)
     val dismissMenu = { expandedMenuName = null }

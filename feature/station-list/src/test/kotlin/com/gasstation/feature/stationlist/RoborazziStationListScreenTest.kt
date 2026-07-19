@@ -1,11 +1,22 @@
 package com.gasstation.feature.stationlist
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.BrandFilter
 import com.gasstation.domain.location.LocationPermissionState
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
@@ -69,7 +80,7 @@ class RoborazziStationListScreenTest {
             priceUnitLabel = "원",
             distanceNumberLabel = "1.6",
             distanceUnitLabel = "km",
-            priceHistory = StationListPriceHistoryUiModel.Increased(12),
+            priceHistory = StationListPriceHistoryUiModel.Unchanged,
             isWatched = true,
             latitude = 37.500123,
             longitude = 127.036540,
@@ -86,10 +97,27 @@ class RoborazziStationListScreenTest {
             priceUnitLabel = "원",
             distanceNumberLabel = "2.1",
             distanceUnitLabel = "km",
-            priceHistory = StationListPriceHistoryUiModel.Decreased(8),
+            priceHistory = StationListPriceHistoryUiModel.Increased(20),
             isWatched = false,
             latitude = 37.503123,
             longitude = 127.039540,
+        ),
+        StationListItemUiModel(
+            id = "station-4",
+            name = "GS칼텍스 대치점",
+            brand = Brand.GSC,
+            brandLabel = "GS칼텍스",
+            priceWon = 1_758,
+            priceLabel = "1,758원",
+            distanceLabel = "2.7km",
+            priceNumberLabel = "1,758",
+            priceUnitLabel = "원",
+            distanceNumberLabel = "2.7",
+            distanceUnitLabel = "km",
+            priceHistory = StationListPriceHistoryUiModel.Decreased(30),
+            isWatched = false,
+            latitude = 37.506123,
+            longitude = 127.043540,
         ),
     )
 
@@ -164,6 +192,39 @@ class RoborazziStationListScreenTest {
     }
 
     @Test
+    fun radius_menu_open_state() {
+        renderOpenMenuAndCapture(
+            name = "radius-menu-open.png",
+            filterTag = STATION_LIST_RADIUS_FILTER_TAG,
+        )
+    }
+
+    @Test
+    fun fuel_menu_open_state() {
+        renderOpenMenuAndCapture(
+            name = "fuel-menu-open.png",
+            filterTag = STATION_LIST_FUEL_FILTER_TAG,
+        )
+    }
+
+    @Test
+    fun brand_menu_open_state() {
+        setPopulatedContent()
+        composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
+        settleAnimations()
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertIsDisplayed()
+
+        val alteulTag = "$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ALTEUL.name}"
+        val etcTag = "$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ETC.name}"
+        composeRule.onNodeWithTag(etcTag).performScrollTo()
+        settleAnimations()
+        composeRule.onNodeWithTag(alteulTag).assertIsDisplayed()
+        composeRule.onNodeWithTag(etcTag).assertIsDisplayed()
+
+        captureAndAssertTopBar("brand-menu-open.png")
+    }
+
+    @Test
     fun empty_state() {
         renderAndCapture("empty.png", emptyState)
     }
@@ -194,18 +255,53 @@ class RoborazziStationListScreenTest {
     }
 
     private fun renderAndCapture(name: String, uiState: StationListUiState, darkTheme: Boolean = false) {
+        setContent(uiState = uiState, darkTheme = darkTheme)
+        captureAndAssertTopBar(name)
+    }
+
+    private fun renderOpenMenuAndCapture(name: String, filterTag: String) {
+        setPopulatedContent()
+        composeRule.onNodeWithTag(filterTag).performClick()
+        settleAnimations()
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertIsDisplayed()
+        captureAndAssertTopBar(name)
+    }
+
+    private fun setPopulatedContent() {
+        setContent(uiState = populatedState)
+    }
+
+    private fun setContent(uiState: StationListUiState, darkTheme: Boolean = false) {
         val snackbarHostState = SnackbarHostState()
+        // Robolectric's native canvas can retain pixels between screenshot tests. An opaque,
+        // conspicuous staging frame forces a full redraw and makes any incomplete redraw visible.
+        val showContent = mutableStateOf(false)
         composeRule.setContent {
-            GasStationTheme(darkTheme = darkTheme) {
-                StationListScreen(
-                    uiState = uiState,
-                    snackbarHostState = snackbarHostState,
-                    onAction = {},
-                    onRequestPermissions = {},
-                    onOpenLocationSettings = {},
-                )
+            if (showContent.value) {
+                GasStationTheme(darkTheme = darkTheme) {
+                    StationListScreen(
+                        uiState = uiState,
+                        snackbarHostState = snackbarHostState,
+                        onAction = {},
+                        onRequestPermissions = {},
+                        onOpenLocationSettings = {},
+                    )
+                }
+            } else {
+                Box(Modifier.fillMaxSize().background(Color.Magenta))
             }
         }
+        composeRule.runOnIdle { showContent.value = true }
+        settleAnimations()
+    }
+
+    private fun settleAnimations() {
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(1_000)
+        composeRule.waitForIdle()
+    }
+
+    private fun captureAndAssertTopBar(name: String) {
         val snapshotPath = "src/test/snapshots/$name"
         composeRule.onRoot().captureRoboImage(snapshotPath)
         assertTopBarChromeCaptured(snapshotPath)

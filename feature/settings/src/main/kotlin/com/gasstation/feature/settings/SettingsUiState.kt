@@ -1,7 +1,7 @@
 package com.gasstation.feature.settings
 
-import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.core.designsystem.gasStationBrandFilterIconBrand
+import com.gasstation.core.designsystem.gasStationBrandFilterLabel
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
