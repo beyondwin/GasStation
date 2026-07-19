@@ -135,22 +135,22 @@ private data class PriceHistoryPresentation(val label: String, val tone: PriceDe
 private fun StationListPriceHistoryUiModel.presentation(): PriceHistoryPresentation = when (this) {
     StationListPriceHistoryUiModel.Unavailable -> PriceHistoryPresentation(
         stringResource(R.string.station_list_price_history_unavailable),
-        PriceDeltaTone.Neutral,
+        toTone(),
     )
 
     StationListPriceHistoryUiModel.Unchanged -> PriceHistoryPresentation(
         stringResource(R.string.station_list_price_history_unchanged),
-        PriceDeltaTone.Neutral,
+        toTone(),
     )
 
     is StationListPriceHistoryUiModel.Increased -> PriceHistoryPresentation(
         stringResource(R.string.station_list_price_history_increased, amountWon),
-        PriceDeltaTone.Rise,
+        toTone(),
     )
 
     is StationListPriceHistoryUiModel.Decreased -> PriceHistoryPresentation(
         stringResource(R.string.station_list_price_history_decreased, amountWon),
-        PriceDeltaTone.Fall,
+        toTone(),
     )
 }
 

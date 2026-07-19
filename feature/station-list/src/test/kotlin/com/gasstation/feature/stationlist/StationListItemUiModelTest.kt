@@ -63,6 +63,14 @@ class StationListItemUiModelTest {
         assertEquals(com.gasstation.core.designsystem.ColorSupportInfo, PriceDeltaTone.Fall.toColor())
         assertEquals(com.gasstation.core.designsystem.ColorGray2, PriceDeltaTone.Neutral.toColor())
     }
+
+    @Test
+    fun `price history states map to presentation tones`() {
+        assertEquals(PriceDeltaTone.Neutral, StationListPriceHistoryUiModel.Unavailable.toTone())
+        assertEquals(PriceDeltaTone.Neutral, StationListPriceHistoryUiModel.Unchanged.toTone())
+        assertEquals(PriceDeltaTone.Rise, StationListPriceHistoryUiModel.Increased(20).toTone())
+        assertEquals(PriceDeltaTone.Fall, StationListPriceHistoryUiModel.Decreased(30).toTone())
+    }
 }
 
 private fun stationEntry(priceDelta: StationPriceDelta = StationPriceDelta.Unchanged, brand: Brand = Brand.GSC): StationListEntry =

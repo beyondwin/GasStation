@@ -26,3 +26,12 @@ internal enum class PriceDeltaTone {
     Fall,
     Neutral,
 }
+
+internal fun StationListPriceHistoryUiModel.toTone(): PriceDeltaTone = when (this) {
+    StationListPriceHistoryUiModel.Unavailable,
+    StationListPriceHistoryUiModel.Unchanged,
+    -> PriceDeltaTone.Neutral
+
+    is StationListPriceHistoryUiModel.Increased -> PriceDeltaTone.Rise
+    is StationListPriceHistoryUiModel.Decreased -> PriceDeltaTone.Fall
+}

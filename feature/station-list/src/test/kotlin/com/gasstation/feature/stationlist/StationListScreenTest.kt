@@ -642,6 +642,10 @@ class StationListScreenTest {
             .onNodeWithContentDescription("GS칼텍스 브랜드", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot.right
+        val fuelChipBounds = composeRule
+            .onNodeWithTag(STATION_LIST_FUEL_CHIP_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
         val priceComparisonBounds = composeRule
             .onNodeWithTag(STATION_LIST_PRICE_CHANGE_TAG, useUnmergedTree = true)
             .fetchSemanticsNode()
@@ -650,6 +654,12 @@ class StationListScreenTest {
         assertTrue(
             "Expected price comparison text to appear to the right of brand icon row.",
             priceComparisonBounds.left > brandIconRight,
+        )
+        assertEquals(
+            "Expected fuel and price history to share the default-font metadata row.",
+            fuelChipBounds.top,
+            priceComparisonBounds.top,
+            0.1f,
         )
     }
 
