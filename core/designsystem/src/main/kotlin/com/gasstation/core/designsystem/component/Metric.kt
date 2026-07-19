@@ -68,11 +68,11 @@ enum class GasStationMetricEmphasis(val numberRole: ChromeTextRole, val unitBott
 
 @Composable
 fun GasStationMetricBlock(
-    label: String,
     number: String,
     unit: String,
     emphasis: GasStationMetricEmphasis,
     modifier: Modifier = Modifier,
+    label: String? = null,
     labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     numberColor: Color = MaterialTheme.colorScheme.onBackground,
     unitColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -85,13 +85,15 @@ fun GasStationMetricBlock(
         modifier = modifier,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = label,
-            style = metaStyle,
-            color = labelColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        label?.let { labelText ->
+            Text(
+                text = labelText,
+                style = metaStyle,
+                color = labelColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,

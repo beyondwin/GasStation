@@ -9,7 +9,6 @@ import com.gasstation.core.designsystem.gasStationPriceDigits
 import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
 import com.gasstation.domain.station.model.StationListEntry
-import com.gasstation.domain.station.model.StationPriceDelta
 
 data class StationListItemUiModel(
     val id: String,
@@ -23,8 +22,7 @@ data class StationListItemUiModel(
     val priceUnitLabel: String,
     val distanceNumberLabel: String,
     val distanceUnitLabel: String,
-    val priceDeltaLabel: String,
-    val priceDeltaTone: PriceDeltaTone = PriceDeltaTone.Neutral,
+    val priceHistory: StationListPriceHistoryUiModel,
     val isWatched: Boolean,
     val latitude: Double,
     val longitude: Double,
@@ -48,24 +46,9 @@ data class StationListItemUiModel(
         priceUnitLabel = GAS_STATION_WON_UNIT,
         distanceNumberLabel = entry.station.distance.gasStationDistanceDigits(),
         distanceUnitLabel = GAS_STATION_DISTANCE_UNIT,
-        priceDeltaLabel = entry.priceDelta.toDeltaLabel(),
-        priceDeltaTone = entry.priceDelta.direction.toTone(),
+        priceHistory = StationListPriceHistoryUiModel.from(entry.priceDelta),
         isWatched = entry.isWatched,
         latitude = entry.station.coordinates.latitude,
         longitude = entry.station.coordinates.longitude,
     )
-}
-
-enum class PriceDeltaTone {
-    Rise,
-    Fall,
-    Neutral,
-}
-
-private fun StationPriceDelta.toDeltaLabel(): String = amountWonOrNull?.let { "$it$GAS_STATION_WON_UNIT" } ?: "-"
-
-private fun StationPriceDelta.PriceDirection.toTone(): PriceDeltaTone = when (this) {
-    StationPriceDelta.PriceDirection.RISE -> PriceDeltaTone.Rise
-    StationPriceDelta.PriceDirection.FALL -> PriceDeltaTone.Fall
-    StationPriceDelta.PriceDirection.NEUTRAL -> PriceDeltaTone.Neutral
 }

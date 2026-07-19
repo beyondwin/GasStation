@@ -13,35 +13,39 @@ import org.junit.Test
 class StationListItemUiModelTest {
 
     @Test
-    fun `station list item maps increased delta to rise tone`() {
-        val item = StationListItemUiModel(
-            entry = stationEntry(priceDelta = StationPriceDelta.Increased(amountWon = 32)),
+    fun `price history keeps unavailable distinct from unchanged`() {
+        assertEquals(
+            StationListPriceHistoryUiModel.Unavailable,
+            StationListItemUiModel(
+                entry = stationEntry(priceDelta = StationPriceDelta.Unavailable),
+            ).priceHistory,
         )
-
-        assertEquals("32원", item.priceDeltaLabel)
-        assertEquals(Brand.GSC, item.brand)
-        assertEquals(1_689, item.priceWon)
-        assertEquals(PriceDeltaTone.Rise, item.priceDeltaTone)
+        assertEquals(
+            StationListPriceHistoryUiModel.Unchanged,
+            StationListItemUiModel(
+                entry = stationEntry(priceDelta = StationPriceDelta.Unchanged),
+            ).priceHistory,
+        )
     }
 
     @Test
-    fun `station list item maps decreased delta to fall tone`() {
-        val item = StationListItemUiModel(
-            entry = stationEntry(priceDelta = StationPriceDelta.Decreased(amountWon = 18)),
+    fun `price history keeps rise and fall amounts`() {
+        val increasedItem = StationListItemUiModel(
+            entry = stationEntry(priceDelta = StationPriceDelta.Increased(20)),
         )
 
-        assertEquals("18원", item.priceDeltaLabel)
-        assertEquals(PriceDeltaTone.Fall, item.priceDeltaTone)
-    }
-
-    @Test
-    fun `station list item maps unchanged delta to compact neutral label`() {
-        val item = StationListItemUiModel(
-            entry = stationEntry(priceDelta = StationPriceDelta.Unchanged),
+        assertEquals(
+            StationListPriceHistoryUiModel.Increased(20),
+            increasedItem.priceHistory,
         )
-
-        assertEquals("-", item.priceDeltaLabel)
-        assertEquals(PriceDeltaTone.Neutral, item.priceDeltaTone)
+        assertEquals(Brand.GSC, increasedItem.brand)
+        assertEquals(1_689, increasedItem.priceWon)
+        assertEquals(
+            StationListPriceHistoryUiModel.Decreased(30),
+            StationListItemUiModel(
+                entry = stationEntry(priceDelta = StationPriceDelta.Decreased(30)),
+            ).priceHistory,
+        )
     }
 
     @Test

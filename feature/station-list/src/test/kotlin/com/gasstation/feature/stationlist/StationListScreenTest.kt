@@ -466,7 +466,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
+                            priceHistory = StationListPriceHistoryUiModel.Unchanged,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -497,6 +497,65 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `station cards remove price labels and describe every price history state`() {
+        val station = testStation()
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(
+                        station.copy(id = "unavailable", priceHistory = StationListPriceHistoryUiModel.Unavailable),
+                        station.copy(id = "unchanged", priceHistory = StationListPriceHistoryUiModel.Unchanged),
+                        station.copy(id = "increased", priceHistory = StationListPriceHistoryUiModel.Increased(20)),
+                        station.copy(id = "decreased", priceHistory = StationListPriceHistoryUiModel.Decreased(30)),
+                    ),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.onAllNodesWithText("가격", useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onNodeWithText("가격 이력 없음", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("변동 없음", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("▲ 20원", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("▼ 30원", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "en-rUS-w360dp-h800dp-xhdpi")
+    fun `station cards localize every price history state in English`() {
+        val station = testStation().copy(priceUnitLabel = "₩")
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    stations = listOf(
+                        station.copy(id = "unavailable", priceHistory = StationListPriceHistoryUiModel.Unavailable),
+                        station.copy(id = "unchanged", priceHistory = StationListPriceHistoryUiModel.Unchanged),
+                        station.copy(id = "increased", priceHistory = StationListPriceHistoryUiModel.Increased(20)),
+                        station.copy(id = "decreased", priceHistory = StationListPriceHistoryUiModel.Decreased(30)),
+                    ),
+                    selectedFuelType = FuelType.GASOLINE,
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.onAllNodesWithText("Price", useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onNodeWithText("No price history", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("No change", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("▲ 20 won", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("▼ 30 won", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun `station row keeps distance in the trailing comparison column`() {
         composeRule.setContent {
             StationListScreen(
@@ -515,7 +574,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
+                            priceHistory = StationListPriceHistoryUiModel.Unchanged,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -531,7 +590,7 @@ class StationListScreenTest {
         }
 
         val priceBounds = composeRule
-            .onNodeWithText("가격", useUnmergedTree = true)
+            .onNodeWithTag(STATION_LIST_METRIC_ROW_TAG, useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
         val distanceBounds = composeRule
@@ -564,8 +623,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "17원",
-                            priceDeltaTone = PriceDeltaTone.Fall,
+                            priceHistory = StationListPriceHistoryUiModel.Decreased(17),
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -596,39 +654,41 @@ class StationListScreenTest {
     }
 
     @Test
-    fun `station card constrains long names prices and fuel labels on narrow width`() {
+    fun `station card wraps only metadata without displacing price or name at large font`() {
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
-                StationListScreen(
-                    uiState = StationListUiState(
-                        permissionState = LocationPermissionState.PreciseGranted,
-                        stations = listOf(
-                            StationListItemUiModel(
-                                id = "station-1",
-                                name = "서울특별시강남구테헤란로초장문테스트주유소직영점",
-                                brand = Brand.HDO,
-                                brandLabel = "현대오일뱅크",
-                                priceWon = 123_456_789,
-                                priceLabel = "123,456,789원",
-                                distanceLabel = "123.4km",
-                                priceNumberLabel = "123,456,789",
-                                priceUnitLabel = "원",
-                                distanceNumberLabel = "123.4",
-                                distanceUnitLabel = "km",
-                                priceDeltaLabel = "999원",
-                                priceDeltaTone = PriceDeltaTone.Fall,
-                                isWatched = false,
-                                latitude = 37.498095,
-                                longitude = 127.02761,
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                Box(modifier = Modifier.size(width = 320.dp, height = 720.dp)) {
+                    StationListScreen(
+                        uiState = StationListUiState(
+                            permissionState = LocationPermissionState.PreciseGranted,
+                            stations = listOf(
+                                StationListItemUiModel(
+                                    id = "station-1",
+                                    name = "서울특별시강남구테헤란로초장문테스트주유소직영점",
+                                    brand = Brand.HDO,
+                                    brandLabel = "현대오일뱅크",
+                                    priceWon = 123_456_789,
+                                    priceLabel = "123,456,789원",
+                                    distanceLabel = "123.4km",
+                                    priceNumberLabel = "123,456,789",
+                                    priceUnitLabel = "원",
+                                    distanceNumberLabel = "123.4",
+                                    distanceUnitLabel = "km",
+                                    priceHistory = StationListPriceHistoryUiModel.Decreased(999),
+                                    isWatched = false,
+                                    latitude = 37.498095,
+                                    longitude = 127.02761,
+                                ),
                             ),
+                            selectedFuelType = FuelType.PREMIUM_GASOLINE,
                         ),
-                        selectedFuelType = FuelType.PREMIUM_GASOLINE,
-                    ),
-                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                    onAction = {},
-                    onRequestPermissions = {},
-                    onOpenLocationSettings = {},
-                )
+                        snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                        onAction = {},
+                        onRequestPermissions = {},
+                        onOpenLocationSettings = {},
+                    )
+                }
             }
         }
 
@@ -662,7 +722,13 @@ class StationListScreenTest {
         assertTrue("Expected brand logo tile to stay inside the narrow screen.", brandIconBounds.right <= rootRight)
         assertTrue("Expected fuel chip to stay inside the narrow screen.", fuelChipBounds.right <= rootRight)
         assertTrue("Expected price delta to stay inside the narrow screen.", priceComparisonBounds.right <= rootRight)
-        assertTrue("Expected fuel chip to leave room for the price delta.", fuelChipBounds.right < priceComparisonBounds.left)
+        assertTrue("Expected price hero to remain above the station title.", metricBounds.bottom <= titleBounds.top)
+        assertTrue("Expected station title to remain above metadata.", titleBounds.bottom <= fuelChipBounds.top)
+        assertTrue(
+            "Expected only price history to wrap below fuel metadata " +
+                "(fuel=$fuelChipBounds, history=$priceComparisonBounds).",
+            fuelChipBounds.bottom <= priceComparisonBounds.top,
+        )
     }
 
     @Test
@@ -684,7 +750,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "-",
+                            priceHistory = StationListPriceHistoryUiModel.Unavailable,
                             isWatched = false,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -723,7 +789,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
+                            priceHistory = StationListPriceHistoryUiModel.Unchanged,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -777,7 +843,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
+                            priceHistory = StationListPriceHistoryUiModel.Unchanged,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -820,7 +886,7 @@ class StationListScreenTest {
                             priceUnitLabel = "원",
                             distanceNumberLabel = "0.3",
                             distanceUnitLabel = "km",
-                            priceDeltaLabel = "직전 가격과 동일",
+                            priceHistory = StationListPriceHistoryUiModel.Unchanged,
                             isWatched = true,
                             latitude = 37.498095,
                             longitude = 127.02761,
@@ -1303,7 +1369,7 @@ class StationListScreenTest {
         priceUnitLabel = "원",
         distanceNumberLabel = "0.3",
         distanceUnitLabel = "km",
-        priceDeltaLabel = "직전 가격과 동일",
+        priceHistory = StationListPriceHistoryUiModel.Unchanged,
         isWatched = true,
         latitude = 37.498095,
         longitude = 127.02761,

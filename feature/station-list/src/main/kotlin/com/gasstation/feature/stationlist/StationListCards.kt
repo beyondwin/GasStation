@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -13,8 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
@@ -27,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -79,7 +79,6 @@ internal fun StationCard(
         },
         primary = {
             GasStationMetricBlock(
-                label = stringResource(R.string.station_list_label_price),
                 number = station.priceNumberLabel,
                 unit = station.priceUnitLabel,
                 emphasis = GasStationMetricEmphasis.Primary,
@@ -115,26 +114,50 @@ internal fun StationCard(
 
 @Composable
 private fun StationRowMetadata(station: StationListItemUiModel, fuelTypeLabel: String) {
-    Row(
+    val maxItemsInEachRow = if (LocalDensity.current.fontScale >= 1.5f) 1 else 2
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        maxItemsInEachRow = maxItemsInEachRow,
     ) {
-        FuelChip(
-            text = fuelTypeLabel,
-            modifier = Modifier.weight(1f, fill = false),
-        )
+        FuelChip(text = fuelTypeLabel)
         PriceDeltaIndicator(
-            label = station.priceDeltaLabel,
-            tone = station.priceDeltaTone,
+            history = station.priceHistory,
             modifier = Modifier.testTag(STATION_LIST_PRICE_CHANGE_TAG),
         )
     }
 }
 
+private data class PriceHistoryPresentation(val label: String, val tone: PriceDeltaTone)
+
 @Composable
-private fun PriceDeltaIndicator(label: String, tone: PriceDeltaTone, modifier: Modifier = Modifier) {
+private fun StationListPriceHistoryUiModel.presentation(): PriceHistoryPresentation = when (this) {
+    StationListPriceHistoryUiModel.Unavailable -> PriceHistoryPresentation(
+        stringResource(R.string.station_list_price_history_unavailable),
+        PriceDeltaTone.Neutral,
+    )
+
+    StationListPriceHistoryUiModel.Unchanged -> PriceHistoryPresentation(
+        stringResource(R.string.station_list_price_history_unchanged),
+        PriceDeltaTone.Neutral,
+    )
+
+    is StationListPriceHistoryUiModel.Increased -> PriceHistoryPresentation(
+        stringResource(R.string.station_list_price_history_increased, amountWon),
+        PriceDeltaTone.Rise,
+    )
+
+    is StationListPriceHistoryUiModel.Decreased -> PriceHistoryPresentation(
+        stringResource(R.string.station_list_price_history_decreased, amountWon),
+        PriceDeltaTone.Fall,
+    )
+}
+
+@Composable
+private fun PriceDeltaIndicator(history: StationListPriceHistoryUiModel, modifier: Modifier = Modifier) {
     val typography = GasStationTheme.typography
+    val (label, tone) = history.presentation()
     val stockColor = tone.toColor()
     val darkCanvas = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val color = when (tone) {
@@ -149,39 +172,14 @@ private fun PriceDeltaIndicator(label: String, tone: PriceDeltaTone, modifier: M
         PriceDeltaTone.Neutral -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    if (tone == PriceDeltaTone.Neutral) {
-        Text(
-            text = "-",
-            modifier = modifier,
-            style = typography.body,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        return
-    }
-
-    Row(
+    Text(
+        text = label,
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = if (tone == PriceDeltaTone.Rise) {
-                Icons.Filled.ArrowDropUp
-            } else {
-                Icons.Filled.ArrowDropDown
-            },
-            contentDescription = null,
-            tint = color,
-        )
-        Text(
-            text = label,
-            style = typography.body,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+        style = typography.body,
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable

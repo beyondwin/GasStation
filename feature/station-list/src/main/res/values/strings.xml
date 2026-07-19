@@ -36,6 +36,10 @@
     <string name="station_list_price_unit">원</string>
     <string name="station_list_price_format">%1$s원</string>
     <string name="station_list_brand_description">%1$s 브랜드</string>
+    <string name="station_list_price_history_unavailable">가격 이력 없음</string>
+    <string name="station_list_price_history_unchanged">변동 없음</string>
+    <string name="station_list_price_history_increased">▲ %1$d원</string>
+    <string name="station_list_price_history_decreased">▼ %1$d원</string>
 
     <!-- Decision summary -->
     <string name="station_list_decision_count">%1$d곳</string>

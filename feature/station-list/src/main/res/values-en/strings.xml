@@ -36,6 +36,10 @@
     <string name="station_list_price_unit">₩</string>
     <string name="station_list_price_format">₩%1$s</string>
     <string name="station_list_brand_description">%1$s brand</string>
+    <string name="station_list_price_history_unavailable">No price history</string>
+    <string name="station_list_price_history_unchanged">No change</string>
+    <string name="station_list_price_history_increased">▲ %1$d won</string>
+    <string name="station_list_price_history_decreased">▼ %1$d won</string>
 
     <!-- Decision summary -->
     <string name="station_list_decision_count">%1$d stations</string>
