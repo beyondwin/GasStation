@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -235,26 +236,16 @@ class StationListScreenTest {
     fun `decision summary visibly renders count lowest average and savings`() {
         composeRule.setContent {
             Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
-                StationListScreen(
-                    uiState = comparisonUiState(),
-                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                    onAction = {},
-                    onRequestPermissions = {},
-                    onOpenLocationSettings = {},
+                StationListDecisionSummaryStrip(
+                    summary = decisionSummary(),
                 )
             }
         }
 
-        listOf(
-            STATION_LIST_DECISION_COUNT_TAG,
-            STATION_LIST_DECISION_LOWEST_TAG,
-            STATION_LIST_DECISION_AVERAGE_TAG,
-            STATION_LIST_DECISION_SAVINGS_TAG,
-        ).forEach { tag ->
-            composeRule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
-        }
-        composeRule.onNodeWithText("평균 1,696원", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("평균보다 7원 저렴", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG).assertTextEquals("최저 1,968원")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_COUNT_TAG).assertTextEquals("36곳")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_AVERAGE_TAG).assertTextEquals("평균 2,070원")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_SAVINGS_TAG).assertTextEquals("102원 저렴")
     }
 
     @Test
@@ -292,32 +283,27 @@ class StationListScreenTest {
     @Config(qualifiers = "en-rUS-w360dp-h800dp-xhdpi")
     fun `decision summary localizes average copy in English`() {
         composeRule.setContent {
-            StationListScreen(
-                uiState = comparisonUiState(),
-                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                onAction = {},
-                onRequestPermissions = {},
-                onOpenLocationSettings = {},
+            StationListDecisionSummaryStrip(
+                summary = decisionSummary(),
             )
         }
 
-        composeRule.onNodeWithText("Average 1,696원", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG).assertTextEquals("Lowest 1,968원")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_COUNT_TAG).assertTextEquals("36 stations")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_AVERAGE_TAG).assertTextEquals("Average 2,070원")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_SAVINGS_TAG).assertTextEquals("102원 below average")
     }
 
     @Test
-    fun `decision summary remains within 360dp bounds at two times font scale`() {
+    fun `decision summary remains within 320dp bounds at two times font scale`() {
         composeRule.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(
                 LocalDensity provides Density(density.density, fontScale = 2f),
             ) {
-                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
-                    StationListScreen(
-                        uiState = comparisonUiState(),
-                        snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                        onAction = {},
-                        onRequestPermissions = {},
-                        onOpenLocationSettings = {},
+                Box(modifier = Modifier.size(width = 320.dp, height = 800.dp)) {
+                    StationListDecisionSummaryStrip(
+                        summary = decisionSummary(),
                     )
                 }
             }
@@ -346,22 +332,32 @@ class StationListScreenTest {
     @Test
     fun `single station summary omits average and savings`() {
         composeRule.setContent {
-            StationListScreen(
-                uiState = StationListUiState(
-                    permissionState = LocationPermissionState.PreciseGranted,
-                    stations = listOf(testStation()),
+            StationListDecisionSummaryStrip(
+                summary = StationListDecisionSummary(
+                    count = 1,
+                    lowestPriceWon = 1_968,
+                    averagePriceWon = null,
+                    savingsWon = null,
+                    isLowestPriceTied = false,
                 ),
-                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                onAction = {},
-                onRequestPermissions = {},
-                onOpenLocationSettings = {},
             )
         }
 
-        composeRule.onNodeWithTag(STATION_LIST_DECISION_COUNT_TAG, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(STATION_LIST_DECISION_AVERAGE_TAG, useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithTag(STATION_LIST_DECISION_SAVINGS_TAG, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_COUNT_TAG).assertTextEquals("1곳")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG).assertTextEquals("최저 1,968원")
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_AVERAGE_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_SAVINGS_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `tied lowest decision summary identifies the shared lowest price`() {
+        composeRule.setContent {
+            StationListDecisionSummaryStrip(
+                summary = decisionSummary().copy(isLowestPriceTied = true),
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_DECISION_LOWEST_TAG).assertTextEquals("공동 최저 1,968원")
     }
 
     @Test
@@ -1320,6 +1316,14 @@ class StationListScreenTest {
             testStation().copy(id = "station-2", priceWon = 1_699, priceNumberLabel = "1,699"),
             testStation().copy(id = "station-3", priceWon = 1_701, priceNumberLabel = "1,701"),
         ),
+    )
+
+    private fun decisionSummary() = StationListDecisionSummary(
+        count = 36,
+        lowestPriceWon = 1_968,
+        averagePriceWon = 2_070,
+        savingsWon = 102,
+        isLowestPriceTied = false,
     )
 
     private fun setFilterContent(

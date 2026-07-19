@@ -39,10 +39,10 @@
 
     <!-- Decision summary -->
     <string name="station_list_decision_count">%1$d곳</string>
-    <string name="station_list_decision_lowest">최저가</string>
-    <string name="station_list_decision_tied_lowest">공동 최저가</string>
+    <string name="station_list_decision_lowest">최저 %1$s</string>
+    <string name="station_list_decision_tied_lowest">공동 최저 %1$s</string>
     <string name="station_list_decision_average">평균 %1$s</string>
-    <string name="station_list_decision_savings">평균보다 %1$s 저렴</string>
+    <string name="station_list_decision_savings">%1$s 저렴</string>
 
     <!-- Watch toggle -->
     <string name="station_list_watch_saved">저장됨</string>

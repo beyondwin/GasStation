@@ -46,14 +46,9 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space8),
         ) {
-            Text(
-                text = stringResource(R.string.station_list_decision_count, summary.count),
-                style = numericMetricStyle,
-                color = ColorSurface,
-                modifier = Modifier.testTag(STATION_LIST_DECISION_COUNT_TAG),
-            )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space4),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space8),
             ) {
                 Text(
                     text = stringResource(
@@ -62,37 +57,49 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
                         } else {
                             R.string.station_list_decision_lowest
                         },
+                        summary.lowestPriceWon.gasStationWonLabel(),
                     ),
-                    color = ColorYellow,
-                )
-                Text(
-                    text = summary.lowestPriceWon.gasStationWonLabel(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(STATION_LIST_DECISION_LOWEST_TAG),
                     style = numericMetricStyle,
                     color = ColorYellow,
-                    modifier = Modifier.testTag(STATION_LIST_DECISION_LOWEST_TAG),
                 )
-            }
-            summary.averagePriceWon?.let { average ->
                 Text(
-                    text = stringResource(
-                        R.string.station_list_decision_average,
-                        average.gasStationWonLabel(),
-                    ),
+                    text = stringResource(R.string.station_list_decision_count, summary.count),
                     style = numericMetricStyle,
                     color = ColorSurface,
-                    modifier = Modifier.testTag(STATION_LIST_DECISION_AVERAGE_TAG),
+                    modifier = Modifier.testTag(STATION_LIST_DECISION_COUNT_TAG),
                 )
             }
-            summary.savingsWon?.let { savings ->
-                Text(
-                    text = stringResource(
-                        R.string.station_list_decision_savings,
-                        savings.gasStationWonLabel(),
-                    ),
-                    style = numericMetricStyle,
-                    color = ColorSurface,
-                    modifier = Modifier.testTag(STATION_LIST_DECISION_SAVINGS_TAG),
-                )
+            if (summary.averagePriceWon != null && summary.savingsWon != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space8),
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.station_list_decision_average,
+                            summary.averagePriceWon.gasStationWonLabel(),
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag(STATION_LIST_DECISION_AVERAGE_TAG),
+                        style = numericMetricStyle,
+                        color = ColorSurface,
+                        maxLines = 2,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.station_list_decision_savings,
+                            summary.savingsWon.gasStationWonLabel(),
+                        ),
+                        modifier = Modifier.testTag(STATION_LIST_DECISION_SAVINGS_TAG),
+                        style = numericMetricStyle,
+                        color = ColorYellow,
+                        maxLines = 2,
+                    )
+                }
             }
         }
     }

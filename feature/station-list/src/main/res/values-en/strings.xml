@@ -39,8 +39,8 @@
 
     <!-- Decision summary -->
     <string name="station_list_decision_count">%1$d stations</string>
-    <string name="station_list_decision_lowest">Lowest</string>
-    <string name="station_list_decision_tied_lowest">Tied lowest</string>
+    <string name="station_list_decision_lowest">Lowest %1$s</string>
+    <string name="station_list_decision_tied_lowest">Tied lowest %1$s</string>
     <string name="station_list_decision_average">Average %1$s</string>
     <string name="station_list_decision_savings">%1$s below average</string>
 
