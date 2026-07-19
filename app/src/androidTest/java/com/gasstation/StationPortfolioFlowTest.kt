@@ -5,7 +5,6 @@ import android.graphics.Rect
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowInsets
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -16,6 +15,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
@@ -186,8 +187,8 @@ class StationPortfolioFlowTest {
 
     private fun appVisibleSafeContentBoundsInScreen(decorView: View, decorLocation: IntArray): Rect {
         val visibleFrame = Rect().also(decorView::getWindowVisibleDisplayFrame)
-        val systemBars = decorView.rootWindowInsets
-            ?.getInsets(WindowInsets.Type.systemBars())
+        val systemBars = ViewCompat.getRootWindowInsets(decorView)
+            ?.getInsets(WindowInsetsCompat.Type.systemBars())
             ?: error("System bar insets must be available before injecting an outside tap")
         val edgeMargin = (24 * decorView.resources.displayMetrics.density).roundToInt()
         return Rect(
@@ -211,6 +212,17 @@ class StationPortfolioFlowTest {
         positionInWindow = positionInWindow,
         positionOnScreen = positionOnScreen,
     )
+
+    private fun ComposeRect.toScreenBounds(positionInWindow: Offset, positionOnScreen: Offset): ComposeRect {
+        val windowToScreenX = positionOnScreen.x - positionInWindow.x
+        val windowToScreenY = positionOnScreen.y - positionInWindow.y
+        return ComposeRect(
+            left + windowToScreenX,
+            top + windowToScreenY,
+            right + windowToScreenX,
+            bottom + windowToScreenY,
+        )
+    }
 
     private fun reseedDemoDatabase() {
         val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
