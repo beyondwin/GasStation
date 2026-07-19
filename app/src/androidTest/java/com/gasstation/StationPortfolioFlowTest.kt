@@ -1,12 +1,15 @@
 package com.gasstation
 
 import android.Manifest
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.demo.seed.DemoSeedAssetLoader
@@ -87,6 +90,59 @@ class StationPortfolioFlowTest {
                 useUnmergedTree = true,
             )
                 .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun demoFilterMenu_dismissesWithSystemBackAndOutsideTap() {
+        reseedDemoDatabase()
+
+        rule.waitUntil(timeoutMillis = 10_000) {
+            rule.onAllNodesWithTag("station-list-filter-radius", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).performClick()
+        waitForFilterMenu()
+
+        Espresso.pressBack()
+        waitForFilterMenuDismissal()
+
+        rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).performClick()
+        waitForFilterMenu()
+
+        tapOutsideFilterMenu()
+        waitForFilterMenuDismissal()
+    }
+
+    private fun waitForFilterMenu() {
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithTag("station-list-filter-menu", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun waitForFilterMenuDismissal() {
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithTag("station-list-filter-menu", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    private fun tapOutsideFilterMenu() {
+        val decorView = rule.activity.window.decorView
+        val eventTime = SystemClock.uptimeMillis()
+        val x = decorView.width.toFloat() - 1f
+        val y = decorView.height.toFloat() - 1f
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+
+        MotionEvent.obtain(eventTime, eventTime, MotionEvent.ACTION_DOWN, x, y, 0).also { event ->
+            instrumentation.sendPointerSync(event)
+            event.recycle()
+        }
+        MotionEvent.obtain(eventTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0).also { event ->
+            instrumentation.sendPointerSync(event)
+            event.recycle()
         }
     }
 

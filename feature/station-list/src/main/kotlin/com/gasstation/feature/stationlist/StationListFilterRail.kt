@@ -37,6 +37,7 @@ import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 
 internal const val STATION_LIST_FILTER_RAIL_TAG = "station-list-filter-rail"
+internal const val STATION_LIST_FILTER_CHEVRON_TAG_PREFIX = "station-list-filter-chevron-"
 
 @Composable
 internal fun StationListFilterRail(
@@ -62,9 +63,9 @@ internal fun StationListFilterRail(
                 stringResource(R.string.station_list_sort_price)
             },
             onClick = { onAction(StationListAction.SortToggleRequested) },
-            showMenuIndicator = false,
         )
         FilterMenuChip(
+            menuKind = StationListFilterMenuKind.Radius,
             label = uiState.selectedRadius.toLabel(),
             testTag = STATION_LIST_RADIUS_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Radius,
@@ -85,6 +86,7 @@ internal fun StationListFilterRail(
             )
         }
         FilterMenuChip(
+            menuKind = StationListFilterMenuKind.Fuel,
             label = uiState.selectedFuelType.toLabel(),
             testTag = STATION_LIST_FUEL_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Fuel,
@@ -105,6 +107,7 @@ internal fun StationListFilterRail(
             )
         }
         FilterMenuChip(
+            menuKind = StationListFilterMenuKind.Brand,
             label = uiState.selectedBrandFilter.gasStationBrandFilterLabel(),
             testTag = STATION_LIST_BRAND_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Brand,
@@ -134,6 +137,7 @@ internal fun StationListFilterRail(
 
 @Composable
 private fun FilterMenuChip(
+    menuKind: StationListFilterMenuKind,
     label: String,
     testTag: String,
     expanded: Boolean,
@@ -146,7 +150,7 @@ private fun FilterMenuChip(
             onClick = onClick,
             modifier = Modifier.testTag(testTag),
             expanded = expanded,
-            showMenuIndicator = true,
+            menuKind = menuKind,
         )
         if (expanded) {
             menu()
@@ -160,7 +164,7 @@ private fun FilterActionChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
-    showMenuIndicator: Boolean = false,
+    menuKind: StationListFilterMenuKind? = null,
 ) {
     Surface(
         modifier = modifier.defaultMinSize(minHeight = 48.dp),
@@ -180,10 +184,14 @@ private fun FilterActionChip(
                 style = GasStationTheme.typography.chip,
                 maxLines = 1,
             )
-            if (showMenuIndicator && expanded) {
-                Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null)
-            } else if (showMenuIndicator) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+            menuKind?.let { kind ->
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.station_list_filter_collapse_menu else R.string.station_list_filter_expand_menu,
+                    ),
+                    modifier = Modifier.testTag("$STATION_LIST_FILTER_CHEVRON_TAG_PREFIX${kind.name}"),
+                )
             }
         }
     }

@@ -27,6 +27,8 @@
     <string name="station_list_filter_radius_title">Search radius</string>
     <string name="station_list_filter_fuel_title">Fuel type</string>
     <string name="station_list_filter_brand_title">Brand</string>
+    <string name="station_list_filter_expand_menu">Expand filter menu</string>
+    <string name="station_list_filter_collapse_menu">Collapse filter menu</string>
 
     <!-- Metric labels -->
     <string name="station_list_label_price">Price</string>

@@ -27,6 +27,8 @@
     <string name="station_list_filter_radius_title">검색 반경</string>
     <string name="station_list_filter_fuel_title">유종 선택</string>
     <string name="station_list_filter_brand_title">브랜드 선택</string>
+    <string name="station_list_filter_expand_menu">필터 메뉴 펼치기</string>
+    <string name="station_list_filter_collapse_menu">필터 메뉴 접기</string>
 
     <!-- Metric labels -->
     <string name="station_list_label_price">가격</string>

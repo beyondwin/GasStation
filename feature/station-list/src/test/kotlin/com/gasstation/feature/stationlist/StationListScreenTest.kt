@@ -7,16 +7,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -27,12 +27,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.test.espresso.Espresso
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -110,26 +110,12 @@ class StationListScreenTest {
     }
 
     @Test
-    fun `filter menu dismisses when system back is pressed`() {
+    fun `filter menu exposes accessible dismiss semantics`() {
         setFilterContent()
         composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
 
-        Espresso.pressBack()
-        composeRule.waitForIdle()
-        dismissFilterMenuIfStillOpen()
-
-        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertDoesNotExist()
-    }
-
-    @Test
-    fun `filter menu dismisses when its popup is tapped outside`() {
-        setFilterContent()
-        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
-
-        composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true)
-            .performTouchInput { click(Offset(1f, 1f)) }
-        composeRule.waitForIdle()
-        dismissFilterMenuIfStillOpen()
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG)
+            .performSemanticsAction(SemanticsActions.Dismiss) { action -> action() }
 
         composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG).assertDoesNotExist()
     }
@@ -160,10 +146,27 @@ class StationListScreenTest {
     }
 
     @Test
-    @Config(qualifiers = "ko-rKR-w320dp-h800dp-xhdpi")
-    fun `filter menu stays on screen and last brand option remains selectable`() {
+    fun `opened filter chip exposes collapse indicator and selected option renders a trailing check`() {
+        setFilterContent()
+
+        composeRule.onNodeWithTag(STATION_LIST_RADIUS_FILTER_TAG).performClick()
+
+        composeRule.onNodeWithTag(
+            "$STATION_LIST_FILTER_CHEVRON_TAG_PREFIX${StationListFilterMenuKind.Radius.name}",
+            useUnmergedTree = true,
+        ).assertExists()
+        composeRule.onNodeWithContentDescription("필터 메뉴 접기").assertExists()
+        composeRule.onNodeWithTag(
+            "$STATION_LIST_FILTER_SELECTED_CHECK_TAG_PREFIX${SearchRadius.KM_3.name}",
+            useUnmergedTree = true,
+        ).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "ko-rKR-w320dp-h260dp-xhdpi")
+    fun `filter menu scrolls an initially hidden last brand option into view before selection`() {
         val actions = mutableListOf<StationListAction>()
-        setFilterContent(actions = actions, width = 320.dp)
+        setFilterContent(actions = actions, width = 320.dp, height = 260.dp)
         composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG).performClick()
 
         val rootBounds = composeRule.onNodeWithTag(STATION_LIST_ROOT_TAG, useUnmergedTree = true)
@@ -177,7 +180,12 @@ class StationListScreenTest {
         assertTrue("Expected menu top edge inside root.", menuBounds.top >= rootBounds.top)
         assertTrue("Expected menu bottom edge inside root.", menuBounds.bottom <= rootBounds.bottom)
 
-        composeRule.onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ETC.name}")
+        val etcOptionTag = "$STATION_LIST_FILTER_OPTION_TAG_PREFIX${BrandFilter.ETC.name}"
+        composeRule.onNodeWithTag(etcOptionTag).assertIsNotDisplayed()
+
+        composeRule.onNodeWithTag(etcOptionTag).performScrollTo()
+        composeRule.onNodeWithTag(etcOptionTag).assertIsDisplayed()
+        composeRule.onNodeWithTag(etcOptionTag)
             .performClick()
 
         assertEquals(listOf(StationListAction.BrandFilterSelected(BrandFilter.ETC)), actions)
@@ -1317,9 +1325,10 @@ class StationListScreenTest {
     private fun setFilterContent(
         actions: MutableList<StationListAction> = mutableListOf(),
         width: androidx.compose.ui.unit.Dp = 360.dp,
+        height: androidx.compose.ui.unit.Dp = 800.dp,
     ) {
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = width, height = 800.dp)) {
+            Box(modifier = Modifier.size(width = width, height = height)) {
                 StationListScreen(
                     uiState = StationListUiState(
                         permissionState = LocationPermissionState.PreciseGranted,
@@ -1341,13 +1350,6 @@ class StationListScreenTest {
             .height
         val minimumHeight = with(composeRule.density) { 48.dp.toPx() }
         assertTrue("Expected $tag to be at least 48dp tall.", height >= minimumHeight)
-    }
-
-    private fun dismissFilterMenuIfStillOpen() {
-        if (composeRule.onAllNodesWithTag(STATION_LIST_FILTER_MENU_TAG).fetchSemanticsNodes().isNotEmpty()) {
-            composeRule.onNodeWithTag(STATION_LIST_FILTER_MENU_TAG)
-                .performSemanticsAction(SemanticsActions.Dismiss) { action -> action() }
-        }
     }
 
     private fun assertFilterOptionText(testKey: String, expected: String) {

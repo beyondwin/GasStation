@@ -39,6 +39,7 @@ internal const val STATION_LIST_BRAND_FILTER_TAG = "station-list-filter-brand"
 internal const val STATION_LIST_FILTER_MENU_TAG = "station-list-filter-menu"
 internal const val STATION_LIST_FILTER_OPTION_TAG_PREFIX = "station-list-filter-option-"
 internal const val STATION_LIST_FILTER_BRAND_LOGO_TAG_PREFIX = "station-list-filter-brand-logo-"
+internal const val STATION_LIST_FILTER_SELECTED_CHECK_TAG_PREFIX = "station-list-filter-selected-check-"
 
 internal enum class StationListFilterMenuKind { Radius, Fuel, Brand }
 
@@ -143,6 +144,7 @@ private fun <T> StationListFilterMenuRow(
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
+                modifier = Modifier.testTag("$STATION_LIST_FILTER_SELECTED_CHECK_TAG_PREFIX${option.testKey}"),
                 tint = ColorYellow,
             )
         }
