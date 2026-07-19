@@ -5,11 +5,11 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.LocalGasStation
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -62,6 +62,9 @@ internal fun GasStationBottomNavigation(
     onWatchlist: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val nearbyLabel = stringResource(R.string.nav_nearby)
+    val watchlistLabel = stringResource(R.string.nav_watchlist)
+    val settingsLabel = stringResource(R.string.nav_settings)
     val watchlistDisabledDescription = stringResource(R.string.nav_watchlist_disabled)
     GasStationNavigationBar(
         modifier = Modifier.semantics { testTagsAsResourceId = true },
@@ -70,18 +73,19 @@ internal fun GasStationBottomNavigation(
             selected = selected == TopLevelDestination.Nearby,
             onClick = onNearby,
             icon = { Icon(Icons.Rounded.LocalGasStation, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_nearby)) },
-            modifier = Modifier.testTag(BOTTOM_NAV_NEARBY_TAG),
+            modifier = Modifier
+                .testTag(BOTTOM_NAV_NEARBY_TAG)
+                .semantics { contentDescription = nearbyLabel },
         )
         GasStationNavigationBarItem(
             selected = selected == TopLevelDestination.Watchlist,
             onClick = onWatchlist,
             icon = { Icon(Icons.Rounded.Bookmark, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_watchlist)) },
             enabled = watchlistEnabled,
             modifier = Modifier
                 .testTag(BOTTOM_NAV_WATCHLIST_TAG)
                 .semantics {
+                    contentDescription = watchlistLabel
                     if (!watchlistEnabled) {
                         stateDescription = watchlistDisabledDescription
                     }
@@ -91,8 +95,9 @@ internal fun GasStationBottomNavigation(
             selected = selected == TopLevelDestination.Settings,
             onClick = onSettings,
             icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_settings)) },
-            modifier = Modifier.testTag(BOTTOM_NAV_SETTINGS_TAG),
+            modifier = Modifier
+                .testTag(BOTTOM_NAV_SETTINGS_TAG)
+                .semantics { contentDescription = settingsLabel },
         )
     }
 }

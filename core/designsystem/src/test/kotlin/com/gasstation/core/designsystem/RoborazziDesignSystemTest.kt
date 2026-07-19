@@ -212,13 +212,11 @@ class RoborazziDesignSystemTest {
                             selected = true,
                             onClick = {},
                             icon = { Text(text = "₩") },
-                            label = { Text(text = "주유소") },
                         )
                         GasStationNavigationBarItem(
                             selected = false,
                             onClick = {},
                             icon = { Text(text = "★") },
-                            label = { Text(text = "관심") },
                         )
                     }
                 }

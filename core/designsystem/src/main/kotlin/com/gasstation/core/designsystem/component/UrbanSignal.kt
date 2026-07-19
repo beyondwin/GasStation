@@ -128,9 +128,9 @@ fun RowScope.GasStationNavigationBarItem(
     selected: Boolean,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
-    label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    label: (@Composable () -> Unit)? = null,
 ) {
     val selectionScale by animateFloatAsState(
         targetValue = if (selected) 1.06f else 1f,
@@ -154,7 +154,7 @@ fun RowScope.GasStationNavigationBarItem(
         label = label,
         modifier = modifier,
         enabled = enabled,
-        alwaysShowLabel = true,
+        alwaysShowLabel = label != null,
         colors = NavigationBarItemDefaults.colors(
             selectedIconColor = ColorYellow,
             selectedTextColor = ColorYellow,
