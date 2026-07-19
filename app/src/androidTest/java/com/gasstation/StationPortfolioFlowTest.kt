@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -13,6 +15,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
@@ -149,27 +152,24 @@ class StationPortfolioFlowTest {
         val decorView = rule.activity.window.decorView
         val decorLocation = IntArray(2).also(decorView::getLocationOnScreen)
         val safeContentBounds = appVisibleSafeContentBoundsInScreen(decorView, decorLocation)
-        val popupBounds = rule.onNodeWithTag(
+        val popupBoundsInScreen = rule.onNodeWithTag(
             "station-list-filter-menu",
             useUnmergedTree = true,
-        ).fetchSemanticsNode().boundsInWindow
-        val popupBoundsInScreen = Rect(
-            (popupBounds.left + decorLocation[0]).roundToInt(),
-            (popupBounds.top + decorLocation[1]).roundToInt(),
-            (popupBounds.right + decorLocation[0]).roundToInt(),
-            (popupBounds.bottom + decorLocation[1]).roundToInt(),
-        )
+        ).fetchSemanticsNode().boundsInScreen()
         val titleNode = rule.onNodeWithTag(
             "station-list-title",
             useUnmergedTree = true,
         ).fetchSemanticsNode()
-        val titleBounds = titleNode.boundsInWindow
-        val x = (titleBounds.center.x + decorLocation[0]).roundToInt()
-        val y = (titleBounds.center.y + decorLocation[1]).roundToInt()
+        val titleBoundsInScreen = titleNode.boundsInScreen()
+        val x = titleBoundsInScreen.center.x.roundToInt()
+        val y = titleBoundsInScreen.center.y.roundToInt()
 
         assertFalse("Title tap target must remain inert", titleNode.config.contains(SemanticsActions.OnClick))
         assertTrue("Title tap must be inside app-visible safe content", safeContentBounds.contains(x, y))
-        assertFalse("Title tap must be outside popup bounds", popupBoundsInScreen.contains(x, y))
+        assertFalse(
+            "Title tap must be outside popup bounds",
+            popupBoundsInScreen.contains(Offset(x.toFloat(), y.toFloat())),
+        )
 
         val eventTime = SystemClock.uptimeMillis()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -206,6 +206,11 @@ class StationPortfolioFlowTest {
         rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).assertIsSelected()
         rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).fetchSemanticsNode()
     }
+
+    private fun SemanticsNode.boundsInScreen(): ComposeRect = boundsInWindow.toScreenBounds(
+        positionInWindow = positionInWindow,
+        positionOnScreen = positionOnScreen,
+    )
 
     private fun reseedDemoDatabase() {
         val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
