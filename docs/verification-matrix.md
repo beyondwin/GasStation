@@ -166,6 +166,33 @@ DataStore 첫 emission readiness, committed preference mutation, Nearby query ga
 
 `StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 connected demo 경로에서 Nearby와 Settings의 committed 값 공유 및 recreation을 보호합니다. `assembleProdDebug`는 keyless build 확인만 합니다. 실제 prod runtime launch에는 사용자 로컬 `opinet.apikey`가 필요하며, 이 명령은 live Opinet을 검증하지 않습니다.
 
+## Permission parity와 explicit-action 집중 회귀
+
+`demo`와 `prod`의 공통 permission state machine, denied-first gate, demo fixed-coordinate 공급 시점, permission/GPS 안내 분리를 확인합니다.
+
+```bash
+./gradlew \
+  :domain:location:test \
+  :core:location:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:station-list:verifyRoborazziDebug \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :app:assembleDemoDebug \
+  :app:assembleProdDebug \
+  --warning-mode fail
+```
+
+권한 controller까지 확인할 수 있는 연결된 기기 또는 에뮬레이터에서는 focused demo class를 실행합니다. 이 class는 Compose semantics와 UI Automator를 함께 사용해 denied first entry의 자동 dialog 부재, explicit deny 후 guidance 유지, explicit grant 뒤 deterministic demo 목록을 확인합니다. Android Test Orchestrator가 test별 target data를 지워 다른 instrumentation class의 권한 grant가 섞이지 않게 합니다.
+
+```bash
+ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.DemoPermissionFlowTest \
+  --warning-mode fail
+```
+
+연결된 target이 없으면 이 command는 실행하지 않고 host/flavor 검증 결과와 미실행 사유를 남깁니다. 이 focused run은 physical-device evidence가 아니며 live `prod`, Opinet 조회, OEM별 permission-controller UI를 보장하지 않습니다. 수동 runtime revocation/relaunch smoke가 필요하면 테스트 외부에서 fine/coarse permission revoke -> app force-stop -> relaunch -> guidance와 no-nearby-content를 확인하고 기기/OS 결과를 별도 기록합니다. 이 수동 절차나 connected class는 terminal-denial request-count가 cold launch 또는 프로세스 재시작 뒤에도 유지된다는 것을 증명하지 않습니다.
+
 Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해 record한 뒤 같은 모듈을 verify합니다.
 
 ```bash

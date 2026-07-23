@@ -29,11 +29,11 @@
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest`, Roborazzi snapshot | Urban Signal `#FFFCF2`/`#222222`/`#FFDC00` token, typography/spacing, chrome와 shared primitive, 실제 `Brand` drawable 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, legacy RTO/RTX/NHO 저장값의 ALTEUL migration과 안정적인 재저장, 알 수 없는 enum name fallback |
 | `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
-| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, query/cache/failure orchestration, price-first row와 2줄 typed summary, 반경/유종/브랜드 menu interaction, 320dp popup containment와 마지막 항목 scroll, 네 가지 가격 이력 상태, 320dp·200% 글꼴의 summary/station metadata, stale/empty/permission/GPS/failure, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
+| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, denied가 retained coordinate/cache/refresh보다 먼저 이기는 gate, query/cache/failure orchestration, price-first row와 2줄 typed summary, 반경/유종/브랜드 menu interaction, 320dp popup containment와 마지막 항목 scroll, 네 가지 가격 이력 상태, 320dp·200% 글꼴의 summary/station metadata, stale/empty/permission/GPS/failure, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
 | `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest`, Roborazzi overview/detail | 설정 상태, update use case dispatch, flat row, 실제 브랜드 tile, route/summary 계약 |
 | `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 관심 비교 상태, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
 | `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `GasStationBottomNavigationTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, icon-only navigation의 접근성 이름/선택·비활성 semantics/ASCII tag/48dp touch target, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 인텐트 |
-| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `StationPortfolioFlowTest` | seed 적재, 고정 위치, RTO/ETC portfolio row, `station-list-watch-toggle` -> `bottom-nav-watchlist` -> `watchlist-card` 실제 관심 플로우. `StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 Nearby와 Settings의 mutation이 DataStore에 commit된 뒤 서로와 activity recreation에 같은 선호값으로 동기화되는지 보호합니다. |
+| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `DemoPermissionFlowTest`, `StationPortfolioFlowTest` | seed 적재, permission grant 뒤 고정 위치, 권한 자동 dialog 부재, explicit request의 deny/grant, UI Automator permission-controller 상호작용, RTO/ETC portfolio row, `station-list-watch-toggle` -> `bottom-nav-watchlist` -> `watchlist-card` 실제 관심 플로우. Android Test Orchestrator와 `clearPackageData`는 permission test가 다른 class의 권한 상태에 의존하지 않게 합니다. `StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 Nearby와 Settings의 mutation이 DataStore에 commit된 뒤 서로와 activity recreation에 같은 선호값으로 동기화되는지 보호합니다. |
 | `benchmark` | `StationListBenchmark`, `BaselineProfileGenerator`, `GasStationBenchmarkActions` | startup-to-first-content, list scroll, refresh, watchlist 진입, baseline profile journey |
 | `tools:demo-seed` | `DemoSeedGeneratorTest` | seed 생성기와 질의 매트릭스 |
 
@@ -45,6 +45,7 @@
 
 - startup hook이 DB와 선호를 고정 상태로 리셋하는지
 - 고정 위치 override가 실제 런타임에 들어오는지
+- denied first entry가 Android dialog를 자동으로 열지 않고, explicit CTA의 deny는 guidance에 머물며 grant 뒤에만 고정 좌표 목록이 열리는지 (`DemoPermissionFlowTest`)
 - 목록 -> 관심 저장 -> `bottom-nav-watchlist` -> `watchlist-card` 플로우가 실제 기기 테스트에서 동작하는지
 - benchmark가 반복 가능한 데이터 경로를 기준으로 측정되는지
 
@@ -65,7 +66,7 @@
 - `StationRetryPolicy`
   일시적 refresh 실패는 data 계층에서 한 번만 재시도하고, cancellation, 재시도 불가 실패, 예기치 않은 두 번째 예외는 즉시 전파해야 합니다.
 - `LocationStateMachine`, `StationSearchOrchestrator`, `StationListViewModel`
-  권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다.
+  권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다. denied permission은 demo override, 보존 좌표, cache/render, refresh보다 우선하며 GPS 설정 안내와 섞이지 않아야 합니다.
 - `AddressLabelNormalizer` / `AddressLabelFormatter`
   Android 지오코더는 `대한민국`, `KR`, 건물 동, 도로명 조각을 섞어 줄 수 있습니다. 순수 정규화는 `domain:location`, Android `Address` 후보 변환은 `core:location` 테스트로 나눠 목록 상단에 raw 주소가 그대로 노출되지 않게 막습니다.
 - `AndroidAddressResolverDeviceTest`
@@ -140,6 +141,7 @@
 - DataStore 첫 emission 전 Nearby와 Settings는 default preference를 렌더링하거나 action에 사용하지 않는다
 - 설정 detail은 DataStore commit 성공 뒤에만 돌아가고, 실패하면 이전 값을 유지한다
 - Nearby `StationQuery`는 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 만들어진다
+- demo와 prod가 같은 permission gate를 사용하고, permission dialog는 explicit CTA에서만 열린다
 - benchmark는 demo 경로를 기준으로 돈다
 
 새 문서 설명을 추가할 때는 "이 설명이 어떤 테스트 파일에 기대고 있는가"까지 같이 점검하는 편이 안전합니다.

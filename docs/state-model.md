@@ -43,7 +43,7 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 
 목록 화면의 런타임 상태는 단일 세션 객체가 아니라 세 책임으로 나뉩니다.
 
-- `LocationStateMachine`: permission, GPS availability, current coordinates, address label, denied-access flag, recovery refresh flag를 소유합니다.
+- `LocationStateMachine`: permission, GPS availability, current coordinates, address label, recovery refresh flag를 소유합니다.
 - `StationSearchOrchestrator`: active query, cache snapshot state, observed search result, pending blocking refresh failure를 소유합니다.
 - `StationListViewModel`: loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` composition을 소유합니다.
 
@@ -54,9 +54,10 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 - 위치 availability는 `domain:location.ObserveLocationAvailabilityUseCase`를 통해 ViewModel로 들어오고, route는 foreground 구간에서만 이 흐름을 수집합니다.
 - 현재 위치 조회는 평상시 구독이 아니라 새로고침 시점에만 `domain:location.GetCurrentLocationUseCase`를 호출합니다.
 - 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다. API 33 이상 지오코더 callback 오류는 주소 조회 `Error`, 빈 성공 결과는 `Unavailable`로만 들어오고 cancellation은 상태로 저장하지 않고 전파합니다.
-- `demo`에서는 `DemoLocationOverride`가 availability를 항상 사용 가능으로 만들고, `AndroidForegroundLocationProvider`가 고정 좌표를 공급합니다. permission state는 별도 우회 없이 그대로 유지합니다. 대신 ViewModel이 `hasDeniedLocationAccess`로 demo/recovery 경로를 따로 추적합니다.
-- `prod`에서는 같은 저장소 구현이 Android 위치 provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
-- GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다.
+- `demo`와 `prod`는 같은 permission state machine을 통과합니다. denied는 먼저 `currentCoordinates`, address label, recovery refresh flag를 비우고 permission guidance를 body state의 최우선으로 만듭니다. 따라서 demo override, retained coordinate, cached station list, auto/manual refresh가 denial을 우회하지 않습니다.
+- `demo`에서는 `DemoLocationOverride`가 availability를 사용 가능으로 만들되, approximate 또는 precise grant 뒤에만 고정 좌표를 공급합니다. `prod`에서는 같은 repository 경계가 Android provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
+- GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다. GPS 비활성화는 permission denial과 다른 상태입니다. permission이 granted일 때만 GPS 안내가 location settings effect를 열고, denied 상태의 새로고침은 permission guidance/snackbar를 유지합니다.
+- 권한 dialog는 explicit-action 전용입니다. `StationListRoute`는 입장 시 자동 요청하지 않고 안내 CTA에서만 요청합니다. 같은 route 세션에서 terminal denial이 반복되면 CTA는 Android app settings로 전환됩니다. 이 request-count UI 정책은 cold launch나 프로세스 재시작을 넘어 영속되는 marker가 아닙니다.
 
 ## 3. 저장소 읽기 모델
 
@@ -66,7 +67,7 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 - `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
 - `StationSearchResult`
 
-Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
+Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. permission이 denied로 바뀌면 cached `StationSearchResult`가 남아 있어도 permission guidance가 먼저 렌더링되고, 좌표 없는 자동/수동 refresh는 시작하지 않습니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
 목록 좌표는 app에 navigation payload로도 전달됩니다. 이는 watchlist의 거리 기준과 관심 tab 활성화에만 쓰이며, 검색 정책이나 위치 세션의 소유권을 app으로 옮기지 않습니다. 좌표가 바뀌면 이전 concrete watchlist route를 제거해 restore가 stale 좌표를 재사용하지 않게 합니다.
 

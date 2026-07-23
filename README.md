@@ -38,6 +38,7 @@
 
 - `app`은 조립만 담당하고, 화면 상태는 `feature`, 계약은 `domain`, 저장소 구현은 `data`, 공유 인프라는 `core`에 둡니다.
 - 위치 경계는 `domain:location` 계약과 `core:location` 구현으로 나눠, `feature:station-list`가 Android 위치 인프라를 직접 알지 않게 유지합니다.
+- `demo`와 `prod`는 같은 위치 권한 상태기를 사용합니다. 권한 거부는 demo 고정 좌표, 기존 좌표, 캐시 결과, 자동/수동 refresh보다 먼저 Nearby를 권한 안내로 전환하며, approximate 또는 precise grant 뒤에만 demo 고정 좌표가 공급됩니다.
 - 현재 위치 주소는 지오코더가 반환한 전체 주소를 그대로 노출하지 않고, `domain:location`의 순수 정규화 규칙으로 행정동 단위의 짧은 라벨을 만들어 목록 상단에 표시합니다.
 - `station_cache_snapshot`과 `StationSearchResult.hasCachedSnapshot`으로 "성공한 빈 결과"와 "캐시 자체가 없음"을 구분합니다.
 - 목록은 stale 결과를 유지하고, 일시적 `Timeout`/`Network` 실패는 `data:station`에서 1회 재시도합니다. 성공한 refresh는 7일 보관 기준으로 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
@@ -114,8 +115,8 @@ flowchart LR
 
 ## 핵심 사용자 플로우
 
-1. `StationListRoute`가 권한 상태를 전달하고 foreground 구간에서 위치 availability를 수집해 `StationListViewModel`에 반영합니다.
-2. DataStore의 첫 `UserPreferences` emission이 Nearby와 Settings의 readiness 경계입니다. 두 화면은 그 emission 전 `UserPreferences.default()`를 렌더링하거나 action에 사용하지 않습니다. Nearby ViewModel은 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 검색 입력을 담은 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
+1. `StationListRoute`가 권한 상태를 전달하고 foreground 구간에서 위치 availability를 수집해 `StationListViewModel`에 반영합니다. 앱 진입만으로 Android 권한 dialog를 열지 않으며, 사용자가 권한 안내의 CTA를 누를 때만 요청합니다. terminal denial이 반복되면 CTA는 Android 앱 설정 열기로 바뀝니다.
+2. DataStore의 첫 `UserPreferences` emission이 Nearby와 Settings의 readiness 경계입니다. 두 화면은 그 emission 전 `UserPreferences.default()`를 렌더링하거나 action에 사용하지 않습니다. Nearby ViewModel은 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 검색 입력을 담은 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. permission denial은 GPS 비활성화와 별도 안내이며, 어느 flavor에서도 retained coordinate나 캐시 목록을 우회 표시하지 않습니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
 3. 현재 주소 라벨은 `domain:location`의 `AddressLabelNormalizer`가 행정동 중심으로 정규화하고, `core:location`은 Android 지오코더 후보를 그 규칙에 통과시킵니다.
 4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷은 유지됩니다. `Timeout`/`Network` 실패는 500ms 뒤 한 번 재시도하고, `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
 5. 목록에서 저장한 주유소는 `주변·관심·설정` bottom navigation의 관심 화면에서 가격 변화와 거리 기준으로 다시 비교할 수 있습니다.
@@ -125,7 +126,7 @@ flowchart LR
 
 | 모드 | 목적 | 런타임 특징 | 빌드 |
 | --- | --- | --- | --- |
-| `demo` | 같은 시작 상태를 반복 재현 | 앱 시작 시 seed DB 적재, 선호 초기화, 강남역 2번 출구 고정 좌표. API 키가 필요 없습니다. | `./gradlew :app:assembleDemoDebug` |
+| `demo` | 같은 시작 상태를 반복 재현 | 앱 시작 시 seed DB 적재, 선호 초기화. 위치 권한 grant 뒤에만 강남역 2번 출구 고정 좌표를 공급합니다. API 키가 필요 없습니다. | `./gradlew :app:assembleDemoDebug` |
 | `prod` | 실제 API 키와 기기 상태로 동작 | 앱 시작 시 사용자 로컬 `opinet.apikey` 존재 확인, 실제 위치/네트워크 사용 | `./gradlew :app:assembleProdDebug` |
 
 `prod` 앱을 실제로 실행하려면 발급받은 `opinet.apikey`가 필요합니다. `demo` 실행에는 키가 필요 없고, `prod` 빌드는 빈 값으로도 가능하지만 앱 시작 시 `ProdSecretsStartupHook`가 누락을 바로 실패로 처리합니다. 키는 버전 관리되는 프로젝트 루트 `gradle.properties`에 쓰지 말고 사용자별 `~/.gradle/gradle.properties`에 두거나 Gradle 실행 시 `-Popinet.apikey=<issued-key>`로 전달합니다. 참고할 공식 페이지는 [오피넷 홈페이지](https://www.opinet.co.kr)와 [오피넷 Open API 소개](https://www.opinet.co.kr/user/custapi/openApiIntro.do)입니다.
@@ -254,6 +255,14 @@ Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `d
 
 ```bash
 ./gradlew :app:connectedDemoDebugAndroidTest
+```
+
+권한 진입/거부/grant와 Android permission controller 상호작용만 집중 확인할 때는 다음 connected class를 실행합니다.
+
+```bash
+./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.DemoPermissionFlowTest \
+  --warning-mode fail
 ```
 
 전체 명령과 상황별 기준은 [검증 매트릭스](docs/verification-matrix.md)를 따릅니다.
