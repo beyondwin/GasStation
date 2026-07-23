@@ -1,16 +1,12 @@
 package com.gasstation.feature.watchlist
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.gasStationBrandLabel
 import com.gasstation.core.designsystem.gasStationPriceDigits
@@ -63,25 +59,35 @@ class RoborazziWatchlistScreenTest {
     private fun renderFiveRows(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
             GasStationTheme(darkTheme = darkTheme) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 360.dp, height = 800.dp)
-                        .testTag(WATCHLIST_SNAPSHOT_TAG),
-                ) {
-                    WatchlistScreen(
-                        uiState = fiveRowState(),
-                        onAction = {},
-                        onNavigateNearby = {},
-                    )
-                }
+                WatchlistScreen(
+                    uiState = fiveRowState(),
+                    onAction = {},
+                    onNavigateNearby = {},
+                )
             }
         }
 
+        listOf(
+            "관심 주유소",
+            "휘발유 기준",
+            "저장한 5곳",
+            "평균 1,700원",
+            "최근 확인 7월 17일 11:00",
+        ).forEach { text ->
+            composeRule.onNodeWithText(text, useUnmergedTree = true).assertIsDisplayed()
+        }
         composeRule.onAllNodesWithTag(WATCHLIST_ROW_TAG, useUnmergedTree = true).assertCountEquals(5)
-        composeRule.onNodeWithContentDescription("자영알뜰 브랜드").assertExists()
-        composeRule.onNodeWithContentDescription("자가상표 브랜드").assertExists()
-        composeRule.onNodeWithTag(WATCHLIST_SNAPSHOT_TAG, useUnmergedTree = true)
-            .captureRoboImage("src/test/snapshots/$name")
+        listOf(
+            "SK에너지 브랜드",
+            "GS칼텍스 브랜드",
+            "S-OIL 브랜드",
+            "자영알뜰 브랜드",
+            "자가상표 브랜드",
+        ).forEach { description ->
+            composeRule.onNodeWithContentDescription(description, useUnmergedTree = true).assertIsDisplayed()
+        }
+
+        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
     }
 
     @Test
@@ -142,5 +148,3 @@ class RoborazziWatchlistScreenTest {
         )
     }
 }
-
-private const val WATCHLIST_SNAPSHOT_TAG = "watchlist-snapshot"
