@@ -31,19 +31,12 @@
     <string name="settings_map_provider_title">Map service</string>
     <string name="settings_map_provider_subtitle">Select the map to open when tapping directions.</string>
 
-    <!-- Search radius option labels and descriptions -->
-    <string name="settings_radius_km3_label">3 km</string>
-    <string name="settings_radius_km4_label">4 km</string>
-    <string name="settings_radius_km5_label">5 km</string>
+    <!-- Search radius option descriptions -->
     <string name="settings_radius_km3_desc">Densest coverage — compare prices close by.</string>
     <string name="settings_radius_km4_desc">Balanced between urban and suburban reach.</string>
     <string name="settings_radius_km5_desc">Wider net — find the lowest price further out.</string>
 
-    <!-- Fuel type option labels and descriptions -->
-    <string name="settings_fuel_type_gasoline">Gasoline</string>
-    <string name="settings_fuel_type_diesel">Diesel</string>
-    <string name="settings_fuel_type_premium_gasoline">Premium gasoline</string>
-    <string name="settings_fuel_type_kerosene">Kerosene</string>
+    <!-- Fuel type option descriptions -->
     <string name="settings_fuel_type_gasoline_desc">Widest comparison for standard petrol cars.</string>
     <string name="settings_fuel_type_diesel_desc">Shows only diesel prices for diesel vehicles.</string>
     <string name="settings_fuel_type_premium_gasoline_desc">Highlights stations that carry premium fuel.</string>

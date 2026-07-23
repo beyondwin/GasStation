@@ -93,12 +93,6 @@
     <!-- Query context -->
     <string name="station_list_query_context_condition">%1$s · %2$s</string>
 
-    <!-- Fuel type labels -->
-    <string name="station_list_fuel_type_gasoline">Gasoline</string>
-    <string name="station_list_fuel_type_diesel">Diesel</string>
-    <string name="station_list_fuel_type_premium_gasoline">Premium gasoline</string>
-    <string name="station_list_fuel_type_kerosene">Kerosene</string>
-
     <!-- Banner messages -->
     <string name="station_list_banner_approx_location_title">Showing approximate location.</string>
     <string name="station_list_banner_approx_location_detail">For accurate distance comparison, switch location permission to precise.</string>

@@ -31,19 +31,12 @@
     <string name="settings_map_provider_title">연동지도 서비스</string>
     <string name="settings_map_provider_subtitle">길찾기 버튼에서 열 지도를 정합니다.</string>
 
-    <!-- Search radius option labels and descriptions -->
-    <string name="settings_radius_km3_label">3km</string>
-    <string name="settings_radius_km4_label">4km</string>
-    <string name="settings_radius_km5_label">5km</string>
+    <!-- Search radius option descriptions -->
     <string name="settings_radius_km3_desc">가장 촘촘하게 주변 가격을 비교합니다.</string>
     <string name="settings_radius_km4_desc">도심과 외곽 사이의 균형을 맞춥니다.</string>
     <string name="settings_radius_km5_desc">더 넓은 범위에서 최저가를 찾습니다.</string>
 
-    <!-- Fuel type option labels and descriptions -->
-    <string name="settings_fuel_type_gasoline">휘발유</string>
-    <string name="settings_fuel_type_diesel">경유</string>
-    <string name="settings_fuel_type_premium_gasoline">고급휘발유</string>
-    <string name="settings_fuel_type_kerosene">등유</string>
+    <!-- Fuel type option descriptions -->
     <string name="settings_fuel_type_gasoline_desc">일반 승용차 기준으로 가장 넓게 비교합니다.</string>
     <string name="settings_fuel_type_diesel_desc">디젤 차량 기준 가격만 빠르게 추립니다.</string>
     <string name="settings_fuel_type_premium_gasoline_desc">고급휘발유 취급 주유소만 우선 보여줍니다.</string>

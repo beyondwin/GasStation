@@ -93,12 +93,6 @@
     <!-- Query context -->
     <string name="station_list_query_context_condition">%1$s · %2$s 기준</string>
 
-    <!-- Fuel type labels -->
-    <string name="station_list_fuel_type_gasoline">휘발유</string>
-    <string name="station_list_fuel_type_diesel">경유</string>
-    <string name="station_list_fuel_type_premium_gasoline">고급휘발유</string>
-    <string name="station_list_fuel_type_kerosene">등유</string>
-
     <!-- Banner messages -->
     <string name="station_list_banner_approx_location_title">대략적인 위치 기준입니다.</string>
     <string name="station_list_banner_approx_location_detail">정확한 거리 비교가 필요하면 위치 권한을 정확도로 바꿔주세요.</string>
