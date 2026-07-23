@@ -617,6 +617,36 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `queued station click is cancelled when permission is denied before dispatch`() = runTest(dispatcher) {
+        val analytics = RecordingStationEventLogger()
+        val repository = FakeStationRepository(emptySearchResult())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = analytics,
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.effects.test {
+            viewModel.onAction(
+                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+            )
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+            runCurrent()
+
+            expectNoEvents()
+        }
+        assertTrue(analytics.events.isEmpty())
+    }
+
+    @Test
     fun `station click still emits external map effect when analytics logging fails`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
@@ -769,6 +799,43 @@ class StationListViewModelTest {
         assertEquals(1, repository.refreshedQueries.size)
         assertEquals(false, viewModel.uiState.value.isGpsEnabled)
         collectionJob.cancel()
+    }
+
+    @Test
+    fun `permission denial while location is pending drops late success before query`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val locationLookupStarted = CompletableDeferred<Unit>()
+        val completeLocationLookup = CompletableDeferred<Unit>()
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = object : LocationRepository {
+                override fun observeAvailability(): Flow<Boolean> = MutableSharedFlow()
+
+                override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+                    locationLookupStarted.complete(Unit)
+                    completeLocationLookup.await()
+                    return LocationLookupResult.Success(coordinates)
+                }
+
+                override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+                    LocationAddressLookupResult.Success("서울 강남구 역삼동")
+            },
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        locationLookupStarted.await()
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        completeLocationLookup.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.uiState.value.currentCoordinates)
+        assertEquals(null, viewModel.uiState.value.currentAddressLabel)
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertTrue(repository.observedQueries.isEmpty())
     }
 
     @Test

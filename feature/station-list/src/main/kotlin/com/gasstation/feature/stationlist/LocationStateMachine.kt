@@ -50,10 +50,15 @@ class LocationStateMachine @Inject constructor(
     }
 
     suspend fun acquireLocation(): LocationAcquisitionResult {
+        val requestedPermissionState = state.value.permissionState
+        if (requestedPermissionState == LocationPermissionState.Denied) {
+            return LocationAcquisitionResult.PermissionDenied
+        }
+        val result = getCurrentLocation(requestedPermissionState)
         if (state.value.permissionState == LocationPermissionState.Denied) {
             return LocationAcquisitionResult.PermissionDenied
         }
-        return when (val result = getCurrentLocation(state.value.permissionState)) {
+        return when (result) {
             is LocationLookupResult.Success -> {
                 val coordinates = result.coordinates
                 val previousCoordinates = state.value.currentCoordinates

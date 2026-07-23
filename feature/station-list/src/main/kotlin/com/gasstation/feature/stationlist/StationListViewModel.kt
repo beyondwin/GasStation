@@ -198,11 +198,10 @@ class StationListViewModel @Inject constructor(
             is StationListAction.GpsAvailabilityChanged -> locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
 
             is StationListAction.StationClicked -> {
-                val location = locationStateMachine.state.value
-                if (location.permissionState == LocationPermissionState.Denied) return
-                val preferences = readyPreferencesOrNull() ?: return
                 viewModelScope.launch {
-                    val currentCoordinates = location.currentCoordinates
+                    val currentCoordinates = locationStateMachine.state.value.usableCoordinates()
+                        ?: return@launch
+                    val preferences = readyPreferencesOrNull() ?: return@launch
                     val provider = preferences.mapProvider
                     stationEventLogger.logSafely(
                         StationEvent.ExternalMapOpened(
@@ -214,8 +213,8 @@ class StationListViewModel @Inject constructor(
                         StationListEffect.OpenExternalMap(
                             provider = provider,
                             stationName = action.station.name,
-                            originLatitude = currentCoordinates?.latitude,
-                            originLongitude = currentCoordinates?.longitude,
+                            originLatitude = currentCoordinates.latitude,
+                            originLongitude = currentCoordinates.longitude,
                             latitude = action.station.latitude,
                             longitude = action.station.longitude,
                         ),
@@ -263,10 +262,16 @@ class StationListViewModel @Inject constructor(
                     locationStateMachine.acquireLocation(),
                     showPermissionDeniedFeedback = showPermissionDeniedFeedback,
                 ) ?: return@launch
+                if (!locationStateMachine.state.value.hasAuthorizedCoordinates(coordinates)) {
+                    return@launch
+                }
 
                 refreshAddressLabel(coordinates)
 
                 val query = buildQuery(preferences, coordinates)
+                if (!locationStateMachine.state.value.hasAuthorizedCoordinates(coordinates)) {
+                    return@launch
+                }
                 when (val outcome = searchOrchestrator.refresh(query)) {
                     RefreshOutcome.Success -> Unit
                     is RefreshOutcome.Failed -> handleRefreshFailure(query, outcome.reason)
@@ -450,6 +455,9 @@ private data class StationListSearchUiProjection(
 private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
     permissionState != LocationPermissionState.Denied && isGpsEnabled
 }
+
+private fun LocationState.hasAuthorizedCoordinates(coordinates: Coordinates): Boolean =
+    permissionState != LocationPermissionState.Denied && currentCoordinates == coordinates
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null

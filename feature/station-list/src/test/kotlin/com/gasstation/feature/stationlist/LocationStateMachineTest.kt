@@ -87,14 +87,15 @@ class LocationStateMachineTest {
 
     @Test
     fun `permission denied result does not set coordinates`() = runTest {
-        val machine = createMachine(
-            FakeLocationStateMachineRepository(result = LocationLookupResult.PermissionDenied),
-        )
+        val repository = FakeLocationStateMachineRepository(result = LocationLookupResult.PermissionDenied)
+        val machine = createMachine(repository)
+        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
 
         val result = machine.acquireLocation()
 
         assertEquals(LocationAcquisitionResult.PermissionDenied, result)
         assertNull(machine.state.value.currentCoordinates)
+        assertEquals(1, repository.locationRequests)
     }
 
     @Test
@@ -181,9 +182,15 @@ private class FakeLocationStateMachineRepository(
     ),
     private val addressResult: LocationAddressLookupResult = LocationAddressLookupResult.Unavailable,
 ) : LocationRepository {
+    var locationRequests = 0
+        private set
+
     override fun observeAvailability(): Flow<Boolean> = availability
 
-    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult = result
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+        locationRequests += 1
+        return result
+    }
 
     override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = addressResult
 }
