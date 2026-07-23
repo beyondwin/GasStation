@@ -221,6 +221,7 @@ class SettingsScreenTest {
     @Test
     fun `brand filter detail exposes one grouped alteul row and stable logo tag`() {
         val options = SettingsUiState.Ready(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
+        var selectedAction: SettingsAction? = null
 
         composeRule.setContent {
             SettingsDetailScreen(
@@ -228,7 +229,7 @@ class SettingsScreenTest {
                 options = options,
                 isSaving = false,
                 onBackClick = {},
-                onOptionClick = {},
+                onOptionClick = { selectedAction = it.action },
             )
         }
 
@@ -239,7 +240,13 @@ class SettingsScreenTest {
             .onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG)
             .performScrollToNode(hasText("알뜰"))
         composeRule.onNodeWithText("알뜰").assertExists()
-        composeRule.onNodeWithTag("settings-option-GSC").assertExists()
+        composeRule.onNodeWithTag("settings-option-ALTEUL").assertExists().performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                SettingsAction.BrandFilterSelected(BrandFilter.ALTEUL),
+                selectedAction,
+            )
+        }
         composeRule.onNodeWithText("알뜰주유소 전체를 표시합니다.").assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-ALTEUL", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-RTO").assertDoesNotExist()
