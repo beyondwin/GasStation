@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -31,7 +32,7 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun StationListRoute(
     onCoordinatesAvailable: (Coordinates?) -> Unit,
-    onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Unit,
+    onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Boolean,
     onFirstContentDrawn: () -> Unit = {},
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
@@ -39,6 +40,7 @@ fun StationListRoute(
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val externalMapFailureMessage = stringResource(R.string.station_list_external_map_failed)
     var deniedRequestCount by rememberSaveable { mutableIntStateOf(0) }
     val permissionState = rememberLocationPermissionsState { results ->
         if (results.values.none { granted -> granted }) {
@@ -80,10 +82,15 @@ fun StationListRoute(
         onCoordinatesAvailable = onCoordinatesAvailable,
     )
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel, externalMapFailureMessage) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
-                is StationListEffect.OpenExternalMap -> onOpenExternalMap(effect)
+                is StationListEffect.OpenExternalMap -> openExternalMapOrShowFailure(
+                    effect = effect,
+                    onOpenExternalMap = onOpenExternalMap,
+                    snackbarHostState = snackbarHostState,
+                    failureMessage = externalMapFailureMessage,
+                )
 
                 StationListEffect.OpenLocationSettings -> {
                     context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
@@ -116,6 +123,17 @@ fun StationListRoute(
         },
         onFirstContentDrawn = onFirstContentDrawn,
     )
+}
+
+internal suspend fun openExternalMapOrShowFailure(
+    effect: StationListEffect.OpenExternalMap,
+    onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Boolean,
+    snackbarHostState: SnackbarHostState,
+    failureMessage: String,
+) {
+    if (!onOpenExternalMap(effect)) {
+        snackbarHostState.showSnackbar(failureMessage)
+    }
 }
 
 @Composable

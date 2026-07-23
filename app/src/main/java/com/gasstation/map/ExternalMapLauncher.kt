@@ -19,7 +19,15 @@ interface ExternalMapLauncher {
         originLongitude: Double?,
         latitude: Double,
         longitude: Double,
-    )
+    ): ExternalMapLaunchResult
+}
+
+sealed interface ExternalMapLaunchResult {
+    data object Opened : ExternalMapLaunchResult
+
+    data object StoreOpened : ExternalMapLaunchResult
+
+    data object Failed : ExternalMapLaunchResult
 }
 
 @Singleton
@@ -31,36 +39,42 @@ class IntentExternalMapLauncher @Inject constructor(@param:ApplicationContext pr
         originLongitude: Double?,
         latitude: Double,
         longitude: Double,
-    ) {
-        val packageName = provider.packageName()
-        val mapIntent = Intent(
-            Intent.ACTION_VIEW,
-            provider.mapUri(
-                stationName = stationName,
-                originLatitude = originLatitude,
-                originLongitude = originLongitude,
-                latitude = latitude,
-                longitude = longitude,
-            ).toUri(),
+    ): ExternalMapLaunchResult {
+        val target = provider.externalMapTarget(
+            applicationId = context.packageName,
+            stationName = stationName,
+            originLatitude = originLatitude,
+            originLongitude = originLongitude,
+            latitude = latitude,
+            longitude = longitude,
         )
+        val routeIntent = Intent(
+            Intent.ACTION_VIEW,
+            target.routeUri.toUri(),
+        )
+            .setPackage(target.packageName)
             .addCategory(Intent.CATEGORY_BROWSABLE)
-
-        val launchIntent = if (isInstalled(packageName)) {
-            mapIntent
-        } else {
-            Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (isInstalled(target.packageName) && startActivity(routeIntent)) {
+            return ExternalMapLaunchResult.Opened
         }
 
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(launchIntent)
-        } catch (_: ActivityNotFoundException) {
-            context.startActivity(
-                Intent(
-                    Intent.ACTION_VIEW,
-                    "https://play.google.com/store/apps/details?id=$packageName".toUri(),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+        val marketIntent = Intent(
+            Intent.ACTION_VIEW,
+            "market://details?id=${target.packageName}".toUri(),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (startActivity(marketIntent)) {
+            return ExternalMapLaunchResult.StoreOpened
+        }
+
+        val httpsStoreIntent = Intent(
+            Intent.ACTION_VIEW,
+            "https://play.google.com/store/apps/details?id=${target.packageName}".toUri(),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return if (startActivity(httpsStoreIntent)) {
+            ExternalMapLaunchResult.StoreOpened
+        } else {
+            ExternalMapLaunchResult.Failed
         }
     }
 
@@ -70,24 +84,36 @@ class IntentExternalMapLauncher @Inject constructor(@param:ApplicationContext pr
     } catch (_: PackageManager.NameNotFoundException) {
         false
     }
+
+    private fun startActivity(intent: Intent): Boolean = try {
+        context.startActivity(intent)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
 }
 
-private fun MapProvider.packageName(): String = when (this) {
-    MapProvider.TMAP -> "com.skt.tmap.ku"
-    MapProvider.KAKAO_MAP -> "net.daum.android.map"
-    MapProvider.NAVER_MAP -> "com.nhn.android.nmap"
-}
+internal data class ExternalMapTarget(val packageName: String, val routeUri: String)
 
-private fun MapProvider.mapUri(
+internal fun MapProvider.externalMapTarget(
+    applicationId: String,
     stationName: String,
     originLatitude: Double?,
     originLongitude: Double?,
     latitude: Double,
     longitude: Double,
-): String {
+): ExternalMapTarget {
     val encodedName = URLEncoder.encode(stationName, Charsets.UTF_8.name())
-    return when (this) {
-        MapProvider.TMAP -> "tmap://route?goalx=$longitude&goaly=$latitude&goalname=$encodedName&reqCoordType=KTM&resCoordType=WGS84"
+    val packageName = when (this) {
+        MapProvider.TMAP -> "com.skt.tmap.ku"
+        MapProvider.KAKAO_MAP -> "net.daum.android.map"
+        MapProvider.NAVER_MAP -> "com.nhn.android.nmap"
+    }
+    val routeUri = when (this) {
+        MapProvider.TMAP ->
+            "tmap://route?goalx=$longitude&goaly=$latitude&goalname=$encodedName&reqCoordType=KTM&resCoordType=WGS84"
 
         MapProvider.KAKAO_MAP -> buildList {
             originLatitude?.let { startLatitude ->
@@ -103,6 +129,8 @@ private fun MapProvider.mapUri(
             prefix = "kakaomap://route?",
         )
 
-        MapProvider.NAVER_MAP -> "nmap://route/car?dlat=$latitude&dlng=$longitude&dname=$encodedName"
+        MapProvider.NAVER_MAP ->
+            "nmap://route/car?dlat=$latitude&dlng=$longitude&dname=$encodedName&appname=$applicationId"
     }
+    return ExternalMapTarget(packageName = packageName, routeUri = routeUri)
 }

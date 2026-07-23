@@ -7,6 +7,7 @@
     <string name="station_list_refresh_timeout">서버 응답이 늦어 가격을 새로고침하지 못했습니다.</string>
     <string name="station_list_refresh_failed">주유소 목록을 새로고침하지 못했습니다.</string>
     <string name="station_list_preference_save_failed">설정을 저장하지 못했습니다.</string>
+    <string name="station_list_external_map_failed">지도 앱을 열지 못했습니다.</string>
 
     <!-- Top bar actions -->
     <string name="station_list_title">주변 주유소</string>

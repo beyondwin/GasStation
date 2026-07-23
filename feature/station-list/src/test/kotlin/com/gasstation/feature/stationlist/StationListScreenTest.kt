@@ -2,6 +2,7 @@ package com.gasstation.feature.stationlist
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,9 +45,14 @@ import com.gasstation.core.designsystem.gasStationSearchRadiusLabel
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,6 +69,37 @@ class StationListScreenTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `external map final failure shows localized snackbar`() = runTest {
+        val snackbarHostState = SnackbarHostState()
+        val effect = StationListEffect.OpenExternalMap(
+            provider = MapProvider.NAVER_MAP,
+            stationName = "강남주유소",
+            originLatitude = 37.498095,
+            originLongitude = 127.027610,
+            latitude = 37.499095,
+            longitude = 127.128610,
+        )
+
+        val showJob = launch {
+            openExternalMapOrShowFailure(
+                effect = effect,
+                onOpenExternalMap = { false },
+                snackbarHostState = snackbarHostState,
+                failureMessage = "지도 앱을 열지 못했습니다.",
+            )
+        }
+        runCurrent()
+
+        assertEquals(
+            "지도 앱을 열지 못했습니다.",
+            snackbarHostState.currentSnackbarData?.visuals?.message,
+        )
+        snackbarHostState.currentSnackbarData?.dismiss()
+        showJob.join()
+    }
 
     @Test
     fun `filter radius menu selects an option once`() {

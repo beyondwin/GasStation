@@ -7,6 +7,7 @@
     <string name="station_list_refresh_timeout">Server is slow — price refresh failed.</string>
     <string name="station_list_refresh_failed">Could not refresh the station list.</string>
     <string name="station_list_preference_save_failed">Could not save settings.</string>
+    <string name="station_list_external_map_failed">Could not open the map app.</string>
 
     <!-- Top bar actions -->
     <string name="station_list_title">Nearby stations</string>

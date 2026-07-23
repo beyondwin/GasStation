@@ -33,6 +33,7 @@ import com.gasstation.feature.settings.SettingsRoute
 import com.gasstation.feature.settings.SettingsSection
 import com.gasstation.feature.stationlist.StationListRoute
 import com.gasstation.feature.watchlist.WatchlistRoute
+import com.gasstation.map.ExternalMapLaunchResult
 import com.gasstation.map.ExternalMapLauncher
 
 @Composable
@@ -131,7 +132,7 @@ private fun NavGraphBuilder.gasStationDestinations(
                     originLongitude = effect.originLongitude,
                     latitude = effect.latitude,
                     longitude = effect.longitude,
-                )
+                ) != ExternalMapLaunchResult.Failed
             },
             onFirstContentDrawn = onStationListFirstContentDrawn,
         )

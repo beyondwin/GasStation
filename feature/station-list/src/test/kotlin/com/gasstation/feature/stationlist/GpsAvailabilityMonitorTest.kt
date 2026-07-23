@@ -55,7 +55,7 @@ class GpsAvailabilityMonitorTest {
         composeRule.setContent {
             StationListRoute(
                 onCoordinatesAvailable = {},
-                onOpenExternalMap = {},
+                onOpenExternalMap = { true },
                 viewModel = viewModel,
             )
         }
@@ -149,7 +149,7 @@ class GpsAvailabilityMonitorTest {
         composeRule.setContent {
             StationListRoute(
                 onCoordinatesAvailable = {},
-                onOpenExternalMap = {},
+                onOpenExternalMap = { true },
                 viewModel = viewModel,
             )
         }
