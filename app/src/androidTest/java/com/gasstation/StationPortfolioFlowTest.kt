@@ -11,8 +11,10 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -20,15 +22,25 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.gasstation.core.database.GasStationDatabase
+import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.demo.seed.DemoSeedAssetLoader
 import com.gasstation.domain.settings.SettingsRepository
+import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.feature.watchlist.WATCHLIST_CARD_TEST_TAG
 import com.gasstation.startup.DemoSeedStartupHook
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -123,6 +135,107 @@ class StationPortfolioFlowTest {
         tapInertTitleAreaOutsideFilterMenu()
         waitForFilterMenuDismissal()
         assertNearbyRemainsActive()
+    }
+
+    @Test
+    fun demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation() {
+        reseedDemoDatabase()
+        waitForNearby()
+
+        selectNearbyFilter("station-list-filter-radius", "station-list-filter-option-KM_5")
+        selectNearbyFilter("station-list-filter-fuel", "station-list-filter-option-DIESEL")
+        selectNearbyFilter("station-list-filter-brand", "station-list-filter-option-GSC")
+        rule.onNodeWithText("거리순", useUnmergedTree = true).performClick()
+
+        awaitPreferences("Nearby writes") { preferences ->
+            preferences.searchRadius == SearchRadius.KM_5 &&
+                preferences.fuelType == FuelType.DIESEL &&
+                preferences.brandFilter == BrandFilter.GSC &&
+                preferences.sortOrder == SortOrder.PRICE
+        }
+
+        rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("5km").assertExists()
+        rule.onNodeWithText("경유").assertExists()
+        rule.onNodeWithText("GS칼텍스").assertExists()
+        rule.onNodeWithText("가격순 보기").assertExists()
+
+        selectSetting("settings-row-search-radius", "settings-option-KM_4")
+        selectSetting("settings-row-fuel-type", "settings-option-GASOLINE")
+        selectSetting("settings-row-brand-filter", "settings-option-ALL")
+        selectSetting("settings-row-sort-order", "settings-option-DISTANCE")
+
+        awaitPreferences("Settings writes") { preferences ->
+            preferences.searchRadius == SearchRadius.KM_4 &&
+                preferences.fuelType == FuelType.GASOLINE &&
+                preferences.brandFilter == BrandFilter.ALL &&
+                preferences.sortOrder == SortOrder.DISTANCE
+        }
+
+        rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).performClick()
+        rule.onAllNodesWithText("4km", useUnmergedTree = true).onFirst().assertExists()
+        rule.onAllNodesWithText("휘발유", useUnmergedTree = true).onFirst().assertExists()
+        rule.onAllNodesWithText("전체", useUnmergedTree = true).onFirst().assertExists()
+        rule.onAllNodesWithText("거리순", useUnmergedTree = true).onFirst().assertExists()
+
+        rule.activityRule.scenario.recreate()
+        rule.waitUntil(10_000) {
+            rule.onAllNodesWithText("거리순", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun selectNearbyFilter(chipTag: String, optionTag: String) {
+        rule.onNodeWithTag(chipTag, useUnmergedTree = true).performClick()
+        rule.onNodeWithTag(optionTag, useUnmergedTree = true).performClick()
+        val expectedEnumName = optionTag.substringAfterLast('-')
+        awaitPreferences("$chipTag selection") { preferences ->
+            when (chipTag) {
+                "station-list-filter-radius" -> preferences.searchRadius.name == expectedEnumName
+                "station-list-filter-fuel" -> preferences.fuelType.name == expectedEnumName
+                "station-list-filter-brand" -> preferences.brandFilter.name == expectedEnumName
+                else -> error("Unsupported Nearby filter tag: $chipTag")
+            }
+        }
+    }
+
+    private fun awaitPreferences(label: String, predicate: (UserPreferences) -> Boolean) {
+        val observed = runBlocking {
+            withTimeoutOrNull(10_000) {
+                while (true) {
+                    settingsRepository.observeUserPreferences().first()
+                        .takeIf(predicate)
+                        ?.let { return@withTimeoutOrNull it }
+                    delay(50)
+                }
+            }
+        }
+        if (observed == null) {
+            val current = runBlocking {
+                withTimeout(5_000) {
+                    settingsRepository.observeUserPreferences().first()
+                }
+            }
+            fail("$label did not persist within 10 seconds; current=$current")
+        }
+    }
+
+    private fun selectSetting(rowTag: String, optionTag: String) {
+        rule.onNodeWithTag(rowTag, useUnmergedTree = true).performClick()
+        rule.onNodeWithTag(optionTag, useUnmergedTree = true).performClick()
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithTag("settings-screen-list", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun waitForNearby() {
+        rule.waitUntil(10_000) {
+            rule.onAllNodesWithTag(
+                "station-list-watch-toggle",
+                useUnmergedTree = true,
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     private fun openRadiusFilterMenu() {
@@ -230,7 +343,7 @@ class StationPortfolioFlowTest {
         DemoSeedStartupHook(assetLoader, settingsRepository)
             .seedDatabase(database = database, document = document)
         runBlocking {
-            settingsRepository.updateUserPreferences { com.gasstation.domain.settings.model.UserPreferences.default() }
+            settingsRepository.updateUserPreferences { UserPreferences.default() }
         }
     }
 }

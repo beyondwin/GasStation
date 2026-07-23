@@ -55,6 +55,14 @@ class SettingsScreenTest {
     private fun StringResource.resolve(): String = resolve(context)
 
     @Test
+    fun `settings option selector uses exact enum name`() {
+        assertEquals("settings-option-KM_4", settingsOptionTestTag(SearchRadius.KM_4.name))
+        assertEquals("settings-option-GASOLINE", settingsOptionTestTag(FuelType.GASOLINE.name))
+        assertEquals("settings-option-ALL", settingsOptionTestTag(BrandFilter.ALL.name))
+        assertEquals("settings-option-DISTANCE", settingsOptionTestTag(SortOrder.DISTANCE.name))
+    }
+
+    @Test
     fun `settings overview has title no close and separate title value body`() {
         val uiState = SettingsUiState.Ready(UserPreferences.default())
         val radiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
@@ -179,6 +187,7 @@ class SettingsScreenTest {
         }
         composeRule.onNodeWithText("3km").assertIsSelected().assertHeightIsAtLeast(48.dp)
         composeRule.onNodeWithText("4km").assertIsNotSelected().assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("settings-option-KM_4").assertExists()
         composeRule.onNodeWithTag(SETTINGS_SELECTED_CHECK_TAG, useUnmergedTree = true).assertExists()
     }
 
@@ -197,11 +206,13 @@ class SettingsScreenTest {
         }
 
         composeRule.onNodeWithText("전체").assertExists()
+        composeRule.onNodeWithTag("settings-option-ALL").assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-ALL").assertDoesNotExist()
         composeRule
             .onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG)
             .performScrollToNode(hasText("알뜰"))
         composeRule.onNodeWithText("알뜰").assertExists()
+        composeRule.onNodeWithTag("settings-option-GSC").assertExists()
         composeRule.onNodeWithText("알뜰주유소 전체를 표시합니다.").assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-ALTEUL", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("settings-brand-logo-RTO").assertDoesNotExist()

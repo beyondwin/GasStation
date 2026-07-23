@@ -53,6 +53,8 @@ internal const val SETTINGS_OPTIONS_GROUP_TAG = "settings-options-group"
 internal const val SETTINGS_BRAND_LOGO_TAG_PREFIX = "settings-brand-logo-"
 internal const val SETTINGS_OPTION_TAG_PREFIX = "settings-option-"
 
+internal fun settingsOptionTestTag(enumName: String): String = "$SETTINGS_OPTION_TAG_PREFIX$enumName"
+
 @Composable
 fun SettingsDetailScreen(
     section: SettingsSection,
@@ -175,7 +177,7 @@ private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOpt
         body = option.subtitle?.resolve(context),
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("$SETTINGS_OPTION_TAG_PREFIX${option.key}")
+            .testTag(settingsOptionTestTag(option.key))
             .heightIn(min = 48.dp)
             .clickable(
                 enabled = enabled,
