@@ -15,6 +15,7 @@ android {
         applicationId = "com.gasstation"
         versionCode = 8
         versionName = "1.2.0"
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
         buildConfigField("String", "STATION_ENDPOINT_MODE", "\"${stationEndpointMode.get()}\"")
         buildConfigField("String", "PROXY_BASE_URL", "\"${proxyBaseUrl.get()}\"")
     }
@@ -59,6 +60,7 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     sourceSets.getByName("androidTestDemo").kotlin.directories.add("src/demoAndroidTest/kotlin")
@@ -94,5 +96,6 @@ dependencies {
 
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.androidx.uiautomator)
+    androidTestUtil(libs.androidx.test.orchestrator)
     kspAndroidTest(libs.hilt.android.compiler)
 }
