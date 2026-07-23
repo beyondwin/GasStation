@@ -111,6 +111,21 @@ class DefaultSettingsRepositoryTest {
     }
 
     @Test
+    fun `legacy kakao navi stored name restores as kakao map and next write is stable`() = runBlocking {
+        val dataSource = InMemoryUserPreferencesDataSource(
+            StoredUserPreferences.Default.copy(mapProviderName = "KAKAO_NAVI"),
+        )
+        val repository = DefaultSettingsRepository(dataSource)
+
+        val restored = repository.observeUserPreferences().first()
+        val committed = repository.updateUserPreferences { it }
+
+        assertEquals(MapProvider.KAKAO_MAP, restored.mapProvider)
+        assertEquals(MapProvider.KAKAO_MAP, committed.mapProvider)
+        assertEquals("KAKAO_MAP", dataSource.current.mapProviderName)
+    }
+
+    @Test
     fun `updateUserPreferences re-emits to an active collector`() = runBlocking {
         val repository = DefaultSettingsRepository(
             dataSource = InMemoryUserPreferencesDataSource(StoredUserPreferences.Default),

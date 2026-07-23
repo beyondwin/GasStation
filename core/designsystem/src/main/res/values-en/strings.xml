@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gas_station_radius_km3">3 km</string>
+    <string name="gas_station_radius_km4">4 km</string>
+    <string name="gas_station_radius_km5">5 km</string>
+    <string name="gas_station_fuel_gasoline">Gasoline</string>
+    <string name="gas_station_fuel_diesel">Diesel</string>
+    <string name="gas_station_fuel_premium">Premium gasoline</string>
+    <string name="gas_station_fuel_kerosene">Kerosene</string>
+    <string name="gas_station_fuel_lpg">LPG</string>
+</resources>

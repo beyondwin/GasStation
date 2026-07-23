@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,8 @@ import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.gasStationBrandFilterIconBrand
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
+import com.gasstation.core.designsystem.gasStationFuelTypeLabel
+import com.gasstation.core.designsystem.gasStationSearchRadiusLabel
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
@@ -44,6 +47,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
     val preferences = requireNotNull(uiState.preferences) {
         "Results require ready user preferences"
     }
+    val context = LocalContext.current
     var expandedMenuName by rememberSaveable { mutableStateOf<String?>(null) }
     val expandedMenu = expandedMenuName?.let(StationListFilterMenuKind::valueOf)
     val dismissMenu = { expandedMenuName = null }
@@ -66,7 +70,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
         )
         FilterMenuChip(
             menuKind = StationListFilterMenuKind.Radius,
-            label = preferences.searchRadius.toLabel(),
+            label = preferences.searchRadius.gasStationSearchRadiusLabel().resolve(context),
             testTag = STATION_LIST_RADIUS_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Radius,
             onClick = { expandedMenuName = StationListFilterMenuKind.Radius.name },
@@ -76,7 +80,11 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                 expanded = true,
                 title = stringResource(R.string.station_list_filter_radius_title),
                 options = SearchRadius.entries.map { radius ->
-                    StationListFilterOption(radius, radius.toLabel(), radius.name)
+                    StationListFilterOption(
+                        radius,
+                        radius.gasStationSearchRadiusLabel().resolve(context),
+                        radius.name,
+                    )
                 },
                 selected = preferences.searchRadius,
                 onDismissRequest = dismissMenu,
@@ -88,7 +96,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
         }
         FilterMenuChip(
             menuKind = StationListFilterMenuKind.Fuel,
-            label = preferences.fuelType.toLabel(),
+            label = preferences.fuelType.gasStationFuelTypeLabel().resolve(context),
             testTag = STATION_LIST_FUEL_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Fuel,
             onClick = { expandedMenuName = StationListFilterMenuKind.Fuel.name },
@@ -98,7 +106,11 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                 expanded = true,
                 title = stringResource(R.string.station_list_filter_fuel_title),
                 options = FuelType.entries.map { fuelType ->
-                    StationListFilterOption(fuelType, fuelType.toLabel(), fuelType.name)
+                    StationListFilterOption(
+                        fuelType,
+                        fuelType.gasStationFuelTypeLabel().resolve(context),
+                        fuelType.name,
+                    )
                 },
                 selected = preferences.fuelType,
                 onDismissRequest = dismissMenu,

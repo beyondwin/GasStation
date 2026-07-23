@@ -3,6 +3,7 @@ package com.gasstation.data.settings
 import com.gasstation.core.datastore.StoredUserPreferences
 import com.gasstation.core.datastore.UserPreferencesDataSource
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.MapProvider
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -25,7 +26,7 @@ private fun StoredUserPreferences.toDomain(): UserPreferences {
         fuelType = enumOrDefault(fuelTypeName, defaults.fuelType),
         brandFilter = parseBrandFilter(brandFilterName),
         sortOrder = enumOrDefault(sortOrderName, defaults.sortOrder),
-        mapProvider = enumOrDefault(mapProviderName, defaults.mapProvider),
+        mapProvider = parseMapProvider(mapProviderName),
     )
 }
 
@@ -40,6 +41,11 @@ private fun UserPreferences.toStored(): StoredUserPreferences = StoredUserPrefer
 private fun parseBrandFilter(value: String): BrandFilter = when (value) {
     "RTO", "RTX", "NHO" -> BrandFilter.ALTEUL
     else -> enumOrDefault(value, BrandFilter.ALL)
+}
+
+private fun parseMapProvider(value: String): MapProvider = when (value) {
+    "KAKAO_NAVI" -> MapProvider.KAKAO_MAP
+    else -> enumOrDefault(value, MapProvider.TMAP)
 }
 
 private inline fun <reified T : Enum<T>> enumOrDefault(value: String, default: T): T =

@@ -74,7 +74,7 @@ class IntentExternalMapLauncher @Inject constructor(@param:ApplicationContext pr
 
 private fun MapProvider.packageName(): String = when (this) {
     MapProvider.TMAP -> "com.skt.tmap.ku"
-    MapProvider.KAKAO_NAVI -> "net.daum.android.map"
+    MapProvider.KAKAO_MAP -> "net.daum.android.map"
     MapProvider.NAVER_MAP -> "com.nhn.android.nmap"
 }
 
@@ -89,7 +89,7 @@ private fun MapProvider.mapUri(
     return when (this) {
         MapProvider.TMAP -> "tmap://route?goalx=$longitude&goaly=$latitude&goalname=$encodedName&reqCoordType=KTM&resCoordType=WGS84"
 
-        MapProvider.KAKAO_NAVI -> buildList {
+        MapProvider.KAKAO_MAP -> buildList {
             originLatitude?.let { startLatitude ->
                 originLongitude?.let { startLongitude ->
                     add("sp=$startLatitude,$startLongitude")

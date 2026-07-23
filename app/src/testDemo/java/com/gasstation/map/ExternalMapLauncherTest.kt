@@ -28,7 +28,7 @@ class ExternalMapLauncherTest {
         val launcher = IntentExternalMapLauncher(application)
 
         launcher.open(
-            provider = MapProvider.KAKAO_NAVI,
+            provider = MapProvider.KAKAO_MAP,
             stationName = "강남주유소",
             originLatitude = 37.498095,
             originLongitude = 127.027610,

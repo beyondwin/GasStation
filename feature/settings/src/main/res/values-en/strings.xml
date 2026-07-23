@@ -21,13 +21,13 @@
 
     <!-- Section titles and subtitles -->
     <string name="settings_radius_title">Search radius</string>
-    <string name="settings_radius_subtitle">Set the radius for loading nearby stations.</string>
+    <string name="settings_radius_subtitle">Set the radius used by the Nearby list.</string>
     <string name="settings_fuel_type_title">Fuel type</string>
-    <string name="settings_fuel_type_subtitle">Choose the fuel type to highlight in the list and bookmarks.</string>
+    <string name="settings_fuel_type_subtitle">Choose the fuel used by Nearby and saved-station comparisons.</string>
     <string name="settings_brand_filter_title">Station brand</string>
-    <string name="settings_brand_filter_subtitle">Narrow by brand to quickly focus your comparison.</string>
+    <string name="settings_brand_filter_subtitle">Choose which brands appear in the Nearby list.</string>
     <string name="settings_sort_order_title">Sort order</string>
-    <string name="settings_sort_order_subtitle">Choose price-first or distance-first scanning.</string>
+    <string name="settings_sort_order_subtitle">Choose price or distance ordering for the Nearby list.</string>
     <string name="settings_map_provider_title">Map service</string>
     <string name="settings_map_provider_subtitle">Select the map to open when tapping directions.</string>
 
@@ -64,10 +64,10 @@
 
     <!-- Map provider option labels and descriptions -->
     <string name="settings_map_tmap">T-map</string>
-    <string name="settings_map_kakao">Kakao Navi</string>
+    <string name="settings_map_kakao">KakaoMap</string>
     <string name="settings_map_naver">Naver Maps</string>
     <string name="settings_map_tmap_desc">Open T-map for turn-by-turn directions.</string>
-    <string name="settings_map_kakao_desc">Open Kakao Navi for turn-by-turn directions.</string>
+    <string name="settings_map_kakao_desc">Open KakaoMap for driving directions.</string>
     <string name="settings_map_naver_desc">Open Naver Maps for turn-by-turn directions.</string>
 
     <!-- Selected meta label -->

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gas_station_radius_km3">3km</string>
+    <string name="gas_station_radius_km4">4km</string>
+    <string name="gas_station_radius_km5">5km</string>
+    <string name="gas_station_fuel_gasoline">휘발유</string>
+    <string name="gas_station_fuel_diesel">경유</string>
+    <string name="gas_station_fuel_premium">고급휘발유</string>
+    <string name="gas_station_fuel_kerosene">등유</string>
+    <string name="gas_station_fuel_lpg">LPG</string>
+</resources>

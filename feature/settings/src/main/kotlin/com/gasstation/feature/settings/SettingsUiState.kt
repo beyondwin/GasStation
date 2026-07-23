@@ -2,6 +2,8 @@ package com.gasstation.feature.settings
 
 import com.gasstation.core.designsystem.gasStationBrandFilterIconBrand
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
+import com.gasstation.core.designsystem.gasStationFuelTypeLabel
+import com.gasstation.core.designsystem.gasStationSearchRadiusLabel
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -19,8 +21,8 @@ sealed interface SettingsUiState {
 }
 
 fun SettingsUiState.Ready.selectedLabelFor(section: SettingsSection): StringResource = when (section) {
-    SettingsSection.SearchRadius -> preferences.searchRadius.toLabel()
-    SettingsSection.FuelType -> preferences.fuelType.toLabel()
+    SettingsSection.SearchRadius -> preferences.searchRadius.gasStationSearchRadiusLabel()
+    SettingsSection.FuelType -> preferences.fuelType.gasStationFuelTypeLabel()
     SettingsSection.BrandFilter -> preferences.brandFilter.toLabel()
     SettingsSection.SortOrder -> preferences.sortOrder.toLabel()
     SettingsSection.MapProvider -> preferences.mapProvider.toLabel()
@@ -30,7 +32,7 @@ fun SettingsUiState.Ready.optionsFor(section: SettingsSection): List<SettingOpti
     SettingsSection.SearchRadius -> SearchRadius.entries.map { option ->
         SettingOptionUiModel(
             key = option.name,
-            label = option.toLabel(),
+            label = option.gasStationSearchRadiusLabel(),
             subtitle = option.toDescription(),
             meta = option.selectedMeta(preferences.searchRadius == option),
             action = SettingsAction.SearchRadiusSelected(option),
@@ -41,7 +43,7 @@ fun SettingsUiState.Ready.optionsFor(section: SettingsSection): List<SettingOpti
     SettingsSection.FuelType -> FuelType.entries.map { option ->
         SettingOptionUiModel(
             key = option.name,
-            label = option.toLabel(),
+            label = option.gasStationFuelTypeLabel(),
             subtitle = option.toDescription(),
             meta = option.selectedMeta(preferences.fuelType == option),
             action = SettingsAction.FuelTypeSelected(option),
@@ -85,24 +87,10 @@ fun SettingsUiState.Ready.optionsFor(section: SettingsSection): List<SettingOpti
     }
 }
 
-internal fun SearchRadius.toLabel(): StringResource = when (this) {
-    SearchRadius.KM_3 -> StringResource.raw("3km")
-    SearchRadius.KM_4 -> StringResource.raw("4km")
-    SearchRadius.KM_5 -> StringResource.raw("5km")
-}
-
 private fun SearchRadius.toDescription(): StringResource = when (this) {
     SearchRadius.KM_3 -> StringResource.fromId(R.string.settings_radius_km3_desc)
     SearchRadius.KM_4 -> StringResource.fromId(R.string.settings_radius_km4_desc)
     SearchRadius.KM_5 -> StringResource.fromId(R.string.settings_radius_km5_desc)
-}
-
-internal fun FuelType.toLabel(): StringResource = when (this) {
-    FuelType.GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_gasoline)
-    FuelType.DIESEL -> StringResource.fromId(R.string.settings_fuel_type_diesel)
-    FuelType.PREMIUM_GASOLINE -> StringResource.fromId(R.string.settings_fuel_type_premium_gasoline)
-    FuelType.KEROSENE -> StringResource.fromId(R.string.settings_fuel_type_kerosene)
-    FuelType.LPG -> StringResource.raw("LPG")
 }
 
 private fun FuelType.toDescription(): StringResource = when (this) {
@@ -144,13 +132,13 @@ private fun SortOrder.toDescription(): StringResource = when (this) {
 
 internal fun MapProvider.toLabel(): StringResource = when (this) {
     MapProvider.TMAP -> StringResource.fromId(R.string.settings_map_tmap)
-    MapProvider.KAKAO_NAVI -> StringResource.fromId(R.string.settings_map_kakao)
+    MapProvider.KAKAO_MAP -> StringResource.fromId(R.string.settings_map_kakao)
     MapProvider.NAVER_MAP -> StringResource.fromId(R.string.settings_map_naver)
 }
 
 private fun MapProvider.toDescription(): StringResource = when (this) {
     MapProvider.TMAP -> StringResource.fromId(R.string.settings_map_tmap_desc)
-    MapProvider.KAKAO_NAVI -> StringResource.fromId(R.string.settings_map_kakao_desc)
+    MapProvider.KAKAO_MAP -> StringResource.fromId(R.string.settings_map_kakao_desc)
     MapProvider.NAVER_MAP -> StringResource.fromId(R.string.settings_map_naver_desc)
 }
 

@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -62,6 +63,7 @@ import com.gasstation.core.designsystem.component.GasStationRowDivider
 import com.gasstation.core.designsystem.component.GasStationStatusBanner
 import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
+import com.gasstation.core.designsystem.gasStationFuelTypeLabel
 
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
@@ -160,6 +162,7 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
     val banners = StationListBannerModel.from(uiState)
     val spacing = GasStationTheme.spacing
     val decisionSummary = StationListDecisionSummary.from(uiState.stations)
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = modifier,
@@ -210,7 +213,7 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
             ) { index, station ->
                 StationCard(
                     station = station,
-                    fuelTypeLabel = preferences.fuelType.toLabel(),
+                    fuelTypeLabel = preferences.fuelType.gasStationFuelTypeLabel().resolve(context),
                     modifier = Modifier.animateContentSize(),
                     onClick = { onAction(StationListAction.StationClicked(station)) },
                     onWatchToggle = {

@@ -49,6 +49,6 @@ class SharedEnumContractTest {
         assertEquals(3_000, SearchRadius.KM_3.meters)
         assertEquals(4_000, SearchRadius.KM_4.meters)
         assertEquals(5_000, SearchRadius.KM_5.meters)
-        assertEquals(listOf("TMAP", "KAKAO_NAVI", "NAVER_MAP"), MapProvider.entries.map { it.name })
+        assertEquals(listOf("TMAP", "KAKAO_MAP", "NAVER_MAP"), MapProvider.entries.map { it.name })
     }
 }

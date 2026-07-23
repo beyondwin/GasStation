@@ -79,7 +79,7 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("settings-group-Explore").assertExists()
         composeRule.onNodeWithText("찾기 범위").assertExists()
         composeRule.onNodeWithText(radiusLabel).assertExists()
-        composeRule.onNodeWithText("주변 주유소를 불러올 반경을 정합니다.").assertExists()
+        composeRule.onNodeWithText("주변 목록 검색에 사용할 반경을 정합니다.").assertExists()
         composeRule.onAllNodesWithText("찾기 범위 : $radiusLabel").assertCountEquals(0)
     }
 
@@ -109,6 +109,33 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `settings overview names each preference consumer scope and KakaoMap`() {
+        val uiState = SettingsUiState.Ready(
+            UserPreferences.default().copy(mapProvider = MapProvider.KAKAO_MAP),
+        )
+
+        composeRule.setContent {
+            SettingsScreen(
+                uiState = uiState,
+                onSectionClick = {},
+            )
+        }
+
+        listOf(
+            "주변 목록 검색에 사용할 반경을 정합니다.",
+            "주변 목록과 관심 주유소 비교에 사용할 유종을 고릅니다.",
+            "주변 목록에서 비교할 브랜드 범위를 정합니다.",
+            "주변 목록의 가격·거리 정렬 기준을 정합니다.",
+            "카카오맵",
+        ).forEach { expected ->
+            composeRule
+                .onNodeWithTag(SETTINGS_SCREEN_LIST_TAG)
+                .performScrollToNode(hasText(expected))
+            composeRule.onNodeWithText(expected).assertExists()
+        }
+    }
+
+    @Test
     fun `settings current value and description stay inside row at 200 percent font scale`() {
         val uiState = SettingsUiState.Ready(
             preferences = UserPreferences(
@@ -116,7 +143,7 @@ class SettingsScreenTest {
                 fuelType = FuelType.PREMIUM_GASOLINE,
                 brandFilter = BrandFilter.ALTEUL,
                 sortOrder = SortOrder.PRICE,
-                mapProvider = MapProvider.KAKAO_NAVI,
+                mapProvider = MapProvider.KAKAO_MAP,
             ),
         )
         val brandLabel = uiState.selectedLabelFor(SettingsSection.BrandFilter).resolve()
@@ -148,7 +175,7 @@ class SettingsScreenTest {
             .fetchSemanticsNode()
             .boundsInRoot
         val bodyBounds = composeRule
-            .onNodeWithText("브랜드 범위를 좁혀 비교 기준을 빠르게 맞춥니다.", useUnmergedTree = true)
+            .onNodeWithText("주변 목록에서 비교할 브랜드 범위를 정합니다.", useUnmergedTree = true)
             .fetchSemanticsNode()
             .boundsInRoot
 
@@ -174,7 +201,7 @@ class SettingsScreenTest {
         }
 
         composeRule.onNodeWithContentDescription("뒤로가기").assertExists()
-        composeRule.onAllNodesWithText("주변 주유소를 불러올 반경을 정합니다.").assertCountEquals(1)
+        composeRule.onAllNodesWithText("주변 목록 검색에 사용할 반경을 정합니다.").assertCountEquals(1)
         composeRule.onNodeWithText("탐색 설정").assertDoesNotExist()
         composeRule.onNodeWithTag(SETTINGS_OPTIONS_GROUP_TAG).assertExists()
         options.forEach { option ->

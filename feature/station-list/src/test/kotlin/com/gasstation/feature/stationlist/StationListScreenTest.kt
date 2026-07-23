@@ -38,7 +38,9 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.designsystem.gasStationBrandFilterLabel
+import com.gasstation.core.designsystem.gasStationSearchRadiusLabel
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -71,7 +73,10 @@ class StationListScreenTest {
 
         composeRule.onNodeWithText("검색 반경").assertExists()
         SearchRadius.entries.forEach { radius ->
-            assertFilterOptionText(radius.name, radius.toLabel())
+            assertFilterOptionText(
+                radius.name,
+                radius.gasStationSearchRadiusLabel().resolve(ApplicationProvider.getApplicationContext()),
+            )
         }
         composeRule.onNodeWithTag("$STATION_LIST_FILTER_OPTION_TAG_PREFIX${SearchRadius.KM_4.name}")
             .performClick()
