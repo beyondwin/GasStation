@@ -41,9 +41,7 @@ class DemoLocationHookIntegrationTest {
             foregroundLocationProvider.currentLocation(LocationPermissionState.PreciseGranted),
         )
         assertEquals(
-            LocationLookupResult.Success(
-                Coordinates(latitude = 37.497927, longitude = 127.027583),
-            ),
+            LocationLookupResult.PermissionDenied,
             foregroundLocationProvider.currentLocation(LocationPermissionState.Denied),
         )
         assertEquals(

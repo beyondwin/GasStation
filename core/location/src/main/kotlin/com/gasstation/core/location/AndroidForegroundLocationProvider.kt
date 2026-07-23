@@ -20,12 +20,15 @@ class AndroidForegroundLocationProvider @Inject constructor(
 ) : ForegroundLocationProvider {
     @SuppressLint("MissingPermission")
     override suspend fun currentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+        if (permissionState == LocationPermissionState.Denied) {
+            return LocationLookupResult.PermissionDenied
+        }
+
         if (demoLocationOverride.isPresent) {
-            return demoLocationOverride.get().currentLocation(permissionState)
+            return demoLocationOverride.get().currentLocation()
                 ?.let(LocationLookupResult::Success)
                 ?: LocationLookupResult.Unavailable
         }
-        if (permissionState == LocationPermissionState.Denied) return LocationLookupResult.PermissionDenied
 
         val priority = when (permissionState) {
             LocationPermissionState.PreciseGranted -> Priority.PRIORITY_HIGH_ACCURACY

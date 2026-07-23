@@ -17,8 +17,26 @@ class AndroidForegroundLocationProviderSurfaceTest {
     }
 
     @Test
-    fun `demo override wins before denied permission result`() = runBlocking {
-        val expected = Coordinates(latitude = 37.498095, longitude = 127.02761)
+    fun `denied permission wins before demo override`() = runBlocking {
+        val provider = AndroidForegroundLocationProvider(
+            context = ContextWrapper(null),
+            demoLocationOverride = Optional.of(
+                DemoLocationOverride {
+                    throw AssertionError("Demo override must not run while permission is denied")
+                },
+            ),
+            currentLocationClient = unusedCurrentLocationClient(),
+        )
+
+        assertEquals(
+            LocationLookupResult.PermissionDenied,
+            provider.currentLocation(LocationPermissionState.Denied),
+        )
+    }
+
+    @Test
+    fun `granted permission uses demo override without Android client`() = runBlocking {
+        val expected = Coordinates(37.497927, 127.027583)
         val provider = AndroidForegroundLocationProvider(
             context = ContextWrapper(null),
             demoLocationOverride = Optional.of(DemoLocationOverride { expected }),
@@ -27,7 +45,7 @@ class AndroidForegroundLocationProviderSurfaceTest {
 
         assertEquals(
             LocationLookupResult.Success(expected),
-            provider.currentLocation(LocationPermissionState.Denied),
+            provider.currentLocation(LocationPermissionState.PreciseGranted),
         )
     }
 
