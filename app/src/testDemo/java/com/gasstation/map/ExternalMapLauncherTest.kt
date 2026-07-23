@@ -42,6 +42,7 @@ class ExternalMapLauncherTest {
             assertEquals(case.packageName, startedIntent.`package`)
             assertEquals(case.expectedUri, startedIntent.dataString)
             assertTrue(startedIntent.categories.contains(Intent.CATEGORY_BROWSABLE))
+            assertHasNewTaskFlag(startedIntent)
         }
     }
 
@@ -56,10 +57,11 @@ class ExternalMapLauncherTest {
             longitude = 127.128610,
         )
 
+        val startedIntent = shadowOf(application).nextStartedActivity
         assertEquals(ExternalMapLaunchResult.StoreOpened, result)
-        assertEquals(
-            "market://details?id=com.nhn.android.nmap",
-            shadowOf(application).nextStartedActivity.dataString,
+        assertStoreIntent(
+            intent = startedIntent,
+            expectedUri = "market://details?id=com.nhn.android.nmap",
         )
     }
 
@@ -83,13 +85,22 @@ class ExternalMapLauncherTest {
         )
 
         assertEquals(ExternalMapLaunchResult.StoreOpened, result)
+        val routeIntent = context.startedIntents[0]
+        assertEquals(Intent.ACTION_VIEW, routeIntent.action)
+        assertEquals("com.nhn.android.nmap", routeIntent.`package`)
         assertEquals(
-            listOf(
-                "nmap://route/car?dlat=37.499095&dlng=127.12861&dname=%EA%B0%95%EB%82%A8%EC%A3%BC%EC%9C%A0%EC%86%8C&appname=com.gasstation.demo",
-                "market://details?id=com.nhn.android.nmap",
-                "https://play.google.com/store/apps/details?id=com.nhn.android.nmap",
-            ),
-            context.startedIntents.map { it.dataString },
+            "nmap://route/car?dlat=37.499095&dlng=127.12861&dname=%EA%B0%95%EB%82%A8%EC%A3%BC%EC%9C%A0%EC%86%8C&appname=com.gasstation.demo",
+            routeIntent.dataString,
+        )
+        assertTrue(routeIntent.categories.contains(Intent.CATEGORY_BROWSABLE))
+        assertHasNewTaskFlag(routeIntent)
+        assertStoreIntent(
+            intent = context.startedIntents[1],
+            expectedUri = "market://details?id=com.nhn.android.nmap",
+        )
+        assertStoreIntent(
+            intent = context.startedIntents[2],
+            expectedUri = "https://play.google.com/store/apps/details?id=com.nhn.android.nmap",
         )
     }
 
@@ -125,6 +136,18 @@ class ExternalMapLauncherTest {
                 this.packageName = packageName
             },
         )
+    }
+
+    private fun assertStoreIntent(intent: Intent, expectedUri: String) {
+        assertEquals(Intent.ACTION_VIEW, intent.action)
+        assertEquals(expectedUri, intent.dataString)
+        assertEquals(null, intent.`package`)
+        assertEquals(null, intent.categories)
+        assertHasNewTaskFlag(intent)
+    }
+
+    private fun assertHasNewTaskFlag(intent: Intent) {
+        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
     }
 }
 

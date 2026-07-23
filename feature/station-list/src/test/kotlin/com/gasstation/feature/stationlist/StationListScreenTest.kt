@@ -72,7 +72,19 @@ class StationListScreenTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `external map final failure shows localized snackbar`() = runTest {
+    fun `external map final failure shows Korean resource snackbar`() {
+        assertExternalMapFailureSnackbar("지도 앱을 열지 못했습니다.")
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    @Config(qualifiers = "en-rUS-w360dp-h800dp-xhdpi")
+    fun `external map final failure shows English resource snackbar`() {
+        assertExternalMapFailureSnackbar("Could not open the map app.")
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun assertExternalMapFailureSnackbar(expectedMessage: String) = runTest {
         val snackbarHostState = SnackbarHostState()
         val effect = StationListEffect.OpenExternalMap(
             provider = MapProvider.NAVER_MAP,
@@ -88,13 +100,13 @@ class StationListScreenTest {
                 effect = effect,
                 onOpenExternalMap = { false },
                 snackbarHostState = snackbarHostState,
-                failureMessage = "지도 앱을 열지 못했습니다.",
+                resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources,
             )
         }
         runCurrent()
 
         assertEquals(
-            "지도 앱을 열지 못했습니다.",
+            expectedMessage,
             snackbarHostState.currentSnackbarData?.visuals?.message,
         )
         snackbarHostState.currentSnackbarData?.dismiss()

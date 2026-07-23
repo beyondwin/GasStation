@@ -2,6 +2,7 @@ package com.gasstation.feature.stationlist
 
 import android.Manifest
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.material3.SnackbarHostState
@@ -14,7 +15,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalResources
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -37,10 +38,10 @@ fun StationListRoute(
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val externalMapFailureMessage = stringResource(R.string.station_list_external_map_failed)
     var deniedRequestCount by rememberSaveable { mutableIntStateOf(0) }
     val permissionState = rememberLocationPermissionsState { results ->
         if (results.values.none { granted -> granted }) {
@@ -82,14 +83,14 @@ fun StationListRoute(
         onCoordinatesAvailable = onCoordinatesAvailable,
     )
 
-    LaunchedEffect(viewModel, externalMapFailureMessage) {
+    LaunchedEffect(viewModel, resources) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 is StationListEffect.OpenExternalMap -> openExternalMapOrShowFailure(
                     effect = effect,
                     onOpenExternalMap = onOpenExternalMap,
                     snackbarHostState = snackbarHostState,
-                    failureMessage = externalMapFailureMessage,
+                    resources = resources,
                 )
 
                 StationListEffect.OpenLocationSettings -> {
@@ -129,10 +130,12 @@ internal suspend fun openExternalMapOrShowFailure(
     effect: StationListEffect.OpenExternalMap,
     onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Boolean,
     snackbarHostState: SnackbarHostState,
-    failureMessage: String,
+    resources: Resources,
 ) {
     if (!onOpenExternalMap(effect)) {
-        snackbarHostState.showSnackbar(failureMessage)
+        snackbarHostState.showSnackbar(
+            resources.getString(R.string.station_list_external_map_failed),
+        )
     }
 }
 
