@@ -16,12 +16,15 @@ import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CompletableDeferred
 
 internal class FakeStationRepository(
     result: StationSearchResult,
     var refreshFailure: Throwable? = null,
     useObservedResultsFlow: Boolean = false,
     initialObservedResult: StationSearchResult? = result,
+    private val refreshStarted: CompletableDeferred<Unit>? = null,
+    private val releaseRefresh: CompletableDeferred<Unit>? = null,
 ) : StationRepository {
     private val state = MutableStateFlow(result)
     private val observedResults =
@@ -37,6 +40,7 @@ internal class FakeStationRepository(
         }
 
     val refreshedQueries = mutableListOf<StationQuery>()
+    val persistedRefreshQueries = mutableListOf<StationQuery>()
     val observedQueries = mutableListOf<StationQuery>()
     val watchStateUpdates = mutableListOf<Pair<String, Boolean>>()
 
@@ -54,7 +58,10 @@ internal class FakeStationRepository(
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
+        refreshStarted?.complete(Unit)
+        releaseRefresh?.await()
         refreshFailure?.let { throw it }
+        persistedRefreshQueries += query
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) {

@@ -796,9 +796,73 @@ class StationListViewModelTest {
         completeLocationLookup.complete(Unit)
         advanceUntilIdle()
 
-        assertEquals(1, repository.refreshedQueries.size)
+        assertEquals(0, repository.refreshedQueries.size)
         assertEquals(false, viewModel.uiState.value.isGpsEnabled)
         collectionJob.cancel()
+    }
+
+    @Test
+    fun `permission denial cancels a remote refresh before it can persist`() = runTest(dispatcher) {
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val repository = FakeStationRepository(
+            result = emptySearchResult(),
+            refreshStarted = refreshStarted,
+            releaseRefresh = releaseRefresh,
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        refreshStarted.await()
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        runCurrent()
+        releaseRefresh.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.refreshedQueries.size)
+        assertTrue(repository.persistedRefreshQueries.isEmpty())
+        assertEquals(null, viewModel.uiState.value.currentCoordinates)
+    }
+
+    @Test
+    fun `gps off cancels a remote refresh before it can persist`() = runTest(dispatcher) {
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val repository = FakeStationRepository(
+            result = emptySearchResult(),
+            refreshStarted = refreshStarted,
+            releaseRefresh = releaseRefresh,
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        refreshStarted.await()
+
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
+        runCurrent()
+        releaseRefresh.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.refreshedQueries.size)
+        assertTrue(repository.persistedRefreshQueries.isEmpty())
+        assertEquals(false, viewModel.uiState.value.isGpsEnabled)
     }
 
     @Test

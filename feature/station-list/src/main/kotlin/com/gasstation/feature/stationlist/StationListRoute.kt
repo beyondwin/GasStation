@@ -44,7 +44,7 @@ fun StationListRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     var deniedRequestCount by rememberSaveable { mutableIntStateOf(0) }
     val permissionState = rememberLocationPermissionsState { results ->
-        if (results.values.none { granted -> granted }) {
+        if (isTerminalDeniedPermissionResult(results)) {
             deniedRequestCount += 1
         }
     }
@@ -158,6 +158,9 @@ private fun rememberLocationPermissionsState(onPermissionsResult: (Map<String, B
         ),
         onPermissionsResult = onPermissionsResult,
     )
+
+internal fun isTerminalDeniedPermissionResult(results: Map<String, Boolean>): Boolean =
+    results.isNotEmpty() && results.values.none { granted -> granted }
 
 @OptIn(ExperimentalPermissionsApi::class)
 private fun MultiplePermissionsState.toPermissionState(): LocationPermissionState {

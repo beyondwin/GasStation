@@ -7,7 +7,7 @@
 | 층 | 대표 타입 | 유지 범위 | 역할 |
 | --- | --- | --- | --- |
 | 영속 선호 상태 | `UserPreferences` | 프로세스 재시작 이후에도 유지 | 반경, 유종, 브랜드, 정렬, 지도 앱 |
-| 목록 위치 상태 | `LocationStateMachine` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS availability, 현재 좌표, 주소 라벨, denied-access, recovery refresh flag |
+| 목록 위치 상태 | `LocationStateMachine` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS availability, 현재 좌표, 주소 라벨, recovery refresh flag |
 | navigation 좌표 payload | `GasStationNavHost` | app navigation graph 생존 동안 유지 | 관심 tab 활성화와 watchlist 거리 기준 route |
 | 목록 검색 상태 | `StationSearchOrchestrator` | `StationListViewModel` 생존 동안만 유지 | active query, cache snapshot state, observed search result, pending blocking refresh failure |
 | 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |

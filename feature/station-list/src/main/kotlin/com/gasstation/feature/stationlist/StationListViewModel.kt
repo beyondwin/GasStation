@@ -56,6 +56,8 @@ class StationListViewModel @Inject constructor(
 ) : ViewModel() {
     private val preferenceState = MutableStateFlow<PreferenceLoadState>(PreferenceLoadState.Loading)
     private var preferenceObservationJob: Job? = null
+    private var activeRefreshJob: Job? = null
+    private var refreshWorkId: Long = 0
     private val preferenceWriteInFlight = AtomicBoolean(false)
     private val transientState = MutableStateFlow(StationListTransientState())
     private val mutableUiState = MutableStateFlow(StationListUiState())
@@ -94,7 +96,9 @@ class StationListViewModel @Inject constructor(
             }
         }.distinctUntilChanged()
             .onEach { query ->
-                if (searchOrchestrator.shouldRefreshForCriteriaChange(previousQuery, query) && query != null) {
+                if (query == null) {
+                    cancelActiveRefresh()
+                } else if (searchOrchestrator.shouldRefreshForCriteriaChange(previousQuery, query)) {
                     refreshActiveQuery(query)
                 }
                 previousQuery = query
@@ -193,9 +197,19 @@ class StationListViewModel @Inject constructor(
                 watched = action.watched,
             )
 
-            is StationListAction.PermissionChanged -> locationStateMachine.onPermissionChanged(action.permissionState)
+            is StationListAction.PermissionChanged -> {
+                locationStateMachine.onPermissionChanged(action.permissionState)
+                if (action.permissionState == LocationPermissionState.Denied) {
+                    cancelActiveRefresh()
+                }
+            }
 
-            is StationListAction.GpsAvailabilityChanged -> locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
+            is StationListAction.GpsAvailabilityChanged -> {
+                locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
+                if (!action.isEnabled) {
+                    cancelActiveRefresh()
+                }
+            }
 
             is StationListAction.StationClicked -> {
                 viewModelScope.launch {
@@ -232,7 +246,7 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
-        viewModelScope.launch {
+        launchRefreshWork {
             val location = locationStateMachine.state.value
             if (location.permissionState == LocationPermissionState.Denied) {
                 if (showPermissionDeniedFeedback) {
@@ -242,12 +256,12 @@ class StationListViewModel @Inject constructor(
                         ),
                     )
                 }
-                return@launch
+                return@launchRefreshWork
             }
-            val preferences = readyPreferencesOrNull() ?: return@launch
+            val preferences = readyPreferencesOrNull() ?: return@launchRefreshWork
             if (!location.isGpsEnabled) {
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
-                return@launch
+                return@launchRefreshWork
             }
 
             transientState.update {
@@ -257,32 +271,23 @@ class StationListViewModel @Inject constructor(
                 )
             }
 
-            try {
-                val coordinates = handleLocationResult(
-                    locationStateMachine.acquireLocation(),
-                    showPermissionDeniedFeedback = showPermissionDeniedFeedback,
-                ) ?: return@launch
-                if (!locationStateMachine.state.value.hasAuthorizedCoordinates(coordinates)) {
-                    return@launch
-                }
+            val coordinates = handleLocationResult(
+                locationStateMachine.acquireLocation(),
+                showPermissionDeniedFeedback = showPermissionDeniedFeedback,
+            ) ?: return@launchRefreshWork
+            if (!locationStateMachine.state.value.hasEligibleCoordinates(coordinates)) {
+                return@launchRefreshWork
+            }
 
-                refreshAddressLabel(coordinates)
+            refreshAddressLabel(coordinates)
 
-                val query = buildQuery(preferences, coordinates)
-                if (!locationStateMachine.state.value.hasAuthorizedCoordinates(coordinates)) {
-                    return@launch
-                }
-                when (val outcome = searchOrchestrator.refresh(query)) {
-                    RefreshOutcome.Success -> Unit
-                    is RefreshOutcome.Failed -> handleRefreshFailure(query, outcome.reason)
-                }
-            } finally {
-                transientState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                    )
-                }
+            val query = buildQuery(preferences, coordinates)
+            if (!locationStateMachine.state.value.hasEligibleCoordinates(coordinates)) {
+                return@launchRefreshWork
+            }
+            when (val outcome = searchOrchestrator.refresh(query)) {
+                RefreshOutcome.Success -> Unit
+                is RefreshOutcome.Failed -> handleRefreshFailure(query, outcome.reason)
             }
         }
     }
@@ -358,7 +363,10 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun refreshActiveQuery(query: StationQuery) {
-        viewModelScope.launch {
+        launchRefreshWork {
+            if (!locationStateMachine.state.value.hasEligibleCoordinates(query.coordinates)) {
+                return@launchRefreshWork
+            }
             transientState.update {
                 it.copy(
                     isLoading = true,
@@ -366,22 +374,46 @@ class StationListViewModel @Inject constructor(
                 )
             }
 
-            try {
-                when (val outcome = searchOrchestrator.refresh(query)) {
-                    RefreshOutcome.Success -> Unit
+            when (val outcome = searchOrchestrator.refresh(query)) {
+                RefreshOutcome.Success -> Unit
 
-                    is RefreshOutcome.Failed -> {
-                        handleRefreshFailure(query, outcome.reason)
-                    }
-                }
-            } finally {
-                transientState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                    )
+                is RefreshOutcome.Failed -> {
+                    handleRefreshFailure(query, outcome.reason)
                 }
             }
+        }
+    }
+
+    private fun launchRefreshWork(block: suspend () -> Unit) {
+        activeRefreshJob?.cancel()
+        val workId = ++refreshWorkId
+        val job = viewModelScope.launch {
+            try {
+                block()
+            } finally {
+                if (refreshWorkId == workId) {
+                    activeRefreshJob = null
+                    finishRefreshIndicators()
+                }
+            }
+        }
+        activeRefreshJob = job.takeIf { it.isActive }
+    }
+
+    private fun cancelActiveRefresh() {
+        if (activeRefreshJob == null) return
+        refreshWorkId += 1
+        activeRefreshJob?.cancel()
+        activeRefreshJob = null
+        finishRefreshIndicators()
+    }
+
+    private fun finishRefreshIndicators() {
+        transientState.update {
+            it.copy(
+                isLoading = false,
+                isRefreshing = false,
+            )
         }
     }
 
@@ -456,8 +488,11 @@ private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates
     permissionState != LocationPermissionState.Denied && isGpsEnabled
 }
 
-private fun LocationState.hasAuthorizedCoordinates(coordinates: Coordinates): Boolean =
-    permissionState != LocationPermissionState.Denied && currentCoordinates == coordinates
+private fun LocationState.hasEligibleCoordinates(coordinates: Coordinates): Boolean =
+    permissionState != LocationPermissionState.Denied &&
+        isAvailabilityKnown &&
+        isGpsEnabled &&
+        currentCoordinates == coordinates
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null

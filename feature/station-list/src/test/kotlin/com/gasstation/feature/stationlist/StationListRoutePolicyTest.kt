@@ -33,6 +33,27 @@ class StationListRoutePolicyTest {
     }
 
     @Test
+    fun `empty permission result is cancellation and not a terminal denial`() {
+        assertFalse(isTerminalDeniedPermissionResult(emptyMap()))
+        assertTrue(
+            isTerminalDeniedPermissionResult(
+                mapOf(
+                    "coarse" to false,
+                    "fine" to false,
+                ),
+            ),
+        )
+        assertFalse(
+            isTerminalDeniedPermissionResult(
+                mapOf(
+                    "coarse" to true,
+                    "fine" to false,
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun `auto refresh waits until availability is known`() {
         assertFalse(StationListUiState(isAvailabilityKnown = false).shouldAutoRefreshOnRoute())
     }
