@@ -12,15 +12,15 @@ import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,8 +36,8 @@ class SettingsViewModel @Inject constructor(
     private val mutableUiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
     val uiState: StateFlow<SettingsUiState> = mutableUiState.asStateFlow()
 
-    private val mutableEffects = MutableSharedFlow<SettingsEffect>()
-    val effects: SharedFlow<SettingsEffect> = mutableEffects.asSharedFlow()
+    private val effectChannel = Channel<SettingsEffect>(capacity = Channel.BUFFERED)
+    val effects: Flow<SettingsEffect> = effectChannel.receiveAsFlow()
 
     private var lastPersistedPreferences: UserPreferences? = null
     private var observationJob: Job? = null
@@ -94,21 +94,21 @@ class SettingsViewModel @Inject constructor(
     private fun saveSelection(section: SettingsSection, update: suspend () -> UserPreferences) {
         val ready = mutableUiState.value as? SettingsUiState.Ready ?: return
         if (ready.savingSection != null) return
+        if (!mutableUiState.compareAndSet(ready, ready.copy(savingSection = section))) return
 
         viewModelScope.launch {
-            mutableUiState.value = ready.copy(savingSection = section)
             try {
                 val committed = update()
                 lastPersistedPreferences = committed
                 mutableUiState.value = SettingsUiState.Ready(committed)
-                mutableEffects.emit(SettingsEffect.SelectionSaved(section))
+                effectChannel.send(SettingsEffect.SelectionSaved(section))
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
                 mutableUiState.value = SettingsUiState.Ready(
                     lastPersistedPreferences ?: ready.preferences,
                 )
-                mutableEffects.emit(SettingsEffect.SaveFailed)
+                effectChannel.send(SettingsEffect.SaveFailed)
             }
         }
     }

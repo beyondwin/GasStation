@@ -13,6 +13,7 @@ import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
 import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
 import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
@@ -94,6 +96,113 @@ class SettingsViewModelTest {
             val ready = viewModel.uiState.value as SettingsUiState.Ready
             assertEquals(FuelType.GASOLINE, ready.preferences.fuelType)
             assertEquals(listOf(SettingsEffect.SaveFailed), effects)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `successful selection produced without collector is delivered once after reattachment`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = ControllableSettingsRepository(UserPreferences.default())
+            val viewModel = settingsViewModel(repository)
+            advanceUntilIdle()
+
+            viewModel.onAction(SettingsAction.SortOrderSelected(SortOrder.PRICE))
+            advanceUntilIdle()
+
+            val firstAttachment = mutableListOf<SettingsEffect>()
+            val firstCollector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect(firstAttachment::add)
+            }
+            runCurrent()
+
+            assertEquals(
+                listOf(SettingsEffect.SelectionSaved(SettingsSection.SortOrder)),
+                firstAttachment,
+            )
+
+            firstCollector.cancel()
+            val secondAttachment = mutableListOf<SettingsEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect(secondAttachment::add)
+            }
+            runCurrent()
+
+            assertEquals(emptyList<SettingsEffect>(), secondAttachment)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `failed selection produced without collector is delivered once after reattachment`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = ControllableSettingsRepository(
+                initial = UserPreferences.default(),
+                updateFailure = IllegalStateException("write failed"),
+            )
+            val viewModel = settingsViewModel(repository)
+            advanceUntilIdle()
+
+            viewModel.onAction(SettingsAction.FuelTypeSelected(FuelType.DIESEL))
+            advanceUntilIdle()
+
+            val firstAttachment = mutableListOf<SettingsEffect>()
+            val firstCollector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect(firstAttachment::add)
+            }
+            runCurrent()
+
+            assertEquals(listOf(SettingsEffect.SaveFailed), firstAttachment)
+
+            firstCollector.cancel()
+            val secondAttachment = mutableListOf<SettingsEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect(secondAttachment::add)
+            }
+            runCurrent()
+
+            assertEquals(emptyList<SettingsEffect>(), secondAttachment)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `preference writes admit only one immediate action while first is suspended`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = ControllableSettingsRepository(UserPreferences.default())
+            val suspendedWrite = repository.suspendWrites()
+            val viewModel = settingsViewModel(repository)
+            advanceUntilIdle()
+
+            viewModel.onAction(SettingsAction.SortOrderSelected(SortOrder.PRICE))
+            assertEquals(
+                SettingsSection.SortOrder,
+                (viewModel.uiState.value as SettingsUiState.Ready).savingSection,
+            )
+            viewModel.onAction(SettingsAction.FuelTypeSelected(FuelType.DIESEL))
+            runCurrent()
+
+            assertEquals(1, repository.updateCallCount)
+            suspendedWrite.release.complete(Unit)
+            advanceUntilIdle()
+
+            val afterFirst = viewModel.uiState.value as SettingsUiState.Ready
+            assertEquals(SortOrder.PRICE, afterFirst.preferences.sortOrder)
+            assertEquals(FuelType.GASOLINE, afterFirst.preferences.fuelType)
+            assertEquals(null, afterFirst.savingSection)
+
+            viewModel.onAction(SettingsAction.FuelTypeSelected(FuelType.DIESEL))
+            advanceUntilIdle()
+
+            val afterSecond = viewModel.uiState.value as SettingsUiState.Ready
+            assertEquals(2, repository.updateCallCount)
+            assertEquals(FuelType.DIESEL, afterSecond.preferences.fuelType)
         } finally {
             Dispatchers.resetMain()
         }
@@ -193,6 +302,7 @@ class SettingsViewModelTest {
             advanceUntilIdle()
 
             viewModel.onAction(SettingsAction.SearchRadiusSelected(SearchRadius.KM_5))
+            advanceUntilIdle()
             viewModel.onAction(SettingsAction.MapProviderSelected(MapProvider.NAVER_MAP))
             advanceUntilIdle()
 
@@ -223,17 +333,33 @@ private class ControllableSettingsRepository(initial: UserPreferences? = null, p
     }
 
     private var current = initial
+    private var suspendedWrite: SuspendedSettingsWrite? = null
+
+    var updateCallCount: Int = 0
+        private set
 
     override fun observeUserPreferences(): Flow<UserPreferences> = state
 
     override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences {
+        updateCallCount += 1
         updateFailure?.let { throw it }
+        suspendedWrite?.let { write ->
+            write.started.complete(Unit)
+            write.release.await()
+        }
         return transform(requireNotNull(current)).also { committed ->
             current = committed
             state.emit(committed)
         }
     }
+
+    fun suspendWrites(): SuspendedSettingsWrite = SuspendedSettingsWrite(
+        started = CompletableDeferred(),
+        release = CompletableDeferred(),
+    ).also { suspendedWrite = it }
 }
+
+private data class SuspendedSettingsWrite(val started: CompletableDeferred<Unit>, val release: CompletableDeferred<Unit>)
 
 private class FakeSettingsRepository(initial: UserPreferences) : SettingsRepository {
     private val state = MutableStateFlow(initial)
