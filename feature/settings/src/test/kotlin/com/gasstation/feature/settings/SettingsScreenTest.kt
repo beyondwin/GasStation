@@ -3,6 +3,7 @@ package com.gasstation.feature.settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -10,6 +11,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -53,7 +56,7 @@ class SettingsScreenTest {
 
     @Test
     fun `settings overview has title no close and separate title value body`() {
-        val uiState = SettingsUiState.from(UserPreferences.default())
+        val uiState = SettingsUiState.Ready(UserPreferences.default())
         val radiusLabel = uiState.selectedLabelFor(SettingsSection.SearchRadius).resolve()
 
         composeRule.setContent {
@@ -74,7 +77,7 @@ class SettingsScreenTest {
 
     @Test
     fun `settings overview preserves grouped flat rows`() {
-        val uiState = SettingsUiState.from(UserPreferences.default())
+        val uiState = SettingsUiState.Ready(UserPreferences.default())
 
         composeRule.setContent {
             SettingsScreen(
@@ -99,12 +102,14 @@ class SettingsScreenTest {
 
     @Test
     fun `settings current value and description stay inside row at 200 percent font scale`() {
-        val uiState = SettingsUiState(
-            searchRadius = SearchRadius.KM_5,
-            fuelType = FuelType.PREMIUM_GASOLINE,
-            brandFilter = BrandFilter.ALTEUL,
-            sortOrder = SortOrder.PRICE,
-            mapProvider = MapProvider.KAKAO_NAVI,
+        val uiState = SettingsUiState.Ready(
+            preferences = UserPreferences(
+                searchRadius = SearchRadius.KM_5,
+                fuelType = FuelType.PREMIUM_GASOLINE,
+                brandFilter = BrandFilter.ALTEUL,
+                sortOrder = SortOrder.PRICE,
+                mapProvider = MapProvider.KAKAO_NAVI,
+            ),
         )
         val brandLabel = uiState.selectedLabelFor(SettingsSection.BrandFilter).resolve()
 
@@ -148,12 +153,13 @@ class SettingsScreenTest {
 
     @Test
     fun `settings detail shows description once and flat radio rows`() {
-        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.SearchRadius)
+        val options = SettingsUiState.Ready(UserPreferences.default()).optionsFor(SettingsSection.SearchRadius)
 
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.SearchRadius,
                 options = options,
+                isSaving = false,
                 onBackClick = {},
                 onOptionClick = {},
             )
@@ -178,12 +184,13 @@ class SettingsScreenTest {
 
     @Test
     fun `brand filter detail exposes one grouped alteul row and stable logo tag`() {
-        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
+        val options = SettingsUiState.Ready(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
 
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.BrandFilter,
                 options = options,
+                isSaving = false,
                 onBackClick = {},
                 onOptionClick = {},
             )
@@ -222,12 +229,13 @@ class SettingsScreenTest {
 
     @Test
     fun `all brand option has no logo and keeps text inset contract explicit`() {
-        val options = SettingsUiState.from(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
+        val options = SettingsUiState.Ready(UserPreferences.default()).optionsFor(SettingsSection.BrandFilter)
 
         composeRule.setContent {
             SettingsDetailScreen(
                 section = SettingsSection.BrandFilter,
                 options = options,
+                isSaving = false,
                 onBackClick = {},
                 onOptionClick = {},
             )
@@ -235,6 +243,53 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("전체").assertLeftPositionInRootIsEqualTo(16.dp)
         composeRule.onNodeWithTag("settings-brand-logo-ALL").assertDoesNotExist()
+    }
+
+    @Test
+    fun `settings state screens distinguish loading from retryable load failure`() {
+        var retryCount = 0
+        val showFailure = mutableStateOf(false)
+
+        composeRule.setContent {
+            if (showFailure.value) {
+                SettingsLoadFailureScreen(onRetry = { retryCount += 1 })
+            } else {
+                SettingsLoadingScreen()
+            }
+        }
+        composeRule.onNodeWithText("설정을 불러오는 중입니다.").assertExists()
+        composeRule.onNodeWithText("다시 시도").assertDoesNotExist()
+
+        composeRule.runOnIdle { showFailure.value = true }
+        composeRule.onNodeWithText("설정을 불러오지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("저장된 설정을 다시 확인해 주세요.").assertExists()
+        composeRule.onNodeWithText("다시 시도").performClick()
+
+        assertEquals(1, retryCount)
+    }
+
+    @Test
+    fun `settings detail uses enum option tags and disables navigation while saving`() {
+        val options = SettingsUiState.Ready(UserPreferences.default()).optionsFor(SettingsSection.FuelType)
+
+        composeRule.setContent {
+            SettingsDetailScreen(
+                section = SettingsSection.FuelType,
+                options = options,
+                isSaving = true,
+                onBackClick = {},
+                onOptionClick = {},
+            )
+        }
+
+        options.forEach { option ->
+            composeRule
+                .onNodeWithTag("$SETTINGS_OPTION_TAG_PREFIX${option.key}")
+                .assertExists()
+                .assertIsNotEnabled()
+        }
+        composeRule.onNodeWithContentDescription("뒤로가기").assertIsNotEnabled()
+        composeRule.onNodeWithText("저장 중").assertExists()
     }
 
     private operator fun androidx.compose.ui.geometry.Rect.contains(other: androidx.compose.ui.geometry.Rect): Boolean =

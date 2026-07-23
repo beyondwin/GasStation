@@ -7,6 +7,7 @@ import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 
 sealed interface SettingsAction {
+    data object RetryLoad : SettingsAction
     data class SortOrderSelected(val sortOrder: SortOrder) : SettingsAction
     data class FuelTypeSelected(val fuelType: FuelType) : SettingsAction
     data class SearchRadiusSelected(val radius: SearchRadius) : SettingsAction

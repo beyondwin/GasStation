@@ -4,6 +4,12 @@
     <string name="settings_title">Settings</string>
     <string name="settings_close">Close</string>
     <string name="settings_back">Back</string>
+    <string name="settings_loading">Loading settings.</string>
+    <string name="settings_load_failed_title">Could not load settings.</string>
+    <string name="settings_load_failed_body">Please try reading your saved settings again.</string>
+    <string name="settings_retry">Try again</string>
+    <string name="settings_saving">Saving</string>
+    <string name="settings_save_failed">Could not save the setting. Please try again.</string>
 
     <!-- Section group titles and subtitles -->
     <string name="settings_group_explore_title">Explore settings</string>

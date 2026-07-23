@@ -8,8 +8,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingsRoute(onSectionClick: (SettingsSection) -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    SettingsScreen(
-        uiState = uiState,
-        onSectionClick = onSectionClick,
-    )
+    when (val state = uiState) {
+        SettingsUiState.Loading -> SettingsLoadingScreen()
+
+        SettingsUiState.LoadFailed -> SettingsLoadFailureScreen(
+            onRetry = { viewModel.onAction(SettingsAction.RetryLoad) },
+        )
+
+        is SettingsUiState.Ready -> SettingsScreen(
+            uiState = state,
+            onSectionClick = onSectionClick,
+        )
+    }
 }

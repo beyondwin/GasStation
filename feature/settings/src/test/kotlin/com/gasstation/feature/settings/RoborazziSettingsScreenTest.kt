@@ -18,6 +18,7 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.settings.model.UserPreferences
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -34,12 +35,14 @@ class RoborazziSettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val uiState = SettingsUiState(
-        searchRadius = SearchRadius.KM_3,
-        fuelType = FuelType.GASOLINE,
-        brandFilter = BrandFilter.ALL,
-        sortOrder = SortOrder.DISTANCE,
-        mapProvider = MapProvider.TMAP,
+    private val uiState = SettingsUiState.Ready(
+        preferences = UserPreferences(
+            searchRadius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+            brandFilter = BrandFilter.ALL,
+            sortOrder = SortOrder.DISTANCE,
+            mapProvider = MapProvider.TMAP,
+        ),
     )
 
     @Test
@@ -83,6 +86,7 @@ class RoborazziSettingsScreenTest {
                 SettingsDetailScreen(
                     section = SettingsSection.BrandFilter,
                     options = uiState.optionsFor(SettingsSection.BrandFilter),
+                    isSaving = false,
                     onBackClick = {},
                     onOptionClick = {},
                 )

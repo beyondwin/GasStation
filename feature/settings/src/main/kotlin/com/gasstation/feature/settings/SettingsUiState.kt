@@ -10,60 +10,53 @@ import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.model.UserPreferences
 
-data class SettingsUiState(
-    val searchRadius: SearchRadius,
-    val fuelType: FuelType,
-    val brandFilter: BrandFilter,
-    val sortOrder: SortOrder,
-    val mapProvider: MapProvider,
-) {
-    companion object {
-        fun from(preferences: UserPreferences) = SettingsUiState(
-            searchRadius = preferences.searchRadius,
-            fuelType = preferences.fuelType,
-            brandFilter = preferences.brandFilter,
-            sortOrder = preferences.sortOrder,
-            mapProvider = preferences.mapProvider,
-        )
-    }
+sealed interface SettingsUiState {
+    data object Loading : SettingsUiState
+
+    data object LoadFailed : SettingsUiState
+
+    data class Ready(val preferences: UserPreferences, val savingSection: SettingsSection? = null) : SettingsUiState
 }
 
-fun SettingsUiState.selectedLabelFor(section: SettingsSection): StringResource = when (section) {
-    SettingsSection.SearchRadius -> searchRadius.toLabel()
-    SettingsSection.FuelType -> fuelType.toLabel()
-    SettingsSection.BrandFilter -> brandFilter.toLabel()
-    SettingsSection.SortOrder -> sortOrder.toLabel()
-    SettingsSection.MapProvider -> mapProvider.toLabel()
+fun SettingsUiState.Ready.selectedLabelFor(section: SettingsSection): StringResource = when (section) {
+    SettingsSection.SearchRadius -> preferences.searchRadius.toLabel()
+    SettingsSection.FuelType -> preferences.fuelType.toLabel()
+    SettingsSection.BrandFilter -> preferences.brandFilter.toLabel()
+    SettingsSection.SortOrder -> preferences.sortOrder.toLabel()
+    SettingsSection.MapProvider -> preferences.mapProvider.toLabel()
 }
 
-fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiModel> = when (section) {
+fun SettingsUiState.Ready.optionsFor(section: SettingsSection): List<SettingOptionUiModel> = when (section) {
     SettingsSection.SearchRadius -> SearchRadius.entries.map { option ->
         SettingOptionUiModel(
+            key = option.name,
             label = option.toLabel(),
             subtitle = option.toDescription(),
-            meta = option.selectedMeta(searchRadius == option),
+            meta = option.selectedMeta(preferences.searchRadius == option),
             action = SettingsAction.SearchRadiusSelected(option),
-            isSelected = searchRadius == option,
+            isSelected = preferences.searchRadius == option,
         )
     }
 
     SettingsSection.FuelType -> FuelType.entries.map { option ->
         SettingOptionUiModel(
+            key = option.name,
             label = option.toLabel(),
             subtitle = option.toDescription(),
-            meta = option.selectedMeta(fuelType == option),
+            meta = option.selectedMeta(preferences.fuelType == option),
             action = SettingsAction.FuelTypeSelected(option),
-            isSelected = fuelType == option,
+            isSelected = preferences.fuelType == option,
         )
     }
 
     SettingsSection.BrandFilter -> BrandFilter.entries.map { option ->
         SettingOptionUiModel(
+            key = option.name,
             label = option.toLabel(),
             subtitle = option.toDescription(),
-            meta = option.selectedMeta(brandFilter == option),
+            meta = option.selectedMeta(preferences.brandFilter == option),
             action = SettingsAction.BrandFilterSelected(option),
-            isSelected = brandFilter == option,
+            isSelected = preferences.brandFilter == option,
             brandIconBrand = option.gasStationBrandFilterIconBrand(),
             brandIconTag = option.takeUnless { it == BrandFilter.ALL }?.name,
         )
@@ -71,21 +64,23 @@ fun SettingsUiState.optionsFor(section: SettingsSection): List<SettingOptionUiMo
 
     SettingsSection.SortOrder -> SortOrder.entries.map { option ->
         SettingOptionUiModel(
+            key = option.name,
             label = option.toLabel(),
             subtitle = option.toDescription(),
-            meta = option.selectedMeta(sortOrder == option),
+            meta = option.selectedMeta(preferences.sortOrder == option),
             action = SettingsAction.SortOrderSelected(option),
-            isSelected = sortOrder == option,
+            isSelected = preferences.sortOrder == option,
         )
     }
 
     SettingsSection.MapProvider -> MapProvider.entries.map { option ->
         SettingOptionUiModel(
+            key = option.name,
             label = option.toLabel(),
             subtitle = option.toDescription(),
-            meta = option.selectedMeta(mapProvider == option),
+            meta = option.selectedMeta(preferences.mapProvider == option),
             action = SettingsAction.MapProviderSelected(option),
-            isSelected = mapProvider == option,
+            isSelected = preferences.mapProvider == option,
         )
     }
 }

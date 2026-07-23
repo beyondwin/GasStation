@@ -1,5 +1,9 @@
 package com.gasstation.feature.settings
 
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.OnBackPressedDispatcherOwner
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -14,8 +18,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +38,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.gasstation.core.designsystem.ColorYellow
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
@@ -41,26 +51,41 @@ import com.gasstation.core.designsystem.component.UrbanSignalTokens
 internal const val SETTINGS_SELECTED_CHECK_TAG = "settings-selected-check"
 internal const val SETTINGS_OPTIONS_GROUP_TAG = "settings-options-group"
 internal const val SETTINGS_BRAND_LOGO_TAG_PREFIX = "settings-brand-logo-"
+internal const val SETTINGS_OPTION_TAG_PREFIX = "settings-option-"
 
 @Composable
 fun SettingsDetailScreen(
     section: SettingsSection,
     options: List<SettingOptionUiModel>,
+    isSaving: Boolean,
+    snackbarHostState: SnackbarHostState = SnackbarHostState(),
     onBackClick: () -> Unit,
     onOptionClick: (SettingOptionUiModel) -> Unit,
 ) {
+    BlockBackWhileSaving(enabled = isSaving)
+
     GasStationBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 GasStationTopBar(
                     title = { Text(text = stringResource(section.titleResId)) },
                     navigationIcon = {
                         SettingsDetailTopBarAction(
                             contentDescription = stringResource(R.string.settings_back),
+                            enabled = !isSaving,
                             onClick = onBackClick,
                         ) {
                             LegacyBackIcon()
+                        }
+                    },
+                    actions = {
+                        if (isSaving) {
+                            Text(
+                                text = stringResource(R.string.settings_saving),
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
                         }
                     },
                 )
@@ -83,11 +108,12 @@ fun SettingsDetailScreen(
                 }
                 itemsIndexed(
                     items = options,
-                    key = { _, option -> option.action.toString() },
+                    key = { _, option -> option.key },
                 ) { index, option ->
                     SettingsDetailOptionRow(
                         section = section,
                         option = option,
+                        enabled = !isSaving,
                         onClick = { onOptionClick(option) },
                     )
                     if (index < options.lastIndex) {
@@ -100,7 +126,33 @@ fun SettingsDetailScreen(
 }
 
 @Composable
-private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOptionUiModel, onClick: () -> Unit) {
+private fun BlockBackWhileSaving(enabled: Boolean) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val dispatcherOwner = remember(context) { context.findOnBackPressedDispatcherOwner() }
+    val callback = remember {
+        object : OnBackPressedCallback(enabled) {
+            override fun handleOnBackPressed() = Unit
+        }
+    }
+
+    SideEffect {
+        callback.isEnabled = enabled
+    }
+    DisposableEffect(dispatcherOwner, lifecycleOwner) {
+        dispatcherOwner?.onBackPressedDispatcher?.addCallback(lifecycleOwner, callback)
+        onDispose(callback::remove)
+    }
+}
+
+private tailrec fun Context.findOnBackPressedDispatcherOwner(): OnBackPressedDispatcherOwner? = when (this) {
+    is OnBackPressedDispatcherOwner -> this
+    is ContextWrapper -> baseContext.findOnBackPressedDispatcherOwner()
+    else -> null
+}
+
+@Composable
+private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOptionUiModel, enabled: Boolean, onClick: () -> Unit) {
     val context = LocalContext.current
     val leadingContent: (@Composable RowScope.() -> Unit)? = option.brandIconBrand
         ?.takeIf { section == SettingsSection.BrandFilter }
@@ -123,8 +175,13 @@ private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOpt
         body = option.subtitle?.resolve(context),
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("$SETTINGS_OPTION_TAG_PREFIX${option.key}")
             .heightIn(min = 48.dp)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .clickable(
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
             .semantics {
                 selected = option.isSelected
                 role = Role.RadioButton
@@ -140,7 +197,7 @@ private fun SettingsDetailOptionRow(section: SettingsSection, option: SettingOpt
 }
 
 @Composable
-private fun SettingsDetailTopBarAction(contentDescription: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+private fun SettingsDetailTopBarAction(contentDescription: String, enabled: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -148,7 +205,10 @@ private fun SettingsDetailTopBarAction(contentDescription: String, onClick: () -
                 this.contentDescription = contentDescription
                 role = Role.Button
             }
-            .clickable(onClick = onClick),
+            .clickable(
+                enabled = enabled,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Box(modifier = Modifier.padding(12.dp)) {
