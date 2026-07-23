@@ -27,7 +27,6 @@ class LocationStateMachineTest {
         assertEquals(LocationPermissionState.Denied, machine.state.value.permissionState)
         assertNull(machine.state.value.currentCoordinates)
         assertNull(machine.state.value.currentAddressLabel)
-        assertFalse(machine.state.value.hasDeniedLocationAccess)
         assertFalse(machine.state.value.needsRecoveryRefresh)
         assertTrue(machine.state.value.isGpsEnabled)
         assertFalse(machine.state.value.isAvailabilityKnown)
@@ -40,6 +39,21 @@ class LocationStateMachineTest {
         machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
 
         assertEquals(LocationPermissionState.PreciseGranted, machine.state.value.permissionState)
+    }
+
+    @Test
+    fun `denied permission clears retained coordinates and never calls repository`() = runTest {
+        val repository = RecordingPermissionLocationRepository()
+        val machine = createMachine(repository)
+        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
+        assertTrue(machine.acquireLocation() is LocationAcquisitionResult.Success)
+
+        machine.onPermissionChanged(LocationPermissionState.Denied)
+        val result = machine.acquireLocation()
+
+        assertEquals(LocationAcquisitionResult.PermissionDenied, result)
+        assertNull(machine.state.value.currentCoordinates)
+        assertEquals(1, repository.locationRequests)
     }
 
     @Test
@@ -68,7 +82,6 @@ class LocationStateMachineTest {
 
         assertEquals(LocationAcquisitionResult.Success(coordinates), result)
         assertEquals(coordinates, machine.state.value.currentCoordinates)
-        assertFalse(machine.state.value.hasDeniedLocationAccess)
         assertFalse(machine.state.value.needsRecoveryRefresh)
     }
 
@@ -89,6 +102,7 @@ class LocationStateMachineTest {
         val machine = createMachine(
             FakeLocationStateMachineRepository(result = LocationLookupResult.TimedOut),
         )
+        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
 
         assertEquals(LocationAcquisitionResult.TimedOut, machine.acquireLocation())
     }
@@ -98,6 +112,7 @@ class LocationStateMachineTest {
         val machine = createMachine(
             FakeLocationStateMachineRepository(result = LocationLookupResult.Unavailable),
         )
+        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
 
         assertEquals(LocationAcquisitionResult.Unavailable, machine.acquireLocation())
     }
@@ -108,6 +123,7 @@ class LocationStateMachineTest {
         val machine = createMachine(
             FakeLocationStateMachineRepository(result = LocationLookupResult.Error(throwable)),
         )
+        machine.onPermissionChanged(LocationPermissionState.PreciseGranted)
 
         val result = machine.acquireLocation()
 
@@ -170,4 +186,17 @@ private class FakeLocationStateMachineRepository(
     override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult = result
 
     override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = addressResult
+}
+
+private class RecordingPermissionLocationRepository : LocationRepository {
+    var locationRequests = 0
+
+    override fun observeAvailability(): Flow<Boolean> = MutableStateFlow(true)
+
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+        locationRequests += 1
+        return LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
+    }
+
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
 }

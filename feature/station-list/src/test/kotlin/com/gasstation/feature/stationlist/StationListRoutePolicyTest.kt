@@ -3,7 +3,6 @@ package com.gasstation.feature.stationlist
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -31,21 +30,24 @@ class StationListRoutePolicyTest {
     fun `auto refresh runs when no coordinates are available`() {
         assertTrue(
             StationListUiState(
+                preferences = UserPreferences.default(),
                 isAvailabilityKnown = true,
                 isGpsEnabled = true,
+                permissionState = LocationPermissionState.PreciseGranted,
                 currentCoordinates = null,
             ).shouldAutoRefreshOnRoute(),
         )
     }
 
     @Test
-    fun `auto refresh runs for denied demo coordinates`() {
-        assertTrue(
+    fun `auto refresh is skipped while permission is denied`() {
+        assertFalse(
             StationListUiState(
+                preferences = UserPreferences.default(),
                 isAvailabilityKnown = true,
                 isGpsEnabled = true,
-                currentCoordinates = coordinates,
-                hasDeniedLocationAccess = true,
+                permissionState = LocationPermissionState.Denied,
+                currentCoordinates = null,
             ).shouldAutoRefreshOnRoute(),
         )
     }
@@ -54,8 +56,10 @@ class StationListRoutePolicyTest {
     fun `auto refresh runs for recovery refresh`() {
         assertTrue(
             StationListUiState(
+                preferences = UserPreferences.default(),
                 isAvailabilityKnown = true,
                 isGpsEnabled = true,
+                permissionState = LocationPermissionState.PreciseGranted,
                 currentCoordinates = coordinates,
                 needsRecoveryRefresh = true,
             ).shouldAutoRefreshOnRoute(),
@@ -66,34 +70,23 @@ class StationListRoutePolicyTest {
     fun `auto refresh is skipped for stable usable coordinates`() {
         assertFalse(
             StationListUiState(
+                preferences = UserPreferences.default(),
                 isAvailabilityKnown = true,
                 isGpsEnabled = true,
+                permissionState = LocationPermissionState.PreciseGranted,
                 currentCoordinates = coordinates,
             ).shouldAutoRefreshOnRoute(),
         )
     }
 
     @Test
-    fun `watchlist is hidden when denied permission has stale prod coordinates`() {
+    fun `watchlist coordinates are hidden whenever permission is denied`() {
         assertNull(
             StationListUiState(
+                preferences = UserPreferences.default(),
                 currentCoordinates = coordinates,
                 isGpsEnabled = true,
                 permissionState = LocationPermissionState.Denied,
-                hasDeniedLocationAccess = false,
-            ).watchlistCoordinatesOrNull(),
-        )
-    }
-
-    @Test
-    fun `watchlist is visible for denied demo coordinates`() {
-        assertEquals(
-            coordinates,
-            StationListUiState(
-                currentCoordinates = coordinates,
-                isGpsEnabled = true,
-                permissionState = LocationPermissionState.Denied,
-                hasDeniedLocationAccess = true,
             ).watchlistCoordinatesOrNull(),
         )
     }
@@ -103,7 +96,6 @@ class StationListRoutePolicyTest {
         assertFalse(
             StationListUiState(
                 permissionState = LocationPermissionState.Denied,
-                hasDeniedLocationAccess = false,
             ).hasFirstUsableContent(),
         )
     }

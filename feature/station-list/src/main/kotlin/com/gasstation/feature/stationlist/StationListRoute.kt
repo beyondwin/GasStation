@@ -55,6 +55,7 @@ fun StationListRoute(
         uiState.isGpsEnabled,
         uiState.isAvailabilityKnown,
         uiState.needsRecoveryRefresh,
+        uiState.preferences,
     ) {
         if (uiState.shouldAutoRefreshOnRoute()) {
             viewModel.onAction(StationListAction.AutoRefreshRequested)

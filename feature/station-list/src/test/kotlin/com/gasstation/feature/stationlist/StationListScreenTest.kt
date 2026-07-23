@@ -1130,7 +1130,6 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     currentCoordinates = com.gasstation.core.model.Coordinates(37.498095, 127.02761),
                     permissionState = LocationPermissionState.Denied,
-                    hasDeniedLocationAccess = false,
                     stations = listOf(testStation()),
                     preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
@@ -1151,7 +1150,6 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.Denied,
-                    hasDeniedLocationAccess = false,
                     isLoading = true,
                     preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
@@ -1172,7 +1170,6 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.Denied,
-                    hasDeniedLocationAccess = false,
                     blockingFailure = StationListFailureReason.LocationFailed,
                     preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),

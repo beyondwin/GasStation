@@ -587,6 +587,36 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `station click is ignored after permission denial despite prior coordinates`() = runTest(dispatcher) {
+        val analytics = RecordingStationEventLogger()
+        val repository = FakeStationRepository(emptySearchResult())
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
+            ),
+            analytics = analytics,
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        viewModel.effects.test {
+            viewModel.onAction(
+                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+            )
+            advanceUntilIdle()
+
+            expectNoEvents()
+        }
+        assertTrue(analytics.events.isEmpty())
+    }
+
+    @Test
     fun `station click still emits external map effect when analytics logging fails`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
@@ -742,71 +772,16 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `auto refresh with denied permission stays silent until a demo style location succeeds`() = runTest(dispatcher) {
-        val repository = FakeStationRepository(
-            result = StationSearchResult(
-                stations = emptyList(),
-                freshness = StationFreshness.Fresh,
-                fetchedAt = null,
-                hasCachedSnapshot = false,
-            ),
-        )
-        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-        val demoCoordinates = Coordinates(37.497927, 127.027583)
+    fun `denied auto refresh never asks location or station repository`() = runTest(dispatcher) {
+        var locationRequests = 0
+        val repository = FakeStationRepository(emptySearchResult())
         val viewModel = stationListViewModel(
             repository = repository,
-            settingsFixture = settingsFixture,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
             locationRepository = FakeLocationRepository(
-                resultForPermission = { permissionState ->
-                    if (permissionState == LocationPermissionState.Denied) {
-                        LocationLookupResult.Success(demoCoordinates)
-                    } else {
-                        LocationLookupResult.Unavailable
-                    }
-                },
-            ),
-        )
-
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.AutoRefreshRequested)
-            advanceUntilIdle()
-
-            expectNoEvents()
-        }
-        advanceUntilIdle()
-
-        assertEquals(LocationPermissionState.Denied, viewModel.uiState.value.permissionState)
-        assertEquals(true, viewModel.uiState.value.isGpsEnabled)
-        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-        assertEquals(demoCoordinates, repository.refreshedQueries.single().coordinates)
-    }
-
-    @Test
-    fun `permission recovery keeps denied access flag until granted refresh succeeds`() = runTest(dispatcher) {
-        val repository = FakeStationRepository(
-            result = StationSearchResult(
-                stations = emptyList(),
-                freshness = StationFreshness.Fresh,
-                fetchedAt = null,
-                hasCachedSnapshot = false,
-            ),
-        )
-        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-        val demoCoordinates = Coordinates(37.497927, 127.027583)
-        val realCoordinates = Coordinates(37.498095, 127.027610)
-        val viewModel = stationListViewModel(
-            repository = repository,
-            settingsFixture = settingsFixture,
-            locationRepository = FakeLocationRepository(
-                resultForPermission = { permissionState ->
-                    when (permissionState) {
-                        LocationPermissionState.Denied -> LocationLookupResult.Success(demoCoordinates)
-                        LocationPermissionState.PreciseGranted -> LocationLookupResult.Success(realCoordinates)
-                        LocationPermissionState.ApproximateGranted -> LocationLookupResult.Unavailable
-                    }
+                resultForPermission = {
+                    locationRequests += 1
+                    LocationLookupResult.Success(Coordinates(37.497927, 127.027583))
                 },
             ),
         )
@@ -816,86 +791,9 @@ class StationListViewModelTest {
         viewModel.onAction(StationListAction.AutoRefreshRequested)
         advanceUntilIdle()
 
-        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-
-        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-        advanceUntilIdle()
-
-        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-
-        viewModel.onAction(StationListAction.AutoRefreshRequested)
-        advanceUntilIdle()
-
-        assertEquals(realCoordinates, viewModel.uiState.value.currentCoordinates)
-        assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
-        assertEquals(
-            listOf(demoCoordinates, realCoordinates),
-            repository.refreshedQueries.map(StationQuery::coordinates),
-        )
-    }
-
-    @Test
-    fun `denied refresh failure after bypass keeps denied access active`() = runTest(dispatcher) {
-        val repository = FakeStationRepository(
-            result = StationSearchResult(
-                stations = listOf(stationEntry()),
-                freshness = StationFreshness.Fresh,
-                fetchedAt = null,
-                hasCachedSnapshot = false,
-            ),
-        )
-        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-        val demoCoordinates = Coordinates(37.497927, 127.027583)
-        var deniedLookupCount = 0
-        val viewModel = stationListViewModel(
-            repository = repository,
-            settingsFixture = settingsFixture,
-            locationRepository = FakeLocationRepository(
-                resultForPermission = { permissionState ->
-                    when (permissionState) {
-                        LocationPermissionState.Denied -> {
-                            deniedLookupCount += 1
-                            if (deniedLookupCount == 1) {
-                                LocationLookupResult.Success(demoCoordinates)
-                            } else {
-                                LocationLookupResult.PermissionDenied
-                            }
-                        }
-
-                        LocationPermissionState.PreciseGranted,
-                        LocationPermissionState.ApproximateGranted,
-                        -> LocationLookupResult.Unavailable
-                    }
-                },
-            ),
-        )
-
-        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-        viewModel.onAction(StationListAction.AutoRefreshRequested)
-        advanceUntilIdle()
-
-        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-        assertEquals(1, viewModel.uiState.value.stations.size)
-        assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
-
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
-
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
-
-        assertEquals(demoCoordinates, viewModel.uiState.value.currentCoordinates)
-        assertEquals(true, viewModel.uiState.value.hasDeniedLocationAccess)
-        assertEquals(1, viewModel.uiState.value.stations.size)
-        assertEquals(listOf(demoCoordinates), repository.refreshedQueries.map(StationQuery::coordinates))
+        assertEquals(0, locationRequests)
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertEquals(StationListBodyState.PermissionRequired, viewModel.uiState.value.toBodyState())
     }
 
     @Test
@@ -1000,7 +898,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `manual refresh with gps disabled and denied permission still opens location settings`() = runTest(dispatcher) {
+    fun `manual refresh with denied permission and gps disabled keeps permission guidance separate`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
                 stations = emptyList(),
@@ -1022,43 +920,13 @@ class StationListViewModelTest {
             viewModel.onAction(StationListAction.RefreshRequested)
             advanceUntilIdle()
 
-            assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
+            assertEquals(
+                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
+                awaitItem(),
+            )
             expectNoEvents()
         }
         assertTrue(repository.refreshedQueries.isEmpty())
-    }
-
-    @Test
-    fun `auto refresh with denied permission and prod location denial stays silent without refresh`() = runTest(dispatcher) {
-        val repository = FakeStationRepository(
-            result = StationSearchResult(
-                stations = emptyList(),
-                freshness = StationFreshness.Stale,
-                fetchedAt = null,
-                hasCachedSnapshot = false,
-            ),
-        )
-        val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
-        val viewModel = stationListViewModel(
-            repository = repository,
-            settingsFixture = settingsFixture,
-            locationRepository = FakeLocationRepository(
-                result = LocationLookupResult.PermissionDenied,
-            ),
-        )
-
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.AutoRefreshRequested)
-            advanceUntilIdle()
-
-            expectNoEvents()
-        }
-        assertTrue(repository.refreshedQueries.isEmpty())
-        assertEquals(null, viewModel.uiState.value.currentCoordinates)
-        assertEquals(false, viewModel.uiState.value.hasDeniedLocationAccess)
-        assertEquals(null, viewModel.uiState.value.blockingFailure)
     }
 
     @Test

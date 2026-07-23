@@ -26,8 +26,17 @@ class LocationStateMachine @Inject constructor(
     fun observeGpsAvailability(): Flow<Boolean> = observeAvailability()
 
     fun onPermissionChanged(permissionState: LocationPermissionState) {
-        mutableState.update {
-            it.withLocationRecoveryState(permissionState = permissionState)
+        mutableState.update { current ->
+            if (permissionState == LocationPermissionState.Denied) {
+                current.copy(
+                    permissionState = permissionState,
+                    currentCoordinates = null,
+                    currentAddressLabel = null,
+                    needsRecoveryRefresh = false,
+                )
+            } else {
+                current.withLocationRecoveryState(permissionState = permissionState)
+            }
         }
     }
 
@@ -40,32 +49,36 @@ class LocationStateMachine @Inject constructor(
         }
     }
 
-    suspend fun acquireLocation(): LocationAcquisitionResult = when (val result = getCurrentLocation(state.value.permissionState)) {
-        is LocationLookupResult.Success -> {
-            val coordinates = result.coordinates
-            val previousCoordinates = state.value.currentCoordinates
-            mutableState.update {
-                it.copy(
-                    currentCoordinates = coordinates,
-                    currentAddressLabel = if (previousCoordinates == coordinates) {
-                        it.currentAddressLabel
-                    } else {
-                        null
-                    },
-                    hasDeniedLocationAccess = it.permissionState == LocationPermissionState.Denied,
-                    needsRecoveryRefresh = false,
-                )
-            }
-            LocationAcquisitionResult.Success(coordinates)
+    suspend fun acquireLocation(): LocationAcquisitionResult {
+        if (state.value.permissionState == LocationPermissionState.Denied) {
+            return LocationAcquisitionResult.PermissionDenied
         }
+        return when (val result = getCurrentLocation(state.value.permissionState)) {
+            is LocationLookupResult.Success -> {
+                val coordinates = result.coordinates
+                val previousCoordinates = state.value.currentCoordinates
+                mutableState.update {
+                    it.copy(
+                        currentCoordinates = coordinates,
+                        currentAddressLabel = if (previousCoordinates == coordinates) {
+                            it.currentAddressLabel
+                        } else {
+                            null
+                        },
+                        needsRecoveryRefresh = false,
+                    )
+                }
+                LocationAcquisitionResult.Success(coordinates)
+            }
 
-        LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
+            LocationLookupResult.PermissionDenied -> LocationAcquisitionResult.PermissionDenied
 
-        LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
+            LocationLookupResult.TimedOut -> LocationAcquisitionResult.TimedOut
 
-        LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
+            LocationLookupResult.Unavailable -> LocationAcquisitionResult.Unavailable
 
-        is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
+            is LocationLookupResult.Error -> LocationAcquisitionResult.Error(result.throwable)
+        }
     }
 
     suspend fun resolveAddressLabel(coordinates: Coordinates): String? = when (val result = getCurrentAddress(coordinates)) {
@@ -89,7 +102,6 @@ class LocationStateMachine @Inject constructor(
 
 data class LocationState(
     val permissionState: LocationPermissionState = LocationPermissionState.Denied,
-    val hasDeniedLocationAccess: Boolean = false,
     val needsRecoveryRefresh: Boolean = false,
     val isGpsEnabled: Boolean = true,
     val isAvailabilityKnown: Boolean = false,
@@ -117,15 +129,10 @@ private fun LocationState.withLocationRecoveryState(
     )
     val needsRecoveryRefresh = !isLocationUsable() &&
         updated.isLocationUsable() &&
-        currentCoordinates != null &&
-        !hasDeniedLocationAccess
+        currentCoordinates != null
     return updated.copy(
         needsRecoveryRefresh = updated.needsRecoveryRefresh || needsRecoveryRefresh,
     )
 }
 
-private fun LocationState.isLocationUsable(): Boolean = isGpsEnabled &&
-    (
-        permissionState != LocationPermissionState.Denied ||
-            hasDeniedLocationAccess
-        )
+private fun LocationState.isLocationUsable(): Boolean = isGpsEnabled && permissionState != LocationPermissionState.Denied

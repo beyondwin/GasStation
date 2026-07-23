@@ -9,7 +9,6 @@ data class StationListUiState(
     val currentCoordinates: Coordinates? = null,
     val currentAddressLabel: String? = null,
     val permissionState: LocationPermissionState = LocationPermissionState.Denied,
-    val hasDeniedLocationAccess: Boolean = false,
     val needsRecoveryRefresh: Boolean = false,
     val isGpsEnabled: Boolean = true,
     val isAvailabilityKnown: Boolean = false,

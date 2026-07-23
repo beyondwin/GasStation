@@ -135,7 +135,6 @@ class StationListViewModel @Inject constructor(
                 currentCoordinates = location.currentCoordinates,
                 currentAddressLabel = location.currentAddressLabel,
                 permissionState = location.permissionState,
-                hasDeniedLocationAccess = location.hasDeniedLocationAccess,
                 needsRecoveryRefresh = location.needsRecoveryRefresh,
                 isGpsEnabled = location.isGpsEnabled,
                 isAvailabilityKnown = location.isAvailabilityKnown,
@@ -199,11 +198,11 @@ class StationListViewModel @Inject constructor(
             is StationListAction.GpsAvailabilityChanged -> locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
 
             is StationListAction.StationClicked -> {
-                val preferences =
-                    (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
-                        ?: return
+                val location = locationStateMachine.state.value
+                if (location.permissionState == LocationPermissionState.Denied) return
+                val preferences = readyPreferencesOrNull() ?: return
                 viewModelScope.launch {
-                    val currentCoordinates = locationStateMachine.state.value.currentCoordinates
+                    val currentCoordinates = location.currentCoordinates
                     val provider = preferences.mapProvider
                     stationEventLogger.logSafely(
                         StationEvent.ExternalMapOpened(
@@ -234,11 +233,19 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
-        val preferences =
-            (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
-                ?: return
         viewModelScope.launch {
             val location = locationStateMachine.state.value
+            if (location.permissionState == LocationPermissionState.Denied) {
+                if (showPermissionDeniedFeedback) {
+                    mutableEffects.emit(
+                        StationListEffect.ShowSnackbar(
+                            StringResource.fromId(R.string.station_list_permission_denied),
+                        ),
+                    )
+                }
+                return@launch
+            }
+            val preferences = readyPreferencesOrNull() ?: return@launch
             if (!location.isGpsEnabled) {
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
                 return@launch
@@ -274,6 +281,8 @@ class StationListViewModel @Inject constructor(
             }
         }
     }
+
+    private fun readyPreferencesOrNull(): UserPreferences? = (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
 
     private fun refreshAddressLabel(coordinates: Coordinates) {
         viewModelScope.launch {
@@ -439,11 +448,7 @@ private data class StationListSearchUiProjection(
 )
 
 private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
-    isGpsEnabled &&
-        (
-            permissionState != LocationPermissionState.Denied ||
-                hasDeniedLocationAccess
-            )
+    permissionState != LocationPermissionState.Denied && isGpsEnabled
 }
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {

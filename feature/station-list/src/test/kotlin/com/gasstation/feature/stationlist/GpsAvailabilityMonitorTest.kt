@@ -1,5 +1,6 @@
 package com.gasstation.feature.stationlist
 
+import android.Manifest
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.LocationRepository
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
+import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.model.Station
@@ -129,52 +131,47 @@ class GpsAvailabilityMonitorTest {
     }
 
     @Test
-    fun `route re-evaluates stable coordinates when denied access recovery toggles`() {
-        val coordinates = Coordinates(37.498095, 127.027610)
-        var uiState by mutableStateOf(
-            StationListUiState(
-                currentCoordinates = coordinates,
-                permissionState = LocationPermissionState.Denied,
-                isGpsEnabled = true,
-                hasDeniedLocationAccess = false,
-            ),
+    fun `route auto refresh starts when preferences become ready after permission and gps`() {
+        shadowOf(composeRule.activity.application).grantPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
         )
-        val reportedCoordinates = mutableListOf<Coordinates?>()
+        val availability = MutableSharedFlow<Boolean>(replay = 1).also { it.tryEmit(true) }
+        val settingsFixture = SettingsUseCaseTestFixture(initialPreferences = null)
+        val repository = NoOpRouteStationRepository()
+        val viewModel = stationListViewModelForRouteTest(
+            availability = availability,
+            settingsFixture = settingsFixture,
+            repository = repository,
+        )
 
         composeRule.setContent {
-            StationListRouteCoordinatesEffect(
-                uiState = uiState,
-                onCoordinatesAvailable = reportedCoordinates::add,
+            StationListRoute(
+                onCoordinatesAvailable = {},
+                onOpenExternalMap = {},
+                viewModel = viewModel,
             )
         }
-
         composeRule.waitForIdle()
-        assertEquals(null, reportedCoordinates.last())
+        shadowOf(composeRule.activity.mainLooper).idle()
+        assertEquals(0, repository.refreshRequests)
 
-        composeRule.runOnUiThread {
-            uiState = uiState.copy(hasDeniedLocationAccess = true)
-        }
+        settingsFixture.emit(UserPreferences.default())
+        shadowOf(composeRule.activity.mainLooper).idle()
         composeRule.waitForIdle()
-        assertEquals(coordinates, reportedCoordinates.last())
 
-        composeRule.runOnUiThread {
-            uiState = uiState.copy(hasDeniedLocationAccess = false)
-        }
-        composeRule.waitForIdle()
-        assertEquals(null, reportedCoordinates.last())
-
-        assertEquals(listOf(null, coordinates, null), reportedCoordinates)
+        assertEquals(1, repository.refreshRequests)
     }
 }
 
 private fun stationListViewModelForRouteTest(
     availability: MutableSharedFlow<Boolean>,
+    settingsFixture: SettingsUseCaseTestFixture = SettingsUseCaseTestFixture(),
+    repository: NoOpRouteStationRepository = NoOpRouteStationRepository(),
     resultForPermission: (LocationPermissionState) -> LocationLookupResult = {
         LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
     },
 ): StationListViewModel {
-    val repository = NoOpRouteStationRepository()
-    val settingsFixture = SettingsUseCaseTestFixture()
     val locationRepository = object : LocationRepository {
         override fun observeAvailability(): Flow<Boolean> = availability
 
@@ -210,6 +207,8 @@ private fun stationListViewModelForRouteTest(
 }
 
 private class NoOpRouteStationRepository : StationRepository {
+    var refreshRequests = 0
+
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> = MutableStateFlow(
         StationSearchResult(
             stations = emptyList(),
@@ -221,7 +220,9 @@ private class NoOpRouteStationRepository : StationRepository {
 
     override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
-    override suspend fun refreshNearbyStations(query: StationQuery) = Unit
+    override suspend fun refreshNearbyStations(query: StationQuery) {
+        refreshRequests += 1
+    }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
 }
