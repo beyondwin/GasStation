@@ -30,7 +30,7 @@ class DemoLocationHookIntegrationTest {
     lateinit var foregroundLocationProvider: ForegroundLocationProvider
 
     @Test
-    fun `demo graph wires location override into foreground provider`() = runBlocking {
+    fun demoGraph_wiresLocationOverrideIntoForegroundProvider() = runBlocking {
         hiltRule.inject()
 
         assertTrue(demoLocationOverride.isPresent)

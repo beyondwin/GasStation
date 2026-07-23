@@ -60,6 +60,8 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    sourceSets.getByName("androidTestDemo").kotlin.directories.add("src/demoAndroidTest/kotlin")
 }
 
 dependencies {
@@ -91,5 +93,6 @@ dependencies {
     kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.uiautomator)
     kspAndroidTest(libs.hilt.android.compiler)
 }
