@@ -147,8 +147,9 @@ private class FakeSettingsRepository(initial: UserPreferences) : SettingsReposit
 
     override fun observeUserPreferences(): Flow<UserPreferences> = state
 
-    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences) {
+    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences {
         state.value = transform(state.value)
+        return state.value
     }
 }
 

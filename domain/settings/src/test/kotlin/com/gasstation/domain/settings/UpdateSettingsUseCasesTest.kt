@@ -8,6 +8,7 @@ import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.TogglePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
 import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
 import com.gasstation.domain.settings.usecase.UpdateMapProviderUseCase
@@ -43,12 +44,10 @@ class UpdateSettingsUseCasesTest {
     }
 
     @Test
-    fun `observe and sort order use cases can be constructed from lambdas`() = runTest {
-        val state = MutableStateFlow(UserPreferences.default())
-        val observeUserPreferences = ObserveUserPreferencesUseCase { state }
-        val updatePreferredSortOrder = UpdatePreferredSortOrderUseCase { transform ->
-            state.value = transform(state.value)
-        }
+    fun `observe and sort order use cases update repository state`() = runTest {
+        val repository = FakeSettingsRepository(UserPreferences.default())
+        val observeUserPreferences = ObserveUserPreferencesUseCase(repository)
+        val updatePreferredSortOrder = UpdatePreferredSortOrderUseCase(repository)
 
         observeUserPreferences().test {
             assertEquals(UserPreferences.default(), awaitItem())
@@ -58,6 +57,18 @@ class UpdateSettingsUseCasesTest {
             assertEquals(UserPreferences.default().copy(sortOrder = SortOrder.PRICE), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `toggle preferred sort order transforms the repository value atomically`() = runTest {
+        val repository = FakeSettingsRepository(
+            UserPreferences.default().copy(sortOrder = SortOrder.PRICE),
+        )
+
+        val committed = TogglePreferredSortOrderUseCase(repository)()
+
+        assertEquals(SortOrder.DISTANCE, committed.sortOrder)
+        assertEquals(committed, repository.current)
     }
 }
 
@@ -69,7 +80,8 @@ private class FakeSettingsRepository(initial: UserPreferences) : SettingsReposit
 
     override fun observeUserPreferences(): Flow<UserPreferences> = state
 
-    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences) {
+    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences {
         state.value = transform(state.value)
+        return state.value
     }
 }

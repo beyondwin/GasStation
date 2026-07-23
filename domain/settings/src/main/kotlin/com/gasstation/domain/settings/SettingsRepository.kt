@@ -6,5 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface SettingsRepository {
     fun observeUserPreferences(): Flow<UserPreferences>
 
-    suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences)
+    suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences
 }

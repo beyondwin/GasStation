@@ -65,6 +65,27 @@ class AndroidUserPreferencesDataSourceTest {
         secondScope.job.cancelAndJoin()
     }
 
+    @Test
+    fun `update returns the value committed by datastore`() = runBlocking {
+        val file = createTempStoreFile()
+        val scope = testScope()
+        val dataSource = AndroidUserPreferencesDataSource(
+            DataStoreFactory.create(
+                serializer = UserPreferencesSerializer,
+                scope = scope.scope,
+                produceFile = { file },
+            ),
+        )
+
+        val committed = dataSource.update { current ->
+            current.copy(sortOrderName = "PRICE")
+        }
+
+        assertEquals("PRICE", committed.sortOrderName)
+        assertEquals(committed, dataSource.userPreferences.first())
+        scope.job.cancelAndJoin()
+    }
+
     private fun createTempStoreFile(): File = File.createTempFile("user-preferences", ".preferences_pb").apply {
         deleteOnExit()
         delete()

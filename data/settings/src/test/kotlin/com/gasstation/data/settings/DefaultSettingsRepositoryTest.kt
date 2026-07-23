@@ -3,6 +3,8 @@ package com.gasstation.data.settings
 import com.gasstation.core.datastore.StoredUserPreferences
 import com.gasstation.core.datastore.UserPreferencesDataSource
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.settings.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +46,25 @@ class DefaultSettingsRepositoryTest {
             SortOrder.PRICE,
             repository.observeUserPreferences().first().sortOrder,
         )
+    }
+
+    @Test
+    fun `repository update returns mapped committed preferences and preserves siblings`() = runBlocking {
+        val dataSource = InMemoryUserPreferencesDataSource(
+            StoredUserPreferences.Default.copy(
+                fuelTypeName = "DIESEL",
+                mapProviderName = "NAVER_MAP",
+            ),
+        )
+        val repository = DefaultSettingsRepository(dataSource)
+
+        val committed = repository.updateUserPreferences { current ->
+            current.copy(sortOrder = SortOrder.PRICE)
+        }
+
+        assertEquals(SortOrder.PRICE, committed.sortOrder)
+        assertEquals(FuelType.DIESEL, committed.fuelType)
+        assertEquals(MapProvider.NAVER_MAP, committed.mapProvider)
     }
 
     @Test
@@ -126,7 +147,8 @@ private class InMemoryUserPreferencesDataSource(initial: StoredUserPreferences) 
 
     override val userPreferences: Flow<StoredUserPreferences> = state
 
-    override suspend fun update(transform: (StoredUserPreferences) -> StoredUserPreferences) {
+    override suspend fun update(transform: (StoredUserPreferences) -> StoredUserPreferences): StoredUserPreferences {
         state.value = transform(state.value)
+        return state.value
     }
 }

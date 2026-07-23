@@ -12,11 +12,10 @@ import javax.inject.Inject
 class DefaultSettingsRepository @Inject constructor(private val dataSource: UserPreferencesDataSource) : SettingsRepository {
     override fun observeUserPreferences(): Flow<UserPreferences> = dataSource.userPreferences.map(StoredUserPreferences::toDomain)
 
-    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences) {
+    override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences =
         dataSource.update { current ->
             transform(current.toDomain()).toStored()
-        }
-    }
+        }.toDomain()
 }
 
 private fun StoredUserPreferences.toDomain(): UserPreferences {
