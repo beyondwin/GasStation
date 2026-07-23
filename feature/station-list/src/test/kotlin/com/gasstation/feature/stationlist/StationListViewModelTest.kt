@@ -802,6 +802,113 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `location completion refreshes only the latest preferences query`() = runTest(dispatcher) {
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val initialPreferences = UserPreferences.default()
+        val latestPreferences = initialPreferences.copy(
+            searchRadius = SearchRadius.KM_5,
+            fuelType = FuelType.DIESEL,
+            brandFilter = BrandFilter.GSC,
+            sortOrder = SortOrder.PRICE,
+        )
+        val settingsFixture = SettingsUseCaseTestFixture(initialPreferences)
+        val repository = FakeStationRepository(emptySearchResult())
+        val searchOrchestrator = StationSearchOrchestrator(
+            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        )
+        val locationLookupStarted = CompletableDeferred<Unit>()
+        val releaseLocationLookup = CompletableDeferred<Unit>()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = object : LocationRepository {
+                override fun observeAvailability(): Flow<Boolean> = MutableSharedFlow()
+
+                override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+                    locationLookupStarted.complete(Unit)
+                    releaseLocationLookup.await()
+                    return LocationLookupResult.Success(coordinates)
+                }
+
+                override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+                    LocationAddressLookupResult.Unavailable
+            },
+            searchOrchestrator = searchOrchestrator,
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        locationLookupStarted.await()
+
+        settingsFixture.emit(latestPreferences)
+        runCurrent()
+        releaseLocationLookup.complete(Unit)
+        advanceUntilIdle()
+
+        val expectedQuery = StationQuery(
+            coordinates = coordinates,
+            radius = latestPreferences.searchRadius,
+            fuelType = latestPreferences.fuelType,
+            brandFilter = latestPreferences.brandFilter,
+            sortOrder = latestPreferences.sortOrder,
+        )
+        assertEquals(listOf(expectedQuery), repository.refreshedQueries)
+        assertEquals(expectedQuery, searchOrchestrator.activeQueryState.value.query)
+        assertEquals(latestPreferences, viewModel.uiState.value.preferences)
+    }
+
+    @Test
+    fun `preference change replaces an active stale query refresh with the latest query`() = runTest(dispatcher) {
+        val coordinates = Coordinates(37.498095, 127.027610)
+        val initialPreferences = UserPreferences.default()
+        val latestPreferences = initialPreferences.copy(fuelType = FuelType.DIESEL)
+        val settingsFixture = SettingsUseCaseTestFixture(initialPreferences)
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val repository = FakeStationRepository(
+            result = emptySearchResult(),
+            refreshStarted = refreshStarted,
+            releaseRefresh = releaseRefresh,
+        )
+        val searchOrchestrator = StationSearchOrchestrator(
+            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = settingsFixture,
+            locationRepository = FakeLocationRepository(
+                result = LocationLookupResult.Success(coordinates),
+            ),
+            searchOrchestrator = searchOrchestrator,
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        refreshStarted.await()
+
+        settingsFixture.emit(latestPreferences)
+        runCurrent()
+        releaseRefresh.complete(Unit)
+        advanceUntilIdle()
+
+        val initialQuery = StationQuery(
+            coordinates = coordinates,
+            radius = initialPreferences.searchRadius,
+            fuelType = initialPreferences.fuelType,
+            brandFilter = initialPreferences.brandFilter,
+            sortOrder = initialPreferences.sortOrder,
+        )
+        val latestQuery = initialQuery.copy(fuelType = latestPreferences.fuelType)
+        assertEquals(listOf(initialQuery, latestQuery), repository.refreshedQueries)
+        assertEquals(listOf(latestQuery), repository.persistedRefreshQueries)
+        assertEquals(latestQuery, searchOrchestrator.activeQueryState.value.query)
+    }
+
+    @Test
     fun `permission denial cancels a remote refresh before it can persist`() = runTest(dispatcher) {
         val refreshStarted = CompletableDeferred<Unit>()
         val releaseRefresh = CompletableDeferred<Unit>()
@@ -1312,6 +1419,10 @@ private fun TestScope.stationListViewModel(
     settingsFixture: SettingsUseCaseTestFixture,
     locationRepository: LocationRepository,
     analytics: StationEventLogger = RecordingStationEventLogger(),
+    searchOrchestrator: StationSearchOrchestrator = StationSearchOrchestrator(
+        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+        refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+    ),
 ): StationListViewModel {
     val locationStateMachine = LocationStateMachine(
         getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
@@ -1319,10 +1430,7 @@ private fun TestScope.stationListViewModel(
         observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
     )
     val viewModel = StationListViewModel(
-        searchOrchestrator = StationSearchOrchestrator(
-            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
-        ),
+        searchOrchestrator = searchOrchestrator,
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
         togglePreferredSortOrder = settingsFixture.togglePreferredSortOrder,

@@ -258,7 +258,7 @@ class StationListViewModel @Inject constructor(
                 }
                 return@launchRefreshWork
             }
-            val preferences = readyPreferencesOrNull() ?: return@launchRefreshWork
+            if (readyPreferencesOrNull() == null) return@launchRefreshWork
             if (!location.isGpsEnabled) {
                 mutableEffects.emit(StationListEffect.OpenLocationSettings)
                 return@launchRefreshWork
@@ -281,8 +281,9 @@ class StationListViewModel @Inject constructor(
 
             refreshAddressLabel(coordinates)
 
+            val preferences = readyPreferencesOrNull() ?: return@launchRefreshWork
             val query = buildQuery(preferences, coordinates)
-            if (!locationStateMachine.state.value.hasEligibleCoordinates(coordinates)) {
+            if (!isRefreshQueryEligible(query)) {
                 return@launchRefreshWork
             }
             when (val outcome = searchOrchestrator.refresh(query)) {
@@ -293,6 +294,12 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun readyPreferencesOrNull(): UserPreferences? = (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
+
+    private fun isRefreshQueryEligible(query: StationQuery): Boolean {
+        val latestPreferences = readyPreferencesOrNull() ?: return false
+        return locationStateMachine.state.value.hasEligibleCoordinates(query.coordinates) &&
+            buildQuery(latestPreferences, query.coordinates) == query
+    }
 
     private fun refreshAddressLabel(coordinates: Coordinates) {
         viewModelScope.launch {
