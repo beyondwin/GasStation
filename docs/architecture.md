@@ -41,6 +41,7 @@ flowchart LR
     fsettings --> cmodel
 
     fwatch --> domStation
+    fwatch --> domSettings
     fwatch --> cmodel
     fwatch --> cdesign
     cdesign --> cmodel

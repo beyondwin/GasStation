@@ -26,21 +26,19 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.gasstation.core.database.GasStationDatabase
-import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
-import com.gasstation.core.model.Coordinates
-import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MapProvider
-import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.demo.seed.DemoSeedAssetLoader
+import com.gasstation.demo.seed.DemoSeedOrigin
 import com.gasstation.di.ExternalMapModule
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.model.Station
+import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.feature.watchlist.WATCHLIST_CARD_TEST_TAG
 import com.gasstation.map.ExternalMapLaunchResult
 import com.gasstation.map.ExternalMapLauncher
@@ -225,19 +223,17 @@ class StationPortfolioFlowTest {
     fun demoWatchlist_keepsSavedRowAndUsesSelectedFuelContext() {
         reseedDemoDatabase()
         waitForNearby()
-        runBlocking {
-            stationRepository.updateWatchState(
-                station = Station(
-                    id = "connected-gasoline-only",
-                    name = "휘발유 전용 저장 주유소",
-                    brand = Brand.ETC,
-                    price = MoneyWon(1_987),
-                    distance = DistanceMeters(400),
-                    coordinates = Coordinates(37.5004, 127.0321),
-                ),
-                watched = true,
-            )
-        }
+        val gasolineOnlyStation = seedGasolineOnlyWatchlistStation()
+
+        rule.onNodeWithTag("bottom-nav-watchlist", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("휘발유 기준").assertExists()
+        rule.onAllNodesWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
+            .assertCountEquals(1)
+        rule.onNodeWithText(gasolineOnlyStation.name).assertExists()
+        rule.onNode(
+            matcher = hasText("1,987") and hasAnyAncestor(hasTestTag(WATCHLIST_CARD_TEST_TAG)),
+            useUnmergedTree = true,
+        ).assertExists()
 
         rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
         rule.onNodeWithTag("settings-row-fuel-type", useUnmergedTree = true).performClick()
@@ -247,6 +243,7 @@ class StationPortfolioFlowTest {
         rule.onNodeWithText("경유 기준").assertExists()
         rule.onAllNodesWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
             .assertCountEquals(1)
+        rule.onNodeWithText(gasolineOnlyStation.name).assertExists()
         rule.onNodeWithText("선택 유종 가격 없음").assertExists()
     }
 
@@ -441,6 +438,30 @@ class StationPortfolioFlowTest {
         }
     }
 
+    private fun seedGasolineOnlyWatchlistStation(): Station = runBlocking {
+        val query = StationQuery(
+            coordinates = DemoSeedOrigin.coordinates,
+            radius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+            brandFilter = BrandFilter.ALL,
+            sortOrder = SortOrder.DISTANCE,
+        )
+        stationRepository.refreshNearbyStations(query)
+        val station = withTimeout(5_000) {
+            stationRepository.observeNearbyStations(query)
+                .first { result ->
+                    result.stations.any { entry ->
+                        entry.station.id == GASOLINE_ONLY_STATION_ID
+                    }
+                }
+                .stations
+                .single { entry -> entry.station.id == GASOLINE_ONLY_STATION_ID }
+                .station
+        }
+        stationRepository.updateWatchState(station = station, watched = true)
+        station
+    }
+
     private class RecordingExternalMapLauncher : ExternalMapLauncher {
         val providers = mutableListOf<MapProvider>()
 
@@ -455,5 +476,9 @@ class StationPortfolioFlowTest {
             providers += provider
             return ExternalMapLaunchResult.Opened
         }
+    }
+
+    private companion object {
+        const val GASOLINE_ONLY_STATION_ID = "DEMO-ETC-001"
     }
 }
