@@ -289,7 +289,7 @@ class RoborazziStationListScreenTest {
                         uiState = uiState,
                         snackbarHostState = snackbarHostState,
                         onAction = {},
-                        onRequestPermissions = {},
+                        onPermissionAction = {},
                         onOpenLocationSettings = {},
                     )
                 }

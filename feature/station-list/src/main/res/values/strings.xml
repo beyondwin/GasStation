@@ -58,6 +58,7 @@
     <string name="station_list_permission_required_title">위치 권한이 필요합니다.</string>
     <string name="station_list_permission_required_body">주변 주유소를 찾고 거리순과 가격순 정렬을 사용하려면 위치 접근을 허용해주세요.</string>
     <string name="station_list_permission_action">권한 요청</string>
+    <string name="station_list_permission_settings_action">앱 설정에서 허용</string>
 
     <!-- GPS required state -->
     <string name="station_list_gps_required_title">위치 서비스를 켜야 합니다.</string>

@@ -58,6 +58,7 @@
     <string name="station_list_permission_required_title">Location permission required.</string>
     <string name="station_list_permission_required_body">Allow location access to find nearby stations and use distance/price sorting.</string>
     <string name="station_list_permission_action">Request permission</string>
+    <string name="station_list_permission_settings_action">Allow in app settings</string>
 
     <!-- GPS required state -->
     <string name="station_list_gps_required_title">Location services must be enabled.</string>

@@ -69,11 +69,12 @@ internal const val STATION_LIST_REFRESH_RAIL_TAG = "station-list-refresh-rail"
 internal const val STATION_LIST_TITLE_TAG = "station-list-title"
 
 @Composable
-fun StationListScreen(
+internal fun StationListScreen(
     uiState: StationListUiState,
     snackbarHostState: SnackbarHostState,
+    permissionAction: PermissionAction = PermissionAction.Request,
     onAction: (StationListAction) -> Unit,
-    onRequestPermissions: () -> Unit,
+    onPermissionAction: () -> Unit,
     onOpenLocationSettings: () -> Unit,
     onFirstContentDrawn: () -> Unit = {},
 ) {
@@ -128,7 +129,11 @@ fun StationListScreen(
             ) { stateSnapshot ->
                 val fillModifier = Modifier.fillMaxSize()
                 when (val bodyState = stateSnapshot.toBodyState()) {
-                    StationListBodyState.PermissionRequired -> PermissionRequired(fillModifier, onRequestPermissions)
+                    StationListBodyState.PermissionRequired -> PermissionRequired(
+                        permissionAction = permissionAction,
+                        modifier = fillModifier,
+                        onPermissionAction = onPermissionAction,
+                    )
 
                     StationListBodyState.GpsRequired -> GpsRequired(fillModifier, onOpenLocationSettings)
 

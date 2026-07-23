@@ -31,13 +31,17 @@ import com.gasstation.core.designsystem.component.GasStationRowDivider
 internal const val STATION_LIST_SKELETON_ROW_TAG = "station-list-skeleton-row"
 
 @Composable
-internal fun PermissionRequired(modifier: Modifier = Modifier, onRequestPermissions: () -> Unit) {
+internal fun PermissionRequired(permissionAction: PermissionAction, modifier: Modifier = Modifier, onPermissionAction: () -> Unit) {
+    val actionLabel = when (permissionAction) {
+        PermissionAction.Request -> stringResource(R.string.station_list_permission_action)
+        PermissionAction.OpenAppSettings -> stringResource(R.string.station_list_permission_settings_action)
+    }
     BrandedStateContainer(modifier = modifier) {
         GasStationGuidanceCard(
             title = stringResource(R.string.station_list_permission_required_title),
             body = stringResource(R.string.station_list_permission_required_body),
-            actionLabel = stringResource(R.string.station_list_permission_action),
-            onAction = onRequestPermissions,
+            actionLabel = actionLabel,
+            onAction = onPermissionAction,
         )
     }
 }

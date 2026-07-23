@@ -2,13 +2,17 @@ package com.gasstation.feature.stationlist
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -35,8 +39,17 @@ fun StationListRoute(
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val permissionState = rememberLocationPermissionsState()
+    var deniedRequestCount by rememberSaveable { mutableIntStateOf(0) }
+    val permissionState = rememberLocationPermissionsState { results ->
+        if (results.values.none { granted -> granted }) {
+            deniedRequestCount += 1
+        }
+    }
     val domainPermissionState = permissionState.toPermissionState()
+    val permissionAction = permissionAction(
+        deniedRequestCount = deniedRequestCount,
+        shouldShowRationale = permissionState.shouldShowRationale,
+    )
 
     LaunchedEffect(domainPermissionState) {
         viewModel.onAction(
@@ -84,8 +97,20 @@ fun StationListRoute(
     StationListScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
+        permissionAction = permissionAction,
         onAction = viewModel::onAction,
-        onRequestPermissions = { permissionState.launchMultiplePermissionRequest() },
+        onPermissionAction = {
+            when (permissionAction) {
+                PermissionAction.Request -> permissionState.launchMultiplePermissionRequest()
+
+                PermissionAction.OpenAppSettings -> context.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null),
+                    ),
+                )
+            }
+        },
         onOpenLocationSettings = {
             context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
@@ -104,12 +129,14 @@ internal fun StationListRouteCoordinatesEffect(uiState: StationListUiState, onCo
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-private fun rememberLocationPermissionsState(): MultiplePermissionsState = rememberMultiplePermissionsState(
-    permissions = listOf(
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.ACCESS_FINE_LOCATION,
-    ),
-)
+private fun rememberLocationPermissionsState(onPermissionsResult: (Map<String, Boolean>) -> Unit): MultiplePermissionsState =
+    rememberMultiplePermissionsState(
+        permissions = listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ),
+        onPermissionsResult = onPermissionsResult,
+    )
 
 @OptIn(ExperimentalPermissionsApi::class)
 private fun MultiplePermissionsState.toPermissionState(): LocationPermissionState {

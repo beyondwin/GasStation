@@ -3,6 +3,7 @@ package com.gasstation.feature.stationlist
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -10,6 +11,26 @@ import org.junit.Test
 
 class StationListRoutePolicyTest {
     private val coordinates = Coordinates(37.497927, 127.027583)
+
+    @Test
+    fun `permission action requests initially and opens settings after repeated terminal denial`() {
+        assertEquals(
+            PermissionAction.Request,
+            permissionAction(deniedRequestCount = 0, shouldShowRationale = false),
+        )
+        assertEquals(
+            PermissionAction.Request,
+            permissionAction(deniedRequestCount = 1, shouldShowRationale = false),
+        )
+        assertEquals(
+            PermissionAction.Request,
+            permissionAction(deniedRequestCount = 2, shouldShowRationale = true),
+        )
+        assertEquals(
+            PermissionAction.OpenAppSettings,
+            permissionAction(deniedRequestCount = 2, shouldShowRationale = false),
+        )
+    }
 
     @Test
     fun `auto refresh waits until availability is known`() {

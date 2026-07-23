@@ -278,7 +278,7 @@ class StationListScreenTest {
                     ),
                     snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                     onAction = {},
-                    onRequestPermissions = {},
+                    onPermissionAction = {},
                     onOpenLocationSettings = {},
                 )
             }
@@ -309,7 +309,7 @@ class StationListScreenTest {
                 uiState = uiState,
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -349,7 +349,7 @@ class StationListScreenTest {
                 uiState = comparisonUiState(),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -464,7 +464,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -484,7 +484,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -509,7 +509,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -529,7 +529,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -570,7 +570,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -607,7 +607,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -637,7 +637,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -678,7 +678,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -727,7 +727,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -789,7 +789,7 @@ class StationListScreenTest {
                         ),
                         snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                         onAction = {},
-                        onRequestPermissions = {},
+                        onPermissionAction = {},
                         onOpenLocationSettings = {},
                     )
                 }
@@ -864,7 +864,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -903,7 +903,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -957,7 +957,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1000,7 +1000,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1023,7 +1023,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1046,7 +1046,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1067,7 +1067,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1091,7 +1091,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1113,7 +1113,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1135,13 +1135,66 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
 
         composeRule.onNodeWithText("위치 권한이 필요합니다.").assertExists()
         composeRule.onNodeWithText("테스트 주유소").assertDoesNotExist()
+    }
+
+    @Test
+    fun `앱 설정에서 허용 action opens app settings callback`() {
+        var appSettingsOpened = false
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.Denied,
+                    preferences = UserPreferences.default(),
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                permissionAction = PermissionAction.OpenAppSettings,
+                onAction = {},
+                onPermissionAction = { appSettingsOpened = true },
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.onNodeWithText("앱 설정에서 허용").performClick()
+
+        assertTrue(appSettingsOpened)
+    }
+
+    @Test
+    fun `permission request waits for explicit action across recomposition`() {
+        var isLoading by mutableStateOf(false)
+        var permissionRequestCount = 0
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.Denied,
+                    isLoading = isLoading,
+                    preferences = UserPreferences.default(),
+                ),
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                permissionAction = PermissionAction.Request,
+                onAction = {},
+                onPermissionAction = { permissionRequestCount += 1 },
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.runOnIdle { isLoading = true }
+        composeRule.waitForIdle()
+
+        assertEquals(0, permissionRequestCount)
+
+        composeRule.onNodeWithText("권한 요청").performClick()
+
+        assertEquals(1, permissionRequestCount)
     }
 
     @Test
@@ -1155,7 +1208,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1175,7 +1228,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1200,7 +1253,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = { locationSettingsOpened = true },
             )
         }
@@ -1226,7 +1279,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1246,7 +1299,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1267,7 +1320,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1287,7 +1340,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1308,7 +1361,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1331,7 +1384,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1356,7 +1409,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1380,7 +1433,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
             )
         }
@@ -1405,7 +1458,7 @@ class StationListScreenTest {
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
                 onFirstContentDrawn = { callbackCount += 1 },
             )
@@ -1433,7 +1486,7 @@ class StationListScreenTest {
                 uiState = uiState,
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
-                onRequestPermissions = {},
+                onPermissionAction = {},
                 onOpenLocationSettings = {},
                 onFirstContentDrawn = { callbackCount += 1 },
             )
@@ -1512,7 +1565,7 @@ class StationListScreenTest {
                         ),
                         snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                         onAction = actions::add,
-                        onRequestPermissions = {},
+                        onPermissionAction = {},
                         onOpenLocationSettings = {},
                     )
                 }
@@ -1604,7 +1657,7 @@ class StationListScreenTest {
                     ),
                     snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                     onAction = {},
-                    onRequestPermissions = {},
+                    onPermissionAction = {},
                     onOpenLocationSettings = {},
                 )
             }
