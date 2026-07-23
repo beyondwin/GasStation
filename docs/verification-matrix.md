@@ -146,6 +146,26 @@ Nearby 요약·필터·가격 이력, 알뜰 그룹 migration, icon-only navigat
   :app:compileDemoDebugAndroidTestKotlin
 ```
 
+## Settings readiness와 persistence 집중 회귀
+
+DataStore 첫 emission readiness, committed preference mutation, Nearby query gating, Settings/Nearby 동기화와 activity recreation을 함께 확인할 때는 다음 명령을 실행합니다.
+
+```bash
+./gradlew \
+  :core:datastore:testDebugUnitTest \
+  :domain:settings:test \
+  :data:settings:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :app:assembleDemoDebug \
+  :app:assembleProdDebug \
+  --warning-mode fail
+```
+
+`StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 connected demo 경로에서 Nearby와 Settings의 committed 값 공유 및 recreation을 보호합니다. `assembleProdDebug`는 keyless build 확인만 합니다. 실제 prod runtime launch에는 사용자 로컬 `opinet.apikey`가 필요하며, 이 명령은 live Opinet을 검증하지 않습니다.
+
 Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해 record한 뒤 같은 모듈을 verify합니다.
 
 ```bash

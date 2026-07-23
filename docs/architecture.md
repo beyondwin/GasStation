@@ -120,9 +120,9 @@ flowchart LR
 
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
 2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다.
-3. ViewModel은 `LocationStateMachine`을 통해 `ObserveLocationAvailabilityUseCase`와 새로고침 시점의 `GetCurrentLocationUseCase`를 다루고, 별도로 `ObserveUserPreferencesUseCase`를 구독합니다.
+3. ViewModel은 `LocationStateMachine`을 통해 `ObserveLocationAvailabilityUseCase`와 새로고침 시점의 `GetCurrentLocationUseCase`를 다루고, 별도로 `ObserveUserPreferencesUseCase`를 구독합니다. DataStore의 첫 선호값 emission이 readiness 경계이므로 Nearby는 그 전 `UserPreferences.default()`를 렌더링하거나 action에 쓰지 않습니다.
 4. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `GetCurrentAddressUseCase` 주소 라벨 조회는 non-blocking 표시용 context로 뒤따릅니다. `core:location`은 Android 주소 후보를 `domain:location` 정규화 함수로 변환하고, `LocationStateMachine`은 정규화된 라벨을 표시용으로 저장합니다.
-5. `StationSearchOrchestrator`는 현재 좌표와 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만들고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
+5. `StationSearchOrchestrator`는 permission, GPS, 현재 좌표, loaded preferences가 모두 준비된 경우에만 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만들고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
 6. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 ViewModel은 active query를 새 조건으로 전환하고 `RefreshNearbyStationsUseCase`를 호출합니다. 브랜드 필터와 정렬은 캐시 키에는 없지만, 화면은 새 조건으로 즉시 읽기 모델을 다시 만들고 원격 성공 시 같은 버킷 스냅샷을 최신 데이터로 교체합니다.
 7. `DefaultStationRepository.observeNearbyStations()`는 Room 스냅샷, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다.
 8. ViewModel은 loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합을 맡고, UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
@@ -144,9 +144,9 @@ flowchart LR
 
 ### 3. 설정 화면
 
-1. `SettingsRoute`는 설정 요약 목록을, `SettingsDetailRoute`는 항목별 상세 선택 화면을 렌더링합니다.
+1. `SettingsRoute`는 DataStore의 첫 선호값 emission 전에는 loading만 렌더링하고 action을 받지 않습니다. emission 뒤에는 설정 요약 목록을, `SettingsDetailRoute`는 항목별 상세 선택 화면을 렌더링합니다. 이 경계 전 `UserPreferences.default()`는 화면 기본값으로 사용하지 않습니다.
 2. 상세 화면은 별도 ViewModel을 만들지 않고, `GasStationNavHost`에서 settings back stack owner를 공유받아 같은 `SettingsViewModel`을 사용합니다.
-3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신되고, 목록 화면도 같은 값을 즉시 반영합니다.
+3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신됩니다. mutation은 DataStore가 실제로 commit한 값을 반환하며, Settings detail은 그 성공 반환 뒤에만 목록으로 돌아갑니다. 실패하면 detail은 이전 값을 유지한 채 실패를 표시합니다. 목록 화면도 같은 committed 값을 반영합니다.
 
 ### 4. watchlist(관심) 화면
 

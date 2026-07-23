@@ -27,6 +27,8 @@
 
 `core:datastore`는 domain model을 직접 저장하지 않고 `StoredUserPreferences` string DTO를 직렬화합니다. `data:settings`가 이 storage DTO를 domain `UserPreferences`로 매핑하고, 알 수 없는 enum name은 domain default로 되돌립니다.
 
+DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Settings는 그 emission 전 `UserPreferences.default()`를 렌더링하거나 사용자 action에 사용하지 않습니다. `UserPreferences.default()`는 새 저장소의 storage fallback과 demo seed 초기화에만 쓰이며, 기존 사용자의 화면 초기값을 추정하는 값이 아닙니다.
+
 포함하는 값:
 
 - `searchRadius`
@@ -64,7 +66,7 @@
 - `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
 - `StationSearchResult`
 
-현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
+Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
 목록 좌표는 app에 navigation payload로도 전달됩니다. 이는 watchlist의 거리 기준과 관심 tab 활성화에만 쓰이며, 검색 정책이나 위치 세션의 소유권을 app으로 옮기지 않습니다. 좌표가 바뀌면 이전 concrete watchlist route를 제거해 restore가 stale 좌표를 재사용하지 않게 합니다.
 
@@ -113,7 +115,9 @@
 
 - `SettingsUiState`는 `UserPreferences`를 화면용 라벨/옵션으로 투영한 값입니다.
 - `SettingsRoute`와 `SettingsDetailRoute`는 route가 다르지만 같은 `SettingsViewModel`을 공유합니다.
-- 사용자가 항목을 선택하면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스가 호출됩니다.
+- DataStore의 첫 emission 전에는 `Loading`만 노출하며 선택 action을 받지 않습니다. 따라서 기존 저장값이 아직 도착하지 않은 상태에서 `UserPreferences.default()`가 선택값으로 보이지 않습니다.
+- 사용자가 항목을 선택하면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스가 호출됩니다. mutation은 DataStore가 commit한 `UserPreferences`를 반환합니다.
+- Settings detail은 성공한 mutation의 committed value를 받은 뒤에만 돌아갑니다. mutation이 실패하면 이전 committed value를 유지하고 failure effect를 냅니다.
 
 즉 설정 화면은 "영속 상태를 편집하는 얇은 UI 계층"에 가깝습니다.
 
