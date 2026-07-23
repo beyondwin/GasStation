@@ -1,11 +1,8 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
-import com.gasstation.core.model.FuelType
-import com.gasstation.core.model.SearchRadius
-import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.settings.model.UserPreferences
 import java.time.Instant
 
 data class StationListUiState(
@@ -21,9 +18,8 @@ data class StationListUiState(
     val isStale: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,
     val stations: List<StationListItemUiModel> = emptyList(),
-    val selectedBrandFilter: BrandFilter = BrandFilter.ALL,
-    val selectedRadius: SearchRadius = SearchRadius.KM_3,
-    val selectedFuelType: FuelType = FuelType.GASOLINE,
-    val selectedSortOrder: SortOrder = SortOrder.DISTANCE,
+    val preferences: UserPreferences? = null,
+    val preferenceLoadFailed: Boolean = false,
+    val pendingPreferenceWrite: Boolean = false,
     val lastUpdatedAt: Instant? = null,
 )

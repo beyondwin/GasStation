@@ -41,6 +41,9 @@ internal const val STATION_LIST_FILTER_CHEVRON_TAG_PREFIX = "station-list-filter
 
 @Composable
 internal fun StationListFilterRail(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
+    val preferences = requireNotNull(uiState.preferences) {
+        "Results require ready user preferences"
+    }
     var expandedMenuName by rememberSaveable { mutableStateOf<String?>(null) }
     val expandedMenu = expandedMenuName?.let(StationListFilterMenuKind::valueOf)
     val dismissMenu = { expandedMenuName = null }
@@ -53,19 +56,21 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterActionChip(
-            label = if (uiState.selectedSortOrder == SortOrder.DISTANCE) {
+            label = if (preferences.sortOrder == SortOrder.DISTANCE) {
                 stringResource(R.string.station_list_sort_distance)
             } else {
                 stringResource(R.string.station_list_sort_price)
             },
             onClick = { onAction(StationListAction.SortToggleRequested) },
+            enabled = !uiState.pendingPreferenceWrite,
         )
         FilterMenuChip(
             menuKind = StationListFilterMenuKind.Radius,
-            label = uiState.selectedRadius.toLabel(),
+            label = preferences.searchRadius.toLabel(),
             testTag = STATION_LIST_RADIUS_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Radius,
             onClick = { expandedMenuName = StationListFilterMenuKind.Radius.name },
+            enabled = !uiState.pendingPreferenceWrite,
         ) {
             StationListFilterMenu(
                 expanded = true,
@@ -73,7 +78,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                 options = SearchRadius.entries.map { radius ->
                     StationListFilterOption(radius, radius.toLabel(), radius.name)
                 },
-                selected = uiState.selectedRadius,
+                selected = preferences.searchRadius,
                 onDismissRequest = dismissMenu,
                 onSelected = { radius ->
                     dismissMenu()
@@ -83,10 +88,11 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
         }
         FilterMenuChip(
             menuKind = StationListFilterMenuKind.Fuel,
-            label = uiState.selectedFuelType.toLabel(),
+            label = preferences.fuelType.toLabel(),
             testTag = STATION_LIST_FUEL_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Fuel,
             onClick = { expandedMenuName = StationListFilterMenuKind.Fuel.name },
+            enabled = !uiState.pendingPreferenceWrite,
         ) {
             StationListFilterMenu(
                 expanded = true,
@@ -94,7 +100,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                 options = FuelType.entries.map { fuelType ->
                     StationListFilterOption(fuelType, fuelType.toLabel(), fuelType.name)
                 },
-                selected = uiState.selectedFuelType,
+                selected = preferences.fuelType,
                 onDismissRequest = dismissMenu,
                 onSelected = { fuelType ->
                     dismissMenu()
@@ -104,10 +110,11 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
         }
         FilterMenuChip(
             menuKind = StationListFilterMenuKind.Brand,
-            label = uiState.selectedBrandFilter.gasStationBrandFilterLabel(),
+            label = preferences.brandFilter.gasStationBrandFilterLabel(),
             testTag = STATION_LIST_BRAND_FILTER_TAG,
             expanded = expandedMenu == StationListFilterMenuKind.Brand,
             onClick = { expandedMenuName = StationListFilterMenuKind.Brand.name },
+            enabled = !uiState.pendingPreferenceWrite,
         ) {
             StationListFilterMenu(
                 expanded = true,
@@ -120,7 +127,7 @@ internal fun StationListFilterRail(uiState: StationListUiState, onAction: (Stati
                         brand = brandFilter.gasStationBrandFilterIconBrand(),
                     )
                 },
-                selected = uiState.selectedBrandFilter,
+                selected = preferences.brandFilter,
                 onDismissRequest = dismissMenu,
                 onSelected = { brandFilter ->
                     dismissMenu()
@@ -138,6 +145,7 @@ private fun FilterMenuChip(
     testTag: String,
     expanded: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean,
     menu: @Composable () -> Unit,
 ) {
     Box {
@@ -147,6 +155,7 @@ private fun FilterMenuChip(
             modifier = Modifier.testTag(testTag),
             expanded = expanded,
             menuKind = menuKind,
+            enabled = enabled,
         )
         if (expanded) {
             menu()
@@ -161,6 +170,7 @@ private fun FilterActionChip(
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
     menuKind: StationListFilterMenuKind? = null,
+    enabled: Boolean = true,
 ) {
     Surface(
         modifier = modifier.defaultMinSize(minHeight = 48.dp),
@@ -169,6 +179,7 @@ private fun FilterActionChip(
         shape = RoundedCornerShape(50),
         border = if (expanded) BorderStroke(2.dp, ColorYellow) else null,
         onClick = onClick,
+        enabled = enabled,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),

@@ -15,14 +15,11 @@ internal sealed interface StationListBodyState {
 }
 
 internal fun StationListUiState.toBodyState(): StationListBodyState = when {
-    permissionState == LocationPermissionState.Denied &&
-        !(hasDeniedLocationAccess && currentCoordinates != null) -> StationListBodyState.PermissionRequired
-
+    permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
     !isGpsEnabled -> StationListBodyState.GpsRequired
-
+    preferenceLoadFailed -> StationListBodyState.Failure(StationListFailureReason.PreferencesFailed)
+    preferences == null -> StationListBodyState.InitialLoading
     isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
-
     blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
-
     else -> StationListBodyState.Results
 }

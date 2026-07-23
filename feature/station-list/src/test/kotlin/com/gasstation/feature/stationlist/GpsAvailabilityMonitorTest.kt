@@ -198,7 +198,7 @@ private fun stationListViewModelForRouteTest(
         ),
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
-        updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
+        togglePreferredSortOrder = settingsFixture.togglePreferredSortOrder,
         updateSearchRadius = settingsFixture.updateSearchRadius,
         updateFuelType = settingsFixture.updateFuelType,
         updateBrandFilter = settingsFixture.updateBrandFilter,

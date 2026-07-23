@@ -44,6 +44,7 @@ import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.settings.model.UserPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -273,7 +274,7 @@ class StationListScreenTest {
                     uiState = StationListUiState(
                         permissionState = LocationPermissionState.PreciseGranted,
                         stations = stations,
-                        selectedFuelType = FuelType.GASOLINE,
+                        preferences = UserPreferences.default(),
                     ),
                     snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                     onAction = {},
@@ -447,7 +448,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     currentAddressLabel = "서울 영등포구 당산동",
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -472,7 +473,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     currentAddressLabel = "서울특별시 강남구 역삼동",
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -492,7 +493,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     currentAddressLabel = null,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -533,7 +534,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -570,7 +571,7 @@ class StationListScreenTest {
                         station.copy(id = "increased", priceHistory = StationListPriceHistoryUiModel.Increased(20)),
                         station.copy(id = "decreased", priceHistory = StationListPriceHistoryUiModel.Decreased(30)),
                     ),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -600,7 +601,7 @@ class StationListScreenTest {
                         station.copy(id = "increased", priceHistory = StationListPriceHistoryUiModel.Increased(20)),
                         station.copy(id = "decreased", priceHistory = StationListPriceHistoryUiModel.Decreased(30)),
                     ),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -641,7 +642,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -690,7 +691,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -752,7 +753,7 @@ class StationListScreenTest {
                                     longitude = 127.02761,
                                 ),
                             ),
-                            selectedFuelType = FuelType.PREMIUM_GASOLINE,
+                            preferences = UserPreferences.default().copy(fuelType = FuelType.PREMIUM_GASOLINE),
                         ),
                         snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                         onAction = {},
@@ -827,7 +828,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -866,7 +867,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -920,7 +921,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -963,7 +964,7 @@ class StationListScreenTest {
                             longitude = 127.02761,
                         ),
                     ),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -986,7 +987,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     blockingFailure = StationListFailureReason.LocationTimedOut,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
@@ -1009,7 +1010,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1030,7 +1031,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     blockingFailure = StationListFailureReason.RefreshFailed,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1054,7 +1055,7 @@ class StationListScreenTest {
                     isStale = true,
                     lastUpdatedAt = Instant.parse("2026-04-18T00:30:00Z"),
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1076,7 +1077,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     blockingFailure = StationListFailureReason.LocationFailed,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1099,7 +1100,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.Denied,
                     hasDeniedLocationAccess = false,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1120,7 +1121,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.Denied,
                     hasDeniedLocationAccess = false,
                     isLoading = true,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1141,7 +1142,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.Denied,
                     hasDeniedLocationAccess = false,
                     blockingFailure = StationListFailureReason.LocationFailed,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1166,7 +1167,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     isGpsEnabled = false,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1192,7 +1193,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     isGpsEnabled = false,
                     isLoading = true,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1212,7 +1213,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     blockingFailure = StationListFailureReason.RefreshTimedOut,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1233,7 +1234,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     blockingFailure = StationListFailureReason.RefreshFailed,
-                    selectedFuelType = FuelType.DIESEL,
+                    preferences = UserPreferences.default().copy(fuelType = FuelType.DIESEL),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1253,7 +1254,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1274,7 +1275,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1297,7 +1298,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
@@ -1322,7 +1323,7 @@ class StationListScreenTest {
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
                     stations = listOf(testStation()),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
@@ -1346,7 +1347,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = actions::add,
@@ -1371,7 +1372,7 @@ class StationListScreenTest {
                     permissionState = LocationPermissionState.PreciseGranted,
                     isLoading = true,
                     stations = emptyList(),
-                    selectedFuelType = FuelType.GASOLINE,
+                    preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
                 onAction = {},
@@ -1394,7 +1395,7 @@ class StationListScreenTest {
                 permissionState = LocationPermissionState.PreciseGranted,
                 isLoading = true,
                 stations = emptyList(),
-                selectedFuelType = FuelType.GASOLINE,
+                preferences = UserPreferences.default(),
             ),
         )
 
@@ -1448,6 +1449,7 @@ class StationListScreenTest {
 
     private fun comparisonUiState() = StationListUiState(
         permissionState = LocationPermissionState.PreciseGranted,
+        preferences = UserPreferences.default(),
         stations = listOf(
             testStation(),
             testStation().copy(id = "station-2", priceWon = 1_699, priceNumberLabel = "1,699"),
@@ -1476,6 +1478,7 @@ class StationListScreenTest {
                     StationListScreen(
                         uiState = StationListUiState(
                             permissionState = LocationPermissionState.PreciseGranted,
+                            preferences = UserPreferences.default(),
                             stations = listOf(testStation()),
                         ),
                         snackbarHostState = androidx.compose.material3.SnackbarHostState(),

@@ -37,7 +37,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,13 +58,79 @@ class StationListViewModelTest {
     private val dispatcher = mainDispatcherRule.dispatcher
 
     @Test
+    fun `preferences do not default or start a query before first emission`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture(initialPreferences = null)
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.AutoRefreshRequested)
+        viewModel.onAction(StationListAction.SortToggleRequested)
+        viewModel.onAction(StationListAction.StationClicked(StationListItemUiModel(stationEntry())))
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.uiState.value.preferences)
+        assertTrue(repository.refreshedQueries.isEmpty())
+        assertTrue(repository.observedQueries.isEmpty())
+        assertTrue(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `first persisted preferences create the first query without a default query`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture(initialPreferences = null)
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+        val expected = UserPreferences.default().copy(
+            searchRadius = SearchRadius.KM_5,
+            fuelType = FuelType.DIESEL,
+            brandFilter = BrandFilter.GSC,
+            sortOrder = SortOrder.PRICE,
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        settings.emit(expected)
+        runCurrent()
+        viewModel.onAction(StationListAction.AutoRefreshRequested)
+        advanceUntilIdle()
+
+        assertEquals(expected, viewModel.uiState.value.preferences)
+        assertEquals(SearchRadius.KM_5, repository.refreshedQueries.single().radius)
+        assertEquals(FuelType.DIESEL, repository.refreshedQueries.single().fuelType)
+        assertEquals(BrandFilter.GSC, repository.refreshedQueries.single().brandFilter)
+        assertEquals(SortOrder.PRICE, repository.refreshedQueries.single().sortOrder)
+    }
+
+    @Test
+    fun `preference read failure shows retryable failure without a default query`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture(initialPreferences = null)
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        runCurrent()
+        settings.fail(IllegalStateException("datastore read failed"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.preferenceLoadFailed)
+        assertEquals(
+            StationListBodyState.Failure(StationListFailureReason.PreferencesFailed),
+            viewModel.uiState.value.toBodyState(),
+        )
+        assertTrue(repository.refreshedQueries.isEmpty())
+    }
+
+    @Test
     fun `filter rail actions update preferences through domain use cases`() = runTest(dispatcher) {
         val repository = FakeStationRepository(emptySearchResult())
         val settings = SettingsUseCaseTestFixture()
         val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
 
         viewModel.onAction(StationListAction.SearchRadiusSelected(SearchRadius.KM_5))
+        advanceUntilIdle()
         viewModel.onAction(StationListAction.FuelTypeSelected(FuelType.DIESEL))
+        advanceUntilIdle()
         viewModel.onAction(StationListAction.BrandFilterSelected(BrandFilter.ALTEUL))
         advanceUntilIdle()
 
@@ -524,7 +592,7 @@ class StationListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(SortOrder.PRICE, settingsFixture.currentPreferences.sortOrder)
-        assertEquals(SortOrder.PRICE, viewModel.uiState.value.selectedSortOrder)
+        assertEquals(SortOrder.PRICE, viewModel.uiState.value.preferences?.sortOrder)
     }
 
     @Test
@@ -1176,7 +1244,8 @@ class StationListViewModelTest {
     }
 }
 
-private fun stationListViewModel(
+@OptIn(ExperimentalCoroutinesApi::class)
+private fun TestScope.stationListViewModel(
     repository: StationRepository,
     settingsFixture: SettingsUseCaseTestFixture,
     locationRepository: LocationRepository,
@@ -1187,20 +1256,22 @@ private fun stationListViewModel(
         getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
         observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
     )
-    return StationListViewModel(
+    val viewModel = StationListViewModel(
         searchOrchestrator = StationSearchOrchestrator(
             observeNearbyStations = ObserveNearbyStationsUseCase(repository),
             refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
         ),
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
-        updatePreferredSortOrder = settingsFixture.updatePreferredSortOrder,
+        togglePreferredSortOrder = settingsFixture.togglePreferredSortOrder,
         updateSearchRadius = settingsFixture.updateSearchRadius,
         updateFuelType = settingsFixture.updateFuelType,
         updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
         stationEventLogger = analytics,
     )
+    runCurrent()
+    return viewModel
 }
 
 private fun stationEntry(

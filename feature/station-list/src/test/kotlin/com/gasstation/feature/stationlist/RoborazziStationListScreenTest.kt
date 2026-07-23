@@ -18,6 +18,7 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.settings.model.UserPreferences
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -125,6 +126,7 @@ class RoborazziStationListScreenTest {
         permissionState = LocationPermissionState.PreciseGranted,
         isAvailabilityKnown = true,
         isGpsEnabled = true,
+        preferences = UserPreferences.default(),
         stations = cachedStations,
         currentAddressLabel = "서울특별시 강남구 역삼동",
     )
@@ -134,6 +136,7 @@ class RoborazziStationListScreenTest {
         isAvailabilityKnown = true,
         isGpsEnabled = true,
         isLoading = false,
+        preferences = UserPreferences.default(),
         stations = emptyList(),
         blockingFailure = null,
     )
@@ -143,6 +146,7 @@ class RoborazziStationListScreenTest {
         isAvailabilityKnown = true,
         isGpsEnabled = true,
         isLoading = true,
+        preferences = UserPreferences.default(),
         stations = cachedStations,
         blockingFailure = null,
         currentAddressLabel = "서울특별시 강남구 역삼동",
@@ -154,6 +158,7 @@ class RoborazziStationListScreenTest {
         isGpsEnabled = true,
         isLoading = false,
         isStale = true,
+        preferences = UserPreferences.default(),
         stations = cachedStations,
         blockingFailure = null,
         currentAddressLabel = "서울특별시 강남구 역삼동",
@@ -177,6 +182,7 @@ class RoborazziStationListScreenTest {
         isAvailabilityKnown = true,
         isGpsEnabled = true,
         isLoading = false,
+        preferences = UserPreferences.default(),
         stations = emptyList(),
         blockingFailure = StationListFailureReason.RefreshFailed,
     )

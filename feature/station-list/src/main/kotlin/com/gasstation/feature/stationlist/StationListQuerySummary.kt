@@ -107,6 +107,9 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
 
 @Composable
 internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier = Modifier) {
+    val preferences = requireNotNull(uiState.preferences) {
+        "Results require ready user preferences"
+    }
     val spacing = GasStationTheme.spacing
     val typography = GasStationTheme.typography
     val iconSize = GasStationTheme.iconSize
@@ -115,8 +118,8 @@ internal fun QueryContextSummary(uiState: StationListUiState, modifier: Modifier
         ?.takeIf(String::isNotEmpty)
     val conditionLabel = stringResource(
         R.string.station_list_query_context_condition,
-        uiState.selectedRadius.toLabel(),
-        uiState.selectedFuelType.toLabel(),
+        preferences.searchRadius.toLabel(),
+        preferences.fuelType.toLabel(),
     )
 
     Column(

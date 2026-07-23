@@ -6,6 +6,7 @@
     <string name="station_list_location_failed">현재 위치를 확인하지 못했습니다.</string>
     <string name="station_list_refresh_timeout">서버 응답이 늦어 가격을 새로고침하지 못했습니다.</string>
     <string name="station_list_refresh_failed">주유소 목록을 새로고침하지 못했습니다.</string>
+    <string name="station_list_preference_save_failed">설정을 저장하지 못했습니다.</string>
 
     <!-- Top bar actions -->
     <string name="station_list_title">주변 주유소</string>
@@ -69,6 +70,8 @@
 
     <!-- Failure states -->
     <string name="station_list_retry_action">다시 시도</string>
+    <string name="station_list_preferences_failed_title">설정을 불러오지 못했습니다.</string>
+    <string name="station_list_preferences_failed_body">저장된 검색 조건을 불러오지 못했습니다. 다시 시도해주세요.</string>
     <string name="station_list_location_timeout_title">위치를 확인하는 데 시간이 오래 걸리고 있습니다.</string>
     <string name="station_list_location_timeout_body">GPS 신호와 네트워크 상태를 확인한 뒤 다시 시도해주세요.</string>
     <string name="station_list_location_failed_title">현재 위치를 확인하지 못했습니다.</string>

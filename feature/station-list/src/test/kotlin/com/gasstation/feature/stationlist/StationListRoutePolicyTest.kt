@@ -2,6 +2,7 @@ package com.gasstation.feature.stationlist
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.settings.model.UserPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -135,6 +136,7 @@ class StationListRoutePolicyTest {
                 permissionState = LocationPermissionState.PreciseGranted,
                 isLoading = true,
                 stations = listOf(testStationUiModel()),
+                preferences = UserPreferences.default(),
             ).hasFirstUsableContent(),
         )
     }
@@ -147,6 +149,7 @@ class StationListRoutePolicyTest {
                 isLoading = false,
                 isRefreshing = false,
                 stations = emptyList(),
+                preferences = UserPreferences.default(),
             ).hasFirstUsableContent(),
         )
     }
@@ -169,6 +172,7 @@ class StationListRoutePolicyTest {
                 permissionState = LocationPermissionState.PreciseGranted,
                 blockingFailure = StationListFailureReason.RefreshFailed,
                 stations = emptyList(),
+                preferences = UserPreferences.default(),
             ).hasFirstUsableContent(),
         )
     }
@@ -181,6 +185,7 @@ class StationListRoutePolicyTest {
                 isStale = true,
                 isRefreshing = true,
                 stations = listOf(testStationUiModel()),
+                preferences = UserPreferences.default(),
             ).hasFirstUsableContent(),
         )
     }

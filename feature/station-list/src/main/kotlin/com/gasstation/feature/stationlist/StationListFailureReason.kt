@@ -1,6 +1,8 @@
 package com.gasstation.feature.stationlist
 
 sealed interface StationListFailureReason {
+    data object PreferencesFailed : StationListFailureReason
+
     data object LocationTimedOut : StationListFailureReason
 
     data object LocationFailed : StationListFailureReason

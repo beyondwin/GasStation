@@ -4,13 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Coordinates
-import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
 import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
+import com.gasstation.domain.settings.usecase.TogglePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
 import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
-import com.gasstation.domain.settings.usecase.UpdatePreferredSortOrderUseCase
 import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshFailureReason
@@ -22,12 +21,15 @@ import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import com.gasstation.feature.stationlist.R
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -44,14 +46,15 @@ class StationListViewModel @Inject constructor(
     private val searchOrchestrator: StationSearchOrchestrator,
     private val updateWatchState: UpdateWatchStateUseCase,
     private val observeUserPreferences: ObserveUserPreferencesUseCase,
-    private val updatePreferredSortOrder: UpdatePreferredSortOrderUseCase,
+    private val togglePreferredSortOrder: TogglePreferredSortOrderUseCase,
     private val updateSearchRadius: UpdateSearchRadiusUseCase,
     private val updateFuelType: UpdateFuelTypeUseCase,
     private val updateBrandFilter: UpdateBrandFilterUseCase,
     private val locationStateMachine: LocationStateMachine,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
-    private val preferences = MutableStateFlow(UserPreferences.default())
+    private val preferenceState = MutableStateFlow<PreferenceLoadState>(PreferenceLoadState.Loading)
+    private var preferenceObservationJob: Job? = null
     private val transientState = MutableStateFlow(StationListTransientState())
     private val mutableUiState = MutableStateFlow(StationListUiState())
     private val mutableEffects = MutableSharedFlow<StationListEffect>()
@@ -66,16 +69,27 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun observePreferences() {
-        observeUserPreferences()
-            .onEach { preferences.value = it }
+        preferenceObservationJob?.cancel()
+        preferenceState.value = PreferenceLoadState.Loading
+        preferenceObservationJob = observeUserPreferences()
+            .onEach { preferenceState.value = PreferenceLoadState.Ready(it) }
+            .catch { throwable ->
+                if (throwable is CancellationException) throw throwable
+                preferenceState.value = PreferenceLoadState.Failed
+            }
             .launchIn(viewModelScope)
     }
 
     private fun triggerRefreshOnQueryChange() {
         var previousQuery: StationQuery? = null
-        val queryFlow = combine(preferences, locationStateMachine.state) { prefs, location ->
-            location.usableCoordinates()
-                ?.let { coordinates -> buildQuery(preferences = prefs, coordinates = coordinates) }
+        val queryFlow = combine(preferenceState, locationStateMachine.state) { state, location ->
+            val preferences = (state as? PreferenceLoadState.Ready)?.preferences
+            val coordinates = location.usableCoordinates()
+            if (preferences == null || coordinates == null) {
+                null
+            } else {
+                buildQuery(preferences, coordinates)
+            }
         }.distinctUntilChanged()
             .onEach { query ->
                 if (searchOrchestrator.shouldRefreshForCriteriaChange(previousQuery, query) && query != null) {
@@ -107,12 +121,14 @@ class StationListViewModel @Inject constructor(
 
     private fun bindUiState(searchUiProjection: Flow<StationListSearchUiProjection>) {
         combine(
-            preferences,
+            preferenceState,
             locationStateMachine.state,
             transientState,
             searchUiProjection,
             searchOrchestrator.blockingFailure,
-        ) { prefs, location, transient, resultProjection, blockingFailure ->
+        ) { currentPreferenceState, location, transient, resultProjection, blockingFailure ->
+            val readyPreferences =
+                (currentPreferenceState as? PreferenceLoadState.Ready)?.preferences
             StationListUiState(
                 currentCoordinates = location.currentCoordinates,
                 currentAddressLabel = location.currentAddressLabel,
@@ -121,15 +137,16 @@ class StationListViewModel @Inject constructor(
                 needsRecoveryRefresh = location.needsRecoveryRefresh,
                 isGpsEnabled = location.isGpsEnabled,
                 isAvailabilityKnown = location.isAvailabilityKnown,
-                isLoading = transient.isLoading,
+                isLoading =
+                transient.isLoading ||
+                    currentPreferenceState is PreferenceLoadState.Loading,
                 isRefreshing = transient.isRefreshing,
                 isStale = resultProjection.freshness is StationFreshness.Stale,
                 blockingFailure = blockingFailure,
                 stations = resultProjection.stations,
-                selectedBrandFilter = prefs.brandFilter,
-                selectedRadius = prefs.searchRadius,
-                selectedFuelType = prefs.fuelType,
-                selectedSortOrder = prefs.sortOrder,
+                preferences = readyPreferences,
+                preferenceLoadFailed = currentPreferenceState is PreferenceLoadState.Failed,
+                pendingPreferenceWrite = transient.pendingPreferenceWrite,
                 lastUpdatedAt = resultProjection.fetchedAt,
             )
         }.onEach { mutableUiState.value = it }
@@ -142,23 +159,31 @@ class StationListViewModel @Inject constructor(
                 showPermissionDeniedFeedback = false,
             )
 
-            StationListAction.RefreshRequested,
-            StationListAction.RetryClicked,
-            -> refresh(
+            StationListAction.RefreshRequested -> refresh(
                 showPermissionDeniedFeedback = true,
             )
 
-            StationListAction.SortToggleRequested -> toggleSortOrder()
+            StationListAction.RetryClicked -> {
+                if (preferenceState.value is PreferenceLoadState.Failed) {
+                    observePreferences()
+                } else {
+                    refresh(showPermissionDeniedFeedback = true)
+                }
+            }
 
-            is StationListAction.SearchRadiusSelected -> viewModelScope.launch {
+            StationListAction.SortToggleRequested -> updatePreference {
+                togglePreferredSortOrder()
+            }
+
+            is StationListAction.SearchRadiusSelected -> updatePreference {
                 updateSearchRadius(action.radius)
             }
 
-            is StationListAction.FuelTypeSelected -> viewModelScope.launch {
+            is StationListAction.FuelTypeSelected -> updatePreference {
                 updateFuelType(action.fuelType)
             }
 
-            is StationListAction.BrandFilterSelected -> viewModelScope.launch {
+            is StationListAction.BrandFilterSelected -> updatePreference {
                 updateBrandFilter(action.brandFilter)
             }
 
@@ -171,25 +196,30 @@ class StationListViewModel @Inject constructor(
 
             is StationListAction.GpsAvailabilityChanged -> locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
 
-            is StationListAction.StationClicked -> viewModelScope.launch {
-                val currentCoordinates = locationStateMachine.state.value.currentCoordinates
-                val provider = preferences.value.mapProvider
-                stationEventLogger.logSafely(
-                    StationEvent.ExternalMapOpened(
-                        stationId = action.station.id,
-                        provider = provider,
-                    ),
-                )
-                mutableEffects.emit(
-                    StationListEffect.OpenExternalMap(
-                        provider = provider,
-                        stationName = action.station.name,
-                        originLatitude = currentCoordinates?.latitude,
-                        originLongitude = currentCoordinates?.longitude,
-                        latitude = action.station.latitude,
-                        longitude = action.station.longitude,
-                    ),
-                )
+            is StationListAction.StationClicked -> {
+                val preferences =
+                    (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
+                        ?: return
+                viewModelScope.launch {
+                    val currentCoordinates = locationStateMachine.state.value.currentCoordinates
+                    val provider = preferences.mapProvider
+                    stationEventLogger.logSafely(
+                        StationEvent.ExternalMapOpened(
+                            stationId = action.station.id,
+                            provider = provider,
+                        ),
+                    )
+                    mutableEffects.emit(
+                        StationListEffect.OpenExternalMap(
+                            provider = provider,
+                            stationName = action.station.name,
+                            originLatitude = currentCoordinates?.latitude,
+                            originLongitude = currentCoordinates?.longitude,
+                            latitude = action.station.latitude,
+                            longitude = action.station.longitude,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -202,6 +232,9 @@ class StationListViewModel @Inject constructor(
     }
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
+        val preferences =
+            (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
+                ?: return
         viewModelScope.launch {
             val location = locationStateMachine.state.value
             if (!location.isGpsEnabled) {
@@ -224,7 +257,7 @@ class StationListViewModel @Inject constructor(
 
                 refreshAddressLabel(coordinates)
 
-                val query = buildQuery(preferences.value, coordinates)
+                val query = buildQuery(preferences, coordinates)
                 when (val outcome = searchOrchestrator.refresh(query)) {
                     RefreshOutcome.Success -> Unit
                     is RefreshOutcome.Failed -> handleRefreshFailure(query, outcome.reason)
@@ -336,13 +369,24 @@ class StationListViewModel @Inject constructor(
         }
     }
 
-    private fun toggleSortOrder() {
+    private fun updatePreference(update: suspend () -> UserPreferences) {
+        if (preferenceState.value !is PreferenceLoadState.Ready) return
+        if (transientState.value.pendingPreferenceWrite) return
         viewModelScope.launch {
-            val toggled = when (preferences.value.sortOrder) {
-                SortOrder.DISTANCE -> SortOrder.PRICE
-                SortOrder.PRICE -> SortOrder.DISTANCE
+            transientState.update { it.copy(pendingPreferenceWrite = true) }
+            try {
+                preferenceState.value = PreferenceLoadState.Ready(update())
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                mutableEffects.emit(
+                    StationListEffect.ShowSnackbar(
+                        StringResource.fromId(R.string.station_list_preference_save_failed),
+                    ),
+                )
+            } finally {
+                transientState.update { it.copy(pendingPreferenceWrite = false) }
             }
-            updatePreferredSortOrder(toggled)
         }
     }
 
@@ -370,7 +414,19 @@ class StationListViewModel @Inject constructor(
     )
 }
 
-private data class StationListTransientState(val isLoading: Boolean = false, val isRefreshing: Boolean = false)
+private sealed interface PreferenceLoadState {
+    data object Loading : PreferenceLoadState
+
+    data class Ready(val preferences: UserPreferences) : PreferenceLoadState
+
+    data object Failed : PreferenceLoadState
+}
+
+private data class StationListTransientState(
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val pendingPreferenceWrite: Boolean = false,
+)
 
 private data class StationListSearchUiProjection(
     val sourceStations: List<StationListEntry> = emptyList(),

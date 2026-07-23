@@ -148,6 +148,9 @@ fun StationListScreen(
 
 @Composable
 private fun StationListContent(uiState: StationListUiState, onAction: (StationListAction) -> Unit, modifier: Modifier = Modifier) {
+    val preferences = requireNotNull(uiState.preferences) {
+        "Results require ready user preferences"
+    }
     val banners = StationListBannerModel.from(uiState)
     val spacing = GasStationTheme.spacing
     val decisionSummary = StationListDecisionSummary.from(uiState.stations)
@@ -201,7 +204,7 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
             ) { index, station ->
                 StationCard(
                     station = station,
-                    fuelTypeLabel = uiState.selectedFuelType.toLabel(),
+                    fuelTypeLabel = preferences.fuelType.toLabel(),
                     modifier = Modifier.animateContentSize(),
                     onClick = { onAction(StationListAction.StationClicked(station)) },
                     onWatchToggle = {
