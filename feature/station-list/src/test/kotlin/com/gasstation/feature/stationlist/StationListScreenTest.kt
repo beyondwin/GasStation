@@ -295,6 +295,38 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `results transition to preference failure keeps outgoing result snapshot safe`() {
+        var uiState by mutableStateOf(
+            StationListUiState(
+                permissionState = LocationPermissionState.PreciseGranted,
+                stations = listOf(testStation()),
+                preferences = UserPreferences.default(),
+            ),
+        )
+
+        composeRule.setContent {
+            StationListScreen(
+                uiState = uiState,
+                snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                onAction = {},
+                onRequestPermissions = {},
+                onOpenLocationSettings = {},
+            )
+        }
+        composeRule.onNodeWithTag(STATION_LIST_FILTER_RAIL_TAG).assertExists()
+
+        composeRule.runOnUiThread {
+            uiState = uiState.copy(
+                preferences = null,
+                preferenceLoadFailed = true,
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("설정을 불러오지 못했습니다.").assertExists()
+    }
+
+    @Test
     fun `decision summary visibly renders count lowest average and savings`() {
         composeRule.setContent {
             Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {

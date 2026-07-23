@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,6 +56,7 @@ class StationListViewModel @Inject constructor(
 ) : ViewModel() {
     private val preferenceState = MutableStateFlow<PreferenceLoadState>(PreferenceLoadState.Loading)
     private var preferenceObservationJob: Job? = null
+    private val preferenceWriteInFlight = AtomicBoolean(false)
     private val transientState = MutableStateFlow(StationListTransientState())
     private val mutableUiState = MutableStateFlow(StationListUiState())
     private val mutableEffects = MutableSharedFlow<StationListEffect>()
@@ -371,9 +373,9 @@ class StationListViewModel @Inject constructor(
 
     private fun updatePreference(update: suspend () -> UserPreferences) {
         if (preferenceState.value !is PreferenceLoadState.Ready) return
-        if (transientState.value.pendingPreferenceWrite) return
+        if (!preferenceWriteInFlight.compareAndSet(false, true)) return
+        transientState.update { it.copy(pendingPreferenceWrite = true) }
         viewModelScope.launch {
-            transientState.update { it.copy(pendingPreferenceWrite = true) }
             try {
                 preferenceState.value = PreferenceLoadState.Ready(update())
             } catch (cancel: CancellationException) {
@@ -386,6 +388,7 @@ class StationListViewModel @Inject constructor(
                 )
             } finally {
                 transientState.update { it.copy(pendingPreferenceWrite = false) }
+                preferenceWriteInFlight.set(false)
             }
         }
     }

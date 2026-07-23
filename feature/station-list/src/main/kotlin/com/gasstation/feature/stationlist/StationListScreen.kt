@@ -118,15 +118,16 @@ fun StationListScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { innerPadding ->
             AnimatedContent(
-                targetState = uiState.toBodyState(),
+                targetState = uiState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
+                contentKey = { state -> state.toBodyState() },
                 transitionSpec = { subtleContentTransform() },
                 label = "station-list-body",
-            ) { bodyState ->
+            ) { stateSnapshot ->
                 val fillModifier = Modifier.fillMaxSize()
-                when (bodyState) {
+                when (val bodyState = stateSnapshot.toBodyState()) {
                     StationListBodyState.PermissionRequired -> PermissionRequired(fillModifier, onRequestPermissions)
 
                     StationListBodyState.GpsRequired -> GpsRequired(fillModifier, onOpenLocationSettings)
@@ -139,7 +140,7 @@ fun StationListScreen(
                         onAction = onAction,
                     )
 
-                    StationListBodyState.Results -> StationListResultsPane(uiState, onAction, fillModifier)
+                    StationListBodyState.Results -> StationListResultsPane(stateSnapshot, onAction, fillModifier)
                 }
             }
         }

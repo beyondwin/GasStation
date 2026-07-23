@@ -122,6 +122,47 @@ class StationListViewModelTest {
     }
 
     @Test
+    fun `retry after preference read failure activates only the newly persisted query`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture()
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+        val expected = UserPreferences.default().copy(
+            searchRadius = SearchRadius.KM_5,
+            fuelType = FuelType.DIESEL,
+            brandFilter = BrandFilter.GSC,
+            sortOrder = SortOrder.PRICE,
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        repository.refreshedQueries.clear()
+        repository.observedQueries.clear()
+
+        settings.fail(IllegalStateException("datastore read failed"))
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.preferenceLoadFailed)
+
+        viewModel.onAction(StationListAction.RetryClicked)
+        settings.emit(expected)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.preferenceLoadFailed)
+        assertEquals(expected, viewModel.uiState.value.preferences)
+        assertEquals(1, repository.observedQueries.size)
+        assertTrue(repository.refreshedQueries.isEmpty())
+        with(repository.observedQueries.single()) {
+            assertEquals(SearchRadius.KM_5, radius)
+            assertEquals(FuelType.DIESEL, fuelType)
+            assertEquals(BrandFilter.GSC, brandFilter)
+            assertEquals(SortOrder.PRICE, sortOrder)
+            assertEquals(Coordinates(37.498095, 127.027610), coordinates)
+        }
+    }
+
+    @Test
     fun `filter rail actions update preferences through domain use cases`() = runTest(dispatcher) {
         val repository = FakeStationRepository(emptySearchResult())
         val settings = SettingsUseCaseTestFixture()
@@ -137,6 +178,28 @@ class StationListViewModelTest {
         assertEquals(SearchRadius.KM_5, settings.currentPreferences.searchRadius)
         assertEquals(FuelType.DIESEL, settings.currentPreferences.fuelType)
         assertEquals(BrandFilter.ALTEUL, settings.currentPreferences.brandFilter)
+    }
+
+    @Test
+    fun `preference writes admit only one immediate action while first is suspended`() = runTest(dispatcher) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val settings = SettingsUseCaseTestFixture()
+        val suspendedWrite = settings.suspendWrites()
+        val viewModel = stationListViewModel(repository, settings, FakeLocationRepository())
+
+        viewModel.onAction(StationListAction.SearchRadiusSelected(SearchRadius.KM_5))
+        viewModel.onAction(StationListAction.FuelTypeSelected(FuelType.DIESEL))
+        runCurrent()
+
+        val callsBeforeRelease = settings.updateCallCount
+        assertTrue(suspendedWrite.started.isCompleted)
+        suspendedWrite.release.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, callsBeforeRelease)
+        assertEquals(SearchRadius.KM_5, settings.currentPreferences.searchRadius)
+        assertEquals(FuelType.GASOLINE, settings.currentPreferences.fuelType)
+        assertFalse(viewModel.uiState.value.pendingPreferenceWrite)
     }
 
     @Test
