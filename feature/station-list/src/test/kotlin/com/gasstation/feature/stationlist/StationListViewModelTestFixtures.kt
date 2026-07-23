@@ -13,10 +13,10 @@ import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.CompletableDeferred
 
 internal class FakeStationRepository(
     result: StationSearchResult,

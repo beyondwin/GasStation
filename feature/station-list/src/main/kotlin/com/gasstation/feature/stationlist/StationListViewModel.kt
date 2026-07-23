@@ -488,11 +488,10 @@ private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates
     permissionState != LocationPermissionState.Denied && isGpsEnabled
 }
 
-private fun LocationState.hasEligibleCoordinates(coordinates: Coordinates): Boolean =
-    permissionState != LocationPermissionState.Denied &&
-        isAvailabilityKnown &&
-        isGpsEnabled &&
-        currentCoordinates == coordinates
+private fun LocationState.hasEligibleCoordinates(coordinates: Coordinates): Boolean = permissionState != LocationPermissionState.Denied &&
+    isAvailabilityKnown &&
+    isGpsEnabled &&
+    currentCoordinates == coordinates
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null
