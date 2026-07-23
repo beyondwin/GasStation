@@ -11,6 +11,7 @@ android {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:model"))
+    implementation(project(":domain:settings"))
     implementation(project(":domain:station"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

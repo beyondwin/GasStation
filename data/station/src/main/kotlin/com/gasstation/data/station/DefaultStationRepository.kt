@@ -6,7 +6,6 @@ import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.database.station.WatchedStationDao
 import com.gasstation.core.database.station.WatchedStationEntity
-import com.gasstation.core.model.Coordinates
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.data.station.mapper.toEntity
 import com.gasstation.domain.station.StationEventLogger
@@ -20,6 +19,7 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -106,7 +106,7 @@ class DefaultStationRepository @Inject constructor(
         hasCachedSnapshot = true,
     )
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> =
+    override fun observeWatchlist(query: WatchlistQuery): Flow<List<WatchedStationSummary>> =
         watchedStationDao.observeWatchedStations().flatMapLatest { watchedStations ->
             if (watchedStations.isEmpty()) {
                 return@flatMapLatest flowOf(emptyList())
@@ -114,14 +114,20 @@ class DefaultStationRepository @Inject constructor(
 
             val stationIds = watchedStations.map { it.stationId }.distinct()
             combine(
-                stationCacheDao.observeLatestStationsByIds(stationIds),
-                stationPriceHistoryDao.observeByStationIds(stationIds),
+                stationCacheDao.observeLatestStationsByIdsAndFuelType(
+                    stationIds = stationIds,
+                    fuelType = query.fuelType.name,
+                ),
+                stationPriceHistoryDao.observeByStationIdsAndFuelType(
+                    stationIds = stationIds,
+                    fuelType = query.fuelType.name,
+                ),
             ) { cachedStations, historyRows ->
                 val latestCacheByStationId = cachedStations.associateBy { it.stationId }
                 val historyRowsByStationId = historyRows.groupByStationId()
                 watchedStations.mapNotNull { watchedStation ->
                     watchedStation.toWatchedSummary(
-                        origin = origin,
+                        origin = query.origin,
                         cachedStation = latestCacheByStationId[watchedStation.stationId],
                         history = historyRowsByStationId[watchedStation.stationId].orEmpty(),
                     )
@@ -210,8 +216,12 @@ class DefaultStationRepository @Inject constructor(
                 ),
             )
         } else {
-            watchedStationDao.delete(station.id)
+            removeWatchedStation(station.id)
         }
+    }
+
+    override suspend fun removeWatchedStation(stationId: String) {
+        watchedStationDao.delete(stationId)
     }
 
     private companion object {

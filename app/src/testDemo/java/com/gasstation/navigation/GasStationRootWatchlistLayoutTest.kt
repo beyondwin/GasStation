@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.gasStationBrandLabel
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.FuelType
 import com.gasstation.feature.watchlist.WatchlistItemUiModel
 import com.gasstation.feature.watchlist.WatchlistScreen
 import com.gasstation.feature.watchlist.WatchlistSummaryUiModel
@@ -92,6 +93,11 @@ class GasStationRootWatchlistLayoutTest {
                 longitude = 127.02,
             )
         }
-        return WatchlistUiState(items, WatchlistSummaryUiModel.from(items))
+        return WatchlistUiState(
+            isLoading = false,
+            fuelType = FuelType.GASOLINE,
+            stations = items,
+            summary = WatchlistSummaryUiModel.from(items),
+        )
     }
 }

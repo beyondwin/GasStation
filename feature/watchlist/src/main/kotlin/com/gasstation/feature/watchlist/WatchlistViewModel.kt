@@ -4,23 +4,36 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.settings.model.UserPreferences
+import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.logSafely
-import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
+import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
-import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
+import com.gasstation.domain.station.usecase.RemoveWatchedStationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class WatchlistViewModel @Inject constructor(
-    observeWatchlist: ObserveWatchlistUseCase,
-    private val updateWatchState: UpdateWatchStateUseCase,
+    private val observeWatchlist: ObserveWatchlistUseCase,
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
+    private val removeWatchedStation: RemoveWatchedStationUseCase,
     savedStateHandle: SavedStateHandle,
     private val stationEventLogger: StationEventLogger,
 ) : ViewModel() {
@@ -28,38 +41,63 @@ class WatchlistViewModel @Inject constructor(
         latitude = savedStateHandle.requiredCoordinate("latitude"),
         longitude = savedStateHandle.requiredCoordinate("longitude"),
     )
-    private var hasLoggedCompareViewed = false
-    private var stationsById: Map<String, Station> = emptyMap()
+    private val mutableUiState = MutableStateFlow(WatchlistUiState())
+    val uiState: StateFlow<WatchlistUiState> = mutableUiState.asStateFlow()
 
-    val uiState = observeWatchlist(origin)
-        .map { summaries ->
-            stationsById = summaries.associate { it.station.id to it.station }
-            if (!hasLoggedCompareViewed) {
-                hasLoggedCompareViewed = true
-                stationEventLogger.logSafely(StationEvent.CompareViewed(count = summaries.size))
+    private var hasLoggedCompareViewed = false
+    private var observationJob: Job? = null
+
+    init {
+        observe()
+    }
+
+    private fun observe() {
+        observationJob?.cancel()
+        mutableUiState.value = WatchlistUiState(isLoading = true)
+        observationJob = observeUserPreferences()
+            .map { preferences: UserPreferences -> preferences.fuelType }
+            .distinctUntilChanged()
+            .flatMapLatest { fuelType ->
+                observeWatchlist(WatchlistQuery(origin, fuelType))
+                    .map { summaries -> fuelType to summaries }
             }
-            val stations = summaries.map(::WatchlistItemUiModel)
-            WatchlistUiState(
-                stations = stations,
-                summary = WatchlistSummaryUiModel.from(stations),
-            )
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = WatchlistUiState(),
-        )
+            .onEach { (fuelType, summaries) ->
+                val items = summaries.map(::WatchlistItemUiModel)
+                mutableUiState.value = WatchlistUiState(
+                    isLoading = false,
+                    fuelType = fuelType,
+                    stations = items,
+                    summary = WatchlistSummaryUiModel.from(items),
+                )
+                if (!hasLoggedCompareViewed) {
+                    hasLoggedCompareViewed = true
+                    stationEventLogger.logSafely(
+                        StationEvent.CompareViewed(count = items.size),
+                    )
+                }
+            }
+            .catch { throwable ->
+                if (throwable is CancellationException) throw throwable
+                mutableUiState.value = WatchlistUiState(
+                    isLoading = false,
+                    loadFailed = true,
+                )
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun onAction(action: WatchlistAction) {
         when (action) {
-            is WatchlistAction.RemoveClicked -> {
-                val station = stationsById[action.stationId] ?: return
-                viewModelScope.launch {
-                    updateWatchState(station, false)
-                    stationEventLogger.logSafely(
-                        StationEvent.WatchToggled(stationId = station.id, watched = false),
-                    )
-                }
+            WatchlistAction.RetryLoad -> observe()
+
+            is WatchlistAction.RemoveClicked -> viewModelScope.launch {
+                removeWatchedStation(action.stationId)
+                stationEventLogger.logSafely(
+                    StationEvent.WatchToggled(
+                        stationId = action.stationId,
+                        watched = false,
+                    ),
+                )
             }
         }
     }

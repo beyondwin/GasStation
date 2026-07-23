@@ -14,6 +14,7 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -210,7 +211,7 @@ private class FakeOrchestratorStationRepository(var refreshFailure: Throwable? =
         return resultFlow(query)
     }
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
+    override fun observeWatchlist(query: WatchlistQuery): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
@@ -218,6 +219,8 @@ private class FakeOrchestratorStationRepository(var refreshFailure: Throwable? =
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
+
+    override suspend fun removeWatchedStation(stationId: String) = Unit
 
     private fun resultFlow(query: StationQuery): MutableSharedFlow<StationSearchResult> = resultFlows.getOrPut(query) {
         MutableSharedFlow(replay = 1, extraBufferCapacity = 1)

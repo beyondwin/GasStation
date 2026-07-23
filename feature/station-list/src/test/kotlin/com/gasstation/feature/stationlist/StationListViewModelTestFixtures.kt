@@ -12,6 +12,7 @@ import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +50,7 @@ internal class FakeStationRepository(
         return observedResults ?: state
     }
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
+    override fun observeWatchlist(query: WatchlistQuery): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshedQueries += query
@@ -59,6 +60,8 @@ internal class FakeStationRepository(
     override suspend fun updateWatchState(station: Station, watched: Boolean) {
         watchStateUpdates += station.id to watched
     }
+
+    override suspend fun removeWatchedStation(stationId: String) = Unit
 }
 
 internal class FakeLocationRepository(

@@ -23,6 +23,7 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
@@ -218,11 +219,13 @@ private class NoOpRouteStationRepository : StationRepository {
         ),
     )
 
-    override fun observeWatchlist(origin: Coordinates): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
+    override fun observeWatchlist(query: WatchlistQuery): Flow<List<WatchedStationSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
         refreshRequests += 1
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
+
+    override suspend fun removeWatchedStation(stationId: String) = Unit
 }

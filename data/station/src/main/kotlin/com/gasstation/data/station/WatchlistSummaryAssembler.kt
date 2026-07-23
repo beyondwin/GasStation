@@ -7,8 +7,6 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.distanceTo
-import com.gasstation.data.station.mapper.toDomainStation
-import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.WatchedStationSummary
 import java.time.Instant
@@ -18,74 +16,54 @@ internal fun WatchedStationEntity.toWatchedSummary(
     cachedStation: StationCacheEntity?,
     history: List<StationPriceHistoryEntity>,
 ): WatchedStationSummary? {
-    val cachedSnapshot = cachedStation?.toDomainStation(origin)
-    val validCachedStation = cachedStation?.takeIf { cachedSnapshot != null }
-    val historyForContext = history.historyForWatchlistContext(cachedStation?.fuelType)
-    val station = resolveStation(origin, cachedSnapshot, historyForContext) ?: return null
-    val priceDelta = resolvePriceDelta(validCachedStation, historyForContext)
+    val savedCoordinates = Coordinates.ofOrNull(latitude, longitude) ?: return null
+    val validCachePrice = cachedStation?.priceWon?.let(MoneyWon::ofOrNull)
+    val validCacheCoordinates = cachedStation?.let {
+        Coordinates.ofOrNull(it.latitude, it.longitude)
+    }
+    val historyRows = history.sortedByDescending { it.fetchedAtEpochMillis }
+    val historyPrice = historyRows.firstOrNull()?.priceWon?.let(MoneyWon::ofOrNull)
+    val price = validCachePrice ?: historyPrice
+    val coordinates = validCacheCoordinates ?: savedCoordinates
+    val useCachedIdentity = validCachePrice != null && validCacheCoordinates != null
+
     return WatchedStationSummary(
-        station = station,
-        priceDelta = priceDelta,
-        lastSeenAt = resolveLastSeenAt(validCachedStation, historyForContext),
+        id = stationId,
+        name = cachedStation?.name?.takeIf { useCachedIdentity } ?: name,
+        brand = cachedStation?.brandCode?.takeIf { useCachedIdentity }?.let(Brand::fromCode)
+            ?: Brand.fromCode(brandCode),
+        price = price,
+        distance = origin.distanceTo(coordinates),
+        coordinates = coordinates,
+        priceDelta = resolvePriceDelta(
+            cachedStation = cachedStation?.takeIf { validCachePrice != null },
+            history = historyRows,
+            currentPrice = price,
+        ),
+        lastSeenAt = cachedStation?.fetchedAtEpochMillis?.takeIf { validCachePrice != null }?.let(Instant::ofEpochMilli)
+            ?: historyRows.firstOrNull()?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli),
     )
 }
 
-private fun WatchedStationEntity.resolveStation(
-    origin: Coordinates,
-    cachedSnapshot: Station?,
-    historyForContext: List<StationPriceHistoryEntity>,
-): Station? {
-    val latestPrice = historyForContext.firstOrNull()
-    return when {
-        cachedSnapshot != null -> cachedSnapshot
+private fun resolvePriceDelta(
+    cachedStation: StationCacheEntity?,
+    history: List<StationPriceHistoryEntity>,
+    currentPrice: MoneyWon?,
+): StationPriceDelta = when {
+    cachedStation != null -> StationPriceDelta.from(
+        previousPriceWon = historyRowsBefore(
+            fetchedAtEpochMillis = cachedStation.fetchedAtEpochMillis,
+            history = history,
+        ).firstOrNull()?.priceWon?.let(MoneyWon::ofOrNull)?.value,
+        currentPriceWon = cachedStation.priceWon,
+    )
 
-        latestPrice != null -> {
-            val stationCoordinates = Coordinates.ofOrNull(latitude, longitude) ?: return null
-            val price = MoneyWon.ofOrNull(latestPrice.priceWon) ?: return null
-            Station(
-                id = stationId,
-                name = name,
-                brand = Brand.fromCode(brandCode),
-                price = price,
-                distance = origin.distanceTo(stationCoordinates),
-                coordinates = stationCoordinates,
-            )
-        }
+    currentPrice != null -> StationPriceDelta.from(
+        previousPriceWon = history.drop(1).firstOrNull()?.priceWon?.let(MoneyWon::ofOrNull)?.value,
+        currentPriceWon = currentPrice.value,
+    )
 
-        else -> null
-    }
-}
-
-private fun resolvePriceDelta(cachedStation: StationCacheEntity?, historyForContext: List<StationPriceHistoryEntity>): StationPriceDelta =
-    when {
-        cachedStation != null -> StationPriceDelta.from(
-            previousPriceWon = historyRowsBefore(
-                fetchedAtEpochMillis = cachedStation.fetchedAtEpochMillis,
-                history = historyForContext,
-            ).firstOrNull()?.priceWon,
-            currentPriceWon = cachedStation.priceWon,
-        )
-
-        historyForContext.isNotEmpty() -> StationPriceDelta.from(
-            previousPriceWon = historyForContext.drop(1).firstOrNull()?.priceWon,
-            currentPriceWon = historyForContext.first().priceWon,
-        )
-
-        else -> StationPriceDelta.Unavailable
-    }
-
-private fun resolveLastSeenAt(cachedStation: StationCacheEntity?, historyForContext: List<StationPriceHistoryEntity>): Instant? =
-    cachedStation?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli)
-        ?: historyForContext.firstOrNull()?.fetchedAtEpochMillis?.let(Instant::ofEpochMilli)
-
-private fun List<StationPriceHistoryEntity>.historyForWatchlistContext(cachedFuelType: String?): List<StationPriceHistoryEntity> {
-    if (isEmpty()) return emptyList()
-
-    val fuelType = cachedFuelType
-        ?: maxBy { it.fetchedAtEpochMillis }.fuelType
-
-    return filter { it.fuelType == fuelType }
-        .sortedByDescending { it.fetchedAtEpochMillis }
+    else -> StationPriceDelta.Unavailable
 }
 
 private fun historyRowsBefore(fetchedAtEpochMillis: Long, history: List<StationPriceHistoryEntity>): List<StationPriceHistoryEntity> =

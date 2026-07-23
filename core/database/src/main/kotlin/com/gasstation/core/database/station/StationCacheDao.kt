@@ -79,6 +79,39 @@ abstract class StationCacheDao {
     )
     abstract fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>>
 
+    @Query(
+        """
+        SELECT * FROM station_cache AS latest
+        WHERE latest.stationId IN (:stationIds)
+          AND latest.fuelType = :fuelType
+          AND NOT EXISTS (
+              SELECT 1 FROM station_cache AS candidate
+              WHERE candidate.stationId = latest.stationId
+                AND candidate.fuelType = :fuelType
+                AND (
+                    candidate.fetchedAtEpochMillis > latest.fetchedAtEpochMillis
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.radiusMeters < latest.radiusMeters
+                    )
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.radiusMeters = latest.radiusMeters
+                        AND candidate.latitudeBucket < latest.latitudeBucket
+                    )
+                    OR (
+                        candidate.fetchedAtEpochMillis = latest.fetchedAtEpochMillis
+                        AND candidate.radiusMeters = latest.radiusMeters
+                        AND candidate.latitudeBucket = latest.latitudeBucket
+                        AND candidate.longitudeBucket < latest.longitudeBucket
+                    )
+                )
+          )
+        ORDER BY latest.stationId ASC
+        """,
+    )
+    abstract fun observeLatestStationsByIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationCacheEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(entities: List<StationCacheEntity>)
 

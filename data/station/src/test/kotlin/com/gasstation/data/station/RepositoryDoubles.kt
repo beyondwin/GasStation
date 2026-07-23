@@ -82,6 +82,22 @@ internal class RecordingStationCacheDao : StationCacheDao() {
             .map { rows -> rows.maxBy { it.fetchedAtEpochMillis } }
     }
 
+    override fun observeLatestStationsByIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationCacheEntity>> =
+        entities.map { current ->
+            current
+                .filter { it.stationId in stationIds && it.fuelType == fuelType }
+                .groupBy { it.stationId }
+                .values
+                .map { rows ->
+                    rows.sortedWith(
+                        compareByDescending<StationCacheEntity> { it.fetchedAtEpochMillis }
+                            .thenBy { it.radiusMeters }
+                            .thenBy { it.latitudeBucket }
+                            .thenBy { it.longitudeBucket },
+                    ).first()
+                }
+        }
+
     override fun observeSnapshot(
         latitudeBucket: Int,
         longitudeBucket: Int,

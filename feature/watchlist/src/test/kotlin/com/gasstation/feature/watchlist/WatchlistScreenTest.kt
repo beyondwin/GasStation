@@ -3,6 +3,9 @@ package com.gasstation.feature.watchlist
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -18,7 +22,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.GasStationTheme
@@ -26,6 +30,7 @@ import com.gasstation.core.designsystem.gasStationBrandLabel
 import com.gasstation.core.designsystem.gasStationPriceDigits
 import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -98,6 +103,7 @@ class WatchlistScreenTest {
     fun `saved comparison summary exposes count average and latest check`() {
         renderFiveRows()
 
+        composeRule.onNodeWithText("휘발유 기준").assertExists()
         composeRule.onNodeWithText("저장한 5곳").assertExists()
         composeRule.onNodeWithText("평균 1,700원").assertExists()
         composeRule.onNodeWithText("최근 확인 7월 17일 11:00").assertExists()
@@ -178,7 +184,9 @@ class WatchlistScreenTest {
         composeRule.onNodeWithText("강남 제일 주유소").assertIsDisplayed()
         composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-1").assertIsDisplayed()
 
-        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-5").performScrollTo()
+        composeRule.onNodeWithTag(WATCHLIST_LIST_TAG).performScrollToNode(
+            hasTestTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-5"),
+        )
         composeRule.onNodeWithText("1,720").assertIsDisplayed()
         composeRule.onNodeWithText("비교 주유소 5").assertIsDisplayed()
         composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-5").assertIsDisplayed()
@@ -190,7 +198,10 @@ class WatchlistScreenTest {
         composeRule.setContent {
             GasStationTheme {
                 WatchlistScreen(
-                    uiState = WatchlistUiState(),
+                    uiState = WatchlistUiState(
+                        isLoading = false,
+                        fuelType = FuelType.GASOLINE,
+                    ),
                     onAction = {},
                     onNavigateNearby = { nearbyClicks += 1 },
                 )
@@ -200,6 +211,76 @@ class WatchlistScreenTest {
         composeRule.onNodeWithText("저장한 주유소가 없습니다.").assertExists()
         composeRule.onNodeWithText("주변 주유소 보기").performClick()
         assertEquals(1, nearbyClicks)
+    }
+
+    @Test
+    fun `loading and failure states do not masquerade as an empty watchlist`() {
+        val actions = mutableListOf<WatchlistAction>()
+        var uiState by mutableStateOf(WatchlistUiState(isLoading = true))
+        composeRule.setContent {
+            GasStationTheme {
+                WatchlistScreen(
+                    uiState = uiState,
+                    onAction = actions::add,
+                    onNavigateNearby = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("관심 주유소를 불러오는 중입니다.").assertExists()
+        composeRule.onNodeWithText("저장한 주유소가 없습니다.").assertDoesNotExist()
+
+        composeRule.runOnIdle {
+            uiState = WatchlistUiState(isLoading = false, loadFailed = true)
+        }
+
+        composeRule.onNodeWithText("관심 주유소를 불러오지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("다시 시도").performClick()
+        assertEquals(listOf(WatchlistAction.RetryLoad), actions)
+    }
+
+    @Test
+    fun `unavailable selected fuel keeps identity distance and removal without won or delta`() {
+        val unavailable = WatchlistItemUiModel(
+            id = "station-unavailable",
+            name = "저장 주유소",
+            brand = Brand.GSC,
+            brandLabel = Brand.GSC.gasStationBrandLabel(),
+            priceWon = null,
+            priceLabel = null,
+            priceNumberLabel = null,
+            priceUnitLabel = null,
+            distanceLabel = "0.3km",
+            distanceNumberLabel = "0.3",
+            distanceUnitLabel = "km",
+            priceDeltaWon = null,
+            lastSeenAt = null,
+            lastSeenLabel = "-",
+            latitude = 37.49,
+            longitude = 127.02,
+        )
+        composeRule.setContent {
+            GasStationTheme {
+                WatchlistScreen(
+                    uiState = WatchlistUiState(
+                        isLoading = false,
+                        fuelType = FuelType.DIESEL,
+                        stations = listOf(unavailable),
+                        summary = WatchlistSummaryUiModel.from(listOf(unavailable)),
+                    ),
+                    onAction = {},
+                    onNavigateNearby = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("경유 기준").assertExists()
+        composeRule.onNodeWithText("선택 유종 가격 없음").assertExists()
+        composeRule.onNodeWithText("저장 주유소").assertExists()
+        composeRule.onNodeWithText("0.3km").assertExists()
+        composeRule.onNodeWithTag(WATCHLIST_REMOVE_TAG_PREFIX + "station-unavailable").assertExists()
+        composeRule.onAllNodesWithText("원").assertCountEquals(0)
+        composeRule.onAllNodesWithText("변동 없음 · -").assertCountEquals(0)
     }
 
     @Test
@@ -246,12 +327,16 @@ class WatchlistScreenTest {
                 )
             }
         return WatchlistUiState(
+            isLoading = false,
+            fuelType = FuelType.GASOLINE,
             stations = items,
             summary = WatchlistSummaryUiModel.from(items),
         )
     }
 
     private fun deltaState(): WatchlistUiState = WatchlistUiState(
+        isLoading = false,
+        fuelType = FuelType.GASOLINE,
         stations = listOf(
             testItem("rise", 14, WatchlistPriceDeltaTone.Rise),
             testItem("fall", 27, WatchlistPriceDeltaTone.Fall),

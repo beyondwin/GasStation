@@ -227,6 +227,41 @@ class StationCacheDaoTest {
     }
 
     @Test
+    fun `latest watchlist cache query returns only requested fuel`() = runBlocking {
+        val gasolineKey = CacheKey(
+            latitudeBucket = 16649,
+            longitudeBucket = 50811,
+            radiusMeters = 3_000,
+            fuelType = "GASOLINE",
+        )
+        val dieselKey = gasolineKey.copy(fuelType = "DIESEL")
+        dao.upsertAll(
+            listOf(
+                station(
+                    cacheKey = gasolineKey,
+                    stationId = "station-1",
+                    priceWon = 1_700,
+                    fetchedAtEpochMillis = 100,
+                ),
+                station(
+                    cacheKey = dieselKey,
+                    stationId = "station-1",
+                    priceWon = 1_550,
+                    fetchedAtEpochMillis = 200,
+                ),
+            ),
+        )
+
+        val rows = dao.observeLatestStationsByIdsAndFuelType(
+            stationIds = listOf("station-1"),
+            fuelType = "GASOLINE",
+        ).first()
+
+        assertEquals(listOf("GASOLINE"), rows.map { it.fuelType })
+        assertEquals(listOf(1_700), rows.map { it.priceWon })
+    }
+
+    @Test
     fun `replaceSnapshot records empty snapshot metadata`() = runBlocking {
         val cacheKey = CacheKey(
             latitudeBucket = 16649,

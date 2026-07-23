@@ -6,12 +6,14 @@ import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
+import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationPriceDelta
+import com.gasstation.domain.station.model.WatchlistQuery
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,136 @@ import java.time.ZoneOffset
 class WatchlistRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
+
+    @Test
+    fun `watchlist uses requested fuel and never substitutes newer other fuel`() = runBlocking {
+        val repository = repository(
+            stationCacheDao = RecordingWatchlistStationCacheDao(
+                cachedStations = listOf(
+                    cachedStation(
+                        stationId = "station-1",
+                        name = "Gasoline snapshot",
+                        brandCode = "GSC",
+                        priceWon = 1_700,
+                        latitude = 37.498095,
+                        longitude = 127.027610,
+                        fetchedAt = now.minusSeconds(60),
+                        fuelType = "GASOLINE",
+                    ),
+                    cachedStation(
+                        stationId = "station-1",
+                        name = "Diesel snapshot",
+                        brandCode = "GSC",
+                        priceWon = 1_520,
+                        latitude = 37.498095,
+                        longitude = 127.027610,
+                        fetchedAt = now.minusSeconds(10),
+                        fuelType = "DIESEL",
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-1",
+                        watchedAt = now,
+                        name = "Saved",
+                        brandCode = "GSC",
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(
+            WatchlistQuery(
+                origin = Coordinates(37.498095, 127.027610),
+                fuelType = FuelType.GASOLINE,
+            ),
+        ).first().single()
+
+        assertEquals(1_700, item.price?.value)
+    }
+
+    @Test
+    fun `watchlist retains saved identity when selected fuel has no price`() = runBlocking {
+        val repository = repository(
+            stationCacheDao = RecordingWatchlistStationCacheDao(
+                cachedStations = listOf(
+                    cachedStation(
+                        stationId = "station-1",
+                        name = "Other Fuel Identity",
+                        brandCode = "HDO",
+                        priceWon = 1_700,
+                        latitude = 37.400000,
+                        longitude = 127.100000,
+                        fetchedAt = now.minusSeconds(10),
+                        fuelType = "GASOLINE",
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-1",
+                        name = "Saved Without Diesel",
+                        brandCode = "RTX",
+                        latitude = 37.498095,
+                        longitude = 127.027610,
+                        watchedAt = now,
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(
+            WatchlistQuery(
+                origin = Coordinates(37.500000, 127.030000),
+                fuelType = FuelType.DIESEL,
+            ),
+        ).first().single()
+
+        assertEquals("station-1", item.id)
+        assertEquals("Saved Without Diesel", item.name)
+        assertEquals(Brand.RTX, item.brand)
+        assertEquals(Coordinates(37.498095, 127.027610), item.coordinates)
+        assertEquals(null, item.price)
+        assertEquals(StationPriceDelta.Unavailable, item.priceDelta)
+        assertEquals(null, item.lastSeenAt)
+    }
+
+    @Test
+    fun `watchlist preserves watched time order independent of nearby filters and sort`() = runBlocking {
+        val repository = repository(
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(stationId = "older", watchedAt = now.minusSeconds(30)),
+                    watched(stationId = "newer", watchedAt = now.minusSeconds(5)),
+                ),
+            ),
+        )
+
+        val items = repository.observeWatchlist(
+            WatchlistQuery(
+                origin = Coordinates(37.498095, 127.027610),
+                fuelType = FuelType.PREMIUM_GASOLINE,
+            ),
+        ).first()
+
+        assertEquals(listOf("newer", "older"), items.map { it.id })
+    }
+
+    @Test
+    fun `removeWatchedStation deletes saved row by stable id`() = runBlocking {
+        val watchedStationDao = RecordingWatchedStationDao(
+            watchedStations = listOf(watched(stationId = "station-1", watchedAt = now)),
+        )
+        val repository = repository(watchedStationDao = watchedStationDao)
+
+        repository.removeWatchedStation("station-1")
+
+        assertTrue(watchedStationDao.currentWatchedStations().isEmpty())
+        assertEquals(listOf("station-1"), watchedStationDao.deletedStationIds)
+    }
 
     @Test
     fun `observeWatchlist returns watched stations sorted by watched time with latest known pricing`() = runBlocking {
@@ -72,16 +204,16 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        val items = repository.observeWatchlist(origin).first()
+        val items = repository.observeWatchlist(watchlistQuery(origin)).first()
 
-        assertEquals(listOf("station-1", "station-2"), items.map { it.station.id })
+        assertEquals(listOf("station-1", "station-2"), items.map { it.id })
         assertEquals(StationPriceDelta.Decreased(30), items[0].priceDelta)
         assertEquals(StationPriceDelta.Unavailable, items[1].priceDelta)
         assertEquals(now.minusSeconds(30), items[0].lastSeenAt)
         assertEquals(now.minusSeconds(90), items[1].lastSeenAt)
-        assertEquals("Fallback One", items[0].station.name)
-        assertEquals(1_590, items[1].station.price.value)
-        assertTrue(items.all { it.station.distance.value >= 0 })
+        assertEquals("Fallback One", items[0].name)
+        assertEquals(1_590, items[1].price?.value)
+        assertTrue(items.all { it.distance.value >= 0 })
     }
 
     @Test
@@ -115,11 +247,11 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        val item = repository.observeWatchlist(origin).first().single()
+        val item = repository.observeWatchlist(watchlistQuery(origin)).first().single()
 
-        assertEquals("station-3", item.station.id)
-        assertEquals("Cached Snapshot", item.station.name)
-        assertEquals(1_620, item.station.price.value)
+        assertEquals("station-3", item.id)
+        assertEquals("Cached Snapshot", item.name)
+        assertEquals(1_620, item.price?.value)
         assertEquals(StationPriceDelta.Unavailable, item.priceDelta)
         assertEquals(now.minusSeconds(45), item.lastSeenAt)
     }
@@ -172,11 +304,13 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        val item = repository.observeWatchlist(origin).first().single()
+        val item = repository.observeWatchlist(
+            watchlistQuery(origin, FuelType.DIESEL),
+        ).first().single()
 
-        assertEquals("DAO Selected Snapshot", item.station.name)
-        assertEquals(Brand.RTX, item.station.brand)
-        assertEquals(1_590, item.station.price.value)
+        assertEquals("DAO Selected Snapshot", item.name)
+        assertEquals(Brand.RTX, item.brand)
+        assertEquals(1_590, item.price?.value)
         assertEquals(StationPriceDelta.Decreased(40), item.priceDelta)
         assertEquals(now.minusSeconds(45), item.lastSeenAt)
     }
@@ -219,9 +353,11 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        val item = repository.observeWatchlist(origin).first().single()
+        val item = repository.observeWatchlist(
+            watchlistQuery(origin, FuelType.DIESEL),
+        ).first().single()
 
-        assertEquals(1_540, item.station.price.value)
+        assertEquals(1_540, item.price?.value)
         assertEquals(StationPriceDelta.Decreased(20), item.priceDelta)
         assertEquals(now.minusSeconds(90), item.lastSeenAt)
     }
@@ -271,16 +407,96 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        val item = repository.observeWatchlist(origin).first().single()
+        val item = repository.observeWatchlist(watchlistQuery(origin)).first().single()
 
-        assertEquals("Watched Fallback", item.station.name)
-        assertEquals(1_680, item.station.price.value)
+        assertEquals("Watched Fallback", item.name)
+        assertEquals(1_680, item.price?.value)
         assertEquals(StationPriceDelta.Increased(20), item.priceDelta)
         assertEquals(now.minusSeconds(30), item.lastSeenAt)
     }
 
     @Test
-    fun `observeWatchlist drops watched entries with no last known snapshot or history`() = runBlocking {
+    fun `watchlist keeps valid cache row when preceding history price is invalid`() = runBlocking {
+        val repository = repository(
+            stationCacheDao = RecordingWatchlistStationCacheDao(
+                cachedStations = listOf(
+                    cachedStation(
+                        stationId = "station-cache-current",
+                        name = "Valid Current Cache",
+                        brandCode = "GSC",
+                        priceWon = 1_700,
+                        latitude = 37.498095,
+                        longitude = 127.027610,
+                        fetchedAt = now.minusSeconds(10),
+                    ),
+                ),
+            ),
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-cache-current",
+                        priceWon = -1,
+                        fetchedAt = now.minusSeconds(30),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-cache-current",
+                        watchedAt = now,
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(
+            watchlistQuery(Coordinates(37.498095, 127.027610)),
+        ).first().single()
+
+        assertEquals("station-cache-current", item.id)
+        assertEquals(1_700, item.price?.value)
+        assertEquals(StationPriceDelta.Unavailable, item.priceDelta)
+    }
+
+    @Test
+    fun `watchlist keeps valid history row when older history price is invalid`() = runBlocking {
+        val repository = repository(
+            stationPriceHistoryDao = RecordingStationPriceHistoryDao(
+                history = listOf(
+                    history(
+                        stationId = "station-history-current",
+                        priceWon = 1_680,
+                        fetchedAt = now.minusSeconds(30),
+                    ),
+                    history(
+                        stationId = "station-history-current",
+                        priceWon = -1,
+                        fetchedAt = now.minusSeconds(330),
+                    ),
+                ),
+            ),
+            watchedStationDao = RecordingWatchedStationDao(
+                watchedStations = listOf(
+                    watched(
+                        stationId = "station-history-current",
+                        watchedAt = now,
+                    ),
+                ),
+            ),
+        )
+
+        val item = repository.observeWatchlist(
+            watchlistQuery(Coordinates(37.498095, 127.027610)),
+        ).first().single()
+
+        assertEquals("station-history-current", item.id)
+        assertEquals(1_680, item.price?.value)
+        assertEquals(StationPriceDelta.Unavailable, item.priceDelta)
+    }
+
+    @Test
+    fun `observeWatchlist retains watched entries with no last known snapshot or history`() = runBlocking {
         val origin = Coordinates(37.498095, 127.027610)
         val repository = repository(
             watchedStationDao = RecordingWatchedStationDao(
@@ -297,7 +513,12 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        assertTrue(repository.observeWatchlist(origin).first().isEmpty())
+        val item = repository.observeWatchlist(watchlistQuery(origin)).first().single()
+
+        assertEquals("station-4", item.id)
+        assertEquals("Unknown Station", item.name)
+        assertEquals(null, item.price)
+        assertEquals(StationPriceDelta.Unavailable, item.priceDelta)
     }
 
     @Test
@@ -327,7 +548,7 @@ class WatchlistRepositoryTest {
             ),
         )
 
-        assertTrue(repository.observeWatchlist(origin).first().isEmpty())
+        assertTrue(repository.observeWatchlist(watchlistQuery(origin)).first().isEmpty())
     }
 
     @Test
@@ -375,6 +596,9 @@ class WatchlistRepositoryTest {
         clock = clock,
     )
 
+    private fun watchlistQuery(origin: Coordinates, fuelType: FuelType = FuelType.GASOLINE) =
+        WatchlistQuery(origin = origin, fuelType = fuelType)
+
     private object NoOpStationRemoteDataSource : StationRemoteDataSource {
         override suspend fun fetchStations(query: com.gasstation.domain.station.model.StationQuery): RemoteStationFetchResult {
             error("refreshNearbyStations is not used in watchlist repository tests")
@@ -411,6 +635,9 @@ class WatchlistRepositoryTest {
 
         override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = flowOf(emptyList())
 
+        override fun observeLatestStationsByIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationCacheEntity>> =
+            flowOf(emptyList())
+
         override suspend fun upsertAll(entities: List<StationCacheEntity>) = Unit
 
         override suspend fun upsertSnapshot(snapshot: StationCacheSnapshotEntity) = Unit
@@ -426,6 +653,22 @@ class WatchlistRepositoryTest {
         override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = flowOf(
             cachedStations.filter { it.stationId in stationIds },
         )
+
+        override fun observeLatestStationsByIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationCacheEntity>> =
+            flowOf(
+                cachedStations
+                    .filter { it.stationId in stationIds && it.fuelType == fuelType }
+                    .groupBy { it.stationId }
+                    .values
+                    .map { rows ->
+                        rows.sortedWith(
+                            compareByDescending<StationCacheEntity> { it.fetchedAtEpochMillis }
+                                .thenBy { it.radiusMeters }
+                                .thenBy { it.latitudeBucket }
+                                .thenBy { it.longitudeBucket },
+                        ).first()
+                    },
+            )
     }
 
     private fun cachedStation(

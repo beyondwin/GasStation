@@ -20,10 +20,10 @@ data class WatchlistItemUiModel(
     val name: String,
     val brand: Brand = Brand.ETC,
     val brandLabel: String,
-    val priceWon: Int,
-    val priceLabel: String,
-    val priceNumberLabel: String,
-    val priceUnitLabel: String,
+    val priceWon: Int?,
+    val priceLabel: String?,
+    val priceNumberLabel: String?,
+    val priceUnitLabel: String?,
     val distanceLabel: String,
     val distanceNumberLabel: String,
     val distanceUnitLabel: String,
@@ -35,30 +35,36 @@ data class WatchlistItemUiModel(
     val longitude: Double,
 ) {
     init {
-        require(priceNumberLabel.isNotBlank()) { "priceNumberLabel must not be blank" }
-        require(priceUnitLabel.isNotBlank()) { "priceUnitLabel must not be blank" }
+        if (priceWon != null) {
+            require(!priceNumberLabel.isNullOrBlank()) { "priceNumberLabel must not be blank when price is available" }
+            require(!priceUnitLabel.isNullOrBlank()) { "priceUnitLabel must not be blank when price is available" }
+        } else {
+            require(priceLabel == null) { "priceLabel must be null when price is unavailable" }
+            require(priceNumberLabel == null) { "priceNumberLabel must be null when price is unavailable" }
+            require(priceUnitLabel == null) { "priceUnitLabel must be null when price is unavailable" }
+        }
         require(distanceNumberLabel.isNotBlank()) { "distanceNumberLabel must not be blank" }
         require(distanceUnitLabel.isNotBlank()) { "distanceUnitLabel must not be blank" }
     }
 
     constructor(summary: WatchedStationSummary) : this(
-        id = summary.station.id,
-        name = summary.station.name,
-        brand = summary.station.brand,
-        brandLabel = summary.station.brand.gasStationBrandLabel(),
-        priceWon = summary.station.price.value,
-        priceLabel = summary.station.price.gasStationPriceLabel(),
-        priceNumberLabel = summary.station.price.gasStationPriceDigits(),
-        priceUnitLabel = GAS_STATION_WON_UNIT,
-        distanceLabel = summary.station.distance.gasStationDistanceLabel(),
-        distanceNumberLabel = summary.station.distance.gasStationDistanceDigits(),
+        id = summary.id,
+        name = summary.name,
+        brand = summary.brand,
+        brandLabel = summary.brand.gasStationBrandLabel(),
+        priceWon = summary.price?.value,
+        priceLabel = summary.price?.gasStationPriceLabel(),
+        priceNumberLabel = summary.price?.gasStationPriceDigits(),
+        priceUnitLabel = summary.price?.let { GAS_STATION_WON_UNIT },
+        distanceLabel = summary.distance.gasStationDistanceLabel(),
+        distanceNumberLabel = summary.distance.gasStationDistanceDigits(),
         distanceUnitLabel = GAS_STATION_DISTANCE_UNIT,
         priceDeltaWon = summary.priceDelta.amountWonOrNull,
         priceDeltaTone = summary.priceDelta.direction.toTone(),
         lastSeenAt = summary.lastSeenAt,
         lastSeenLabel = summary.lastSeenAt.toWatchlistLastSeenLabel(),
-        latitude = summary.station.coordinates.latitude,
-        longitude = summary.station.coordinates.longitude,
+        latitude = summary.coordinates.latitude,
+        longitude = summary.coordinates.longitude,
     )
 }
 

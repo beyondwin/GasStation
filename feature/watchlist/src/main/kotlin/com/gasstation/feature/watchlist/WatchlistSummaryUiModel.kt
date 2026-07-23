@@ -8,10 +8,13 @@ data class WatchlistSummaryUiModel(val count: Int = 0, val averagePriceWon: Int?
             if (items.isEmpty()) return WatchlistSummaryUiModel()
 
             val count = items.size
-            val sum = items.sumOf { it.priceWon.toLong() }
+            val availablePrices = items.mapNotNull(WatchlistItemUiModel::priceWon)
+            val average = availablePrices.takeIf { prices -> prices.isNotEmpty() }?.let { prices ->
+                ((prices.sumOf(Int::toLong) + prices.size / 2L) / prices.size).toInt()
+            }
             return WatchlistSummaryUiModel(
                 count = count,
-                averagePriceWon = ((sum + count / 2L) / count).toInt(),
+                averagePriceWon = average,
                 latestSeenAt = items.mapNotNull(WatchlistItemUiModel::lastSeenAt).maxOrNull(),
             )
         }

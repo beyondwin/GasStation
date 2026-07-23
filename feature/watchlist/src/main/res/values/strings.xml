@@ -4,6 +4,7 @@
     <string name="watchlist_title">관심 주유소</string>
 
     <!-- Summary -->
+    <string name="watchlist_fuel_context">%1$s 기준</string>
     <string name="watchlist_summary_count">저장한 %1$d곳</string>
     <string name="watchlist_summary_average">평균 %1$s</string>
     <string name="watchlist_summary_latest_seen">최근 확인 %1$s</string>
@@ -15,6 +16,7 @@
     <string name="watchlist_price_delta_rise">상승 %1$d원</string>
     <string name="watchlist_price_delta_fall">하락 %1$d원</string>
     <string name="watchlist_price_delta_neutral">변동 없음</string>
+    <string name="watchlist_price_unavailable">선택 유종 가격 없음</string>
     <string name="watchlist_remove_description">관심 주유소에서 제거</string>
     <string name="watchlist_saved_state_description">저장됨</string>
 
@@ -36,4 +38,10 @@
     <string name="watchlist_empty_title">저장한 주유소가 없습니다.</string>
     <string name="watchlist_empty_body">주유소 목록에서 북마크를 눌러 가격과 거리를 한곳에 모아보세요.</string>
     <string name="watchlist_empty_action">주변 주유소 보기</string>
+
+    <!-- Loading and failure states -->
+    <string name="watchlist_loading">관심 주유소를 불러오는 중입니다.</string>
+    <string name="watchlist_load_failed_title">관심 주유소를 불러오지 못했습니다.</string>
+    <string name="watchlist_load_failed_body">저장된 설정과 가격 정보를 다시 확인해 주세요.</string>
+    <string name="watchlist_retry">다시 시도</string>
 </resources>

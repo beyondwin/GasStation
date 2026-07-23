@@ -52,6 +52,29 @@ class WatchlistSummaryUiModelTest {
     }
 
     @Test
+    fun `summary average ignores unavailable prices but count retains saved rows`() {
+        val summary = WatchlistSummaryUiModel.from(
+            listOf(
+                item(priceWon = 1_700, lastSeenAt = null),
+                item(priceWon = null, lastSeenAt = null),
+            ),
+        )
+
+        assertEquals(2, summary.count)
+        assertEquals(1_700, summary.averagePriceWon)
+    }
+
+    @Test
+    fun `summary has no average when every saved row is unavailable`() {
+        val summary = WatchlistSummaryUiModel.from(
+            listOf(item(priceWon = null, lastSeenAt = null)),
+        )
+
+        assertEquals(1, summary.count)
+        assertNull(summary.averagePriceWon)
+    }
+
+    @Test
     fun `last seen label is a final timezone aware projection`() {
         assertEquals(
             "7월 17일 11:00",
@@ -76,15 +99,15 @@ class WatchlistSummaryUiModelTest {
         }
     }
 
-    private fun item(priceWon: Int, lastSeenAt: Instant?) = WatchlistItemUiModel(
-        id = "station-$priceWon",
+    private fun item(priceWon: Int?, lastSeenAt: Instant?) = WatchlistItemUiModel(
+        id = "station-${priceWon ?: "unavailable"}",
         name = "테스트 주유소",
         brand = Brand.GSC,
         brandLabel = "GS칼텍스",
         priceWon = priceWon,
-        priceLabel = "${priceWon}원",
-        priceNumberLabel = priceWon.toString(),
-        priceUnitLabel = "원",
+        priceLabel = priceWon?.let { "${it}원" },
+        priceNumberLabel = priceWon?.toString(),
+        priceUnitLabel = priceWon?.let { "원" },
         distanceLabel = "0.3km",
         distanceNumberLabel = "0.3",
         distanceUnitLabel = "km",

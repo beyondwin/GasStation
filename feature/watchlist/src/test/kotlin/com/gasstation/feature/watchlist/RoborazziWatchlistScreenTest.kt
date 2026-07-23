@@ -1,15 +1,22 @@
 package com.gasstation.feature.watchlist
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.gasStationBrandLabel
 import com.gasstation.core.designsystem.gasStationPriceDigits
 import com.gasstation.core.designsystem.gasStationPriceLabel
 import com.gasstation.core.model.Brand
+import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
@@ -56,18 +63,25 @@ class RoborazziWatchlistScreenTest {
     private fun renderFiveRows(name: String, darkTheme: Boolean = false) {
         composeRule.setContent {
             GasStationTheme(darkTheme = darkTheme) {
-                WatchlistScreen(
-                    uiState = fiveRowState(),
-                    onAction = {},
-                    onNavigateNearby = {},
-                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 360.dp, height = 800.dp)
+                        .testTag(WATCHLIST_SNAPSHOT_TAG),
+                ) {
+                    WatchlistScreen(
+                        uiState = fiveRowState(),
+                        onAction = {},
+                        onNavigateNearby = {},
+                    )
+                }
             }
         }
 
         composeRule.onAllNodesWithTag(WATCHLIST_ROW_TAG, useUnmergedTree = true).assertCountEquals(5)
         composeRule.onNodeWithContentDescription("자영알뜰 브랜드").assertExists()
         composeRule.onNodeWithContentDescription("자가상표 브랜드").assertExists()
-        composeRule.onRoot().captureRoboImage("src/test/snapshots/$name")
+        composeRule.onNodeWithTag(WATCHLIST_SNAPSHOT_TAG, useUnmergedTree = true)
+            .captureRoboImage("src/test/snapshots/$name")
     }
 
     @Test
@@ -84,7 +98,10 @@ class RoborazziWatchlistScreenTest {
         composeRule.setContent {
             GasStationTheme(darkTheme = darkTheme) {
                 WatchlistScreen(
-                    uiState = WatchlistUiState(),
+                    uiState = WatchlistUiState(
+                        isLoading = false,
+                        fuelType = FuelType.GASOLINE,
+                    ),
                     onAction = {},
                     onNavigateNearby = {},
                 )
@@ -118,8 +135,12 @@ class RoborazziWatchlistScreenTest {
                 )
             }
         return WatchlistUiState(
+            isLoading = false,
+            fuelType = FuelType.GASOLINE,
             stations = items,
             summary = WatchlistSummaryUiModel.from(items),
         )
     }
 }
+
+private const val WATCHLIST_SNAPSHOT_TAG = "watchlist-snapshot"

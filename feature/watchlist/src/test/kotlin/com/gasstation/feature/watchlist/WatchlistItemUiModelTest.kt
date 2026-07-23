@@ -4,7 +4,6 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
-import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.WatchedStationSummary
 import org.junit.Assert.assertEquals
@@ -26,14 +25,12 @@ class WatchlistItemUiModelTest {
 
             val item = WatchlistItemUiModel(
                 WatchedStationSummary(
-                    station = Station(
-                        id = "station-1",
-                        name = "Gangnam First",
-                        brand = Brand.GSC,
-                        price = MoneyWon(1689),
-                        distance = DistanceMeters(300),
-                        coordinates = Coordinates(37.498095, 127.02761),
-                    ),
+                    id = "station-1",
+                    name = "Gangnam First",
+                    brand = Brand.GSC,
+                    price = MoneyWon(1689),
+                    distance = DistanceMeters(300),
+                    coordinates = Coordinates(37.498095, 127.02761),
                     priceDelta = StationPriceDelta.Decreased(27),
                     lastSeenAt = Instant.parse("2026-04-18T03:00:00Z"),
                 ),
@@ -61,14 +58,12 @@ class WatchlistItemUiModelTest {
     fun `summary constructor maps increased delta to rise tone`() {
         val item = WatchlistItemUiModel(
             WatchedStationSummary(
-                station = Station(
-                    id = "station-1",
-                    name = "Gangnam First",
-                    brand = Brand.GSC,
-                    price = MoneyWon(1689),
-                    distance = DistanceMeters(300),
-                    coordinates = Coordinates(37.498095, 127.02761),
-                ),
+                id = "station-1",
+                name = "Gangnam First",
+                brand = Brand.GSC,
+                price = MoneyWon(1689),
+                distance = DistanceMeters(300),
+                coordinates = Coordinates(37.498095, 127.02761),
                 priceDelta = StationPriceDelta.Increased(14),
                 lastSeenAt = null,
             ),
@@ -82,14 +77,12 @@ class WatchlistItemUiModelTest {
     fun `summary constructor maps unchanged delta to neutral with no amount`() {
         val item = WatchlistItemUiModel(
             WatchedStationSummary(
-                station = Station(
-                    id = "station-1",
-                    name = "Gangnam First",
-                    brand = Brand.GSC,
-                    price = MoneyWon(1689),
-                    distance = DistanceMeters(300),
-                    coordinates = Coordinates(37.498095, 127.02761),
-                ),
+                id = "station-1",
+                name = "Gangnam First",
+                brand = Brand.GSC,
+                price = MoneyWon(1689),
+                distance = DistanceMeters(300),
+                coordinates = Coordinates(37.498095, 127.02761),
                 priceDelta = StationPriceDelta.Unchanged,
                 lastSeenAt = null,
             ),
@@ -103,14 +96,12 @@ class WatchlistItemUiModelTest {
     fun `summary constructor uses canonical rtx brand label`() {
         val item = WatchlistItemUiModel(
             WatchedStationSummary(
-                station = Station(
-                    id = "station-1",
-                    name = "Gangnam First",
-                    brand = Brand.RTX,
-                    price = MoneyWon(1689),
-                    distance = DistanceMeters(300),
-                    coordinates = Coordinates(37.498095, 127.02761),
-                ),
+                id = "station-1",
+                name = "Gangnam First",
+                brand = Brand.RTX,
+                price = MoneyWon(1689),
+                distance = DistanceMeters(300),
+                coordinates = Coordinates(37.498095, 127.02761),
                 priceDelta = StationPriceDelta.Unchanged,
                 lastSeenAt = null,
             ),
@@ -145,6 +136,28 @@ class WatchlistItemUiModelTest {
         assertEquals("원", item.priceUnitLabel)
         assertEquals("0.3", item.distanceNumberLabel)
         assertEquals("km", item.distanceUnitLabel)
+    }
+
+    @Test
+    fun `unavailable selected fuel keeps saved row with no price labels`() {
+        val item = WatchlistItemUiModel(
+            WatchedStationSummary(
+                id = "station-1",
+                name = "Saved Station",
+                brand = Brand.GSC,
+                price = null,
+                distance = DistanceMeters(300),
+                coordinates = Coordinates(37.498095, 127.027610),
+                priceDelta = StationPriceDelta.Unavailable,
+                lastSeenAt = null,
+            ),
+        )
+
+        assertEquals(null, item.priceWon)
+        assertEquals(null, item.priceLabel)
+        assertEquals(null, item.priceNumberLabel)
+        assertEquals(null, item.priceUnitLabel)
+        assertEquals("station-1", item.id)
     }
 
     @Test

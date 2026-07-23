@@ -4,6 +4,7 @@
     <string name="watchlist_title">Saved stations</string>
 
     <!-- Summary -->
+    <string name="watchlist_fuel_context">Based on %1$s</string>
     <string name="watchlist_summary_count">%1$d saved</string>
     <string name="watchlist_summary_average">Average %1$s</string>
     <string name="watchlist_summary_latest_seen">Last checked %1$s</string>
@@ -15,6 +16,7 @@
     <string name="watchlist_price_delta_rise">Up %1$d won</string>
     <string name="watchlist_price_delta_fall">Down %1$d won</string>
     <string name="watchlist_price_delta_neutral">No change</string>
+    <string name="watchlist_price_unavailable">Selected fuel price unavailable</string>
     <string name="watchlist_remove_description">Remove from saved stations</string>
     <string name="watchlist_saved_state_description">Saved</string>
 
@@ -36,4 +38,10 @@
     <string name="watchlist_empty_title">No saved stations yet.</string>
     <string name="watchlist_empty_body">Bookmark stations from the list to track prices and distances in one place.</string>
     <string name="watchlist_empty_action">View nearby stations</string>
+
+    <!-- Loading and failure states -->
+    <string name="watchlist_loading">Loading saved stations.</string>
+    <string name="watchlist_load_failed_title">Couldn\'t load saved stations.</string>
+    <string name="watchlist_load_failed_body">Check your saved settings and price information, then try again.</string>
+    <string name="watchlist_retry">Try again</string>
 </resources>

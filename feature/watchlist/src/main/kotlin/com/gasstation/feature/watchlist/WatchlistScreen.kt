@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -39,11 +40,11 @@ import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.component.GasStationBackground
 import com.gasstation.core.designsystem.component.GasStationBrandLogoTile
 import com.gasstation.core.designsystem.component.GasStationComparisonRow
-import com.gasstation.core.designsystem.component.GasStationGuidanceCard
 import com.gasstation.core.designsystem.component.GasStationRowDivider
 import com.gasstation.core.designsystem.component.GasStationSummaryStrip
 import com.gasstation.core.designsystem.component.GasStationTopBar
 import com.gasstation.core.designsystem.component.UrbanSignalTokens
+import com.gasstation.core.designsystem.gasStationFuelTypeLabel
 import com.gasstation.core.designsystem.gasStationWonLabel
 
 @Composable
@@ -64,43 +65,54 @@ fun WatchlistScreen(uiState: WatchlistUiState, onAction: (WatchlistAction) -> Un
                 )
             },
         ) { innerPadding ->
-            if (uiState.stations.isEmpty()) {
-                EmptyWatchlist(
+            val contentModifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+            when {
+                uiState.isLoading -> WatchlistLoadingState(modifier = contentModifier)
+
+                uiState.loadFailed -> WatchlistLoadFailureState(
+                    onRetry = { onAction(WatchlistAction.RetryLoad) },
+                    modifier = contentModifier,
+                )
+
+                uiState.stations.isEmpty() -> EmptyWatchlist(
                     onNavigateNearby = onNavigateNearby,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
+                    modifier = contentModifier
                         .padding(horizontal = spacing.space16, vertical = spacing.space16),
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(horizontal = spacing.space16, vertical = spacing.space8),
-                ) {
-                    item(key = "watchlist-summary") {
-                        WatchlistSummary(
-                            summary = uiState.summary,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(spacing.space8))
-                    }
-                    itemsIndexed(
-                        items = uiState.stations,
-                        key = { _, station -> station.id },
-                    ) { index, station ->
-                        WatchlistRow(
-                            station = station,
-                            onRemove = { onAction(WatchlistAction.RemoveClicked(station.id)) },
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = tween(180),
-                                placementSpec = tween(180),
-                                fadeOutSpec = tween(180),
-                            ),
-                        )
-                        if (index < uiState.stations.lastIndex) {
-                            GasStationRowDivider()
+
+                else -> {
+                    LazyColumn(
+                        modifier = contentModifier.testTag(WATCHLIST_LIST_TAG),
+                        contentPadding = PaddingValues(horizontal = spacing.space16, vertical = spacing.space8),
+                    ) {
+                        item(key = "watchlist-summary") {
+                            WatchlistSummary(
+                                summary = uiState.summary,
+                                fuelTypeLabel = checkNotNull(uiState.fuelType)
+                                    .gasStationFuelTypeLabel()
+                                    .resolve(LocalContext.current),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(modifier = Modifier.height(spacing.space8))
+                        }
+                        itemsIndexed(
+                            items = uiState.stations,
+                            key = { _, station -> station.id },
+                        ) { index, station ->
+                            WatchlistRow(
+                                station = station,
+                                onRemove = { onAction(WatchlistAction.RemoveClicked(station.id)) },
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = tween(180),
+                                    placementSpec = tween(180),
+                                    fadeOutSpec = tween(180),
+                                ),
+                            )
+                            if (index < uiState.stations.lastIndex) {
+                                GasStationRowDivider()
+                            }
                         }
                     }
                 }
@@ -110,21 +122,34 @@ fun WatchlistScreen(uiState: WatchlistUiState, onAction: (WatchlistAction) -> Un
 }
 
 @Composable
-private fun WatchlistSummary(summary: WatchlistSummaryUiModel, modifier: Modifier = Modifier) {
+private fun WatchlistSummary(summary: WatchlistSummaryUiModel, fuelTypeLabel: String, modifier: Modifier = Modifier) {
     val fontScale = LocalDensity.current.fontScale
     GasStationSummaryStrip(modifier = modifier) {
         if (fontScale >= 1.5f) {
             Column(verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space4)) {
+                SummaryFuelContext(fuelTypeLabel)
                 SummaryCount(summary)
                 SummaryAverage(summary)
                 SummaryLatestSeen(summary)
             }
         } else {
-            SummaryCount(summary)
+            Column(verticalArrangement = Arrangement.spacedBy(GasStationTheme.spacing.space4)) {
+                SummaryFuelContext(fuelTypeLabel)
+                SummaryCount(summary)
+            }
             SummaryAverage(summary)
             SummaryLatestSeen(summary)
         }
     }
+}
+
+@Composable
+private fun SummaryFuelContext(fuelTypeLabel: String) {
+    Text(
+        text = stringResource(R.string.watchlist_fuel_context, fuelTypeLabel),
+        color = ColorYellow,
+        style = GasStationTheme.typography.meta,
+    )
 }
 
 @Composable
@@ -185,17 +210,26 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
             )
         },
         primary = {
-            Row(verticalAlignment = Alignment.Bottom) {
+            if (station.priceNumberLabel != null) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = station.priceNumberLabel,
+                        style = GasStationTheme.typography.compactPriceHero,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = requireNotNull(station.priceUnitLabel),
+                        style = GasStationTheme.typography.meta,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
                 Text(
-                    text = station.priceNumberLabel,
-                    style = GasStationTheme.typography.compactPriceHero,
+                    text = stringResource(R.string.watchlist_price_unavailable),
+                    style = GasStationTheme.typography.cardTitle,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
-                )
-                Text(
-                    text = station.priceUnitLabel,
-                    style = GasStationTheme.typography.meta,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
@@ -206,11 +240,15 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(
-                    R.string.watchlist_row_meta,
-                    station.semanticPriceDeltaLabel(),
-                    station.lastSeenLabel,
-                ),
+                text = if (station.priceWon == null) {
+                    station.lastSeenLabel
+                } else {
+                    stringResource(
+                        R.string.watchlist_row_meta,
+                        station.semanticPriceDeltaLabel(),
+                        station.lastSeenLabel,
+                    )
+                },
                 style = GasStationTheme.typography.meta,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -259,16 +297,4 @@ private fun WatchlistItemUiModel.semanticPriceDeltaLabel(): String = when (price
     )
 
     WatchlistPriceDeltaTone.Neutral -> stringResource(R.string.watchlist_price_delta_neutral)
-}
-
-@Composable
-private fun EmptyWatchlist(onNavigateNearby: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        GasStationGuidanceCard(
-            title = stringResource(R.string.watchlist_empty_title),
-            body = stringResource(R.string.watchlist_empty_body),
-            actionLabel = stringResource(R.string.watchlist_empty_action),
-            onAction = onNavigateNearby,
-        )
-    }
 }

@@ -1,12 +1,17 @@
 package com.gasstation.domain.station
 
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.DistanceMeters
+import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MoneyWon
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.flow.Flow
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,10 +64,43 @@ class DomainContractSurfaceTest {
 
         val observeWatchlist = StationRepository::class.java.getDeclaredMethod(
             "observeWatchlist",
-            Coordinates::class.java,
+            WatchlistQuery::class.java,
         )
         assertEquals(Flow::class.java, observeWatchlist.returnType)
         assertTrue(observeWatchlist.genericReturnType.typeName.contains(WatchedStationSummary::class.java.name))
+
+        assertEquals(
+            setOf("origin", "fuelType"),
+            WatchlistQuery::class.java.declaredFields
+                .filterNot { it.isSynthetic }
+                .map { it.name }
+                .toSet(),
+        )
+        assertEquals(Coordinates::class.java, WatchlistQuery::class.java.getDeclaredField("origin").type)
+        assertEquals(FuelType::class.java, WatchlistQuery::class.java.getDeclaredField("fuelType").type)
+        assertEquals(
+            MoneyWon::class.java,
+            WatchedStationSummary::class.java.getDeclaredField("price").type,
+        )
+        val unavailablePriceSummary = WatchedStationSummary(
+            id = "station-1",
+            name = "Saved Station",
+            brand = Brand.GSC,
+            price = null,
+            distance = DistanceMeters(0),
+            coordinates = Coordinates(37.498095, 127.027610),
+            priceDelta = StationPriceDelta.Unavailable,
+            lastSeenAt = null,
+        )
+        assertEquals(null, unavailablePriceSummary.price)
+
+        assertTrue(
+            StationRepository::class.java.declaredMethods.any { method ->
+                method.name == "removeWatchedStation" &&
+                    method.parameterTypes.size == 2 &&
+                    method.parameterTypes[0] == String::class.java
+            },
+        )
 
         assertTrue(
             StationRepository::class.java.declaredMethods.any { method ->
