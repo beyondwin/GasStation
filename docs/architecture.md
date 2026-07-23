@@ -146,14 +146,23 @@ flowchart LR
 
 1. `SettingsRoute`는 DataStore의 첫 선호값 emission 전에는 loading만 렌더링하고 action을 받지 않습니다. emission 뒤에는 설정 요약 목록을, `SettingsDetailRoute`는 항목별 상세 선택 화면을 렌더링합니다. 이 경계 전 `UserPreferences.default()`는 화면 기본값으로 사용하지 않습니다.
 2. 상세 화면은 별도 ViewModel을 만들지 않고, `GasStationNavHost`에서 settings back stack owner를 공유받아 같은 `SettingsViewModel`을 사용합니다.
-3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신됩니다. mutation은 DataStore가 실제로 commit한 값을 반환하며, Settings detail은 그 성공 반환 뒤에만 목록으로 돌아갑니다. 실패하면 detail은 이전 값을 유지한 채 실패를 표시합니다. 목록 화면도 같은 committed 값을 반영합니다.
+3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신됩니다. mutation은 DataStore가 실제로 commit한 값을 반환하며, Settings detail은 그 성공 반환 뒤에만 목록으로 돌아갑니다. 실패하면 detail은 이전 값을 유지한 채 실패를 표시합니다. 목록 화면, 관심 화면의 유종 context, 외부 지도 handoff도 같은 committed 값을 반영합니다.
+4. 지도 provider의 현재 Kakao identity는 `KAKAO_MAP`입니다. `data:settings`는 legacy 저장값 `KAKAO_NAVI`를 `KAKAO_MAP`으로 읽고, 다음 쓰기부터 현재 enum name을 저장합니다.
 
 ### 4. watchlist(관심) 화면
 
 1. 목록 화면이 전달한 최신 좌표는 app navigation state의 payload로 유지됩니다. 좌표가 없으면 관심 tab은 disabled semantics를 노출하며, 좌표가 바뀌면 이전 concrete route를 제거하고 새 payload route로 이동합니다.
-2. `WatchlistViewModel`은 `SavedStateHandle`에서 기준 좌표를 읽고 `ObserveWatchlistUseCase`를 바로 구독합니다.
-3. 저장소는 `watched_station`, station별 최신 캐시, 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다. 최신 캐시는 DAO가 stationId 선행 index와 deterministic tie-breaker로 station별 한 행만 반환합니다.
-4. 화면은 별도 위치 조회, refresh session, snackbar undo 없이 summary와 저장 행을 렌더링합니다. 이 좌표 payload는 navigation state이며 검색/위치 비즈니스 정책은 아닙니다.
+2. `WatchlistViewModel`은 `SavedStateHandle`에서 기준 좌표를 읽고 `ObserveUserPreferencesUseCase`의 선택 유종을 결합해 `WatchlistQuery(origin, fuelType)`로 `ObserveWatchlistUseCase`를 구독합니다.
+3. 저장소는 `watched_station`, 선택 유종의 station별 최신 캐시, 같은 유종의 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다. 최신 캐시는 DAO가 stationId 선행 index와 deterministic tie-breaker로 station별 한 행만 반환합니다.
+4. 선택 유종의 캐시와 히스토리가 모두 없어도 저장 당시 identity·좌표·브랜드를 유지하고 nullable price를 명시적 unavailable 상태로 렌더링합니다. 반경·브랜드 필터·Nearby 정렬은 저장 항목을 제거하거나 watched-time 순서를 바꾸지 않습니다.
+5. 설정 또는 watchlist 관찰이 실패하면 `WatchlistUiState.loadFailed`로 전면 실패와 retry action을 노출하며, retry는 두 흐름을 처음부터 다시 구독합니다.
+6. 화면은 별도 위치 조회, refresh session, snackbar undo 없이 summary와 저장 행을 렌더링합니다. 이 좌표 payload는 navigation state이며 검색/위치 비즈니스 정책은 아닙니다.
+
+### 5. 외부 지도 handoff
+
+1. `GasStationNavHost`는 committed `UserPreferences.mapProvider`를 Nearby row click의 `ExternalMapLauncher` 호출에 전달합니다.
+2. `IntentExternalMapLauncher`는 TMAP(`com.skt.tmap.ku`), 카카오맵(`net.daum.android.map`), 네이버 지도(`com.nhn.android.nmap`) package를 route intent에 명시합니다. NAVER URI의 `appname`은 runtime application ID입니다.
+3. route 실행이 불가능하면 Play Store app URI, HTTPS Store 순으로 fallback합니다. `ActivityNotFoundException`과 `SecurityException`은 다음 fallback으로 이어지고, 모든 경로가 실패한 `ExternalMapLaunchResult.Failed`는 feature callback의 `false`와 사용자 feedback으로 변환됩니다.
 
 ## flavor와 startup hook
 
@@ -182,5 +191,7 @@ flowchart LR
 - 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
 - API 33 이상 주소 조회는 지오코더 callback API를 coroutine으로 감싸고, pre-33은 기존 동기 API를 I/O dispatcher에서 fallback으로 사용합니다. callback error는 `LocationAddressLookupResult.Error`, 성공했지만 빈 결과는 `Unavailable`, cancellation은 그대로 전파됩니다.
 - `UserPreferences`는 Proto가 아니라 커스텀 key-value serializer를 쓰는 DataStore로 저장합니다. 저장 모듈은 `StoredUserPreferences` string DTO만 알고, enum name의 domain fallback은 `data:settings` mapper가 담당합니다.
+- Kakao provider는 `KAKAO_MAP`을 현재 저장 identity로 사용합니다. `data:settings`는 legacy `KAKAO_NAVI`를 읽을 때만 migration하고 새 쓰기는 현재 이름만 저장합니다.
+- 외부 지도 route intent는 provider package를 명시합니다. NAVER는 runtime application ID를 `appname`으로 직렬화하고, app route -> Play Store app URI -> HTTPS Store 순으로 fallback한 뒤 최종 실패를 UI에 반환합니다.
 - `StationEvent` 계약은 `SearchRefreshed`, `WatchToggled`, `CompareViewed`, `ExternalMapOpened`, `RefreshFailed`, `LocationFailed`, `RetryAttempted`를 정의합니다. 실제 emit 경로는 저장소 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과이며, Logcat 구현은 모든 variant를 문자열로 매핑합니다. 이벤트 로깅 중 일반 예외는 사용자 흐름이나 저장소 성공을 실패로 바꾸지 않도록 격리하지만, cancellation과 fatal error는 삼키지 않습니다.
 - release build는 R8 minification을 켜지만, resource shrinking은 splash/icon/external map 리소스 확인 전까지 의도적으로 보류합니다.

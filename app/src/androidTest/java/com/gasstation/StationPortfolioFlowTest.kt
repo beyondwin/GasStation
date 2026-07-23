@@ -8,6 +8,7 @@ import android.view.View
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
@@ -25,22 +26,35 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.gasstation.core.database.GasStationDatabase
+import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
+import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
+import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.demo.seed.DemoSeedAssetLoader
+import com.gasstation.di.ExternalMapModule
 import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
+import com.gasstation.domain.station.StationRepository
+import com.gasstation.domain.station.model.Station
 import com.gasstation.feature.watchlist.WATCHLIST_CARD_TEST_TAG
+import com.gasstation.map.ExternalMapLaunchResult
+import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.startup.DemoSeedStartupHook
+import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -54,6 +68,7 @@ import javax.inject.Inject
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Rect as ComposeRect
 
+@UninstallModules(ExternalMapModule::class)
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class StationPortfolioFlowTest {
@@ -65,6 +80,13 @@ class StationPortfolioFlowTest {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var stationRepository: StationRepository
+
+    @BindValue
+    @JvmField
+    val externalMapLauncher: ExternalMapLauncher = RecordingExternalMapLauncher()
 
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
@@ -196,6 +218,54 @@ class StationPortfolioFlowTest {
             fuel = "휘발유",
             brand = "전체",
             sort = "거리순",
+        )
+    }
+
+    @Test
+    fun demoWatchlist_keepsSavedRowAndUsesSelectedFuelContext() {
+        reseedDemoDatabase()
+        waitForNearby()
+        runBlocking {
+            stationRepository.updateWatchState(
+                station = Station(
+                    id = "connected-gasoline-only",
+                    name = "휘발유 전용 저장 주유소",
+                    brand = Brand.ETC,
+                    price = MoneyWon(1_987),
+                    distance = DistanceMeters(400),
+                    coordinates = Coordinates(37.5004, 127.0321),
+                ),
+                watched = true,
+            )
+        }
+
+        rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("settings-row-fuel-type", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("settings-option-DIESEL", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("bottom-nav-watchlist", useUnmergedTree = true).performClick()
+
+        rule.onNodeWithText("경유 기준").assertExists()
+        rule.onAllNodesWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
+            .assertCountEquals(1)
+        rule.onNodeWithText("선택 유종 가격 없음").assertExists()
+    }
+
+    @Test
+    fun demoMapSelection_isConsumedByNearbyHandoff() {
+        reseedDemoDatabase()
+        waitForNearby()
+
+        rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("settings-row-map-provider", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("settings-option-NAVER_MAP", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).performClick()
+        rule.onAllNodesWithTag("station-list-row", useUnmergedTree = true)
+            .onFirst()
+            .performClick()
+
+        assertEquals(
+            listOf(MapProvider.NAVER_MAP),
+            (externalMapLauncher as RecordingExternalMapLauncher).providers,
         )
     }
 
@@ -368,6 +438,22 @@ class StationPortfolioFlowTest {
             .seedDatabase(database = database, document = document)
         runBlocking {
             settingsRepository.updateUserPreferences { UserPreferences.default() }
+        }
+    }
+
+    private class RecordingExternalMapLauncher : ExternalMapLauncher {
+        val providers = mutableListOf<MapProvider>()
+
+        override fun open(
+            provider: MapProvider,
+            stationName: String,
+            originLatitude: Double?,
+            originLongitude: Double?,
+            latitude: Double,
+            longitude: Double,
+        ): ExternalMapLaunchResult {
+            providers += provider
+            return ExternalMapLaunchResult.Opened
         }
     }
 }

@@ -193,18 +193,61 @@ ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
 
 연결된 target이 없으면 이 command는 실행하지 않고 host/flavor 검증 결과와 미실행 사유를 남깁니다. 이 focused run은 physical-device evidence가 아니며 live `prod`, Opinet 조회, OEM별 permission-controller UI를 보장하지 않습니다. 수동 runtime revocation/relaunch smoke가 필요하면 테스트 외부에서 fine/coarse permission revoke -> app force-stop -> relaunch -> guidance와 no-nearby-content를 확인하고 기기/OS 결과를 별도 기록합니다. 이 수동 절차나 connected class는 terminal-denial request-count가 cold launch 또는 프로세스 재시작 뒤에도 유지된다는 것을 증명하지 않습니다.
 
+## Watchlist 유종과 외부 지도 설정 집중 회귀
+
+선택 유종만 쓰는 watchlist cache/history, 가격 없는 저장 identity 유지, KakaoMap legacy migration, provider package/URI/fallback을 host에서 확인합니다.
+
+```bash
+./gradlew \
+  :core:model:test \
+  :core:datastore:testDebugUnitTest \
+  :core:database:testDebugUnitTest \
+  :domain:settings:test \
+  :domain:station:test \
+  :data:settings:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:settings:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :app:assembleDemoDebug \
+  :app:assembleProdDebug \
+  --warning-mode fail
+```
+
+연결된 demo target에서는 운영 `ExternalMapModule`을 기록 launcher로 교체한 `StationPortfolioFlowTest`가 설정 유종의 관심 화면 소비와 설정 지도 provider의 Nearby handoff 소비를 검증합니다.
+
+```bash
+./gradlew :app:compileDemoDebugAndroidTestKotlin --warning-mode fail
+ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.StationPortfolioFlowTest \
+  --warning-mode fail
+```
+
+TMAP 목적지 화면을 직접 확인하려면 먼저 target에 package가 있는지 확인합니다.
+
+```bash
+ADB="$ANDROID_HOME/platform-tools/adb"
+"$ADB" -s <connected-serial> shell pm list packages com.skt.tmap.ku
+```
+
+패키지가 없으면 설치하지 않고 TMAP 실제 목적지 화면은 미검증으로 기록합니다. Host unit test는 계속 package/URI 직렬화와 route -> Play Store app URI -> HTTPS Store fallback을 보호하지만, connected demo는 기록 launcher를 사용하므로 외부 앱 화면 자체를 증명하지 않습니다. `assembleProdDebug`도 live Opinet 또는 prod 기기 handoff를 증명하지 않습니다.
+
 Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해 record한 뒤 같은 모듈을 verify합니다.
 
 ```bash
 ./gradlew \
   :core:designsystem:recordRoborazziDebug \
   :feature:station-list:recordRoborazziDebug \
-  :feature:settings:recordRoborazziDebug
+  :feature:settings:recordRoborazziDebug \
+  :feature:watchlist:recordRoborazziDebug
 
 ./gradlew \
   :core:designsystem:verifyRoborazziDebug \
   :feature:station-list:verifyRoborazziDebug \
-  :feature:settings:verifyRoborazziDebug
+  :feature:settings:verifyRoborazziDebug \
+  :feature:watchlist:verifyRoborazziDebug
 ```
 
 ## 머지 전 권장 회귀 세트

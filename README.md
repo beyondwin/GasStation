@@ -119,8 +119,10 @@ flowchart LR
 2. DataStore의 첫 `UserPreferences` emission이 Nearby와 Settings의 readiness 경계입니다. 두 화면은 그 emission 전 `UserPreferences.default()`를 렌더링하거나 action에 사용하지 않습니다. Nearby ViewModel은 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 검색 입력을 담은 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. permission denial은 GPS 비활성화와 별도 안내이며, 어느 flavor에서도 retained coordinate나 캐시 목록을 우회 표시하지 않습니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
 3. 현재 주소 라벨은 `domain:location`의 `AddressLabelNormalizer`가 행정동 중심으로 정규화하고, `core:location`은 Android 지오코더 후보를 그 규칙에 통과시킵니다.
 4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷은 유지됩니다. `Timeout`/`Network` 실패는 500ms 뒤 한 번 재시도하고, `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
-5. 목록에서 저장한 주유소는 `주변·관심·설정` bottom navigation의 관심 화면에서 가격 변화와 거리 기준으로 다시 비교할 수 있습니다.
-6. 주유소 행 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다.
+5. 목록에서 저장한 주유소는 `주변·관심·설정` bottom navigation의 관심 화면에서 선택 유종의 가격 변화와 거리 기준으로 다시 비교할 수 있습니다. 관심 화면은 반경·브랜드·Nearby 정렬과 무관하게 저장 항목을 유지하며, 선택 유종의 캐시와 이력이 없으면 행을 제거하지 않고 `선택 유종 가격 없음`을 표시합니다.
+6. 주유소 행 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다. TMAP·카카오맵·네이버 지도 intent는 대상 package를 명시하고, 네이버 지도에는 runtime application ID를 `appname`으로 전달합니다. 앱 route를 열지 못하면 Play Store app URI, HTTPS Store 순으로 시도하며 최종 실패는 화면 feedback으로 돌아옵니다.
+
+카카오 provider의 현재 이름은 `KAKAO_MAP`입니다. 과거 저장값 `KAKAO_NAVI`는 읽을 때 카카오맵으로 복원하고, 다음 설정 쓰기부터 `KAKAO_MAP`으로 저장합니다.
 
 ## 실행 모드
 
@@ -254,7 +256,7 @@ Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `d
 기기 기반 UI 확인:
 
 ```bash
-./gradlew :app:connectedDemoDebugAndroidTest
+ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest
 ```
 
 권한 진입/거부/grant와 Android permission controller 상호작용만 집중 확인할 때는 다음 connected class를 실행합니다.
@@ -262,6 +264,14 @@ Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `d
 ```bash
 ./gradlew :app:connectedDemoDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.DemoPermissionFlowTest \
+  --warning-mode fail
+```
+
+설정의 유종·지도 provider가 관심 화면과 Nearby handoff에 실제로 소비되는지만 집중 확인할 때는 다음 connected class를 실행합니다.
+
+```bash
+ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.StationPortfolioFlowTest \
   --warning-mode fail
 ```
 

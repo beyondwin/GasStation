@@ -27,13 +27,13 @@
 | `core:location` | `AddressLabelFormatterTest`, `AndroidForegroundLocationProviderSurfaceTest`, `AndroidForegroundLocationProviderTest`, `DefaultLocationRepositoryTest`, `LocationAvailabilityFlowTest`, `LocationPermissionStateTest`, `GeocoderAsyncLookupTest`, `AndroidAddressResolverDeviceTest` | Android 위치 조회 표면, API 33+ 지오코더 callback wrapping, Android Address 후보 변환과 domain 정규화 적용, domain location 구현, availability broadcast 반영, device-backed callback smoke |
 | `core:datastore` | `UserPreferencesSerializerTest`, `AndroidUserPreferencesDataSourceTest` | storage-local 설정 DTO 직렬화와 DataStore 업데이트 |
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest`, Roborazzi snapshot | Urban Signal `#FFFCF2`/`#222222`/`#FFDC00` token, typography/spacing, chrome와 shared primitive, 실제 `Brand` drawable 매핑 |
-| `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, legacy RTO/RTX/NHO 저장값의 ALTEUL migration과 안정적인 재저장, 알 수 없는 enum name fallback |
-| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
+| `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, legacy RTO/RTX/NHO 저장값의 ALTEUL migration, legacy `KAKAO_NAVI`의 `KAKAO_MAP` migration과 현재 이름 재저장, 알 수 없는 enum name fallback |
+| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, 선택 유종 전용 watchlist cache/history와 가격 없음 identity fallback, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
 | `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, denied가 retained coordinate/cache/refresh보다 먼저 이기는 gate, query/cache/failure orchestration, price-first row와 2줄 typed summary, 반경/유종/브랜드 menu interaction, 320dp popup containment와 마지막 항목 scroll, 네 가지 가격 이력 상태, 320dp·200% 글꼴의 summary/station metadata, stale/empty/permission/GPS/failure, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
 | `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest`, Roborazzi overview/detail | 설정 상태, update use case dispatch, flat row, 실제 브랜드 tile, route/summary 계약 |
-| `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 관심 비교 상태, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
-| `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `GasStationBottomNavigationTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, icon-only navigation의 접근성 이름/선택·비활성 semantics/ASCII tag/48dp touch target, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 인텐트 |
-| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `DemoPermissionFlowTest`, `StationPortfolioFlowTest` | seed 적재, permission grant 뒤 고정 위치, 권한 자동 dialog 부재, explicit request의 deny/grant, UI Automator permission-controller 상호작용, RTO/ETC portfolio row, `station-list-watch-toggle` -> `bottom-nav-watchlist` -> `watchlist-card` 실제 관심 플로우. Android Test Orchestrator와 `clearPackageData`는 permission test가 다른 class의 권한 상태에 의존하지 않게 합니다. `StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 Nearby와 Settings의 mutation이 DataStore에 commit된 뒤 서로와 activity recreation에 같은 선호값으로 동기화되는지 보호합니다. |
+| `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 선택 유종 readiness/query 전환, 가격 없음 저장 identity 유지와 명시적 unavailable UI, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
+| `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `GasStationBottomNavigationTest`, `SplashThemeResourceTest`, `AppIconResourceTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, icon-only navigation의 접근성 이름/선택·비활성 semantics/ASCII tag/48dp touch target, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 provider package/URI와 route -> Play Store app URI -> HTTPS Store fallback·최종 실패 결과 |
+| `demo` 전용 앱 경로 | `DemoSeedStartupHookTest`, `DemoSeedAssetLoaderTest`, `DemoLocationHookIntegrationTest`, `DemoPermissionFlowTest`, `StationPortfolioFlowTest` | seed 적재, permission grant 뒤 고정 위치, 권한 자동 dialog 부재, explicit request의 deny/grant, UI Automator permission-controller 상호작용, RTO/ETC portfolio row, `station-list-watch-toggle` -> `bottom-nav-watchlist` -> `watchlist-card` 실제 관심 플로우. Android Test Orchestrator와 `clearPackageData`는 permission test가 다른 class의 권한 상태에 의존하지 않게 합니다. `StationPortfolioFlowTest`는 Nearby/Settings mutation과 recreation 동기화, 선택 유종의 가격 없는 저장 행 유지, 선택 지도 provider가 기록 Hilt launcher에 전달되는 consumer 경계를 보호합니다. |
 | `benchmark` | `StationListBenchmark`, `BaselineProfileGenerator`, `GasStationBenchmarkActions` | startup-to-first-content, list scroll, refresh, watchlist 진입, baseline profile journey |
 | `tools:demo-seed` | `DemoSeedGeneratorTest` | seed 생성기와 질의 매트릭스 |
 
@@ -47,6 +47,8 @@
 - 고정 위치 override가 실제 런타임에 들어오는지
 - denied first entry가 Android dialog를 자동으로 열지 않고, explicit CTA의 deny는 guidance에 머물며 grant 뒤에만 고정 좌표 목록이 열리는지 (`DemoPermissionFlowTest`)
 - 목록 -> 관심 저장 -> `bottom-nav-watchlist` -> `watchlist-card` 플로우가 실제 기기 테스트에서 동작하는지
+- 설정에서 바꾼 유종이 관심 화면의 query/context에 반영되고 선택 유종 가격이 없어도 저장 행을 유지하는지
+- 설정에서 바꾼 지도 provider가 Nearby row handoff의 기록 launcher에 전달되는지
 - benchmark가 반복 가능한 데이터 경로를 기준으로 측정되는지
 
 ### `prod`
@@ -82,7 +84,7 @@
 - `DemoSeedStartupHook`
   demo 시작 상태가 흔들리면 문서, 스크린샷, benchmark, UI 테스트가 함께 흔들립니다.
 - `ExternalMapLauncher`
-  사용자 설정의 지도 앱 선택이 실제 외부 인텐트와 맞아야 합니다.
+  사용자 설정의 지도 앱 선택이 실제 외부 인텐트와 맞아야 합니다. Unit test는 provider별 explicit package, 좌표·이름 URI 직렬화, NAVER runtime `appname`, route -> Play Store app URI -> HTTPS Store fallback, 최종 실패를 보호합니다. Connected test는 운영 launcher를 기록 Hilt binding으로 교체해 Settings에서 선택한 provider가 Nearby handoff까지 전달되는 소비 경계를 보호합니다.
 - First usable content policy
   Startup metric은 첫 frame이 아니라 사용 가능한 목록/empty/failure content 기준으로 보고합니다. `StationListFirstContentPolicy`와 `StartupDrawReporter` 테스트가 이 기준을 보호합니다.
 - Hero benchmark source set
@@ -137,7 +139,10 @@
 - 현재 주소는 행정동까지만 보여준다
 - stale 결과를 유지한다
 - watchlist는 저장 항목 비교를 지원한다
+- watchlist는 선택 유종의 cache/history만 사용하고 가격이 없어도 저장 identity를 유지한다
 - 설정은 `UserPreferences`를 편집한다
+- legacy `KAKAO_NAVI`는 `KAKAO_MAP`으로 읽히고 새 쓰기는 현재 이름을 저장한다
+- 외부 지도는 provider package를 명시하고 최종 fallback 실패를 사용자에게 알린다
 - DataStore 첫 emission 전 Nearby와 Settings는 default preference를 렌더링하거나 action에 사용하지 않는다
 - 설정 detail은 DataStore commit 성공 뒤에만 돌아가고, 실패하면 이전 값을 유지한다
 - Nearby `StationQuery`는 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 만들어진다

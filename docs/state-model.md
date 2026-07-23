@@ -23,7 +23,7 @@
 
 - 저장 위치: `core:datastore`
 - 저장소 구현: `data:settings`
-- 사용 위치: 목록 조회 파이프라인, 설정 화면, 외부 지도 선택
+- 사용 위치: 목록 조회 파이프라인, 관심 화면의 선택 유종 context, 설정 화면, 외부 지도 선택
 
 `core:datastore`는 domain model을 직접 저장하지 않고 `StoredUserPreferences` string DTO를 직렬화합니다. `data:settings`가 이 storage DTO를 domain `UserPreferences`로 매핑하고, 알 수 없는 enum name은 domain default로 되돌립니다.
 
@@ -38,6 +38,8 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 - `mapProvider`
 
 `demo` flavor는 예외가 하나 있습니다. `DemoSeedStartupHook`이 앱 시작 시 `UserPreferences.default()`로 다시 덮어써 검토 시작 상태를 항상 고정합니다.
+
+`mapProvider`의 현재 Kakao identity는 `KAKAO_MAP`입니다. storage-local legacy 값 `KAKAO_NAVI`는 `data:settings` 읽기 경계에서 `KAKAO_MAP`으로 복원되고, 다음 쓰기는 현재 이름만 저장합니다.
 
 ## 2. 목록 런타임 상태
 
@@ -105,10 +107,13 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 `feature:watchlist`는 별도 세션 리듀서를 두지 않습니다.
 
 - 기준 좌표는 `SavedStateHandle`에서 읽습니다.
-- 데이터는 `ObserveWatchlistUseCase` 구독 결과를 그대로 `WatchlistUiState`로 바꿉니다.
+- `ObserveUserPreferencesUseCase`의 첫 emission을 기다린 뒤 현재 `fuelType`과 기준 좌표로 `WatchlistQuery`를 만들고, `ObserveWatchlistUseCase` 결과를 `WatchlistUiState`로 바꿉니다.
+- 선택 유종의 캐시와 히스토리만 가격/변화 계산에 사용합니다. 둘 다 없으면 저장 identity를 유지한 nullable price를 `선택 유종 가격 없음`으로 투영합니다.
+- 반경, 브랜드 필터, Nearby 정렬은 관심 목록의 포함 여부와 watched-time 순서를 바꾸지 않습니다.
+- 첫 settings/watchlist emission 전에는 `isLoading`, 관찰 실패 뒤에는 `loadFailed`가 상태를 소유합니다. retry action은 settings와 watchlist 관찰을 함께 다시 시작합니다.
 - 권한, GPS, 새로고침 플래그, snackbar undo는 다시 들고 있지 않습니다.
 
-즉 watchlist 화면은 "어떤 좌표를 기준으로 거리 계산을 할지"와 "저장 항목 요약이 무엇인지"만 알면 됩니다.
+즉 watchlist 화면은 "어떤 좌표와 선택 유종으로 저장 항목을 비교할지"와 "저장 항목 요약이 무엇인지"만 알면 됩니다.
 
 ## 6. 설정 화면 상태
 
@@ -130,7 +135,7 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 - `StationListEffect.OpenLocationSettings`
 - `StationListEffect.OpenExternalMap`
 
-이 값들은 복원 대상이 아니라 즉시 소비 대상입니다. 화면 재구성 후 그대로 남겨 두면 중복 실행되므로 `SharedFlow`로 분리합니다.
+이 값들은 복원 대상이 아니라 즉시 소비 대상입니다. 화면 재구성 후 그대로 남겨 두면 중복 실행되므로 `SharedFlow`로 분리합니다. 외부 지도 effect가 전달되면 app은 현재 `mapProvider`로 명시적 package route를 시도하고 app route -> Play Store app URI -> HTTPS Store 순으로 fallback합니다. 모든 경로가 실패한 결과는 feature callback의 `false`로 돌아와 snackbar feedback을 냅니다.
 
 ## 8. 구조화 이벤트
 

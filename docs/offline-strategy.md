@@ -11,7 +11,7 @@
 | stale 기준은 무엇인가 | `StationCachePolicy`의 5분 |
 | 오래된 캐시는 언제 지우나 | refresh 성공 후 `StationCachePolicy.retainFor` 기본 7일보다 오래된 스냅샷/행을 정리합니다. |
 | 가격 변화는 어떻게 계산하나 | `station_price_history` 최신 이력으로 계산 |
-| watchlist는 현재 목록에 없으면 사라지나 | 아니요. 저장 항목과 최신 히스토리로 최대한 복원합니다. |
+| watchlist는 현재 목록에 없거나 선택 유종 가격이 없으면 사라지나 | 아니요. 저장 identity를 유지하고 선택 유종 가격이 없음을 명시합니다. |
 
 ## 저장 모델
 
@@ -118,12 +118,12 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 
 watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 
-1. `watched_station`에서 저장 항목을 읽습니다.
-2. 같은 `stationId`의 최신 캐시가 있으면 그 정보를 우선 사용합니다. 이 최신 행 선택은 DAO SQL이 station별 한 행만 반환하며, timestamp tie는 유종, 반경, 위치 버킷 순서로 고정합니다. 단, 그 최신 캐시 행이 좌표/가격 검증을 통과하지 못해 `toDomainStation()`이 `null`을 돌려주면 무시하고 다음 단계로 내려갑니다(`WatchlistSummaryAssembler`가 `cachedSnapshot != null`인 행만 유효 캐시로 인정).
-3. 최신 캐시가 없거나 무효하면 `station_price_history` 최신 행과 저장된 좌표/브랜드/이름으로 대체 모델을 만듭니다.
-4. 둘 다 없으면 해당 항목은 요약에서 빠집니다.
+1. `watched_station`에서 저장 항목을 watched-time 순으로 읽습니다.
+2. `WatchlistQuery.fuelType`과 같은 유종의 station별 최신 캐시가 있으면 그 가격/표시 정보를 우선 사용합니다. DAO SQL은 요청 유종만 대상으로 station별 한 행을 반환하고, timestamp tie는 반경과 위치 버킷 순서로 고정합니다. 캐시 행이 좌표/가격 검증을 통과하지 못해 `toDomainStation()`이 `null`이면 무효로 취급합니다.
+3. 유효 캐시가 없으면 같은 stationId·선택 유종의 최신 `station_price_history` 가격을 사용하고 저장된 좌표/브랜드/이름으로 대체 모델을 만듭니다.
+4. 선택 유종의 캐시와 히스토리가 모두 없더라도 저장 당시 identity·좌표·브랜드·이름을 유지하고 `price = null`인 요약을 만듭니다. 화면은 행을 제거하지 않고 `선택 유종 가격 없음`을 표시합니다.
 
-즉 사용자가 저장한 항목은 현재 검색 결과에서 사라져도 바로 비어 버리지 않습니다.
+반경, 브랜드 필터, Nearby 정렬은 watchlist query에 들어가지 않으므로 저장 항목을 숨기거나 watched-time 순서를 바꾸지 않습니다. 즉 사용자가 저장한 항목은 현재 검색 결과에서 사라지거나 선택 유종 가격이 없어도 비어 버리지 않습니다.
 
 ## demo와 prod의 의미
 
