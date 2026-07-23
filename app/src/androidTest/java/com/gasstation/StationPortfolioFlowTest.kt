@@ -9,9 +9,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -173,16 +176,27 @@ class StationPortfolioFlowTest {
         }
 
         rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).performClick()
-        rule.onAllNodesWithText("4km", useUnmergedTree = true).onFirst().assertExists()
-        rule.onAllNodesWithText("휘발유", useUnmergedTree = true).onFirst().assertExists()
-        rule.onAllNodesWithText("전체", useUnmergedTree = true).onFirst().assertExists()
-        rule.onAllNodesWithText("거리순", useUnmergedTree = true).onFirst().assertExists()
+        assertNearbyFilters(
+            radius = "4km",
+            fuel = "휘발유",
+            brand = "전체",
+            sort = "거리순",
+        )
 
         rule.activityRule.scenario.recreate()
-        rule.waitUntil(10_000) {
-            rule.onAllNodesWithText("거리순", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+        waitForNearby()
+        awaitPreferences("Recreated activity") { preferences ->
+            preferences.searchRadius == SearchRadius.KM_4 &&
+                preferences.fuelType == FuelType.GASOLINE &&
+                preferences.brandFilter == BrandFilter.ALL &&
+                preferences.sortOrder == SortOrder.DISTANCE
         }
+        assertNearbyFilters(
+            radius = "4km",
+            fuel = "휘발유",
+            brand = "전체",
+            sort = "거리순",
+        )
     }
 
     private fun selectNearbyFilter(chipTag: String, optionTag: String) {
@@ -236,6 +250,16 @@ class StationPortfolioFlowTest {
                 useUnmergedTree = true,
             ).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    private fun assertNearbyFilters(radius: String, fuel: String, brand: String, sort: String) {
+        rule.onNodeWithTag("station-list-filter-radius").assertTextEquals(radius)
+        rule.onNodeWithTag("station-list-filter-fuel").assertTextEquals(fuel)
+        rule.onNodeWithTag("station-list-filter-brand").assertTextEquals(brand)
+        rule.onNode(
+            matcher = hasText(sort) and hasAnyAncestor(hasTestTag("station-list-filter-rail")),
+            useUnmergedTree = true,
+        ).assertTextEquals(sort)
     }
 
     private fun openRadiusFilterMenu() {
