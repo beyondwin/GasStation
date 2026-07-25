@@ -184,9 +184,9 @@ DataStore는 반경, 유종, 브랜드 필터, 정렬, 지도 앱 같은 `UserPr
 
 ### demo flavor
 
-`demo`는 "가짜 화면"이 아니라 반복 가능한 정식 실행 경로입니다. 앱 시작 시 seed DB를 적재하고 preferences를 초기화하며, 고정 좌표로 목록과 benchmark를 재현합니다.
+`demo`는 "가짜 화면"이 아니라 반복 가능한 정식 실행 경로입니다. 앱 시작 시 seed DB를 적재하고 preferences를 초기화합니다. 강남역 2번 출구 고정 좌표는 approximate 또는 precise 위치 권한을 허용한 뒤에만 공급하며, 권한 거부 상태에서는 seed 좌표나 기존 캐시로 목록을 우회 표시하지 않습니다.
 
-장점은 문서, screenshot, UI test, benchmark가 같은 시작 상태를 공유한다는 점입니다. 단점은 demo seed와 실제 규칙이 어긋나면 신뢰가 크게 떨어진다는 점입니다. demo 전용 우회 로직으로 제품 규칙을 피하면 안 됩니다.
+장점은 권한 허용 뒤 문서, screenshot, UI test, benchmark가 같은 시작 상태를 공유한다는 점입니다. 단점은 demo seed와 실제 규칙이 어긋나면 신뢰가 크게 떨어진다는 점입니다. demo 전용 우회 로직으로 제품 규칙이나 권한 gate를 피하면 안 됩니다.
 
 ### 테스트 도구
 
@@ -334,7 +334,7 @@ API key는 Android client `BuildConfig`에 들어갈 수 있으므로 완전한 
 2. DB의 station cache, snapshot, price history, watched station을 초기화합니다.
 3. seed query와 history를 DB에 적재합니다.
 4. `UserPreferences.default()`로 설정을 되돌립니다.
-5. 강남역 2번 출구 기준 고정 좌표를 사용합니다.
+5. 위치 권한을 허용한 뒤에만 강남역 2번 출구 기준 고정 좌표를 공급합니다. 권한이 거부되면 고정 좌표, 기존 좌표, 캐시 목록, 자동/수동 refresh보다 권한 안내가 먼저 표시됩니다.
 
 따라서 `demo`는 "서버 없이 그럴듯한 화면을 보여주는 mock"이 아닙니다. 실제 cache/stale/watchlist 규칙을 seed 데이터로 재현하는 경로입니다. README screenshot, UI test, benchmark가 이 안정성에 기대고 있습니다.
 
@@ -360,12 +360,13 @@ API key는 Android client `BuildConfig`에 들어갈 수 있으므로 완전한 
 
 흐름은 아래와 같습니다.
 
-1. `SettingsRoute`가 설정 요약 화면을 보여줍니다.
-2. 사용자가 항목을 누르면 `SettingsDetailRoute`로 이동합니다.
+1. `SettingsRoute`는 DataStore의 첫 `UserPreferences` emission 전에는 loading만 보여주고 선택 action을 받지 않습니다.
+2. 첫 emission 뒤 설정 요약 화면을 보여주며, 사용자가 항목을 누르면 `SettingsDetailRoute`로 이동합니다.
 3. detail route는 별도 ViewModel이 아니라 settings back stack owner를 통해 같은 `SettingsViewModel`을 공유합니다.
 4. 사용자가 값을 선택하면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 use case를 호출합니다.
-5. `data:settings`가 DataStore storage DTO와 domain `UserPreferences`를 매핑합니다.
-6. 목록 화면은 같은 preferences stream을 보고 검색 조건을 갱신합니다.
+5. `data:settings`는 DataStore storage DTO와 domain `UserPreferences`를 매핑하고, mutation이 실제로 commit한 `UserPreferences`를 반환합니다.
+6. detail route는 committed value를 받은 뒤에만 이전 화면으로 돌아갑니다. 저장이 실패하면 이전 값을 유지하고 실패 feedback을 표시합니다.
+7. 목록, 관심 화면의 선택 유종, 외부 지도 handoff는 같은 committed preferences stream을 사용합니다. 현재 좌표가 유지된 목록에서 검색 조건이 바뀌면 active query를 새 조건으로 전환하고 refresh를 요청합니다.
 
 주의할 점은 설정 쓰기 경로입니다. feature에서 DataStore를 직접 호출하지 않습니다. "설정 하나 추가"는 대개 아래 순서를 따릅니다.
 
@@ -387,18 +388,18 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 - `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
 - `data/station/src/main/kotlin/com/gasstation/data/station/WatchlistSummaryAssembler.kt`
 
-목록 화면에서 사용자가 watch toggle을 누르면 `UpdateWatchStateUseCase`를 통해 저장 상태가 바뀝니다. watchlist 화면으로 이동할 때는 기준 좌표가 navigation argument로 넘어가고, `WatchlistViewModel`은 `SavedStateHandle`에서 이 좌표를 읽습니다.
+목록 화면에서 사용자가 watch toggle을 누르면 `UpdateWatchStateUseCase`를 통해 저장 상태가 바뀝니다. watchlist 화면으로 이동할 때는 기준 좌표가 navigation argument로 넘어가고, `WatchlistViewModel`은 `SavedStateHandle`에서 이 좌표를 읽습니다. 첫 settings emission이 도착하면 현재 선택 유종과 기준 좌표를 `WatchlistQuery(origin, fuelType)`로 묶어 저장소를 관찰합니다.
 
-watchlist는 별도 위치 조회나 refresh 세션 상태를 들고 있지 않습니다. 저장된 주유소를 비교할 기준 좌표와 저장소에서 관찰한 `WatchedStationSummary`가 핵심입니다.
+watchlist는 별도 위치 조회나 refresh 세션 상태를 들고 있지 않습니다. 저장된 주유소를 비교할 기준 좌표, 선택 유종, 저장소에서 관찰한 `WatchedStationSummary`가 핵심입니다.
 
 저장소는 watchlist 항목을 만들 때 아래 순서로 복원합니다.
 
 1. `watched_station`에서 저장 항목을 읽습니다.
-2. 같은 station id의 최신 cache가 있으면 우선 사용합니다.
-3. 최신 cache가 없거나 무효하면 price history와 저장된 이름/브랜드/좌표로 가능한 만큼 복원합니다.
-4. 둘 다 없으면 요약에서 제외합니다.
+2. 같은 station id와 선택 유종의 최신 유효 cache가 있으면 가격과 표시 정보를 우선 사용합니다.
+3. 유효 cache가 없으면 같은 station id와 선택 유종의 최신 price history를 저장된 이름/브랜드/좌표와 결합합니다.
+4. 선택 유종의 cache와 history가 모두 없어도 저장 identity, 이름, 브랜드, 좌표를 유지하고 `price = null`인 요약을 만듭니다. 화면은 행을 제거하지 않고 `선택 유종 가격 없음`을 표시합니다.
 
-그래서 watchlist는 현재 검색 결과에 없는 주유소라도 바로 사라지지 않습니다. 사용자가 저장한 비교 대상이라는 제품 의미를 최대한 유지합니다.
+반경, 브랜드 필터, Nearby 정렬은 watchlist 포함 여부와 watched-time 순서를 바꾸지 않습니다. 그래서 현재 검색 결과에 없거나 선택 유종 가격이 없는 주유소도 사라지지 않고, 사용자가 저장한 비교 대상이라는 제품 의미를 유지합니다.
 
 ## 13. 오프라인, stale, failure 처리
 
@@ -447,9 +448,9 @@ GasStation UI의 기본 정체성은 yellow, black, white입니다. 하지만 �
 예시는 브랜드 표시입니다.
 
 - station list에서는 가격/거리 비교 속도를 위해 브랜드 텍스트보다 브랜드 아이콘 중심입니다.
-- watchlist에서는 저장 항목 식별이 중요하므로 브랜드 아이콘과 visible brand label을 함께 보여줍니다.
+- watchlist에서도 실제 브랜드 아이콘으로 저장 항목을 식별하고 visible brand label은 반복하지 않습니다.
 
-즉 "브랜드를 어떻게 표시할지"의 최종 화면 정책은 feature가 소유하고, 브랜드 아이콘/라벨 primitive는 designsystem이 제공합니다.
+즉 "브랜드를 어떻게 표시할지"의 최종 화면 정책은 feature가 소유하고, 실제 브랜드 아이콘과 표시 primitive는 designsystem이 제공합니다.
 
 접근성 semantics와 test tag도 UI 계약입니다. 테스트 selector를 정리한다는 이유로 semantics를 제거하면 안 됩니다. 제거가 필요하면 대체 테스트와 접근성 설명을 함께 마련해야 합니다.
 ## 15. 테스트 전략과 검증 명령
@@ -487,13 +488,13 @@ GasStation UI의 기본 정체성은 yellow, black, white입니다. 하지만 �
   :benchmark:assemble
 ```
 
-문서만 바꿨다면 우선 아래 명령으로 공백/패치 오류를 확인합니다.
+현재 계약을 설명하는 문서만 바꿨다면 아래 저장소 표준 진입점으로 링크, 경로, 버전, 활성 모듈, 공백/패치 오류를 확인합니다.
 
 ```bash
-git diff --check -- README.md docs/project-reading-guide.md docs/onboarding/developer-onboarding-guide.md
+scripts/agent/verify.sh docs
 ```
 
-Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변경 계층에 맞는 테스트를 먼저 고르고, 공통 계약이나 release 전에는 `docs/verification-matrix.md`의 더 넓은 조합으로 확장합니다.
+`docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/` 같은 이력·근거 문서만 바꿨다면 수정한 파일을 명시한 `git diff --check -- <changed files>`로 좁힐 수 있습니다. Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변경 계층에 맞는 테스트를 먼저 고르고, 공통 계약이나 release 전에는 `docs/verification-matrix.md`의 더 넓은 조합으로 확장합니다.
 
 ## 16. 작업 유형별 수정 위치
 
@@ -512,7 +513,7 @@ Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변�
 | watchlist 변경 | `WatchlistViewModel.kt`, `WatchlistScreen.kt`, `WatchlistSummaryAssembler.kt` | `feature:watchlist`, `data:station` | `:feature:watchlist:testDebugUnitTest`, `:data:station:testDebugUnitTest` |
 | demo seed 변경 | `tools/demo-seed/*`, `DemoSeedStartupHook.kt`, `app/src/demo/assets/demo-station-seed.json` | `tools:demo-seed`, `app` demo source set | `:tools:demo-seed:test`, `:app:testDemoDebugUnitTest`, 필요 시 connected demo |
 | 외부 지도 handoff 변경 | `ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`, `GasStationNavHost.kt` | `app`, `feature:station-list` | `:app:testDemoDebugUnitTest`, station-list tests |
-| 문서-only 변경 | 바꿀 문서와 실제 코드 앵커 | `docs/*`, 필요 시 `README.md` | `git diff --check`, 링크/파일 존재 확인 |
+| live 문서-only 변경 | 바꿀 문서와 실제 코드 앵커 | `docs/*`, 필요 시 `README.md` | `scripts/agent/verify.sh docs` |
 
 수정 위치가 애매하면 `docs/module-contracts.md`를 먼저 봅니다. 구조 설명이 필요하면 `docs/architecture.md`, 상태가 헷갈리면 `docs/state-model.md`, 캐시/failure가 헷갈리면 `docs/offline-strategy.md`를 봅니다.
 
@@ -564,7 +565,7 @@ Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변�
 1. 재현합니다. 화면 버그라면 demo에서 재현되는지 먼저 봅니다.
 2. 소유 모듈을 찾습니다. 화면 표시 문제인지, domain 규칙인지, data/cache 문제인지 나눕니다.
 3. 관련 테스트를 먼저 읽습니다. 현재 계약이 무엇인지 모르면 수정 방향이 흔들립니다.
-4. 가능한 경우 실패 테스트를 추가합니다. 문서-only라면 `git diff --check`와 파일 존재 확인처럼 검증 기준을 명확히 합니다.
+4. 가능한 경우 실패 테스트를 추가합니다. live 문서-only라면 `scripts/agent/verify.sh docs`, 이력 문서-only라면 `git diff --check -- <changed files>`처럼 검증 기준을 명확히 합니다.
 5. 최소 수정합니다. 주변 리팩터링을 같이 하지 않습니다.
 6. targeted verification을 돌립니다.
 7. 사용자 흐름이나 모듈 책임 설명이 바뀌었으면 문서를 갱신합니다.
@@ -629,7 +630,7 @@ Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변�
 
 답변 예시:
 
-> demo는 mock 예외 경로가 아니라 재현 가능한 정식 실행 경로입니다. seed DB, 기본 preferences, 고정 좌표로 항상 같은 시작 상태를 만들기 때문에 README screenshot, UI test, macrobenchmark가 같은 기준을 공유합니다. 그래서 demo가 깨지면 단순 샘플이 깨진 것이 아니라 프로젝트의 검증 기반이 흔들린 것입니다.
+> demo는 mock 예외 경로가 아니라 재현 가능한 정식 실행 경로입니다. seed DB와 기본 preferences를 같은 상태로 만들고, 위치 권한 허용 뒤 고정 좌표를 공급하기 때문에 README screenshot, UI test, macrobenchmark가 같은 기준을 공유합니다. 권한 거부는 고정 좌표나 캐시로 우회하지 않습니다. 그래서 demo가 깨지면 단순 샘플이 깨진 것이 아니라 프로젝트의 검증 기반이 흔들린 것입니다.
 
 ### 오프라인 동작은 어떻게 설명하나요?
 
@@ -677,7 +678,7 @@ Gradle 테스트는 무조건 많이 돌리는 것이 답이 아닙니다. 변�
 - [ ] 활성 모듈 판단을 `settings.gradle.kts` 기준으로 했다.
 - [ ] `demo`와 `prod` 영향이 모두 확인됐다.
 - [ ] 변경 계층에 맞는 테스트를 골랐다.
-- [ ] 문서 변경은 `git diff --check`를 통과했다.
+- [ ] live 문서 변경은 `scripts/agent/verify.sh docs`, 이력 문서 변경은 `git diff --check -- <changed files>`를 통과했다.
 - [ ] 현재 단일 출처 문서가 바뀌어야 하는지 확인했다.
 - [ ] UI 변경이라면 가격 우선 정보 위계, 접근성 semantics, test tag 계약을 확인했다.
 - [ ] 캐시/failure 변경이라면 성공한 빈 결과와 캐시 없음이 구분되는지 확인했다.
