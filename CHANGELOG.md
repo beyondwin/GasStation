@@ -4,12 +4,32 @@
 
 ## Unreleased
 
+## 1.3.0 - 2026-07-25
+
+### 사용자 영향
+
 - 전체 앱을 Urban Signal UI로 전환했습니다. 주변 화면은 가격 우선 flat row, 최저가·건수/평균가·절약액의 2줄 요약, 공통 anchored filter menu, 명시적인 가격 이력 상태를 사용합니다. 관심 화면은 실제 브랜드 로고와 5행 고밀도 비교를, 설정은 flat overview/detail과 단일 `알뜰` 그룹을 사용하며 `자가상표`를 마지막에 둡니다. icon-only `주변·관심·설정` bottom navigation, 200% 글꼴 확장, RTO/RTX/NHO 및 ETC demo seed, Roborazzi와 최신 README 스크린샷을 함께 고정했습니다.
+- 주변 필터의 검정 surface를 40dp 높이와 14dp 모서리의 슬림형으로 정리하면서 48dp 터치 영역, 200% 글꼴 확장, 320dp 화면 menu containment, 마지막 chip 끝 여백을 유지했습니다.
+- 설정은 DataStore의 첫 값이 준비되기 전 기본값을 화면이나 검색에 사용하지 않고, 저장 성공 뒤에만 선택과 화면 이동을 확정합니다. 주변 목록은 같은 committed 설정으로 query와 refresh를 전환해 화면 간 값 불일치를 막습니다.
+- `demo`와 `prod`가 같은 위치 권한 gate를 사용합니다. 앱 진입만으로 권한 dialog를 열거나 demo 고정 좌표로 거부 상태를 우회하지 않으며, 명시적 요청·거부·앱 설정 복구·GPS 안내를 분리합니다.
+- 관심 화면은 설정에서 선택한 유종만으로 가격과 변동을 비교하고, 해당 유종 가격이 없을 때도 저장한 주유소 identity를 유지한 채 가격 없음 상태를 표시합니다.
+- 외부 지도 설정의 label, 저장 enum, package, URI를 TMAP·카카오맵·네이버 지도로 일치시켰습니다. route 실행 실패 시 Play Store app URI와 HTTPS Store로 순차 fallback하고 최종 실패는 앱이 사용자 feedback으로 처리합니다.
+
+### 개발자 영향
+
 - Gradle 9.6.1, AGP 9.3.0, Kotlin 2.4.10, Compose BOM 2026.06.01, Spotless 8.8.0/ktlint 1.8.0, PIT 1.25.7과 안정 AndroidX/빌드·테스트 의존성을 최신화했습니다. 최신 AndroidX의 compile API 37 요구를 수용하면서 target/Robolectric unit test SDK는 안정 지원 범위인 API 36으로 유지합니다.
 - Compose UI 테스트를 공식 v2 테스트 환경 API로 전환하고, deprecated v1 import를 막는 `verifyNoDeprecatedComposeTestApis` 가드와 demo instrumentation test 컴파일을 CI에 추가했습니다.
 - Kover 0.9.8의 미해결 Gradle 10 deprecation을 제거하기 위해 커버리지 수집을 최신 안정 JaCoCo 0.8.15로 교체했습니다. `coverageXmlReport`는 전체 JVM/Android unit-test matrix를 실행해 `build/reports/coverage/report.xml`에 통합 결과를 만들며, CI Gradle 경로는 `--warning-mode fail`로 새 deprecation을 차단합니다.
 - 최신 ben-manes versions 0.54.0의 Gradle 10 비호환 실행 경로를 제거하고, Gradle 의존성과 GitHub Actions를 매주 확인하는 Dependabot 설정으로 신선도 모니터링을 이전했습니다.
 - 멀티모듈 Spotless 검증은 프로젝트 전체 병렬 빌드를 유지하면서 ktlint 실행만 직렬화해 클래스 로더 경쟁으로 인한 간헐 실패를 제거했습니다.
+- `StationSearchResult`는 cache snapshot 존재 여부를 명시적으로 받고, flavor별 remote source 선택을 repository 밖의 `FlavorAwareStationRemoteDataSource`로 분리해 data source 경계를 선명하게 했습니다.
+- 저장소 작업자는 `scripts/agent/preflight.sh`, `scripts/agent/check-contracts.sh`, `scripts/agent/verify.sh`와 portable hook을 공통 진입점으로 사용합니다. GitHub Actions의 `agent-contracts` job이 같은 계약을 검증합니다.
+- 체크인된 demo seed는 키와 네트워크 없이 query matrix, origin/version, 가격 히스토리, portfolio station을 검증하는 `verifyDemoSeedAsset` 경로를 갖습니다.
+
+### 문서와 검증
+
+- README와 architecture, state, offline, module contract, test strategy, verification matrix, deployment 문서를 Urban Signal UI와 설정·권한·watchlist·외부 지도·agent/CI 계약에 맞췄습니다.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-07-25-v1.3.0.md](docs/release-notes/2026-07-25-v1.3.0.md)를 봅니다.
 
 ## 1.2.0 - 2026-06-07
 

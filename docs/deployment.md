@@ -26,24 +26,28 @@
 
 ```bash
 git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md app/build.gradle.kts docs/deployment.md docs/verification-matrix.md docs/release-notes/*.md
-./gradlew :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble
-./gradlew :app:assembleProdRelease
+scripts/agent/check-contracts.sh
+scripts/agent/verify.sh release
 ```
 
 릴리스 내용이 앱 동작, cache, 위치, watchlist, startup hook, benchmark 기준을 바꾸면 `docs/verification-matrix.md`의 머지 전 권장 회귀 세트까지 확장합니다.
 
 ## Merge 후 tag
 
-PR이 merge된 뒤 `main`에서 태그를 만들고 push합니다.
+PR이 merge되거나 release commit이 `main`에 push된 뒤, 해당 SHA의 GitHub Actions `Android CI`가 성공한 것을 먼저 확인합니다. `main` 검증이 끝난 같은 SHA에만 태그를 만들고 push합니다.
 
 ```bash
 git switch main
 git pull --ff-only
+gh run list --workflow android.yml --branch main --limit 5
+gh run watch <run-id> --exit-status
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`와 `coverageXmlReport`를 실행합니다. 태그 push 자체가 Play Store 업로드를 수행하지는 않습니다.
+`gh`를 사용할 수 없는 환경에서는 GitHub Actions 웹 화면에서 `main`의 정확한 commit SHA와 모든 job 성공을 확인합니다. 실패하거나 아직 실행 중이면 태그를 만들지 않습니다.
+
+`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`와 `coverageXmlReport`를 다시 실행합니다. 태그 push 자체가 Play Store 업로드를 수행하지는 않습니다.
 
 ## Android 산출물
 
