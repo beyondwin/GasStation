@@ -14,11 +14,11 @@
 
 ## 미리보기
 
-재현 가능한 `demo` 경로에서 캡처한 Urban Signal UI 주요 화면입니다.
+재현 가능한 `demo` 경로의 Urban Signal UI와 외부 지도 handoff를 담은 랜딩형 미리보기입니다.
 
 <p align="center">
   <img width="31%" alt="가격 우선 가까운 주유소 화면" src="docs/readme-assets/playstore_11.png">
-  <img width="31%" alt="다섯 곳을 한눈에 비교하는 관심 주유소 화면" src="docs/readme-assets/playstore_22.png">
+  <img width="31%" alt="한 번의 터치로 여는 외부 지도 길 안내 화면" src="docs/readme-assets/playstore_22.png">
   <img width="31%" alt="실제 브랜드 타일을 사용하는 브랜드 필터 상세 화면" src="docs/readme-assets/playstore_33.png">
 </p>
 
