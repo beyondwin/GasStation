@@ -195,6 +195,7 @@ class RoborazziStationListScreenTest {
     fun populated_state() {
         renderAndCapture("populated.png", populatedState)
         assertTrailingFilterChipClearance("src/test/snapshots/populated.png")
+        assertSlimFilterChipVisualHeight("src/test/snapshots/populated.png")
     }
 
     @Test
@@ -336,6 +337,30 @@ class RoborazziStationListScreenTest {
             "Expected at least 8dp of clear canvas after the trailing brand filter.",
             0,
             blackPixelCount,
+        )
+    }
+
+    private fun assertSlimFilterChipVisualHeight(snapshotPath: String) {
+        val bitmap = requireNotNull(
+            BitmapFactory.decodeFile(snapshotPath, BitmapFactory.Options().apply { inScaled = false }),
+        )
+        val railBounds = composeRule.onNodeWithTag(STATION_LIST_FILTER_RAIL_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val brandBounds = composeRule.onNodeWithTag(STATION_LIST_BRAND_FILTER_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val expectedVisualHeightPx = with(composeRule.density) { 40.dp.roundToPx() }
+        val maxBlackHeightPx = (brandBounds.left.toInt() until brandBounds.right.toInt()).maxOf { x ->
+            (railBounds.top.toInt() until railBounds.bottom.toInt()).count { y ->
+                bitmap.getPixel(x, y) == ColorBlack.toArgb()
+            }
+        }
+
+        assertEquals(
+            "Expected the visible brand filter surface to be 40dp high.",
+            expectedVisualHeightPx,
+            maxBlackHeightPx,
         )
     }
 

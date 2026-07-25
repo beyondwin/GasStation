@@ -1,12 +1,14 @@
 package com.gasstation.feature.stationlist
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,9 +25,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.ColorYellow
@@ -184,33 +188,53 @@ private fun FilterActionChip(
     menuKind: StationListFilterMenuKind? = null,
     enabled: Boolean = true,
 ) {
-    Surface(
-        modifier = modifier.defaultMinSize(minHeight = 48.dp),
-        color = ColorBlack,
-        contentColor = ColorYellow,
-        shape = RoundedCornerShape(50),
-        border = if (expanded) BorderStroke(2.dp, ColorYellow) else null,
-        onClick = onClick,
-        enabled = enabled,
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier = modifier
+            .defaultMinSize(minHeight = 48.dp)
+            .clip(shape)
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Surface(
+            color = ColorBlack,
+            contentColor = ColorYellow,
+            shape = shape,
+            border = if (expanded) BorderStroke(2.dp, ColorYellow) else null,
         ) {
-            Text(
-                text = label,
-                style = GasStationTheme.typography.chip,
-                maxLines = 1,
-            )
-            menuKind?.let { kind ->
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.station_list_filter_collapse_menu else R.string.station_list_filter_expand_menu,
-                    ),
-                    modifier = Modifier.testTag("$STATION_LIST_FILTER_CHEVRON_TAG_PREFIX${kind.name}"),
+            Row(
+                modifier = Modifier
+                    .heightIn(min = 40.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = GasStationTheme.typography.chip,
+                    maxLines = 1,
                 )
+                menuKind?.let { kind ->
+                    Icon(
+                        imageVector = if (expanded) {
+                            Icons.Rounded.KeyboardArrowUp
+                        } else {
+                            Icons.Rounded.KeyboardArrowDown
+                        },
+                        contentDescription = stringResource(
+                            if (expanded) {
+                                R.string.station_list_filter_collapse_menu
+                            } else {
+                                R.string.station_list_filter_expand_menu
+                            },
+                        ),
+                        modifier = Modifier.testTag("$STATION_LIST_FILTER_CHEVRON_TAG_PREFIX${kind.name}"),
+                    )
+                }
             }
         }
     }
