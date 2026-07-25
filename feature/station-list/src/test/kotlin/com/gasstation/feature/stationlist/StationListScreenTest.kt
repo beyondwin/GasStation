@@ -255,6 +255,27 @@ class StationListScreenTest {
 
     @Test
     @Config(qualifiers = "ko-rKR-w320dp-h260dp-xhdpi")
+    fun `radius filter label and chevron remain contained at two times font scale`() {
+        setFilterContent(width = 320.dp, height = 260.dp, fontScale = 2f)
+
+        val radiusChipBounds = composeRule.onNodeWithTag(
+            STATION_LIST_RADIUS_FILTER_TAG,
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().boundsInRoot
+        val radiusChipLabelBounds = composeRule.onNode(
+            matcher = hasText("3km") and hasAnyAncestor(hasTestTag(STATION_LIST_RADIUS_FILTER_TAG)),
+            useUnmergedTree = true,
+        ).assertTextEquals("3km").fetchSemanticsNode().boundsInRoot
+        assertBoundsContained("radius filter chip label", radiusChipLabelBounds, radiusChipBounds)
+        val radiusChevronBounds = composeRule.onNodeWithTag(
+            "$STATION_LIST_FILTER_CHEVRON_TAG_PREFIX${StationListFilterMenuKind.Radius.name}",
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().boundsInRoot
+        assertBoundsContained("radius filter chip chevron", radiusChevronBounds, radiusChipBounds)
+    }
+
+    @Test
+    @Config(qualifiers = "ko-rKR-w320dp-h260dp-xhdpi")
     fun `brand filter menu remains contained and selectable at two times font scale`() {
         val actions = mutableListOf<StationListAction>()
         setFilterContent(
