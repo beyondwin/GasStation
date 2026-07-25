@@ -8,12 +8,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
+import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
@@ -21,6 +24,7 @@ import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.settings.model.UserPreferences
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -190,6 +194,7 @@ class RoborazziStationListScreenTest {
     @Test
     fun populated_state() {
         renderAndCapture("populated.png", populatedState)
+        assertTrailingFilterChipClearance("src/test/snapshots/populated.png")
     }
 
     @Test
@@ -311,6 +316,27 @@ class RoborazziStationListScreenTest {
         val snapshotPath = "src/test/snapshots/$name"
         composeRule.onRoot().captureRoboImage(snapshotPath)
         assertTopBarChromeCaptured(snapshotPath)
+    }
+
+    private fun assertTrailingFilterChipClearance(snapshotPath: String) {
+        val bitmap = requireNotNull(
+            BitmapFactory.decodeFile(snapshotPath, BitmapFactory.Options().apply { inScaled = false }),
+        )
+        val railBounds = composeRule.onNodeWithTag(STATION_LIST_FILTER_RAIL_TAG, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val clearancePx = with(composeRule.density) { 8.dp.roundToPx() }
+        val sampleY = railBounds.center.y.toInt()
+        val sampleEnd = railBounds.right.toInt()
+        val blackPixelCount = (sampleEnd - clearancePx until sampleEnd).count { x ->
+            bitmap.getPixel(x, sampleY) == ColorBlack.toArgb()
+        }
+
+        assertEquals(
+            "Expected at least 8dp of clear canvas after the trailing brand filter.",
+            0,
+            blackPixelCount,
+        )
     }
 
     private fun assertTopBarChromeCaptured(snapshotPath: String) {
