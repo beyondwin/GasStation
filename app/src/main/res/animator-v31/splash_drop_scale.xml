@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<objectAnimator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="300">
+    <propertyValuesHolder android:propertyName="scaleX">
+        <keyframe android:fraction="0" android:value="0.82" />
+        <keyframe android:fraction="0.3333" android:value="1.04" />
+        <keyframe android:fraction="1" android:value="1" />
+    </propertyValuesHolder>
+    <propertyValuesHolder android:propertyName="scaleY">
+        <keyframe android:fraction="0" android:value="0.82" />
+        <keyframe android:fraction="0.3333" android:value="1.04" />
+        <keyframe android:fraction="1" android:value="1" />
+    </propertyValuesHolder>
+</objectAnimator>

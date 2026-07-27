@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_splash_signal_pulse_vector">
+    <target
+        android:name="drop_group"
+        android:animation="@animator/splash_drop_scale" />
+    <target
+        android:name="drop_path"
+        android:animation="@animator/splash_drop_alpha" />
+    <target
+        android:name="ring_group"
+        android:animation="@animator/splash_ring_scale" />
+    <target
+        android:name="ring_path"
+        android:animation="@animator/splash_ring_alpha" />
+</animated-vector>

@@ -3,6 +3,7 @@ package com.gasstation
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Build
@@ -20,6 +21,16 @@ import androidx.core.splashscreen.R as SplashScreenR
 
 @RunWith(RobolectricTestRunner::class)
 class SplashThemeResourceTest {
+    @Test
+    @Config(sdk = [31], application = android.app.Application::class)
+    fun `android 12 splash foreground is an animated vector drawable`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        assertTrue(
+            context.getDrawable(R.drawable.ic_splash_foreground) is AnimatedVectorDrawable,
+        )
+    }
+
     @Test
     @Config(sdk = [30], application = android.app.Application::class)
     fun `pre android 12 launcher resolves branded compat splash and post theme`() {
