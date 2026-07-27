@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### 사용자 영향
+
+- Android 버전별 스플래시를 AndroidX 계약으로 통일하고, Android 12 이상에서 시작을 지연하지 않는 짧은 Signal Pulse와 reduced-motion-safe 종료 전환을 추가했습니다.
+
 ## 1.3.0 - 2026-07-25
 
 ### 사용자 영향

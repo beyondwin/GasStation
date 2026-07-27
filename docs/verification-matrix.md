@@ -128,6 +128,23 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
 
 `verifyDemoSeedAsset`는 `opinet.apikey`나 네트워크 없이 체크인된 `app/src/demo/assets/demo-station-seed.json`의 15개 query matrix, origin/version, history key·가격·timestamp, RTO/ETC portfolio station을 검증합니다. `:tools:demo-seed:test`도 실제 체크인 asset을 읽어 같은 계약을 CI에서 보호합니다. 반면 `generateDemoSeed`는 실제 Opinet 데이터를 갱신하는 운영자용 live refresh이므로 로컬 `opinet.apikey`가 필요하며 자동화 gate에 포함하지 않습니다.
 
+### Splash Signal Pulse
+
+```bash
+./gradlew \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  :app:processDemoDebugResources \
+  :app:processProdDebugResources \
+  :app:assembleDemoDebug \
+  :app:assembleProdDebug \
+  :app:assembleDemoRelease \
+  :app:assembleProdRelease \
+  --warning-mode fail
+```
+
+API 30과 최신 API emulator에서 cold launch를 녹화하고 기본 animator scale과 0배를 각각 확인합니다. API 30은 정적 물방울, API 31 이상은 one-shot 300ms AVD를 사용하며 두 경로 모두 180ms exit 또는 animations-off 즉시 제거를 사용합니다. 두 API runtime evidence가 없으면 splash version-parity 완료를 주장하지 않습니다.
+
 ## Nearby 고밀도 UI 집중 회귀
 
 Nearby 요약·필터·가격 이력, 알뜰 그룹 migration, icon-only navigation처럼 이번 경계에 직접 닿는 계약은 다음 조합으로 확인합니다.

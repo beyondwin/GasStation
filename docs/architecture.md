@@ -115,6 +115,10 @@ flowchart LR
 
 실제 주유소 identity는 `Brand.RTO`, `Brand.RTX`, `Brand.NHO`로 보존합니다. 선택 UI만 `BrandFilter.ALTEUL` 하나로 그룹화하고 `matches()`가 세 identity를 모두 포함합니다. 화면에 표시하는 이름과 drawable은 계속 개별 `Brand`가 결정하며, `BrandFilter.ETC`는 선택 목록의 마지막에 둡니다.
 
+## Launch splash
+
+`MainActivity`는 `super.onCreate()` 직전에 AndroidX `installSplashScreen()`을 호출합니다. API 24–30은 launcher yellow와 정적 검정 물방울을, API 31 이상은 같은 final symbol의 300ms `Signal Pulse` AVD를 사용합니다. 첫 Activity frame이 준비되면 app-owned `SplashExitAnimator`가 180ms fade/scale exit를 적용하며, system animator scale이 0이면 즉시 제거합니다. Splash는 permission, location, demo seed, preferences, network readiness를 기다리지 않습니다.
+
 ## 런타임 흐름
 
 ### 1. 목록 화면
