@@ -88,7 +88,7 @@ internal fun MacrobenchmarkScope.openWatchlistWithSavedStation() {
     )
 }
 
-private fun resourceId(tag: String): BySelector = By.res(TARGET_PACKAGE, tag)
+private fun resourceId(tag: String): BySelector = By.res(tag)
 
 private fun MacrobenchmarkScope.clickStable(selector: BySelector, label: String) {
     var lastError: Throwable? = null
