@@ -24,9 +24,10 @@ class MainActivity : ComponentActivity() {
     private val startupDrawReporter = StartupDrawReporter(::reportFullyDrawn)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
         applySystemBars()
         super.onCreate(savedInstanceState)
+        SplashExitAnimator().install(splashScreen, this)
         setContent {
             GasStationTheme {
                 GasStationNavHost(
