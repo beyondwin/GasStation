@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.GasStation.Launcher" parent="@style/Theme.GasStation">
+    <style name="Theme.GasStation.Launcher" parent="Theme.SplashScreen">
         <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.GasStation</item>
     </style>
 </resources>

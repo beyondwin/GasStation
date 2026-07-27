@@ -6,6 +6,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.gasstation.core.designsystem.GasStationStatusBarStyle
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.designsystem.GasStationThemeDefaults
@@ -23,7 +24,7 @@ class MainActivity : ComponentActivity() {
     private val startupDrawReporter = StartupDrawReporter(::reportFullyDrawn)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme_GasStation)
+        installSplashScreen()
         applySystemBars()
         super.onCreate(savedInstanceState)
         setContent {

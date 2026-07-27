@@ -82,6 +82,7 @@ dependencies {
     implementation(project(":core:designsystem"))
 
     implementation(libs.timber)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.icons.extended)

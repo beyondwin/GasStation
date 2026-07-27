@@ -1,6 +1,7 @@
 package com.gasstation
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.LayerDrawable
@@ -15,13 +16,121 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.core.splashscreen.R as SplashScreenR
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [31], application = android.app.Application::class)
 class SplashThemeResourceTest {
     @Test
-    fun `main activity theme exposes branded splash background and icon on android 12 and above`() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+    @Config(sdk = [30], application = android.app.Application::class)
+    fun `pre android 12 launcher resolves branded compat splash and post theme`() {
+        val themedContext = launcherThemedContext()
+
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.windowSplashScreenBackground,
+            R.color.ic_launcher_background,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.windowSplashScreenAnimatedIcon,
+            R.drawable.ic_splash_foreground,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.postSplashScreenTheme,
+            R.style.Theme_GasStation,
+        )
+    }
+
+    @Test
+    @Config(
+        sdk = [30],
+        qualifiers = "night",
+        application = android.app.Application::class,
+    )
+    fun `pre android 12 night mode keeps brand constant splash colors`() {
+        val themedContext = launcherThemedContext()
+
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.windowSplashScreenBackground,
+            R.color.ic_launcher_background,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.windowSplashScreenAnimatedIcon,
+            R.drawable.ic_splash_foreground,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.postSplashScreenTheme,
+            R.style.Theme_GasStation,
+        )
+    }
+
+    @Test
+    @Config(sdk = [31], application = android.app.Application::class)
+    fun `android 12 launcher resolves framework splash and post theme`() {
+        val themedContext = launcherThemedContext()
+
+        assertThemeResource(
+            themedContext,
+            android.R.attr.windowSplashScreenBackground,
+            R.color.ic_launcher_background,
+        )
+        assertThemeResource(
+            themedContext,
+            android.R.attr.windowSplashScreenAnimatedIcon,
+            R.drawable.ic_splash_foreground,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.postSplashScreenTheme,
+            R.style.Theme_GasStation,
+        )
+    }
+
+    @Test
+    @Config(
+        sdk = [31],
+        qualifiers = "night",
+        application = android.app.Application::class,
+    )
+    fun `android 12 night mode keeps brand constant splash resources`() {
+        val themedContext = launcherThemedContext()
+
+        assertThemeResource(
+            themedContext,
+            android.R.attr.windowSplashScreenBackground,
+            R.color.ic_launcher_background,
+        )
+        assertThemeResource(
+            themedContext,
+            android.R.attr.windowSplashScreenAnimatedIcon,
+            R.drawable.ic_splash_foreground,
+        )
+        assertThemeResource(
+            themedContext,
+            SplashScreenR.attr.postSplashScreenTheme,
+            R.style.Theme_GasStation,
+        )
+    }
+
+    @Test
+    @Config(sdk = [30], application = android.app.Application::class)
+    fun `fallback splash background uses an inset drawable for the centered icon`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val drawable = context.getDrawable(R.drawable.splash_screen_background)
+
+        assertNotNull(drawable)
+        assertTrue(drawable is LayerDrawable)
+        val layerDrawable = drawable as LayerDrawable
+        assertEquals(2, layerDrawable.numberOfLayers)
+        assertTrue(layerDrawable.getDrawable(1) is InsetDrawable)
+    }
+
+    private fun launcherThemedContext(): ContextThemeWrapper {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val activityInfo = if (Build.VERSION.SDK_INT >= 33) {
             context.packageManager.getActivityInfo(
                 ComponentName(context, MainActivity::class.java),
@@ -34,43 +143,12 @@ class SplashThemeResourceTest {
                 0,
             )
         }
-        val themedContext = ContextThemeWrapper(context, activityInfo.themeResource)
-        val splashBackground = TypedValue()
-        val splashIcon = TypedValue()
-
-        assertTrue(
-            "MainActivity theme should define windowSplashScreenBackground",
-            themedContext.theme.resolveAttribute(
-                android.R.attr.windowSplashScreenBackground,
-                splashBackground,
-                true,
-            ),
-        )
-        assertEquals(R.color.ic_launcher_background, splashBackground.resourceId)
-
-        assertTrue(
-            "MainActivity theme should define windowSplashScreenAnimatedIcon",
-            themedContext.theme.resolveAttribute(
-                android.R.attr.windowSplashScreenAnimatedIcon,
-                splashIcon,
-                true,
-            ),
-        )
-        assertEquals(R.drawable.ic_splash_foreground, splashIcon.resourceId)
+        return ContextThemeWrapper(context, activityInfo.themeResource)
     }
 
-    @Test
-    fun `fallback splash background uses an inset drawable for the centered icon`() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val drawable = context.getDrawable(R.drawable.splash_screen_background)
-
-        assertNotNull(drawable)
-        assertTrue(drawable is LayerDrawable)
-        val layerDrawable = drawable as LayerDrawable
-        assertEquals(2, layerDrawable.numberOfLayers)
-        assertTrue(
-            "Splash icon layer should preserve extra breathing room to avoid visual clipping",
-            layerDrawable.getDrawable(1) is InsetDrawable,
-        )
+    private fun assertThemeResource(themedContext: ContextThemeWrapper, attribute: Int, expectedResource: Int) {
+        val value = TypedValue()
+        assertTrue(themedContext.theme.resolveAttribute(attribute, value, true))
+        assertEquals(expectedResource, value.resourceId)
     }
 }
