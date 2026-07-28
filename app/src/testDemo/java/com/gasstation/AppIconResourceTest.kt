@@ -47,4 +47,17 @@ class AppIconResourceTest {
             drawable is BitmapDrawable,
         )
     }
+
+    @Test
+    @Config(sdk = [33])
+    fun `themed launcher monochrome is vector backed`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val drawable = context.getDrawable(R.drawable.ic_launcher_monochrome)
+
+        assertNotNull(drawable)
+        assertFalse(
+            "ic_launcher_monochrome should remain vector or xml based",
+            drawable is BitmapDrawable,
+        )
+    }
 }
