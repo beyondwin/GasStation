@@ -6,7 +6,7 @@
 
 ### 사용자 영향
 
-- Android 버전별 스플래시를 AndroidX 계약으로 통일하고, Android 12 이상에서 시작을 지연하지 않는 짧은 Signal Pulse와 reduced-motion-safe 종료 전환을 추가했습니다.
+- Launcher, themed monochrome, AndroidX splash가 같은 refined-droplet silhouette를 사용하도록 선명도와 mask 여백을 정리했습니다. 모든 지원 Android 버전에서 정적 droplet을 사용해 시작 지연을 피하고, 기존 reduced-motion-safe 종료 전환을 유지합니다.
 
 ## 1.3.0 - 2026-07-25
 

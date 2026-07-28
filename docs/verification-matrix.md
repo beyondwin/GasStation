@@ -128,14 +128,12 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
 
 `verifyDemoSeedAsset`는 `opinet.apikey`나 네트워크 없이 체크인된 `app/src/demo/assets/demo-station-seed.json`의 15개 query matrix, origin/version, history key·가격·timestamp, RTO/ETC portfolio station을 검증합니다. `:tools:demo-seed:test`도 실제 체크인 asset을 읽어 같은 계약을 CI에서 보호합니다. 반면 `generateDemoSeed`는 실제 Opinet 데이터를 갱신하는 운영자용 live refresh이므로 로컬 `opinet.apikey`가 필요하며 자동화 gate에 포함하지 않습니다.
 
-### Splash Signal Pulse
+### Refined launcher and static splash droplet
 
 ```bash
 ./gradlew \
   :app:testDemoDebugUnitTest \
   :app:testProdDebugUnitTest \
-  :app:processDemoDebugResources \
-  :app:processProdDebugResources \
   :app:assembleDemoDebug \
   :app:assembleProdDebug \
   :app:assembleDemoRelease \
@@ -143,7 +141,9 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
   --warning-mode fail
 ```
 
-API 30과 최신 API emulator에서 cold launch를 녹화하고 기본 animator scale과 0배를 각각 확인합니다. API 30은 정적 물방울, API 31 이상은 one-shot 300ms AVD를 사용하며 두 경로 모두 180ms exit 또는 animations-off 즉시 제거를 사용합니다. 두 API runtime evidence가 없으면 splash version-parity 완료를 주장하지 않습니다.
+API 30과 API 37 emulator에서 cold launch를 녹화하고 기본 animator scale과 0배를 각각 확인합니다. 두 API 모두 shared `ic_brand_drop`을 정적으로 표시하며, API 37은 v31 animated override를 두지 않습니다. 기본 scale은 기존 180ms app-owned exit로 콘텐츠에 연결되고 animations-off는 custom exit residue 없이 즉시 제거되어야 합니다. 최종 evidence는 `app/build/reports/app-icon-refinement/app-icon-api{30,37}-scale{0,1}.mp4`, 같은 이름의 contact sheet, 독립 PNG burst, `launcher-api30.png`, `launcher-api37.png`, `launcher-api37-themed-home.png`가 소유합니다. Adaptive/legacy mask와 themed monochrome에서 물방울이 중앙에 있고 잘리지 않으며 식별 가능해야 합니다.
+
+Startup gate는 같은 cold-boot API 37-only 세션에서 pre-runtime commit과 최종 static HEAD를 각각 정확히 10회 측정한 matched pair를 사용합니다. `startupToFirstContent` median의 initial/full 어느 하나도 10%보다 느려지면 실패입니다. 최종 evidence는 `/tmp/gasstation-app-icon-before.json`과 `/tmp/gasstation-app-icon-after.json`이며, 2026-07-28 matched result는 initial 529.93ms → 432.01ms(-18.48%), full 721.12ms → 595.50ms(-17.42%)로 통과했습니다. 첫 비대응 측정은 외부 host 부하와 부팅 세션 차이로 분산이 커졌으므로 gate 판정에 사용하지 않고 별도 진단 JSON으로 보존합니다.
 
 ## Nearby 고밀도 UI 집중 회귀
 

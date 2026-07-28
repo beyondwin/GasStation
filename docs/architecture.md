@@ -117,7 +117,7 @@ flowchart LR
 
 ## Launch splash
 
-`MainActivity`는 `super.onCreate()` 직전에 AndroidX `installSplashScreen()`을 호출합니다. API 24–30은 launcher yellow와 정적 검정 물방울을, API 31 이상은 같은 final symbol의 300ms `Signal Pulse` AVD를 사용합니다. 첫 Activity frame이 준비되면 app-owned `SplashExitAnimator`가 180ms fade/scale exit를 적용하며, system animator scale이 0이면 즉시 제거합니다. Splash는 permission, location, demo seed, preferences, network readiness를 기다리지 않습니다.
+Launcher, themed monochrome, splash는 `ic_brand_drop`의 같은 refined-droplet path geometry를 공유하고 각 surface는 inset과 색상만 소유합니다. `MainActivity`는 `super.onCreate()` 직전에 AndroidX `installSplashScreen()`을 호출하며, API 24 이상 모든 버전은 launcher yellow 위에 정적 검정 물방울을 표시합니다. API 31+ AVD settle은 matched-pair startup gate를 만족시키기 위해 제거했고 framework splash도 같은 static foreground를 해석합니다. 첫 Activity frame이 준비되면 기존 app-owned `SplashExitAnimator`가 180ms fade/scale exit를 적용하며, system animator scale이 0이면 즉시 제거합니다. Splash는 permission, location, demo seed, preferences, network readiness를 기다리지 않습니다.
 
 ## 런타임 흐름
 
