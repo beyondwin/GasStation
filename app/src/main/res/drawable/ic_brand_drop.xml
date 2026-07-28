@@ -4,7 +4,13 @@
     android:height="100dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <path
-        android:fillColor="@color/ic_launcher_foreground_fill"
-        android:pathData="M50,7 C43,17 24,42 24,59 C24,80 35.65,95 50,95 C64.35,95 76,80 76,59 C76,42 57,17 50,7 Z" />
+    <group
+        android:name="drop_group"
+        android:pivotX="50"
+        android:pivotY="50">
+        <path
+            android:name="drop_path"
+            android:fillColor="@color/ic_launcher_foreground_fill"
+            android:pathData="M50 14C50.8 14 51.4 14.5 51.8 15.3C54.3 20.3 58.6 29 63.4 36.1C69.2 44.8 72 53.1 72 62C72 75.3 62.2 86 50 86C37.8 86 28 75.3 28 62C28 53.1 30.8 44.8 36.6 36.1C41.4 29 45.7 20.3 48.2 15.3C48.6 14.5 49.2 14 50 14Z" />
+    </group>
 </vector>
