@@ -21,19 +21,25 @@ class AppIconSourceContractTest {
     }
 
     @Test
-    fun `static animated and monochrome icons share one refined silhouette`() {
+    fun `static splash and monochrome icons share one refined silhouette`() {
         val colorVector = projectFile("app/src/main/res/drawable/ic_brand_drop.xml").readText()
         val monochromeVector = projectFile("app/src/main/res/drawable/ic_brand_drop_monochrome.xml").readText()
-        val avd = projectFile("app/src/main/res/drawable-v31/ic_splash_foreground.xml").readText()
+        val splashForeground = projectFile("app/src/main/res/drawable/ic_splash_foreground.xml").readText()
 
         assertTrue(colorVector.contains("""android:name="drop_group""""))
         assertTrue(colorVector.contains("""android:name="drop_path""""))
         assertEquals(pathData(colorVector), pathData(monochromeVector))
-        assertTrue(avd.contains("""android:drawable="@drawable/ic_brand_drop""""))
-        assertFalse(avd.contains("ring"))
+        assertTrue(splashForeground.contains("""android:drawable="@drawable/ic_brand_drop""""))
         assertFalse(projectFileExists("app/src/main/res/drawable-v31/ic_splash_signal_pulse_vector.xml"))
         assertFalse(projectFileExists("app/src/main/res/animator-v31/splash_ring_alpha.xml"))
         assertFalse(projectFileExists("app/src/main/res/animator-v31/splash_ring_scale.xml"))
+    }
+
+    @Test
+    fun `android 12 splash has no startup blocking animator override`() {
+        assertFalse(projectFileExists("app/src/main/res/drawable-v31/ic_splash_foreground.xml"))
+        assertFalse(projectFileExists("app/src/main/res/animator-v31/splash_drop_scale.xml"))
+        assertFalse(projectFileExists("app/src/main/res/animator-v31/splash_drop_alpha.xml"))
     }
 
     @Test

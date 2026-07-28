@@ -23,12 +23,12 @@ import androidx.core.splashscreen.R as SplashScreenR
 class SplashThemeResourceTest {
     @Test
     @Config(sdk = [31], application = android.app.Application::class)
-    fun `android 12 splash foreground is an animated vector drawable`() {
+    fun `android 12 splash foreground reuses the static inset drop`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        val drawable = context.getDrawable(R.drawable.ic_splash_foreground)
 
-        assertTrue(
-            context.getDrawable(R.drawable.ic_splash_foreground) is AnimatedVectorDrawable,
-        )
+        assertTrue(drawable is InsetDrawable)
+        assertTrue(drawable !is AnimatedVectorDrawable)
     }
 
     @Test
