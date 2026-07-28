@@ -15,6 +15,14 @@ Approved direction: A, refined droplet.
 
 Create a square, high-resolution Android app icon source for a Korean fuel-price comparison app named GasStation. Use a flat geometric vector-like style: one refined black fuel droplet centered on a solid Urban Signal yellow field. The droplet must have balanced bezier curves, a softly resolved top point, a stable rounded lower bowl, generous negative space, and a professional transportation-utility identity. Use only exact-looking yellow #FFDC00 and black #222222. No text, letters, won symbol, map pin, gas pump, signal ring, gradient, shadow, glow, 3D, photographic texture, border, rounded-square mask, device frame, or mockup. Keep the droplet comfortably inside Android adaptive icon circle and squircle safe zones and readable at 48 pixels.
 
+## Targeted edit prompt
+
+Edit only the color treatment of this generated GasStation app icon source. Preserve the exact square composition, centered single droplet silhouette, scale, padding, and softly resolved top point. Replace the entire background with one perfectly flat, uniform solid Urban Signal yellow #FFDC00. Replace the entire droplet with one perfectly flat, uniform solid black #222222. Remove every gradient, vignette, lighting variation, shadow, glow, highlight, blur, noise, texture, and edge halo. Keep crisp vector-like antialiased edges. No text, letters, won symbol, map pin, gas pump, signal ring, border, rounded-square mask, device frame, or mockup. The finished image must contain visually only the two exact-looking flat colors #FFDC00 and #222222.
+
+## Deterministic local palette normalization
+
+The accepted generated silhouette and composition were preserved. Residual yellow and black variation was deterministically mapped to exact `#FFDC00` and `#222222` flat regions. Only anti-aliased boundary pixels remain as interpolation between those two palette endpoints.
+
 ## Selection and normalization
 
 - One centered droplet; no text, pump, map pin, price mark, ring, gradient, or shadow.
