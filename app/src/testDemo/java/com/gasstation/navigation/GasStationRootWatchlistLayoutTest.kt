@@ -2,10 +2,17 @@ package com.gasstation.navigation
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -32,6 +39,60 @@ import java.time.Instant
 class GasStationRootWatchlistLayoutTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun `root scaffold consumes the bottom inset already handled by bottom navigation`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    GasStationRootScaffold(
+                        bottomBar = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(80.dp)
+                                    .testTag("inset-probe-bottom-bar"),
+                            )
+                        },
+                    ) { rootPadding ->
+                        InsetProbeScaffold(
+                            modifier = Modifier.padding(rootPadding),
+                        )
+                    }
+                }
+            }
+        }
+
+        val probeBounds = composeRule.onNodeWithTag("inset-probe-content").fetchSemanticsNode().boundsInRoot
+        val bottomBarTop = composeRule.onNodeWithTag("inset-probe-bottom-bar").fetchSemanticsNode().boundsInRoot.top
+
+        with(composeRule.density) {
+            assertEquals(24.dp, probeBounds.top.toDp())
+            assertEquals(bottomBarTop.toDp(), probeBounds.bottom.toDp())
+        }
+    }
+
+    @Test
+    fun `root scaffold preserves system insets when bottom navigation is absent`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(modifier = Modifier.size(width = 360.dp, height = 800.dp)) {
+                    GasStationRootScaffold(bottomBar = {}) { rootPadding ->
+                        InsetProbeScaffold(
+                            modifier = Modifier.padding(rootPadding),
+                        )
+                    }
+                }
+            }
+        }
+
+        val probeBounds = composeRule.onNodeWithTag("inset-probe-content").fetchSemanticsNode().boundsInRoot
+
+        with(composeRule.density) {
+            assertEquals(24.dp, probeBounds.top.toDp())
+            assertEquals(752.dp, probeBounds.bottom.toDp())
+        }
+    }
 
     @Test
     fun `root scaffold keeps five complete dense rows above bottom navigation`() {
@@ -70,6 +131,21 @@ class GasStationRootWatchlistLayoutTest {
             "Expected fifth row above bottom navigation, row=${rows.last().boundsInRoot}, navTop=$bottomNavigationTop",
             rows.last().boundsInRoot.bottom <= bottomNavigationTop,
         )
+    }
+
+    @Composable
+    private fun InsetProbeScaffold(modifier: Modifier = Modifier) {
+        Scaffold(
+            modifier = modifier,
+            contentWindowInsets = WindowInsets(top = 24.dp, bottom = 48.dp),
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .testTag("inset-probe-content"),
+            )
+        }
     }
 
     private fun fiveRowState(): WatchlistUiState {
