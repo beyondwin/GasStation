@@ -335,19 +335,36 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 | --- | --- |
 | `pull_request` | `agent-contracts` (agent contract tests + full checker), `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis + verifyCiRobolectricRuntime), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
-| `push` tag `v*` | PR 범위(`agent-contracts` 포함) + `release-assemble` + `coverage` |
+| `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 
 `prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
 `assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
+저장소 기본 workflow 권한은 read-only이며 `contents: write`는 tag-only `release-publish`에만 둡니다. `scripts/agent/check-contracts.sh --ci`는 release job이 모든 검증 job을 `needs`로 두고 release note, 다운로드 artifact, GitHub CLI 인증과 APK 게시 경로를 유지하는지 확인합니다.
 
 ## 릴리스/배포 확인
 
 새 버전을 발행할 때는 [`docs/deployment.md`](deployment.md)의 절차를 따른 뒤 아래 명령을 최소 확인으로 사용합니다.
 
 ```bash
-git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md app/build.gradle.kts docs/deployment.md docs/verification-matrix.md docs/release-notes/*.md
-./gradlew :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble
-./gradlew :app:assembleProdRelease
+git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md app/build.gradle.kts .github/workflows/android.yml docs/deployment.md docs/test-strategy.md docs/verification-matrix.md docs/release-notes/*.md
+scripts/agent/tests/check_contracts_test.sh
+scripts/agent/check-contracts.sh
+scripts/agent/verify.sh release
+```
+
+로컬 산출물은 아래 경로에 각각 하나의 APK가 생성되는지 확인합니다. prod release는 서명되지 않은 R8/minify 산출물입니다.
+
+```bash
+find app/build/outputs/apk/demo/debug -maxdepth 1 -type f -name "*.apk" -print
+find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print
+```
+
+Tag push 뒤에는 tag workflow와 GitHub Release가 같은 tag를 가리키고, 세 자산이 게시됐는지 확인합니다.
+
+```bash
+gh run list --workflow android.yml --branch vX.Y.Z --limit 1
+gh run watch <tag-run-id> --exit-status
+gh release view vX.Y.Z --json tagName,url,assets
 ```
 
 physical-device 성능 수치를 갱신하는 릴리스라면 "Hero Benchmark Evidence" 명령을 추가로 실행하고 `docs/performance.md`와 해당 릴리즈 노트에 기기/variant/측정일을 남깁니다.

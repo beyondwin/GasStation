@@ -16,6 +16,9 @@ env:
   # Robolectric API 36 requires Java 21+, while production bytecode remains JVM 17.
   CI_JAVA_VERSION: "21"
 
+permissions:
+  contents: read
+
 jobs:
   agent-contracts:
     runs-on: ubuntu-latest
@@ -116,6 +119,21 @@ jobs:
           ./gradlew :app:assembleDemoDebug --warning-mode fail
           ./gradlew :app:assembleProdDebug --warning-mode fail
           ./gradlew :benchmark:assemble --warning-mode fail
+      - name: Prepare demo APK
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          mkdir -p release-assets
+          mapfile -t apks < <(find app/build/outputs/apk/demo/debug -maxdepth 1 -type f -name "*.apk" -print)
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-demo-debug.apk"
+      - name: Upload demo APK
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-demo-apk
+          path: release-assets/*.apk
+          if-no-files-found: error
+          retention-days: 7
 
   release-assemble:
     runs-on: ubuntu-latest
@@ -129,6 +147,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Release Assemble
         run: ./gradlew :app:assembleProdRelease --warning-mode fail
+      - name: Prepare unsigned prod APK
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          mkdir -p release-assets
+          mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-prod-release-unsigned.apk"
+      - name: Upload unsigned prod APK
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-prod-apk
+          path: release-assets/*.apk
+          if-no-files-found: error
+          retention-days: 7
 
   coverage:
     runs-on: ubuntu-latest
@@ -151,3 +184,54 @@ jobs:
         with:
           token: ${{ env.CODECOV_TOKEN }}
           files: build/reports/coverage/report.xml
+
+  release-publish:
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*-apk
+          path: release-assets
+          merge-multiple: true
+      - name: Validate release metadata and assets
+        id: release-metadata
+        run: |
+          tag="$GITHUB_REF_NAME"
+          version="${tag#v}"
+          version_name=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          test "$tag" = "v$version_name"
+
+          shopt -s nullglob
+          notes_files=(docs/release-notes/*-"$tag".md)
+          test "${#notes_files[@]}" -eq 1
+          apk_files=(
+            "release-assets/GasStation-$version-demo-debug.apk"
+            "release-assets/GasStation-$version-prod-release-unsigned.apk"
+          )
+          test -f "${apk_files[0]}"
+          test -f "${apk_files[1]}"
+
+          sha256sum "${apk_files[@]}" > release-assets/SHA256SUMS.txt
+          printf 'notes_file=%s\n' "${notes_files[0]}" >> "$GITHUB_OUTPUT"
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES_FILE: ${{ steps.release-metadata.outputs.notes_file }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$tag" --notes-file "$NOTES_FILE"
+            gh release upload "$tag" release-assets/*.apk release-assets/SHA256SUMS.txt --clobber
+          else
+            gh release create "$tag" \
+              --verify-tag \
+              --title "$tag" \
+              --notes-file "$NOTES_FILE" \
+              release-assets/*.apk \
+              release-assets/SHA256SUMS.txt
+          fi

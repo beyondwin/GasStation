@@ -14,6 +14,7 @@
 - Compose test rule은 `androidx.compose.ui.test.junit4.v2` 환경을 사용합니다. v2의 `StandardTestDispatcher` 기반 동기화 계약을 유지하고, deprecated v1 test-environment import는 `verifyNoDeprecatedComposeTestApis`가 차단합니다.
 - Compose 테스트 selector는 ASCII `testTag`를 사용하고, 한글 사용자 문구와 스크린 리더용 설명은 `contentDescription` 같은 접근성 semantics에 남깁니다.
 - 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel 테스트에서 `Dispatchers.Main`이 필요하면 feature-local rule/helper로 설정을 중앙화합니다. 현재 station-list 테스트는 `MainDispatcherRule`이 이 계약을 소유합니다.
+- agent contract test는 `v*` tag의 `release-publish`가 전체 CI job을 선행 조건으로 사용하고, job 범위의 `contents: write`, release note, 다운로드한 APK, `gh release create` 경로를 잃지 않도록 보호합니다.
 - Build velocity settings are valid only while the verification matrix stays green. If `parallel`, build cache, or configuration cache changes a task result, treat it as a build correctness issue and fix the build boundary before changing product behavior.
 
 ## 계층별 목적

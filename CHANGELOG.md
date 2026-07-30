@@ -4,9 +4,24 @@
 
 ## Unreleased
 
+## 1.4.0 - 2026-07-31
+
 ### 사용자 영향
 
 - Launcher, themed monochrome, AndroidX splash가 같은 refined-droplet silhouette를 사용하도록 선명도와 mask 여백을 정리했습니다. 모든 지원 Android 버전에서 정적 droplet을 사용해 시작 지연을 피하고, 기존 reduced-motion-safe 종료 전환을 유지합니다.
+- 앱이 첫 frame을 준비하면 검정 물방울이 180ms signal pulse로 콘텐츠에 연결됩니다. 시스템 애니메이션을 끈 환경에서는 custom exit를 즉시 제거하고, API 31+의 불필요한 settle 대기를 없애 startup 회귀를 막았습니다.
+- edge-to-edge navigation inset을 한 계층에서만 소비하도록 정리해 관심 화면처럼 스크롤되는 root destination에서 하단 여백이 중복되는 문제를 고쳤습니다.
+
+### 개발자 영향
+
+- app icon과 splash의 승인 SVG/PNG provenance, 리소스 계약, API 30/API 37 cold-launch evidence를 저장소 문서와 테스트로 고정하고 benchmark selector를 현재 Compose tag와 맞췄습니다.
+- `v*` tag CI는 모든 계약·정적 분석·단위·screenshot·assemble·coverage job이 성공한 뒤 installable demo debug APK, unsigned prod release APK, SHA-256 checksum을 GitHub Release에 자동 게시합니다.
+- `scripts/agent/check-contracts.sh --ci`가 release job의 검증 의존성, tag-only 조건, job-scoped `contents: write`, release note와 APK 게시 경로를 보호합니다.
+
+### 문서와 검증
+
+- README, 기여 가이드, 배포 절차, 테스트 전략, 검증 매트릭스를 v1.4.0과 자동 GitHub Release 경로에 맞췄습니다.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-07-31-v1.4.0.md](docs/release-notes/2026-07-31-v1.4.0.md)를 봅니다.
 
 ## 1.3.0 - 2026-07-25
 

@@ -19,6 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.gasstation.feature.stationlist.R as StationListR
 
 private const val PERMISSION_GUIDANCE_TAG = "station-list-permission-guidance"
 private const val WATCH_TOGGLE_TAG = "station-list-watch-toggle"
@@ -51,7 +52,7 @@ class DemoPermissionFlowTest {
 
     @Test
     fun b_denyingExplicitPermissionRequest_keepsGuidanceWithoutNearbyContent() {
-        rule.onNodeWithText("권한 요청").performClick()
+        rule.onNodeWithText(stationListString(StationListR.string.station_list_permission_action)).performClick()
         permissionButton(DENY_BUTTON).click()
 
         rule.onNodeWithTag(PERMISSION_GUIDANCE_TAG).assertExists()
@@ -60,7 +61,7 @@ class DemoPermissionFlowTest {
 
     @Test
     fun c_grantingExplicitPermissionRequest_revealsFixedDemoNearbyContent() {
-        rule.onNodeWithText("권한 요청").performClick()
+        rule.onNodeWithText(stationListString(StationListR.string.station_list_permission_action)).performClick()
         permissionButton(ALLOW_FOREGROUND_BUTTON).click()
 
         rule.waitUntil(10_000) {
@@ -93,6 +94,9 @@ class DemoPermissionFlowTest {
         return device.hasObject(By.res(PERMISSION_CONTROLLER_PACKAGE, ALLOW_FOREGROUND_BUTTON)) ||
             device.hasObject(By.res(ALLOW_FOREGROUND_BUTTON))
     }
+
+    private fun stationListString(resourceId: Int): String =
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(resourceId)
 
     private fun device(): UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 }

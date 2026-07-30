@@ -25,6 +25,7 @@ make_git_repo "$fixture/repo"
 mkdir -p \
   "$fixture/repo/app" \
   "$fixture/repo/docs" \
+  "$fixture/repo/docs/release-notes" \
   "$fixture/repo/.codex" \
   "$fixture/repo/.claude" \
   "$fixture/repo/.github/workflows" \
@@ -46,6 +47,13 @@ Current version: `1.2.0` (`versionCode` 8).
 [Guide](docs/guide.md)
 EOF
 printf '# Guide\n' > "$fixture/repo/docs/guide.md"
+cat > "$fixture/repo/docs/release-notes/2026-06-07-v1.2.0.md" <<'EOF'
+# Release Notes - v1.2.0
+
+| `versionName` | `1.2.0` |
+| `versionCode` | `8` |
+| 릴리즈 태그 | `v1.2.0` |
+EOF
 printf 'Java 21+, Android SDK 37, Python 3.9+.\n' > "$fixture/repo/CONTRIBUTING.md"
 printf '# Changelog\n' > "$fixture/repo/CHANGELOG.md"
 printf '# Design contract\n' > "$fixture/repo/.impeccable.md"
@@ -117,6 +125,19 @@ jobs:
           GASSTATION_CI_BASE_REF: fixture-base
   static-analysis:
     runs-on: ubuntu-latest
+  release-publish:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file=$(find docs/release-notes/ -name "*-${GITHUB_REF_NAME}.md")
+          gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
 git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
@@ -186,7 +207,51 @@ jobs:
           GASSTATION_CI_BASE_REF: fixture-base
   static-analysis:
     runs-on: ubuntu-latest
+  release-publish:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file=$(find docs/release-notes/ -name "*-${GITHUB_REF_NAME}.md")
+          gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    re.sub(r"(?ms)^  release-publish:\s*\n.*?(?=^  [A-Za-z0-9_-]+:\s*$|\Z)", "", workflow.read_text())
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/release-workflow.out" 2>&1; then
+  fail "workflow without tag release publishing was accepted"
+fi
+assert_contains "$(cat "$fixture/release-workflow.out")" ".github/workflows/android.yml:1: tag release publishing contract missing"
+assert_error_locations "$(cat "$fixture/release-workflow.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace(", coverage]", "]"))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/release-needs.out" 2>&1; then
+  fail "release publishing without the coverage prerequisite was accepted"
+fi
+assert_contains "$(cat "$fixture/release-needs.out")" ".github/workflows/android.yml:1: tag release publishing prerequisite missing: coverage"
+assert_error_locations "$(cat "$fixture/release-needs.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 rm "$fixture/repo/docs/state-model.md"
 if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/missing-file.out" 2>&1; then
@@ -357,6 +422,14 @@ fi
 assert_contains "$(cat "$fixture/version.out")" "expected current version"
 assert_error_locations "$(cat "$fixture/version.out")"
 git -C "$fixture/repo" checkout -q -- README.md
+
+rm "$fixture/repo/docs/release-notes/2026-06-07-v1.2.0.md"
+if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/release-note.out" 2>&1; then
+  fail "current version without a release note was accepted"
+fi
+assert_contains "$(cat "$fixture/release-note.out")" "current version release note missing"
+assert_error_locations "$(cat "$fixture/release-note.out")"
+git -C "$fixture/repo" restore docs/release-notes/2026-06-07-v1.2.0.md
 
 printf 'opinet.apikey=real-secret\n' > "$fixture/repo/gradle.properties"
 git -C "$fixture/repo" add gradle.properties

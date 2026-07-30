@@ -65,6 +65,10 @@ import org.junit.runners.model.Statement
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Rect as ComposeRect
+import com.gasstation.core.designsystem.R as DesignSystemR
+import com.gasstation.feature.settings.R as SettingsR
+import com.gasstation.feature.stationlist.R as StationListR
+import com.gasstation.feature.watchlist.R as WatchlistR
 
 @UninstallModules(ExternalMapModule::class)
 @HiltAndroidTest
@@ -168,7 +172,10 @@ class StationPortfolioFlowTest {
         selectNearbyFilter("station-list-filter-radius", "station-list-filter-option-KM_5")
         selectNearbyFilter("station-list-filter-fuel", "station-list-filter-option-DIESEL")
         selectNearbyFilter("station-list-filter-brand", "station-list-filter-option-GSC")
-        rule.onNodeWithText("거리순", useUnmergedTree = true).performClick()
+        rule.onNodeWithText(
+            targetString(StationListR.string.station_list_sort_distance),
+            useUnmergedTree = true,
+        ).performClick()
 
         awaitPreferences("Nearby writes") { preferences ->
             preferences.searchRadius == SearchRadius.KM_5 &&
@@ -178,10 +185,10 @@ class StationPortfolioFlowTest {
         }
 
         rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
-        rule.onNodeWithText("5km").assertExists()
-        rule.onNodeWithText("경유").assertExists()
+        rule.onNodeWithText(targetString(DesignSystemR.string.gas_station_radius_km5)).assertExists()
+        rule.onNodeWithText(targetString(DesignSystemR.string.gas_station_fuel_diesel)).assertExists()
         rule.onNodeWithText("GS칼텍스").assertExists()
-        rule.onNodeWithText("가격순 보기").assertExists()
+        rule.onNodeWithText(targetString(SettingsR.string.settings_sort_price_label)).assertExists()
 
         selectSetting("settings-row-search-radius", "settings-option-KM_4")
         selectSetting("settings-row-fuel-type", "settings-option-GASOLINE")
@@ -197,10 +204,10 @@ class StationPortfolioFlowTest {
 
         rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).performClick()
         assertNearbyFilters(
-            radius = "4km",
-            fuel = "휘발유",
+            radius = targetString(DesignSystemR.string.gas_station_radius_km4),
+            fuel = targetString(DesignSystemR.string.gas_station_fuel_gasoline),
             brand = "전체",
-            sort = "거리순",
+            sort = targetString(StationListR.string.station_list_sort_distance),
         )
 
         rule.activityRule.scenario.recreate()
@@ -212,10 +219,10 @@ class StationPortfolioFlowTest {
                 preferences.sortOrder == SortOrder.DISTANCE
         }
         assertNearbyFilters(
-            radius = "4km",
-            fuel = "휘발유",
+            radius = targetString(DesignSystemR.string.gas_station_radius_km4),
+            fuel = targetString(DesignSystemR.string.gas_station_fuel_gasoline),
             brand = "전체",
-            sort = "거리순",
+            sort = targetString(StationListR.string.station_list_sort_distance),
         )
     }
 
@@ -226,7 +233,12 @@ class StationPortfolioFlowTest {
         val gasolineOnlyStation = seedGasolineOnlyWatchlistStation()
 
         rule.onNodeWithTag("bottom-nav-watchlist", useUnmergedTree = true).performClick()
-        rule.onNodeWithText("휘발유 기준").assertExists()
+        rule.onNodeWithText(
+            targetString(
+                WatchlistR.string.watchlist_fuel_context,
+                targetString(DesignSystemR.string.gas_station_fuel_gasoline),
+            ),
+        ).assertExists()
         rule.onAllNodesWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
             .assertCountEquals(1)
         rule.onNodeWithText(gasolineOnlyStation.name).assertExists()
@@ -240,11 +252,16 @@ class StationPortfolioFlowTest {
         rule.onNodeWithTag("settings-option-DIESEL", useUnmergedTree = true).performClick()
         rule.onNodeWithTag("bottom-nav-watchlist", useUnmergedTree = true).performClick()
 
-        rule.onNodeWithText("경유 기준").assertExists()
+        rule.onNodeWithText(
+            targetString(
+                WatchlistR.string.watchlist_fuel_context,
+                targetString(DesignSystemR.string.gas_station_fuel_diesel),
+            ),
+        ).assertExists()
         rule.onAllNodesWithTag(WATCHLIST_CARD_TEST_TAG, useUnmergedTree = true)
             .assertCountEquals(1)
         rule.onNodeWithText(gasolineOnlyStation.name).assertExists()
-        rule.onNodeWithText("선택 유종 가격 없음").assertExists()
+        rule.onNodeWithText(targetString(WatchlistR.string.watchlist_price_unavailable)).assertExists()
     }
 
     @Test
@@ -411,6 +428,9 @@ class StationPortfolioFlowTest {
         rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).assertIsSelected()
         rule.onNodeWithTag("station-list-filter-radius", useUnmergedTree = true).fetchSemanticsNode()
     }
+
+    private fun targetString(resourceId: Int, vararg formatArgs: Any): String =
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(resourceId, *formatArgs)
 
     private fun SemanticsNode.boundsInScreen(): ComposeRect = boundsInWindow.toScreenBounds(
         positionInWindow = positionInWindow,

@@ -72,6 +72,28 @@ HOOK_CONFIG_EVENTS = {
         "SubagentStop": "scripts/agent/check-contracts.sh",
     },
 }
+RELEASE_JOB = re.compile(
+    r"(?ms)^  release-publish:\s*\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)"
+)
+RELEASE_JOB_ANCHORS = {
+    "tag-only condition": "startsWith(github.ref, 'refs/tags/v')",
+    "upstream verification dependencies": "needs:",
+    "job-scoped release permission": "contents: write",
+    "built artifact download": "actions/download-artifact@",
+    "release-note source": "docs/release-notes/",
+    "GitHub CLI authentication": "GH_TOKEN:",
+    "GitHub Release creation": "gh release create",
+    "APK release assets": "release-assets/*.apk",
+}
+RELEASE_JOB_PREREQUISITES = {
+    "agent-contracts",
+    "static-analysis",
+    "unit-tests",
+    "screenshot-tests",
+    "assemble",
+    "release-assemble",
+    "coverage",
+}
 
 
 def issue(path, line: int, message: str) -> str:
@@ -154,6 +176,37 @@ def check_build_contract(root: Path) -> list[str]:
         expected = f"`{version_name.group(1)}` (`versionCode` {version_code.group(1)})"
         if expected not in readme:
             issues.append(issue("README.md", 1, f"expected current version {expected}"))
+
+    if version_name and version_code:
+        current_version = version_name.group(1)
+        release_notes = sorted(
+            (root / "docs" / "release-notes").glob(f"*-v{current_version}.md")
+        )
+        if len(release_notes) != 1:
+            issues.append(
+                issue(
+                    "docs/release-notes",
+                    1,
+                    f"current version release note missing or ambiguous: v{current_version}",
+                )
+            )
+        else:
+            release_note = release_notes[0]
+            release_note_text = release_note.read_text(errors="replace")
+            expected_release_anchors = (
+                f"`versionName` | `{current_version}`",
+                f"`versionCode` | `{version_code.group(1)}`",
+                f"릴리즈 태그 | `v{current_version}`",
+            )
+            for anchor in expected_release_anchors:
+                if anchor not in release_note_text:
+                    issues.append(
+                        issue(
+                            release_note.relative_to(root),
+                            1,
+                            f"current version release note contract missing: {anchor}",
+                        )
+                    )
 
     contributing_file = root / "CONTRIBUTING.md"
     contributing = contributing_file.read_text() if contributing_file.exists() else ""
@@ -419,6 +472,48 @@ def check_ci_contracts(root: Path) -> list[str]:
     for target in sorted(configured_targets):
         if not (root / target).is_file():
             issues.append(issue(target, 1, "configured hook target missing"))
+
+    workflow_path = root / ".github" / "workflows" / "android.yml"
+    if workflow_path.is_file():
+        workflow = workflow_path.read_text(errors="replace")
+        release_job = RELEASE_JOB.search(workflow)
+        if release_job is None:
+            issues.append(
+                issue(
+                    ".github/workflows/android.yml",
+                    1,
+                    "tag release publishing contract missing",
+                )
+            )
+        else:
+            body = release_job.group("body")
+            for name, anchor in RELEASE_JOB_ANCHORS.items():
+                if anchor not in body:
+                    issues.append(
+                        issue(
+                            ".github/workflows/android.yml",
+                            1,
+                            f"tag release publishing contract missing: {name}",
+                        )
+                    )
+            needs_match = re.search(r"(?m)^\s+needs:\s*\[([^\]]+)\]\s*$", body)
+            prerequisites = (
+                {
+                    prerequisite.strip()
+                    for prerequisite in needs_match.group(1).split(",")
+                    if prerequisite.strip()
+                }
+                if needs_match
+                else set()
+            )
+            for prerequisite in sorted(RELEASE_JOB_PREREQUISITES - prerequisites):
+                issues.append(
+                    issue(
+                        ".github/workflows/android.yml",
+                        1,
+                        f"tag release publishing prerequisite missing: {prerequisite}",
+                    )
+                )
     return issues
 
 

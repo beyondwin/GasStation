@@ -13,8 +13,8 @@ android {
 
     defaultConfig {
         applicationId = "com.gasstation"
-        versionCode = 9
-        versionName = "1.3.0"
+        versionCode = 10
+        versionName = "1.4.0"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
         buildConfigField("String", "STATION_ENDPOINT_MODE", "\"${stationEndpointMode.get()}\"")
         buildConfigField("String", "PROXY_BASE_URL", "\"${proxyBaseUrl.get()}\"")

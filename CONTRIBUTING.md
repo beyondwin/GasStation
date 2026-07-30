@@ -43,7 +43,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 
 ## 릴리스와 배포
 
-새 버전 발행은 [`docs/deployment.md`](docs/deployment.md)를 따릅니다. 릴리스 PR은 `app/build.gradle.kts`의 `versionCode`/`versionName`, `CHANGELOG.md`, `README.md`, `docs/release-notes/`를 함께 갱신하고, merge 후 `vX.Y.Z` 태그 push로 GitHub Actions의 release 성격 검증을 실행합니다.
+새 버전 발행은 [`docs/deployment.md`](docs/deployment.md)를 따릅니다. 릴리스 PR은 `app/build.gradle.kts`의 `versionCode`/`versionName`, `CHANGELOG.md`, `README.md`, `docs/release-notes/`를 함께 갱신합니다. merge 후 `main`의 같은 SHA에 `vX.Y.Z` 태그를 push하면 GitHub Actions가 전체 release 검증을 다시 실행하고, 모두 성공한 경우에만 demo APK, unsigned prod APK, SHA-256 checksum을 GitHub Release에 게시합니다.
 
 ## 커밋 메시지
 
