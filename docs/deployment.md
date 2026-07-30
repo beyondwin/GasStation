@@ -78,6 +78,8 @@ GitHub Release 자산 이름은 다음 계약을 따릅니다.
 | `GasStation-X.Y.Z-prod-release-unsigned.apk` | R8/minify release 결과 확인용 unsigned APK. 설치·스토어 배포 전 외부 signing 필요 |
 | `SHA256SUMS.txt` | 위 두 APK의 SHA-256 checksum |
 
+세 자산을 같은 디렉터리에 받은 뒤 `sha256sum -c SHA256SUMS.txt`로 두 APK를 검증할 수 있습니다. checksum manifest에는 다운로드 위치와 무관한 APK 파일명만 기록합니다.
+
 ## 공개 배포 전 보안 gate
 
 현재 `prod`는 Opinet API key를 Android 클라이언트 `BuildConfig`로 주입합니다. 이 방식은 reference/portfolio 범위에서는 단순하고 재현 가능하지만, APK에서 키를 완전히 숨기는 secret boundary가 아닙니다.

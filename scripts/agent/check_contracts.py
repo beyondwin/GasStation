@@ -84,6 +84,8 @@ RELEASE_JOB_ANCHORS = {
     "GitHub CLI authentication": "GH_TOKEN:",
     "GitHub Release creation": "gh release create",
     "APK release assets": "release-assets/*.apk",
+    "portable checksum directory": "cd release-assets",
+    "SHA-256 checksum creation": "sha256sum",
 }
 RELEASE_JOB_PREREQUISITES = {
     "agent-contracts",

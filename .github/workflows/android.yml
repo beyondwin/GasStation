@@ -209,14 +209,17 @@ jobs:
           shopt -s nullglob
           notes_files=(docs/release-notes/*-"$tag".md)
           test "${#notes_files[@]}" -eq 1
-          apk_files=(
-            "release-assets/GasStation-$version-demo-debug.apk"
-            "release-assets/GasStation-$version-prod-release-unsigned.apk"
+          apk_names=(
+            "GasStation-$version-demo-debug.apk"
+            "GasStation-$version-prod-release-unsigned.apk"
           )
-          test -f "${apk_files[0]}"
-          test -f "${apk_files[1]}"
+          test -f "release-assets/${apk_names[0]}"
+          test -f "release-assets/${apk_names[1]}"
 
-          sha256sum "${apk_files[@]}" > release-assets/SHA256SUMS.txt
+          (
+            cd release-assets
+            sha256sum "${apk_names[@]}" > SHA256SUMS.txt
+          )
           printf 'notes_file=%s\n' "${notes_files[0]}" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
         env:

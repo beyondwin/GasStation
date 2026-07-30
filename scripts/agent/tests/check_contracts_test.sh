@@ -137,6 +137,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes_file=$(find docs/release-notes/ -name "*-${GITHUB_REF_NAME}.md")
+          (
+            cd release-assets
+            sha256sum ./*.apk > SHA256SUMS.txt
+          )
           gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
 git -C "$fixture/repo" add .
@@ -219,6 +223,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes_file=$(find docs/release-notes/ -name "*-${GITHUB_REF_NAME}.md")
+          (
+            cd release-assets
+            sha256sum ./*.apk > SHA256SUMS.txt
+          )
           gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
 
@@ -251,6 +259,20 @@ if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.s
 fi
 assert_contains "$(cat "$fixture/release-needs.out")" ".github/workflows/android.yml:1: tag release publishing prerequisite missing: coverage"
 assert_error_locations "$(cat "$fixture/release-needs.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace("          cd release-assets\n", ""))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/release-checksum.out" 2>&1; then
+  fail "release publishing with non-portable checksum paths was accepted"
+fi
+assert_contains "$(cat "$fixture/release-checksum.out")" ".github/workflows/android.yml:1: tag release publishing contract missing: portable checksum directory"
+assert_error_locations "$(cat "$fixture/release-checksum.out")"
 git -C "$fixture/repo" restore .github/workflows/android.yml
 
 rm "$fixture/repo/docs/state-model.md"

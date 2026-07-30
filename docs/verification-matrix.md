@@ -365,6 +365,8 @@ Tag push 뒤에는 tag workflow와 GitHub Release가 같은 tag를 가리키고,
 gh run list --workflow android.yml --branch vX.Y.Z --limit 1
 gh run watch <tag-run-id> --exit-status
 gh release view vX.Y.Z --json tagName,url,assets
+gh release download vX.Y.Z --pattern "GasStation-*.apk" --pattern SHA256SUMS.txt --dir <empty-directory>
+(cd <empty-directory> && sha256sum -c SHA256SUMS.txt)
 ```
 
 physical-device 성능 수치를 갱신하는 릴리스라면 "Hero Benchmark Evidence" 명령을 추가로 실행하고 `docs/performance.md`와 해당 릴리즈 노트에 기기/variant/측정일을 남깁니다.
