@@ -45,7 +45,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: Spotless + Lint + Contract Guards
         # Default lint focuses on production sources. Test-source lint is an explicit local/full-path opt-in.
         run: ./gradlew spotlessCheck lint verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime --warning-mode fail --continue
@@ -58,7 +58,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: Unit Tests
         # Regular unit-test tasks exclude Roborazzi screenshot classes; screenshot-tests owns screenshot regression.
         run: |
@@ -92,7 +92,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: Roborazzi Screenshot Verification
         # Keep screenshot regression separate from the fast unit-test path.
         run: ./gradlew verifyRoborazziDebug --warning-mode fail
@@ -111,7 +111,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: Assemble
         # Run assemble targets separately so parallel Gradle execution does not compile
         # both app flavors and benchmark in the same memory peak on GitHub runners.
@@ -144,7 +144,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: Release Assemble
         run: ./gradlew :app:assembleProdRelease --warning-mode fail
       - name: Prepare unsigned prod APK
@@ -175,7 +175,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6.2.0
       - name: JaCoCo XML Report
         run: ./gradlew coverageXmlReport --warning-mode fail
       - name: Upload to Codecov
