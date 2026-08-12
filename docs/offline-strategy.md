@@ -8,7 +8,7 @@
 | --- | --- |
 | 네트워크가 실패하면 목록을 비우나 | 아니요. 기존 스냅샷을 유지합니다. |
 | 결과가 0건이면 실패로 간주하나 | 아니요. 성공한 빈 결과도 별도 스냅샷 마커로 남깁니다. |
-| stale 기준은 무엇인가 | `StationCachePolicy`의 5분 |
+| stale 기준은 무엇인가 | 아래 기계 판독 계약의 `freshness` 경계 |
 | 오래된 캐시는 언제 지우나 | refresh 성공 후 `StationCachePolicy.retainFor` 기본 7일보다 오래된 스냅샷/행을 정리합니다. |
 | 가격 변화는 어떻게 계산하나 | `station_price_history` 최신 이력으로 계산 |
 | watchlist는 현재 목록에 없거나 선택 유종 가격이 없으면 사라지나 | 아니요. 저장 identity를 유지하고 선택 유종 가격이 없음을 명시합니다. |
@@ -81,14 +81,9 @@ Room은 네 개의 저장 단위를 씁니다.
 
 ## stale 판정
 
-`StationCachePolicy`는 현재 5분 기준으로 `Fresh`와 `Stale`를 나누고, 오래된 캐시 정리 cutoff도 같은 정책 객체에서 계산합니다.
+`StationCachePolicy`는 아래 기계 판독 계약의 `freshness.fresh`, `freshness.stale`, `freshness.firstStaleAgeMs` 경계로 `Fresh`와 `Stale`를 나눕니다. 오래된 캐시 보관 cutoff도 같은 정책 객체에서 계산합니다.
 
-- age `<= 5분`: `Fresh`
-- age `> 5분`: `Stale`
-- millisecond 저장 정밀도에서 첫 stale 순간은 `5분 + 1ms`
-- 보관 기본값: refresh 성공 시각 기준 7일
-
-각 atomic snapshot은 하나의 cancellable `StationFreshnessTicker`를 소유합니다. ticker는 즉시 현재 freshness를 내보내고 fresh일 때만 남은 경계까지 기다렸다가 Stale을 한 번 내보냅니다. 새 마커가 오면 이전 ticker를 취소하고 새로 예약합니다. watch/history metadata 변경은 현재 freshness로 읽기 모델만 다시 만들며 ticker나 metadata subscription을 다시 시작하지 않습니다. 이 시간 경과 emission은 **Room mutation이나 database invalidation 없이** 일어납니다.
+각 atomic snapshot의 시간 전이는 `freshness.tickerOwnership`, `freshness.metadataSubscriptionsRestartOnTimeCrossing`, `freshness.timeCrossingWithoutRoomMutation`을 따릅니다. 새 마커가 오면 기존 ticker가 교체되지만 watch/history metadata 변경은 현재 freshness로 읽기 모델만 다시 만듭니다.
 
 stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를 띄우고 마지막 갱신 시각을 보여줍니다.
 
@@ -112,13 +107,86 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 
 원격 경계는 다음 typed failure vocabulary를 `StationRefreshException(reason)`으로 옮깁니다: `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`. direct/proxy는 같은 semantic validation을 따르고, 요청 유종과 같지 않은 proxy 행은 거부합니다. 원시 빈 목록은 `Success(emptyList())`인 성공이며, 모두 거부된 non-empty payload만 `InvalidPayload`입니다.
 
-`StationRetryPolicy`는 `Timeout`, `Network`, HTTP 408, HTTP 429, HTTP 500–599만 500ms 뒤 한 번 재시도합니다. 다른 HTTP 4xx, `InvalidPayload`, `Unknown`, cancellation, 그리고 이미 superseded된 작업은 재시도하지 않습니다. OkHttp가 HTTP 408의 숨은 두 번째 소유자가 되지 않도록 station data retry policy가 application retry를 단독으로 소유합니다.
+`StationRetryPolicy`의 정확한 재시도 횟수·지연·실패 분류·HTTP 상태와 범위는 아래 기계 판독 계약의 `retry`가 소유합니다. OkHttp가 숨은 두 번째 소유자가 되지 않도록 station data retry policy가 application retry를 단독으로 소유합니다.
 
 `StationRetryPolicy`는 실패 시 기존 스냅샷을 지우거나 바꾸지 않습니다. 두 번째 시도가 성공하면 `StationEvent.RetryAttempted(succeeded=true)`, 재시도 후 `StationRefreshException`으로 끝나면 `succeeded=false`를 남깁니다. 예기치 않은 두 번째 예외와 cancellation은 retry 이벤트로 포장하지 않고 그대로 전파합니다.
 
-새 generation에 superseded된 성공이나 실패는 side effect를 남기지 않는 정상 종료입니다. 즉 retry, failure report, snapshot/history/prune, `SearchRefreshed`, `RetryAttempted`를 남기지 않습니다.
+새 generation에 superseded된 성공이나 실패는 `superseded.completion`과 `superseded.forbiddenSideEffects`를 따르는 정상적이고 조용한 종료입니다.
 
 하지만 기존 `station_cache`와 `station_cache_snapshot`은 지우지 않습니다. 이 덕분에 UI는 실패 중에도 마지막 성공 결과를 계속 렌더링할 수 있습니다.
+
+## 기계 판독 정책 계약
+
+아래 block은 [`station-data-policy.json`](station-data-policy.json)을 사람이 읽을 수 있는 live 문서 안에 그대로 렌더링한 규범 계약입니다. retry, freshness, superseded side effect, schema provenance와 migration evidence를 변경할 때는 structured source와 이 block을 같은 변경에서 갱신하며, 두 값이 정확히 같지 않으면 문서 validator가 실패합니다.
+
+<!-- station-data-policy:start -->
+```json
+{
+  "schemaVersion": 1,
+  "contractId": "station-data-correctness-v1",
+  "retry": {
+    "maxRetries": 1,
+    "delayMs": 500,
+    "retryableReasons": ["Timeout", "Network"],
+    "retryableHttpStatuses": [408, 429],
+    "retryableHttpRanges": [
+      {"minInclusive": 500, "maxInclusive": 599}
+    ],
+    "nonRetryableReasons": ["InvalidPayload", "Unknown", "Cancellation", "Superseded"],
+    "nonRetryableHttpRanges": [
+      {"minInclusive": 400, "maxInclusive": 407},
+      {"minInclusive": 409, "maxInclusive": 428},
+      {"minInclusive": 430, "maxInclusive": 499}
+    ],
+    "unlistedHttpRetryable": false
+  },
+  "freshness": {
+    "storagePrecisionMs": 1,
+    "fresh": {"operator": "<=", "ageMs": 300000},
+    "stale": {"operator": ">", "ageMs": 300000},
+    "firstStaleAgeMs": 300001,
+    "timeCrossingWithoutRoomMutation": true,
+    "tickerOwnership": "one_cancellable_ticker_per_atomic_snapshot",
+    "metadataSubscriptionsRestartOnTimeCrossing": false
+  },
+  "superseded": {
+    "completion": "normal_silent",
+    "forbiddenSideEffects": [
+      "Retry",
+      "FailureReport",
+      "SnapshotWrite",
+      "HistoryWrite",
+      "Prune",
+      "SearchRefreshed",
+      "RetryAttempted"
+    ]
+  },
+  "schema": {
+    "exportedVersions": [
+      {"version": 1, "introducingCommit": "e64634f", "room": "2.6.1", "ksp": "1.9.23-1.0.20"},
+      {"version": 2, "introducingCommit": "a705fdb", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 3, "introducingCommit": "9b070ab", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 4, "introducingCommit": "014127f", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 5, "introducingCommit": "da96a5f", "room": "2.8.4", "ksp": "2.3.7"}
+    ],
+    "currentVersion": 5,
+    "currentV5MatchesHistorical": true,
+    "supportedMigrationStarts": [1, 2, 3, 4],
+    "v2ToV3PriceHistory": "intentional_disposable_reset",
+    "v4SuccessfulEmptyMarkerPreserved": true,
+    "migrationEvidence": {
+      "status": "compiled_assets_verified",
+      "hostRobolectricExecuted": true,
+      "instrumentedCompiled": true,
+      "assetsCompared": true,
+      "connectedDeviceAvailable": false,
+      "connectedDeviceExecuted": false,
+      "unavailableReason": "no_connected_device"
+    }
+  }
+}
+```
+<!-- station-data-policy:end -->
 
 ## watchlist fallback
 
@@ -144,7 +212,7 @@ watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 
 - `prod` 검색과 demo seed 생성은 모두 `opinet.apikey`만 사용합니다.
 - `CrashReporter.recordNonFatalSafely`는 ordinary reporter failure가 원래 recoverable station/location error를 바꾸지 않게 하며 cancellation과 fatal `Error`는 보존합니다. SDK-neutral observability 계약은 `core:observability`가 소유하고 flavor별 SDK binding은 `app`에 남습니다.
-- Room은 `exportSchema = true`이며 canonical checked-in schema는 `core/database/schemas/com.gasstation.core.database.GasStationDatabase/`의 versions 1–5입니다. 각 historical JSON은 해당 version을 도입한 정확한 commit/toolchain에서 생성했습니다: v1 `e64634f`(Room 2.6.1/KSP 1.9.23-1.0.20), v2 `a705fdb`·v3 `9b070ab`·v4 `014127f`(Room 2.8.4/KSP 2.3.6), v5 `da96a5f`(Room 2.8.4/KSP 2.3.7). 현재 v5 재생성 결과는 이 historical v5와 byte-identical이고, CI schema gate는 tracked/untracked drift와 generated current schema의 불일치를 막습니다.
-- `MigrationTestHelper` 계약은 모든 지원 시작점 1/2/3/4→5, v2→v3의 의도된 disposable price-history reset, 그리고 v4의 성공한 빈 snapshot marker 보존을 다룹니다. v2→v3에서도 cache와 watch 행은 보존됩니다.
-- host Robolectric의 production-builder/index 및 migration tests는 항상 실행합니다. Task 6 당시 connected device가 없었으므로 instrumented migration tests는 compile/assets 검증만 되었고 device-executed라고 주장하지 않습니다.
+- Room은 `exportSchema = true`이며 canonical checked-in schema는 `core/database/schemas/com.gasstation.core.database.GasStationDatabase/`에 있습니다. 각 version의 정확한 introducing commit과 Room/KSP provenance, current schema 일치 여부는 아래 계약의 `schema.exportedVersions`와 `schema.currentV5MatchesHistorical`이 소유합니다. CI schema gate는 tracked/untracked drift와 generated current schema 불일치를 막습니다.
+- `MigrationTestHelper`의 지원 시작점, 의도된 price-history reset, 성공한 빈 snapshot marker 보존은 `schema.supportedMigrationStarts`, `schema.v2ToV3PriceHistory`, `schema.v4SuccessfulEmptyMarkerPreserved`가 소유합니다. reset 대상이 아닌 cache와 watch 행은 보존됩니다.
+- host·instrumented migration 검증 범위와 connected-device 한계는 `schema.migrationEvidence`의 상태와 boolean 필드를 그대로 기준으로 보고합니다.
 - 문서나 UI에서 "캐시 있음"을 말할 때는 `fetchedAt != null`보다 `hasCachedSnapshot` 의미를 기준으로 이해하는 편이 더 정확합니다.

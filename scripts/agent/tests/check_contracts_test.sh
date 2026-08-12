@@ -152,6 +152,7 @@ printf '# Onboarding\n' > "$fixture/repo/docs/onboarding/developer-onboarding-gu
 printf '# Decision\n' > "$fixture/repo/docs/adr/2026-05-18-backend-proxy-escalation.md"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify.sh"
 chmod +x "$fixture/repo/scripts/agent/verify.sh"
+cp "$repo_root/docs/station-data-policy.json" "$fixture/repo/docs/station-data-policy.json"
 FIXTURE_REPO="$fixture/repo" python3 - <<'PY'
 import json
 import os
@@ -176,6 +177,16 @@ entries = [{
     "reviewTriggers": ["fixture changes"],
     "verificationScope": "python3 scripts/docs/validate.py",
 } for path in paths]
+offline = next(entry for entry in entries if entry["path"] == "docs/offline-strategy.md")
+offline["authoritativeSources"].insert(0, "docs/station-data-policy.json")
+(root / "docs/offline-strategy.md").write_text(
+    "# Offline strategy\n\n"
+    "<!-- station-data-policy:start -->\n"
+    "```json\n"
+    + (root / "docs/station-data-policy.json").read_text().rstrip()
+    + "\n```\n"
+    "<!-- station-data-policy:end -->\n"
+)
 (root / "docs/documentation-catalog.json").write_text(
     json.dumps({"schemaVersion": 1, "documents": entries}, indent=2) + "\n"
 )

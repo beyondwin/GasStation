@@ -27,6 +27,10 @@ def load_validator():
     spec.loader.exec_module(module)
     return module
 
+
+VALIDATOR = load_validator()
+POLICY_TEXT = json.dumps(VALIDATOR.EXPECTED_STATION_DATA_POLICY, indent=2) + "\n"
+
 LIVE_PATHS = [
     "AGENTS.md",
     "README.md",
@@ -74,6 +78,19 @@ class FixtureRepository:
         )
         self.write("app/src/main/kotlin/App.kt", "class App\n")
         self.documents = [self.entry(path) for path in LIVE_PATHS]
+        offline = next(entry for entry in self.documents if entry["path"] == VALIDATOR.STATION_DATA_POLICY_OWNER)
+        offline["authoritativeSources"].insert(0, VALIDATOR.STATION_DATA_POLICY_PATH)
+        self.write(VALIDATOR.STATION_DATA_POLICY_PATH, POLICY_TEXT)
+        self.write(
+            VALIDATOR.STATION_DATA_POLICY_OWNER,
+            "# offline-strategy\n\n"
+            + VALIDATOR.STATION_DATA_POLICY_START
+            + "\n```json\n"
+            + POLICY_TEXT.rstrip()
+            + "\n```\n"
+            + VALIDATOR.STATION_DATA_POLICY_END
+            + "\n",
+        )
         self.write_hub_direct_links()
         self.write_catalog()
 
@@ -137,6 +154,47 @@ class ValidatorTest(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(0, result.returncode, result.stdout)
         self.assertIn(expected, result.stderr)
+
+    def test_rejects_structured_station_policy_source_drift(self) -> None:
+        policy = json.loads(POLICY_TEXT)
+        policy["retry"]["retryableHttpStatuses"].insert(0, 404)
+        self.repo.write(VALIDATOR.STATION_DATA_POLICY_PATH, json.dumps(policy))
+        self.assert_rejected("station data policy fields differ from the approved contract")
+
+    def test_rejects_rendered_station_policy_drift(self) -> None:
+        policy = json.loads(POLICY_TEXT)
+        policy["schema"]["migrationEvidence"]["connectedDeviceExecuted"] = True
+        owner = self.repo.root / VALIDATOR.STATION_DATA_POLICY_OWNER
+        text = owner.read_text()
+        start = text.index(VALIDATOR.STATION_DATA_POLICY_START) + len(VALIDATOR.STATION_DATA_POLICY_START)
+        end = text.index(VALIDATOR.STATION_DATA_POLICY_END, start)
+        owner.write_text(text[:start] + "\n```json\n" + json.dumps(policy) + "\n```\n" + text[end:])
+        self.assert_rejected("station data policy fields differ from the approved contract")
+
+    def test_rejects_duplicate_station_policy_owner_and_catalog_source(self) -> None:
+        self.repo.append(
+            "docs/architecture.md",
+            VALIDATOR.STATION_DATA_POLICY_START + "\n" + VALIDATOR.STATION_DATA_POLICY_END + "\n",
+        )
+        self.assert_rejected("station data policy block owner must be exactly")
+
+        self.repo = FixtureRepository(self.repo.root)
+        architecture = next(entry for entry in self.repo.documents if entry["path"] == "docs/architecture.md")
+        architecture["authoritativeSources"].append(VALIDATOR.STATION_DATA_POLICY_PATH)
+        self.repo.write_catalog()
+        self.assert_rejected("structured station policy catalog owner must be exactly")
+
+        self.repo = FixtureRepository(self.repo.root)
+        offline = next(
+            entry for entry in self.repo.documents if entry["path"] == VALIDATOR.STATION_DATA_POLICY_OWNER
+        )
+        offline["authoritativeSources"].append(VALIDATOR.STATION_DATA_POLICY_PATH)
+        self.repo.write_catalog()
+        self.assert_rejected("structured station policy catalog owner must be exactly")
+
+    def test_rejects_duplicate_station_policy_json_key(self) -> None:
+        self.repo.write(VALIDATOR.STATION_DATA_POLICY_PATH, '{"schemaVersion": 1, "schemaVersion": 1}')
+        self.assert_rejected("duplicate JSON key")
 
     def test_rejects_duplicate_catalog_entry(self) -> None:
         self.repo.documents.append(dict(self.repo.documents[0]))

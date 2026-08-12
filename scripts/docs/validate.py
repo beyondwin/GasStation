@@ -17,6 +17,10 @@ from urllib.parse import unquote, urlsplit
 
 CATALOG_PATH = "docs/documentation-catalog.json"
 HUB_PATH = "docs/README.md"
+STATION_DATA_POLICY_PATH = "docs/station-data-policy.json"
+STATION_DATA_POLICY_OWNER = "docs/offline-strategy.md"
+STATION_DATA_POLICY_START = "<!-- station-data-policy:start -->"
+STATION_DATA_POLICY_END = "<!-- station-data-policy:end -->"
 REQUIRED_FIELDS = (
     "path",
     "kind",
@@ -67,6 +71,64 @@ GRADLE_TOKEN = re.compile(r"^:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)+$")
 REPOSITORY_TOP_LEVELS = {
     ".github", ".codex", ".claude", "app", "benchmark", "build-logic", "core",
     "data", "docs", "domain", "feature", "gradle", "scripts", "tools",
+}
+
+EXPECTED_STATION_DATA_POLICY = {
+    "schemaVersion": 1,
+    "contractId": "station-data-correctness-v1",
+    "retry": {
+        "maxRetries": 1,
+        "delayMs": 500,
+        "retryableReasons": ["Timeout", "Network"],
+        "retryableHttpStatuses": [408, 429],
+        "retryableHttpRanges": [{"minInclusive": 500, "maxInclusive": 599}],
+        "nonRetryableReasons": ["InvalidPayload", "Unknown", "Cancellation", "Superseded"],
+        "nonRetryableHttpRanges": [
+            {"minInclusive": 400, "maxInclusive": 407},
+            {"minInclusive": 409, "maxInclusive": 428},
+            {"minInclusive": 430, "maxInclusive": 499},
+        ],
+        "unlistedHttpRetryable": False,
+    },
+    "freshness": {
+        "storagePrecisionMs": 1,
+        "fresh": {"operator": "<=", "ageMs": 300000},
+        "stale": {"operator": ">", "ageMs": 300000},
+        "firstStaleAgeMs": 300001,
+        "timeCrossingWithoutRoomMutation": True,
+        "tickerOwnership": "one_cancellable_ticker_per_atomic_snapshot",
+        "metadataSubscriptionsRestartOnTimeCrossing": False,
+    },
+    "superseded": {
+        "completion": "normal_silent",
+        "forbiddenSideEffects": [
+            "Retry", "FailureReport", "SnapshotWrite", "HistoryWrite", "Prune",
+            "SearchRefreshed", "RetryAttempted",
+        ],
+    },
+    "schema": {
+        "exportedVersions": [
+            {"version": 1, "introducingCommit": "e64634f", "room": "2.6.1", "ksp": "1.9.23-1.0.20"},
+            {"version": 2, "introducingCommit": "a705fdb", "room": "2.8.4", "ksp": "2.3.6"},
+            {"version": 3, "introducingCommit": "9b070ab", "room": "2.8.4", "ksp": "2.3.6"},
+            {"version": 4, "introducingCommit": "014127f", "room": "2.8.4", "ksp": "2.3.6"},
+            {"version": 5, "introducingCommit": "da96a5f", "room": "2.8.4", "ksp": "2.3.7"},
+        ],
+        "currentVersion": 5,
+        "currentV5MatchesHistorical": True,
+        "supportedMigrationStarts": [1, 2, 3, 4],
+        "v2ToV3PriceHistory": "intentional_disposable_reset",
+        "v4SuccessfulEmptyMarkerPreserved": True,
+        "migrationEvidence": {
+            "status": "compiled_assets_verified",
+            "hostRobolectricExecuted": True,
+            "instrumentedCompiled": True,
+            "assetsCompared": True,
+            "connectedDeviceAvailable": False,
+            "connectedDeviceExecuted": False,
+            "unavailableReason": "no_connected_device",
+        },
+    },
 }
 
 
@@ -368,6 +430,99 @@ def catalog_source_issues(root: Path, entries: list[dict[str, object]]) -> list[
     return issues
 
 
+def reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def strict_json_loads(payload: str) -> object:
+    return json.loads(payload, object_pairs_hook=reject_duplicate_json_keys)
+
+
+def validate_station_data_policy(policy: object) -> None:
+    actual = json.dumps(policy, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    expected = json.dumps(EXPECTED_STATION_DATA_POLICY, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if actual != expected:
+        raise AssertionError("station data policy fields differ from the approved contract")
+
+
+def parse_station_data_policy_block(text: str) -> dict[str, object]:
+    if text.count(STATION_DATA_POLICY_START) != 1 or text.count(STATION_DATA_POLICY_END) != 1:
+        raise AssertionError("station data policy block must occur exactly once")
+    start = text.index(STATION_DATA_POLICY_START) + len(STATION_DATA_POLICY_START)
+    end = text.index(STATION_DATA_POLICY_END, start)
+    block = text[start:end].strip()
+    if not block.startswith("```json\n") or not block.endswith("\n```"):
+        raise AssertionError("station data policy block must contain one JSON fence")
+    payload = block.removeprefix("```json\n").removesuffix("\n```")
+    try:
+        parsed = strict_json_loads(payload)
+    except (json.JSONDecodeError, ValueError) as error:
+        raise AssertionError(f"station data policy block is invalid JSON: {error}") from error
+    if not isinstance(parsed, dict):
+        raise AssertionError("station data policy block must be a JSON object")
+    return parsed
+
+
+def station_data_policy_issues(
+    root: Path,
+    entries: list[dict[str, object]],
+    texts: dict[str, str],
+) -> list[str]:
+    issues: list[str] = []
+    source_path = root / STATION_DATA_POLICY_PATH
+    try:
+        source_policy = strict_json_loads(source_path.read_text(encoding="utf-8"))
+        validate_station_data_policy(source_policy)
+    except OSError as error:
+        return [location(STATION_DATA_POLICY_PATH, 1, f"station data policy unavailable: {error}")]
+    except (json.JSONDecodeError, ValueError) as error:
+        line = error.lineno if isinstance(error, json.JSONDecodeError) else 1
+        return [location(STATION_DATA_POLICY_PATH, line, f"station data policy is invalid JSON: {error}")]
+    except AssertionError as error:
+        issues.append(location(STATION_DATA_POLICY_PATH, 1, str(error)))
+
+    owners = [path for path, text in texts.items() if STATION_DATA_POLICY_START in text or STATION_DATA_POLICY_END in text]
+    if owners != [STATION_DATA_POLICY_OWNER]:
+        issues.append(
+            location(
+                STATION_DATA_POLICY_OWNER,
+                1,
+                f"station data policy block owner must be exactly {STATION_DATA_POLICY_OWNER}: {owners}",
+            )
+        )
+    owner_text = texts.get(STATION_DATA_POLICY_OWNER)
+    if owner_text is not None:
+        try:
+            rendered_policy = parse_station_data_policy_block(owner_text)
+            validate_station_data_policy(rendered_policy)
+            if rendered_policy != source_policy:
+                raise AssertionError("offline policy block does not equal the structured policy source")
+        except AssertionError as error:
+            issues.append(location(STATION_DATA_POLICY_OWNER, 1, str(error)))
+
+    catalog_owners = [
+        entry.get("path")
+        for entry in entries
+        if isinstance(entry.get("authoritativeSources"), list)
+        for source in entry["authoritativeSources"]
+        if source == STATION_DATA_POLICY_PATH
+    ]
+    if catalog_owners != [STATION_DATA_POLICY_OWNER]:
+        issues.append(
+            location(
+                CATALOG_PATH,
+                1,
+                f"structured station policy catalog owner must be exactly {STATION_DATA_POLICY_OWNER}: {catalog_owners}",
+            )
+        )
+    return issues
+
+
 def navigation_issues(live_paths: set[str], graph: dict[str, set[str]]) -> list[str]:
     distances = {HUB_PATH: 0}
     queue = deque([HUB_PATH])
@@ -492,6 +647,7 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
         issues.extend(repository_reference_issues(root, relative, text, modules, jobs))
     issues.extend(navigation_issues(live_paths, graph))
     issues.extend(owner_issues(texts))
+    issues.extend(station_data_policy_issues(root, entries, texts))
     if include_gradle_tasks:
         issues.extend(check_gradle_tasks(root, texts))
     return sorted(set(issues))

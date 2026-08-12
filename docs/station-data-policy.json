@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "contractId": "station-data-correctness-v1",
+  "retry": {
+    "maxRetries": 1,
+    "delayMs": 500,
+    "retryableReasons": ["Timeout", "Network"],
+    "retryableHttpStatuses": [408, 429],
+    "retryableHttpRanges": [
+      {"minInclusive": 500, "maxInclusive": 599}
+    ],
+    "nonRetryableReasons": ["InvalidPayload", "Unknown", "Cancellation", "Superseded"],
+    "nonRetryableHttpRanges": [
+      {"minInclusive": 400, "maxInclusive": 407},
+      {"minInclusive": 409, "maxInclusive": 428},
+      {"minInclusive": 430, "maxInclusive": 499}
+    ],
+    "unlistedHttpRetryable": false
+  },
+  "freshness": {
+    "storagePrecisionMs": 1,
+    "fresh": {"operator": "<=", "ageMs": 300000},
+    "stale": {"operator": ">", "ageMs": 300000},
+    "firstStaleAgeMs": 300001,
+    "timeCrossingWithoutRoomMutation": true,
+    "tickerOwnership": "one_cancellable_ticker_per_atomic_snapshot",
+    "metadataSubscriptionsRestartOnTimeCrossing": false
+  },
+  "superseded": {
+    "completion": "normal_silent",
+    "forbiddenSideEffects": [
+      "Retry",
+      "FailureReport",
+      "SnapshotWrite",
+      "HistoryWrite",
+      "Prune",
+      "SearchRefreshed",
+      "RetryAttempted"
+    ]
+  },
+  "schema": {
+    "exportedVersions": [
+      {"version": 1, "introducingCommit": "e64634f", "room": "2.6.1", "ksp": "1.9.23-1.0.20"},
+      {"version": 2, "introducingCommit": "a705fdb", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 3, "introducingCommit": "9b070ab", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 4, "introducingCommit": "014127f", "room": "2.8.4", "ksp": "2.3.6"},
+      {"version": 5, "introducingCommit": "da96a5f", "room": "2.8.4", "ksp": "2.3.7"}
+    ],
+    "currentVersion": 5,
+    "currentV5MatchesHistorical": true,
+    "supportedMigrationStarts": [1, 2, 3, 4],
+    "v2ToV3PriceHistory": "intentional_disposable_reset",
+    "v4SuccessfulEmptyMarkerPreserved": true,
+    "migrationEvidence": {
+      "status": "compiled_assets_verified",
+      "hostRobolectricExecuted": true,
+      "instrumentedCompiled": true,
+      "assetsCompared": true,
+      "connectedDeviceAvailable": false,
+      "connectedDeviceExecuted": false,
+      "unavailableReason": "no_connected_device"
+    }
+  }
+}
