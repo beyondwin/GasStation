@@ -268,6 +268,27 @@ class ValidatorTest(unittest.TestCase):
         )
         self.assert_rejected("must be a reference-only statement")
 
+    def test_rejects_policy_prose_inside_reference_label(self) -> None:
+        self.replace_policy_reference(
+            "README.md",
+            "[structured `retry` contract]",
+            "[Timeout과 Network 실패에 한해 재시도하는 구조화된 `retry` 계약]",
+        )
+        self.assert_rejected("must use a generic policy label without a title")
+
+    def test_rejects_policy_prose_inside_reference_title(self) -> None:
+        self.replace_policy_reference(
+            "README.md",
+            "docs/offline-strategy.md#기계-판독-정책-계약)",
+            "docs/offline-strategy.md#기계-판독-정책-계약 "
+            '"Timeout과 Network 실패에 한해 재시도합니다")',
+        )
+        self.assert_rejected("must use a generic policy label without a title")
+
+    def test_accepts_current_generic_policy_reference_labels(self) -> None:
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_unrelated_retry_ui_prose_is_not_a_station_policy_claim(self) -> None:
         self.repo.append(
             "docs/onboarding/developer-onboarding-guide.md",
@@ -332,6 +353,19 @@ class ValidatorTest(unittest.TestCase):
         self.repo.append(path, "Timeout과 Network 실패에 한해 재시도합니다.\n")
         self.assert_rejected("duplicate automatic retry policy claim")
 
+    def test_rejects_english_passive_exclusive_retry_claim_in_current_consumer(self) -> None:
+        self.repo.append(
+            "docs/agent-workflow.md",
+            "Only Timeout and Network failures are retried.\n",
+        )
+        self.assert_rejected("duplicate automatic retry policy claim")
+
+    def test_rejects_korean_suffix_exclusive_retry_claim_in_registered_new_consumer(self) -> None:
+        path = "docs/architecture.md"
+        self.register_policy_consumer(path, "retry")
+        self.repo.append(path, "Timeout과 Network 오류만 재시도합니다.\n")
+        self.assert_rejected("duplicate automatic retry policy claim")
+
     def test_rejects_korean_synonym_automatic_retry_claim(self) -> None:
         self.repo.append(
             "docs/architecture.md",
@@ -359,6 +393,16 @@ class ValidatorTest(unittest.TestCase):
         self.repo.append(path, "stale은 300초를 넘긴 결과입니다.\n")
         self.assert_rejected("duplicate freshness boundary claim")
 
+    def test_rejects_compact_five_minute_stale_claim_in_current_consumer(self) -> None:
+        self.repo.append("docs/test-strategy.md", "Stale begins after 5m.\n")
+        self.assert_rejected("duplicate freshness boundary claim")
+
+    def test_rejects_compact_300_second_stale_claim_in_registered_new_consumer(self) -> None:
+        path = "docs/architecture.md"
+        self.register_policy_consumer(path, "freshness")
+        self.repo.append(path, "Stale begins after 300s.\n")
+        self.assert_rejected("duplicate freshness boundary claim")
+
     def test_rejects_migration_test_helper_device_execution_overclaim(self) -> None:
         self.repo.append(
             "docs/test-strategy.md",
@@ -374,6 +418,37 @@ class ValidatorTest(unittest.TestCase):
             "MigrationTestHelper migration을 connected device에서 실행 완료했습니다.\n",
         )
         self.assert_rejected("connected-device migration execution overclaim")
+
+    def test_rejects_migrations_ran_on_connected_device_claim(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "MigrationTestHelper migrations ran on a connected device.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
+
+    def test_rejects_affirmative_device_claim_with_trailing_if_clause(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "MigrationTestHelper migration executed on a connected device; "
+            "if it fails, inspect logs.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
+
+    def test_accepts_genuinely_conditional_connected_device_claim(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "If a target is available, MigrationTestHelper migration executed on a connected device.\n",
+        )
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_accepts_negative_connected_device_claim(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "MigrationTestHelper migration was not executed on a connected device.\n",
+        )
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
 
     def test_rejects_structured_station_policy_source_drift(self) -> None:
         policy = json.loads(POLICY_TEXT)

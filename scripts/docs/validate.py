@@ -25,6 +25,9 @@ STATION_DATA_POLICY_END = "<!-- station-data-policy:end -->"
 STATION_DATA_POLICY_REFERENCE = re.compile(
     r"<!--\s*station-data-policy-ref:\s*(retry|freshness|schema|superseded)\s*-->"
 )
+STATION_DATA_POLICY_INLINE_LINK = re.compile(
+    r"^\[(?P<label>[^\]\r\n]+)\]\((?:<[^>\r\n]+>|[^\s\r\n]+)\)$"
+)
 STATION_DATA_POLICY_FIELDS = {"retry", "freshness", "schema", "superseded"}
 REQUIRED_FIELDS = (
     "path",
@@ -646,10 +649,20 @@ def station_policy_reference_issues(
                 and len(links) == 1
                 and links[0][1] == 0
                 and links[0][2] == len(suffix)
-                and f"`{policy}`" in suffix[: suffix.find("](")]
             )
             if not reference_only:
                 issues.append(location(path, line_no, "station data policy marker must be a reference-only statement"))
+                continue
+            inline_link = STATION_DATA_POLICY_INLINE_LINK.fullmatch(suffix)
+            allowed_labels = {
+                f"structured `{policy}` contract",
+                f"구조화된 `{policy}` 계약",
+                f"오프라인 전략의 구조화된 `{policy}` 계약",
+            }
+            if inline_link is None or inline_link.group("label") not in allowed_labels:
+                issues.append(
+                    location(path, line_no, "station data policy reference must use a generic policy label without a title")
+                )
                 continue
             resolved = resolve_policy_link(root, path, links[0][0])
             if resolved != (canonical_owner, canonical_anchor):
@@ -682,15 +695,26 @@ def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
             network_category = "network" in normalized or "네트워크" in normalized or re.search(
                 r"통신\s*장애", normalized
             )
-            exclusive = any(token in normalized for token in ("only", "한해", "경우에만"))
-            retry_action = any(token in normalized for token in ("retry", "재시도", "더 요청"))
+            exclusive = any(token in normalized for token in ("only", "한해", "경우에만")) or bool(
+                re.search(r"(?:실패|오류)\s*(?:에\s*)?만", normalized)
+            )
+            retry_action = any(token in normalized for token in ("retry", "재시도", "더 요청")) or bool(
+                re.search(r"\b(?:retries|retried|retrying)\b", normalized)
+            )
             if timeout_category and network_category and exclusive and retry_action:
                 issues.append(location(path, line_no, "duplicate automatic retry policy claim"))
 
             stale_state = "stale" in normalized or "오래된" in normalized
             boundary = any(
                 re.search(pattern, normalized)
-                for pattern in (r"300\s*초", r"5\s*분", r"300000\s*ms", r"300001\s*ms")
+                for pattern in (
+                    r"300\s*초",
+                    r"5\s*분",
+                    r"300\s*s\b",
+                    r"5\s*m\b",
+                    r"300000\s*ms",
+                    r"300001\s*ms",
+                )
             )
             if stale_state and boundary:
                 issues.append(location(path, line_no, "duplicate freshness boundary claim"))
@@ -708,36 +732,20 @@ def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
                     "연결된 디바이스",
                 )
             )
-            positive_execution = any(
-                token in normalized
-                for token in (
-                    "device-executed",
-                    "executed",
-                    "passed",
-                    "실행했습니다",
-                    "실행 완료",
-                    "통과했습니다",
-                    "완료했습니다",
-                )
+            positive_execution = re.search(
+                r"\b(?:device-executed|executed|passed|ran)\b|"
+                r"실행했습니다|실행\s*완료|실행했다|통과했습니다|완료했습니다",
+                normalized,
             )
-            unavailable_or_conditional = any(
+            negative = any(
                 token in normalized
-                for token in (
-                    "아닙니다",
-                    "아니다",
-                    "미실행",
-                    "없으면",
-                    "있지 않",
-                    "쓰지 말",
-                    "unavailable",
-                    "not executed",
-                    "있을 때",
-                    "if ",
-                    "when ",
-                    "only when",
-                )
+                for token in ("아닙니다", "아니다", "미실행", "있지 않", "쓰지 말", "unavailable", "not executed")
             )
-            if migration_subject and connected_device and positive_execution and not unavailable_or_conditional:
+            execution_prefix = normalized[: positive_execution.start()] if positive_execution else ""
+            conditional = any(
+                token in execution_prefix for token in ("없으면", "있을 때", "if ", "when ")
+            ) or any(token in normalized for token in ("only when", "있을 때만"))
+            if migration_subject and connected_device and positive_execution and not negative and not conditional:
                 issues.append(location(path, line_no, "connected-device migration execution overclaim"))
     return issues
 
