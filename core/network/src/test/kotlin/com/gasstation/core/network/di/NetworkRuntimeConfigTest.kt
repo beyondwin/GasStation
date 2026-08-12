@@ -130,6 +130,7 @@ class NetworkRuntimeConfigTest {
         assertEquals(8_000, client.callTimeoutMillis.toLong())
         assertEquals(4_000, client.connectTimeoutMillis.toLong())
         assertEquals(8_000, client.readTimeoutMillis.toLong())
+        assertEquals(true, client.retryOnConnectionFailure)
     }
 
     @Test

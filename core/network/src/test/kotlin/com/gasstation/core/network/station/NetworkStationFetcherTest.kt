@@ -20,6 +20,8 @@ import org.junit.Test
 import retrofit2.HttpException
 import java.io.IOException
 import java.io.InterruptedIOException
+import com.google.gson.JsonParseException as GsonJsonParseException
+import com.google.gson.stream.MalformedJsonException as GsonMalformedJsonException
 
 class NetworkStationFetcherTest {
     @Test
@@ -260,7 +262,6 @@ class NetworkStationFetcherTest {
                 .addHeader("Content-Type", "application/json")
                 .setBody("""{"error":"status-$statusCode"}""")
             server.enqueue(response)
-            if (statusCode == 408) server.enqueue(response)
             server.start()
 
             try {
@@ -274,6 +275,7 @@ class NetworkStationFetcherTest {
                 assertEquals(NetworkStationFailure.Http(statusCode), failure.reason)
                 val cause = failure.cause as HttpException
                 assertEquals(statusCode, cause.code())
+                assertEquals(1, server.requestCount)
             } finally {
                 server.shutdown()
             }
@@ -299,7 +301,7 @@ class NetworkStationFetcherTest {
 
             val failure = result as NetworkStationFetchResult.Failure
             assertEquals(NetworkStationFailure.InvalidPayload, failure.reason)
-            assertTrue(failure.cause.hasJsonParsingCause())
+            assertTrue(failure.cause.hasGsonParsingCause())
         } finally {
             server.shutdown()
         }
@@ -327,6 +329,42 @@ class NetworkStationFetcherTest {
             assertEquals(expectedReason, failure.reason)
             assertSame(expectedCause, failure.cause)
         }
+    }
+
+    @Test
+    fun `fetchStations classifies nested genuine Gson parse failure as invalid payload`() = runBlocking {
+        val cause = IOException("converter failed", GsonJsonParseException("invalid payload"))
+
+        val result = NetworkStationFetcher(
+            opinetService = ThrowingOpinetService(cause),
+            opinetApiKey = "opinet-key",
+        ).fetchStations(
+            origin = TEST_ORIGIN,
+            radius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+        )
+
+        val failure = result as NetworkStationFetchResult.Failure
+        assertEquals(NetworkStationFailure.InvalidPayload, failure.reason)
+        assertSame(cause, failure.cause)
+    }
+
+    @Test
+    fun `fetchStations keeps unrelated same-simple-name cause classified as network`() = runBlocking {
+        val cause = IOException("offline", JsonParseException("not Gson"))
+
+        val result = NetworkStationFetcher(
+            opinetService = ThrowingOpinetService(cause),
+            opinetApiKey = "opinet-key",
+        ).fetchStations(
+            origin = TEST_ORIGIN,
+            radius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+        )
+
+        val failure = result as NetworkStationFetchResult.Failure
+        assertEquals(NetworkStationFailure.Network, failure.reason)
+        assertSame(cause, failure.cause)
     }
 
     @Test
@@ -367,11 +405,12 @@ class NetworkStationFetcherTest {
         ): OpinetResponseDto = throw throwable
     }
 
+    private class JsonParseException(message: String) : RuntimeException(message)
+
     private companion object {
         val TEST_ORIGIN = Coordinates(latitude = 37.497927, longitude = 127.027583)
     }
 }
 
-private fun Throwable?.hasJsonParsingCause(): Boolean = generateSequence(this) { it.cause }
-    .map { it::class.java.simpleName }
-    .any { it == "JsonSyntaxException" || it == "JsonParseException" || it == "MalformedJsonException" }
+private fun Throwable?.hasGsonParsingCause(): Boolean = generateSequence(this) { it.cause }
+    .any { it is GsonJsonParseException || it is GsonMalformedJsonException }

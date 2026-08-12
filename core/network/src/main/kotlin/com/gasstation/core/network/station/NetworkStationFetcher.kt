@@ -61,12 +61,4 @@ private fun Exception.toNetworkStationFailure(): NetworkStationFailure = when {
     else -> NetworkStationFailure.Unknown
 }
 
-private fun Throwable.hasJsonParsingCause(): Boolean = generateSequence(this) { it.cause }
-    .map { it::class.java.simpleName }
-    .any { simpleName ->
-        simpleName == "JsonSyntaxException" ||
-            simpleName == "JsonParseException" ||
-            simpleName == "MalformedJsonException"
-    }
-
 private const val OPINET_DISTANCE_SORT = "2"

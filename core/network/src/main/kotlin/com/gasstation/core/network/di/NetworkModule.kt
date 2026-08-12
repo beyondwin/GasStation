@@ -5,6 +5,7 @@ import com.gasstation.core.network.service.ProxyStationService
 import com.gasstation.core.network.station.NetworkStationFetcher
 import com.gasstation.core.network.station.ProxyStationFetcher
 import com.gasstation.core.network.station.StationNetworkSource
+import com.gasstation.core.network.station.StationRequestTimeoutInterceptor
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -55,6 +56,7 @@ object NetworkModule {
     }
 
     private fun defaultOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .addNetworkInterceptor(StationRequestTimeoutInterceptor)
         .callTimeout(Duration.ofSeconds(8))
         .connectTimeout(Duration.ofSeconds(4))
         .readTimeout(Duration.ofSeconds(8))

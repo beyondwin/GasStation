@@ -36,7 +36,7 @@ class ProxyStationFetcher(private val proxyStationService: ProxyStationService) 
     } catch (timeout: InterruptedIOException) {
         NetworkStationFetchResult.Failure(NetworkStationFailure.Timeout, timeout)
     } catch (network: IOException) {
-        val reason = if (network.hasProxyJsonParsingCause()) {
+        val reason = if (network.hasJsonParsingCause()) {
             NetworkStationFailure.InvalidPayload
         } else {
             NetworkStationFailure.Network
@@ -44,7 +44,7 @@ class ProxyStationFetcher(private val proxyStationService: ProxyStationService) 
         NetworkStationFetchResult.Failure(reason, network)
     } catch (exception: Exception) {
         val reason = when {
-            exception.hasProxyJsonParsingCause() -> NetworkStationFailure.InvalidPayload
+            exception.hasJsonParsingCause() -> NetworkStationFailure.InvalidPayload
             exception is HttpException -> NetworkStationFailure.Http(exception.code())
             else -> NetworkStationFailure.Unknown
         }
@@ -69,11 +69,3 @@ private fun ProxyStationDto.toNetworkRemoteStation(expectedFuelType: FuelType): 
         coordinates = Coordinates.ofOrNull(latitude = lat, longitude = lon) ?: return null,
     )
 }
-
-private fun Throwable.hasProxyJsonParsingCause(): Boolean = generateSequence(this) { it.cause }
-    .map { it::class.java.simpleName }
-    .any { simpleName ->
-        simpleName == "JsonSyntaxException" ||
-            simpleName == "JsonParseException" ||
-            simpleName == "MalformedJsonException"
-    }

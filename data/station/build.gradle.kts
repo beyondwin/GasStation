@@ -15,4 +15,5 @@ dependencies {
     implementation(project(":domain:station"))
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.mockwebserver)
 }
