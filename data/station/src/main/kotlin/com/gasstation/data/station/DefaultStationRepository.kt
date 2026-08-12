@@ -19,22 +19,25 @@ import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
+import com.gasstation.domain.station.model.StationQueryCacheKey
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DefaultStationRepository @Inject constructor(
+class DefaultStationRepository @Inject internal constructor(
     private val stationCacheDao: StationCacheDao,
     private val stationBucketSnapshotObserver: StationBucketSnapshotObserver,
     private val stationPriceHistoryDao: StationPriceHistoryDao,
@@ -47,6 +50,7 @@ class DefaultStationRepository @Inject constructor(
     private val transactionRunner: DatabaseTransactionRunner,
     private val clock: Clock,
     private val freshnessTicker: StationFreshnessTicker,
+    private val latestRefreshGate: LatestRefreshGate,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
@@ -134,62 +138,118 @@ class DefaultStationRepository @Inject constructor(
         }
 
     override suspend fun refreshNearbyStations(query: StationQuery) {
+        val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
+        val ticket = latestRefreshGate.begin(cacheKey)
         try {
-            refreshNearbyStationsInternal(query)
+            refreshNearbyStationsInternal(query, cacheKey, ticket)
+        } catch (_: RefreshSupersededException) {
+            return
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (exception: StationRefreshException) {
             throw exception
         } catch (throwable: Throwable) {
-            crashReporter.recordNonFatalSafely(
-                throwable,
-                mapOf("module" to "data:station", "operation" to "refreshNearbyStations"),
-            )
-            throw StationRefreshException(reason = StationRefreshFailureReason.Unknown, cause = throwable)
+            when (
+                val result = latestRefreshGate.commitIfLatest(ticket) {
+                    crashReporter.recordNonFatalSafely(
+                        throwable,
+                        mapOf("module" to "data:station", "operation" to "refreshNearbyStations"),
+                    )
+                    StationRefreshException(reason = StationRefreshFailureReason.Unknown, cause = throwable)
+                }
+            ) {
+                is LatestCommitResult.Committed -> throw result.value
+                LatestCommitResult.Superseded -> return
+            }
+        } finally {
+            withContext(NonCancellable) {
+                latestRefreshGate.complete(ticket)
+            }
         }
     }
 
-    private suspend fun refreshNearbyStationsInternal(query: StationQuery) {
-        val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
-        val fetchedAt = clock.instant()
-        val remoteStations = retryPolicy.withRetry {
-            when (val result = remoteDataSource.fetchStations(query)) {
-                is RemoteStationFetchResult.Failure -> throw StationRefreshException(
-                    reason = result.reason,
-                    cause = result.cause,
-                )
+    private suspend fun refreshNearbyStationsInternal(query: StationQuery, cacheKey: StationQueryCacheKey, ticket: RefreshTicket) {
+        val remoteResult = retryPolicy.execute {
+            ensureLatest(ticket)
+            val result = try {
+                remoteDataSource.fetchStations(query)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (throwable: Throwable) {
+                ensureLatest(ticket)
+                throw throwable
+            }
+            when (result) {
+                is RemoteStationFetchResult.Failure -> {
+                    ensureLatest(ticket)
+                    throw StationRefreshException(
+                        reason = result.reason,
+                        cause = result.cause,
+                    )
+                }
 
                 is RemoteStationFetchResult.Success -> result
             }
         }
 
-        val snapshotEntities = remoteStations.stations.map { it.toEntity(cacheKey, fetchedAt) }
-        val historyEntities = remoteStations.stations.map { station ->
-            StationPriceHistoryEntity(
-                stationId = station.stationId,
-                fuelType = cacheKey.fuelType.name,
-                priceWon = station.priceWon,
-                fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
-            )
+        if (remoteResult is RetryExecutionResult.Failure) {
+            latestRefreshGate.commitIfLatest(ticket) {
+                remoteResult.retryReason?.let { retryReason ->
+                    stationEventLogger.logSafely(
+                        StationEvent.RetryAttempted(
+                            originalReason = retryReason,
+                            succeeded = false,
+                        ),
+                    )
+                }
+                throw remoteResult.exception
+            }
+            return
         }
 
-        transactionRunner.withTransaction {
-            stationCacheDao.replaceSnapshot(
-                latitudeBucket = cacheKey.latitudeBucket,
-                longitudeBucket = cacheKey.longitudeBucket,
-                radiusMeters = cacheKey.radiusMeters,
-                fuelType = cacheKey.fuelType.name,
-                fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
-                entities = snapshotEntities,
-            )
-            stationPriceHistoryDao.insertAll(historyEntities)
-            remoteStations.stations.map { it.stationId }.distinct().forEach { stationId ->
-                stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
-                    stationId = stationId,
+        val success = remoteResult as RetryExecutionResult.Success
+        val commitResult = latestRefreshGate.commitIfLatest(ticket) {
+            val fetchedAt = clock.instant()
+            val snapshotEntities = success.value.stations.map { it.toEntity(cacheKey, fetchedAt) }
+            val historyEntities = success.value.stations.map { station ->
+                StationPriceHistoryEntity(
+                    stationId = station.stationId,
                     fuelType = cacheKey.fuelType.name,
+                    priceWon = station.priceWon,
+                    fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
                 )
             }
-            stationCacheDao.pruneOlderThan(cachePolicy.pruneCutoff(fetchedAt).toEpochMilli())
+
+            transactionRunner.withTransaction {
+                stationCacheDao.replaceSnapshot(
+                    latitudeBucket = cacheKey.latitudeBucket,
+                    longitudeBucket = cacheKey.longitudeBucket,
+                    radiusMeters = cacheKey.radiusMeters,
+                    fuelType = cacheKey.fuelType.name,
+                    fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
+                    entities = snapshotEntities,
+                )
+                stationPriceHistoryDao.insertAll(historyEntities)
+                success.value.stations.map { it.stationId }.distinct().forEach { stationId ->
+                    stationPriceHistoryDao.keepLatestTenByStationAndFuelType(
+                        stationId = stationId,
+                        fuelType = cacheKey.fuelType.name,
+                    )
+                }
+                stationCacheDao.pruneOlderThan(cachePolicy.pruneCutoff(fetchedAt).toEpochMilli())
+            }
+            fetchedAt
+        }
+
+        if (commitResult is LatestCommitResult.Superseded) return
+        val fetchedAt = (commitResult as LatestCommitResult.Committed).value
+        success.retryReason?.let { retryReason ->
+            stationEventLogger.logSafely(
+                StationEvent.RetryAttempted(
+                    originalReason = retryReason,
+                    succeeded = true,
+                ),
+            )
         }
         stationEventLogger.logSafely(
             StationEvent.SearchRefreshed(
@@ -199,6 +259,12 @@ class DefaultStationRepository @Inject constructor(
                 stale = cachePolicy.freshnessOf(fetchedAt, clock.instant()) is StationFreshness.Stale,
             ),
         )
+    }
+
+    private suspend fun ensureLatest(ticket: RefreshTicket) {
+        if (latestRefreshGate.commitIfLatest(ticket) {} is LatestCommitResult.Superseded) {
+            throw RefreshSupersededException()
+        }
     }
 
     override suspend fun updateWatchState(station: Station, watched: Boolean) {
@@ -226,3 +292,5 @@ class DefaultStationRepository @Inject constructor(
         const val DEFAULT_BUCKET_METERS = 250
     }
 }
+
+private class RefreshSupersededException : CancellationException("Refresh was superseded")

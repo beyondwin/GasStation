@@ -57,9 +57,19 @@ internal class FakeCrashReporter : CrashReporter {
 }
 
 internal class RecordingStationCacheDao : StationCacheDao() {
+    data class ReplaceSnapshotCall(
+        val latitudeBucket: Int,
+        val longitudeBucket: Int,
+        val radiusMeters: Int,
+        val fuelType: String,
+        val fetchedAtEpochMillis: Long,
+        val entities: List<StationCacheEntity>,
+    )
+
     private val entities = MutableStateFlow<List<StationCacheEntity>>(emptyList())
     private val snapshots = MutableStateFlow<List<StationCacheSnapshotEntity>>(emptyList())
     val replaceSnapshotCalls = mutableListOf<List<StationCacheEntity>>()
+    val replaceSnapshotRecords = mutableListOf<ReplaceSnapshotCall>()
     val pruneCutoffCalls = mutableListOf<Long>()
 
     override fun observeStations(
@@ -170,6 +180,14 @@ internal class RecordingStationCacheDao : StationCacheDao() {
         entities: List<StationCacheEntity>,
     ) {
         replaceSnapshotCalls += listOf(entities)
+        replaceSnapshotRecords += ReplaceSnapshotCall(
+            latitudeBucket = latitudeBucket,
+            longitudeBucket = longitudeBucket,
+            radiusMeters = radiusMeters,
+            fuelType = fuelType,
+            fetchedAtEpochMillis = fetchedAtEpochMillis,
+            entities = entities,
+        )
         super.replaceSnapshot(
             latitudeBucket = latitudeBucket,
             longitudeBucket = longitudeBucket,
@@ -216,6 +234,13 @@ internal class RecordingStationCacheDao : StationCacheDao() {
         radiusMeters = cacheKey.radiusMeters,
         fuelType = cacheKey.fuelType.name,
     ).first()
+
+    suspend fun markerFor(cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey): StationCacheSnapshotEntity? = readSnapshot(
+        latitudeBucket = cacheKey.latitudeBucket,
+        longitudeBucket = cacheKey.longitudeBucket,
+        radiusMeters = cacheKey.radiusMeters,
+        fuelType = cacheKey.fuelType.name,
+    )
 }
 
 internal class RecordingStationBucketSnapshotObserver(private val stationCacheDao: StationCacheDao) : StationBucketSnapshotObserver {

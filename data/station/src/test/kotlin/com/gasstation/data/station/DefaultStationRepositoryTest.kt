@@ -1,5 +1,6 @@
 package com.gasstation.data.station
 
+import com.gasstation.core.database.DatabaseTransactionRunner
 import com.gasstation.core.database.station.StationBucketSnapshot
 import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
@@ -25,8 +26,13 @@ import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
@@ -38,6 +44,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
@@ -47,6 +54,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
+import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class DefaultStationRepositoryTest {
@@ -776,6 +785,417 @@ class DefaultStationRepositoryTest {
         assertEquals(0, crashReporter.records.size)
     }
 
+    @Test
+    fun `newer response finishing first remains persisted when older response finishes later`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val olderFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val remote = ControlledStationRemoteDataSource(olderFetch, newerFetch)
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val older = launch { repository.refreshNearbyStations(query) }
+        olderFetch.started.await()
+        val newer = launch { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("newer"))))
+        newer.join()
+        olderFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("older"))))
+        older.join()
+
+        assertEquals(listOf("newer"), cacheDao.snapshotFor(cacheKey).map { it.stationId })
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertEquals(1, transactions.invocations)
+        assertEquals(1, cacheDao.replaceSnapshotRecords.size)
+        assertEquals(listOf("newer"), cacheDao.replaceSnapshotRecords.single().entities.map { it.stationId })
+        assertEquals(now.toEpochMilli(), cacheDao.replaceSnapshotRecords.single().fetchedAtEpochMillis)
+        assertEquals(
+            listOf(listOf("newer" to now.toEpochMilli())),
+            historyDao.insertAllCalls.map { call -> call.map { it.stationId to it.fetchedAtEpochMillis } },
+        )
+        assertEquals(listOf("newer" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+        assertEquals(listOf(query, query), remote.calls)
+    }
+
+    @Test
+    fun `latest empty response clears rows and late older nonempty response writes nothing`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val olderFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val cacheDao = RecordingStationCacheDao().apply {
+            seed(stationEntity(cacheKey, stationId = "cached", fetchedAt = now.minusSeconds(60)))
+        }
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val remote = ControlledStationRemoteDataSource(olderFetch, newerFetch)
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val older = launch { repository.refreshNearbyStations(query) }
+        olderFetch.started.await()
+        val newer = launch { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(emptyList()))
+        newer.join()
+        olderFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("late-older"))))
+        older.join()
+
+        assertTrue(cacheDao.snapshotFor(cacheKey).isEmpty())
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertEquals(1, transactions.invocations)
+        assertEquals(1, cacheDao.replaceSnapshotRecords.size)
+        assertTrue(cacheDao.replaceSnapshotRecords.single().entities.isEmpty())
+        assertEquals(now.toEpochMilli(), cacheDao.replaceSnapshotRecords.single().fetchedAtEpochMillis)
+        assertEquals(listOf(emptyList<StationPriceHistoryEntity>()), historyDao.insertAllCalls)
+        assertTrue(historyDao.keepLatestTenCalls.isEmpty())
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(query, query), remote.calls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+    }
+
+    @Test
+    fun `superseded refresh emits no SearchRefreshed history or prune writes`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val olderFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val remote = ControlledStationRemoteDataSource(olderFetch, newerFetch)
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val older = launch { repository.refreshNearbyStations(query) }
+        olderFetch.started.await()
+        val newer = launch { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("latest"))))
+        newer.join()
+        olderFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("superseded"))))
+        older.join()
+
+        assertEquals(1, transactions.invocations)
+        assertEquals(listOf("latest"), cacheDao.snapshotFor(cacheKey).map { it.stationId })
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertEquals(listOf("latest"), cacheDao.replaceSnapshotRecords.single().entities.map { it.stationId })
+        assertEquals(
+            listOf(listOf("latest" to now.toEpochMilli())),
+            historyDao.insertAllCalls.map { call -> call.map { it.stationId to it.fetchedAtEpochMillis } },
+        )
+        assertEquals(listOf("latest" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+        assertEquals(listOf(query, query), remote.calls)
+    }
+
+    @Test
+    fun `fetchedAt is captured at validated latest write time not request start`() = runTest(timeout = 10.seconds) {
+        val mutableClock = MutableClock(now)
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val fetch = PendingFetch()
+        val cacheDao = RecordingStationCacheDao()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = ControlledStationRemoteDataSource(fetch),
+            clock = mutableClock,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val refresh = launch { repository.refreshNearbyStations(query) }
+        fetch.started.await()
+        mutableClock.advance(Duration.ofMinutes(2))
+        fetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("station-1"))))
+        refresh.join()
+
+        val writeTime = now.plus(Duration.ofMinutes(2))
+        assertEquals(writeTime.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertEquals(writeTime.toEpochMilli(), cacheDao.snapshotFor(cacheKey).single().fetchedAtEpochMillis)
+        assertEquals(writeTime.toEpochMilli(), cacheDao.replaceSnapshotRecords.single().fetchedAtEpochMillis)
+        assertEquals(writeTime.toEpochMilli(), historyDao.insertAllCalls.single().single().fetchedAtEpochMillis)
+        assertEquals(1, transactions.invocations)
+        assertEquals(listOf("station-1" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(writeTime), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+    }
+
+    @Test
+    fun `cancelled older refresh cannot overwrite newer snapshot and releases its ticket`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val olderFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val gate = LatestRefreshGate()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val remote = ControlledStationRemoteDataSource(olderFetch, newerFetch)
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+            latestRefreshGate = gate,
+        )
+
+        val older = launch { repository.refreshNearbyStations(query) }
+        olderFetch.started.await()
+        val newer = launch { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("newer"))))
+        newer.join()
+        older.cancelAndJoin()
+
+        assertEquals(listOf("newer"), cacheDao.snapshotFor(cacheKey).map { it.stationId })
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertEquals(1, transactions.invocations)
+        assertEquals(listOf("newer"), cacheDao.replaceSnapshotRecords.single().entities.map { it.stationId })
+        assertEquals(
+            listOf(listOf("newer" to now.toEpochMilli())),
+            historyDao.insertAllCalls.map { call -> call.map { it.stationId to it.fetchedAtEpochMillis } },
+        )
+        assertEquals(listOf("newer" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+        assertEquals(listOf(query, query), remote.calls)
+        val afterCleanup = gate.begin(cacheKey)
+        assertEquals(1L, afterCleanup.generation)
+        gate.complete(afterCleanup)
+    }
+
+    @Test
+    fun `different cache keys can finish and commit independently`() = runTest(timeout = 10.seconds) {
+        val firstQuery = stationQuery()
+        val secondQuery = firstQuery.copy(
+            coordinates = Coordinates(
+                latitude = firstQuery.coordinates.latitude + 0.01,
+                longitude = firstQuery.coordinates.longitude,
+            ),
+        )
+        val firstFetch = PendingFetch()
+        val secondFetch = PendingFetch()
+        val remote = ControlledStationRemoteDataSource(firstFetch, secondFetch)
+        val transactions = FirstTransactionBlockingRunner()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val first = launch { repository.refreshNearbyStations(firstQuery) }
+        firstFetch.started.await()
+        val second = launch { repository.refreshNearbyStations(secondQuery) }
+        secondFetch.started.await()
+        firstFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("first"))))
+        transactions.firstEntered.await()
+        secondFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("second"))))
+        runCurrent()
+
+        assertTrue(second.isCompleted)
+        assertFalse(first.isCompleted)
+        transactions.releaseFirst.complete(Unit)
+        first.join()
+        second.join()
+        assertEquals(2, transactions.invocations)
+        val firstKey = firstQuery.toCacheKey(CACHE_BUCKET_METERS)
+        val secondKey = secondQuery.toCacheKey(CACHE_BUCKET_METERS)
+        assertEquals(listOf("first"), cacheDao.snapshotFor(firstKey).map { it.stationId })
+        assertEquals(listOf("second"), cacheDao.snapshotFor(secondKey).map { it.stationId })
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(firstKey)?.fetchedAtEpochMillis)
+        assertEquals(now.toEpochMilli(), cacheDao.markerFor(secondKey)?.fetchedAtEpochMillis)
+        assertEquals(listOf("second", "first"), cacheDao.replaceSnapshotRecords.map { it.entities.single().stationId })
+        assertEquals(listOf("second", "first"), historyDao.insertAllCalls.map { it.single().stationId })
+        assertEquals(
+            listOf("second" to secondQuery.fuelType.name, "first" to firstQuery.fuelType.name),
+            historyDao.keepLatestTenCalls,
+        )
+        assertEquals(expectedPruneCutoffs(now, now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(expectedSearchRefreshed(secondQuery), expectedSearchRefreshed(firstQuery)), analytics.events)
+        assertEquals(listOf(firstQuery, secondQuery), remote.calls)
+    }
+
+    @Test
+    fun `superseded remote failure returns silently without retry or crash reporting`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val olderFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val remote = ControlledStationRemoteDataSource(olderFetch, newerFetch)
+        val crashReporter = FakeCrashReporter()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            crashReporter = crashReporter,
+            transactionRunner = transactions,
+        )
+
+        val older = async { repository.refreshNearbyStations(query) }
+        olderFetch.started.await()
+        val newer = async { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("newer"))))
+        newer.await()
+        olderFetch.result.complete(RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network))
+        older.await()
+
+        assertTrue(crashReporter.records.isEmpty())
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+        assertEquals(1, transactions.invocations)
+        assertEquals(listOf("newer"), cacheDao.replaceSnapshotRecords.single().entities.map { it.stationId })
+        assertEquals(listOf("newer"), historyDao.insertAllCalls.single().map { it.stationId })
+        assertEquals(listOf("newer" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+        assertEquals(listOf(query, query), remote.calls)
+    }
+
+    @Test
+    fun `supersession during retry delay skips second request and retry event`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val olderFirstFetch = PendingFetch()
+        val newerFetch = PendingFetch()
+        val remote = ControlledStationRemoteDataSource(olderFirstFetch, newerFetch)
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = remote,
+            analytics = analytics,
+            transactionRunner = transactions,
+        )
+
+        val older = async { repository.refreshNearbyStations(query) }
+        olderFirstFetch.started.await()
+        olderFirstFetch.result.complete(RemoteStationFetchResult.Failure(StationRefreshFailureReason.Network))
+        runCurrent()
+        val newer = async { repository.refreshNearbyStations(query) }
+        newerFetch.started.await()
+        newerFetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("newer"))))
+        newer.await()
+        advanceUntilIdle()
+        older.await()
+
+        assertEquals(listOf(query, query), remote.calls)
+        assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
+        assertEquals(1, transactions.invocations)
+        assertEquals(listOf("newer"), cacheDao.replaceSnapshotRecords.single().entities.map { it.stationId })
+        assertEquals(listOf("newer"), historyDao.insertAllCalls.single().map { it.stationId })
+        assertEquals(listOf("newer" to query.fuelType.name), historyDao.keepLatestTenCalls)
+        assertEquals(expectedPruneCutoffs(now), cacheDao.pruneCutoffCalls)
+    }
+
+    @Test
+    fun `caller cancellation propagates and is not treated as supersession`() = runTest(timeout = 10.seconds) {
+        val fetch = PendingFetch()
+        val repository = repository(
+            remoteDataSource = ControlledStationRemoteDataSource(fetch),
+        )
+        val refresh = async { repository.refreshNearbyStations(stationQuery()) }
+        fetch.started.await()
+
+        refresh.cancel()
+        val cancellation = assertFailsWith<CancellationException> { refresh.await() }
+
+        assertEquals(true, refresh.isCancelled)
+        assertFalse(cancellation.message == "Refresh was superseded")
+    }
+
+    @Test
+    fun `cancellation while complete is suspended still releases gate entry`() = runTest(timeout = 10.seconds) {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
+        val fetch = PendingFetch()
+        val gate = LatestRefreshGate()
+        val cacheDao = RecordingStationCacheDao()
+        val historyDao = RecordingStationPriceHistoryDao()
+        val analytics = RepositoryDoubles.RecordingStationEventLogger()
+        val transactions = ImmediateDatabaseTransactionRunner()
+        val repository = repository(
+            stationCacheDao = cacheDao,
+            stationPriceHistoryDao = historyDao,
+            remoteDataSource = ControlledStationRemoteDataSource(fetch),
+            analytics = analytics,
+            transactionRunner = transactions,
+            latestRefreshGate = gate,
+        )
+        val releaseGate = CompletableDeferred<Unit>()
+        val gateEntered = CompletableDeferred<Unit>()
+
+        val refresh = async { repository.refreshNearbyStations(query) }
+        fetch.started.await()
+        val gateBlocker = launch {
+            gate.commitIfLatest(RefreshTicket(cacheKey, generation = 1L)) {
+                gateEntered.complete(Unit)
+                releaseGate.await()
+            }
+        }
+        gateEntered.await()
+        refresh.cancel()
+        runCurrent()
+
+        assertFalse(refresh.isCompleted)
+        releaseGate.complete(Unit)
+        gateBlocker.join()
+        assertFailsWith<CancellationException> { refresh.await() }
+        assertTrue(cacheDao.snapshotFor(cacheKey).isEmpty())
+        assertEquals(null, cacheDao.markerFor(cacheKey))
+        assertTrue(cacheDao.replaceSnapshotRecords.isEmpty())
+        assertTrue(historyDao.insertAllCalls.isEmpty())
+        assertTrue(historyDao.keepLatestTenCalls.isEmpty())
+        assertTrue(cacheDao.pruneCutoffCalls.isEmpty())
+        assertTrue(analytics.events.isEmpty())
+        assertEquals(0, transactions.invocations)
+
+        val afterCleanup = gate.begin(cacheKey)
+        assertEquals(1L, afterCleanup.generation)
+        gate.complete(afterCleanup)
+    }
+
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
         stationBucketSnapshotObserver: StationBucketSnapshotObserver = RecordingStationBucketSnapshotObserver(stationCacheDao),
@@ -786,8 +1206,9 @@ class DefaultStationRepositoryTest {
         ),
         analytics: StationEventLogger = RepositoryDoubles.RecordingStationEventLogger(),
         crashReporter: CrashReporter = FakeCrashReporter(),
-        transactionRunner: ImmediateDatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
+        transactionRunner: DatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
         clock: Clock = this.clock,
+        latestRefreshGate: LatestRefreshGate = LatestRefreshGate(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationBucketSnapshotObserver = stationBucketSnapshotObserver,
@@ -801,7 +1222,26 @@ class DefaultStationRepositoryTest {
         transactionRunner = transactionRunner,
         clock = clock,
         freshnessTicker = StationFreshnessTicker(StationCachePolicy(), clock),
+        latestRefreshGate = latestRefreshGate,
     )
+
+    private fun remoteStation(stationId: String) = RemoteStation(
+        stationId = stationId,
+        name = "Station $stationId",
+        brandCode = "GSC",
+        priceWon = 1_699,
+        coordinates = Coordinates(37.498095, 127.027610),
+    )
+
+    private fun expectedSearchRefreshed(query: StationQuery) = StationEvent.SearchRefreshed(
+        radius = query.radius,
+        fuelType = query.fuelType,
+        sortOrder = query.sortOrder,
+        stale = false,
+    )
+
+    private fun expectedPruneCutoffs(vararg fetchedAt: Instant) = fetchedAt
+        .map { StationCachePolicy().pruneCutoff(it).toEpochMilli() }
 
     private fun bucketSnapshot(
         cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey,
@@ -897,6 +1337,40 @@ class DefaultStationRepositoryTest {
             }
 
         override suspend fun keepLatestTenByStationAndFuelType(stationId: String, fuelType: String) = error("Not used")
+    }
+
+    private class PendingFetch {
+        val started = CompletableDeferred<StationQuery>()
+        val result = CompletableDeferred<RemoteStationFetchResult>()
+    }
+
+    private class ControlledStationRemoteDataSource(vararg pendingFetches: PendingFetch) : StationRemoteDataSource {
+        private val pendingFetches = pendingFetches.toList()
+        val calls = mutableListOf<StationQuery>()
+
+        override suspend fun fetchStations(query: StationQuery): RemoteStationFetchResult {
+            val index = calls.size
+            calls += query
+            val pending = pendingFetches[index]
+            pending.started.complete(query)
+            return pending.result.await()
+        }
+    }
+
+    private class FirstTransactionBlockingRunner : DatabaseTransactionRunner {
+        val firstEntered = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        var invocations = 0
+            private set
+
+        override suspend fun <T> withTransaction(block: suspend () -> T): T {
+            invocations += 1
+            if (invocations == 1) {
+                firstEntered.complete(Unit)
+                releaseFirst.await()
+            }
+            return block()
+        }
     }
 
     private class MutableClock(private var current: Instant, private val zoneId: ZoneId = ZoneOffset.UTC) : Clock() {

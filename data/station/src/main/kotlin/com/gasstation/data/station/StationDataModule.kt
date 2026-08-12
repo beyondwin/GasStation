@@ -35,6 +35,10 @@ abstract class StationDataModule {
 
         @Provides
         @Singleton
+        internal fun provideLatestRefreshGate(): LatestRefreshGate = LatestRefreshGate()
+
+        @Provides
+        @Singleton
         fun provideClock(): Clock = Clock.systemUTC()
     }
 }

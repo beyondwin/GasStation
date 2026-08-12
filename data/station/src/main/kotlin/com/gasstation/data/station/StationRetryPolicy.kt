@@ -10,33 +10,51 @@ import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 class StationRetryPolicy @Inject constructor(private val stationEventLogger: StationEventLogger) {
-    suspend fun <T> withRetry(block: suspend () -> T): T = try {
-        block()
+    suspend fun <T> withRetry(block: suspend () -> T): T = when (val result = execute(block)) {
+        is RetryExecutionResult.Success -> {
+            result.retryReason?.let { retryReason ->
+                stationEventLogger.logSafely(
+                    StationEvent.RetryAttempted(
+                        originalReason = retryReason,
+                        succeeded = true,
+                    ),
+                )
+            }
+            result.value
+        }
+
+        is RetryExecutionResult.Failure -> {
+            result.retryReason?.let { retryReason ->
+                stationEventLogger.logSafely(
+                    StationEvent.RetryAttempted(
+                        originalReason = retryReason,
+                        succeeded = false,
+                    ),
+                )
+            }
+            throw result.exception
+        }
+    }
+
+    internal suspend fun <T> execute(block: suspend () -> T): RetryExecutionResult<T> = try {
+        RetryExecutionResult.Success(value = block(), retryReason = null)
     } catch (cancel: CancellationException) {
         throw cancel
     } catch (exception: StationRefreshException) {
         if (!exception.reason.isRetryable()) {
-            throw exception
-        }
-
-        delay(RETRY_DELAY_MS)
-        try {
-            val result = block()
-            stationEventLogger.logSafely(
-                StationEvent.RetryAttempted(
-                    originalReason = exception.reason,
-                    succeeded = true,
-                ),
-            )
-            result
-        } catch (retryException: StationRefreshException) {
-            stationEventLogger.logSafely(
-                StationEvent.RetryAttempted(
-                    originalReason = exception.reason,
-                    succeeded = false,
-                ),
-            )
-            throw retryException
+            RetryExecutionResult.Failure(exception = exception, retryReason = null)
+        } else {
+            delay(RETRY_DELAY_MS)
+            try {
+                RetryExecutionResult.Success(value = block(), retryReason = exception.reason)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (retryException: StationRefreshException) {
+                RetryExecutionResult.Failure(
+                    exception = retryException,
+                    retryReason = exception.reason,
+                )
+            }
         }
     }
 
@@ -56,4 +74,11 @@ class StationRetryPolicy @Inject constructor(private val stationEventLogger: Sta
     companion object {
         const val RETRY_DELAY_MS = 500L
     }
+}
+
+internal sealed interface RetryExecutionResult<out T> {
+    data class Success<T>(val value: T, val retryReason: StationRefreshFailureReason?) : RetryExecutionResult<T>
+
+    data class Failure(val exception: StationRefreshException, val retryReason: StationRefreshFailureReason?) :
+        RetryExecutionResult<Nothing>
 }
