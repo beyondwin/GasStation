@@ -1,0 +1,205 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "8336bf1576eccbeccde3a76930930f79",
+    "entities": [
+      {
+        "tableName": "station_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`latitudeBucket` INTEGER NOT NULL, `longitudeBucket` INTEGER NOT NULL, `radiusMeters` INTEGER NOT NULL, `fuelType` TEXT NOT NULL, `stationId` TEXT NOT NULL, `brandCode` TEXT NOT NULL, `name` TEXT NOT NULL, `priceWon` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `fetchedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`latitudeBucket`, `longitudeBucket`, `radiusMeters`, `fuelType`, `stationId`))",
+        "fields": [
+          {
+            "fieldPath": "latitudeBucket",
+            "columnName": "latitudeBucket",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitudeBucket",
+            "columnName": "longitudeBucket",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "radiusMeters",
+            "columnName": "radiusMeters",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fuelType",
+            "columnName": "fuelType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stationId",
+            "columnName": "stationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brandCode",
+            "columnName": "brandCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priceWon",
+            "columnName": "priceWon",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAtEpochMillis",
+            "columnName": "fetchedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "latitudeBucket",
+            "longitudeBucket",
+            "radiusMeters",
+            "fuelType",
+            "stationId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_station_cache_fetchedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "fetchedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_station_cache_fetchedAtEpochMillis` ON `${TABLE_NAME}` (`fetchedAtEpochMillis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "station_price_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stationId` TEXT NOT NULL, `priceWon` INTEGER NOT NULL, `fetchedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`stationId`, `fetchedAtEpochMillis`))",
+        "fields": [
+          {
+            "fieldPath": "stationId",
+            "columnName": "stationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priceWon",
+            "columnName": "priceWon",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAtEpochMillis",
+            "columnName": "fetchedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stationId",
+            "fetchedAtEpochMillis"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_station_price_history_stationId",
+            "unique": false,
+            "columnNames": [
+              "stationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_station_price_history_stationId` ON `${TABLE_NAME}` (`stationId`)"
+          },
+          {
+            "name": "index_station_price_history_fetchedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "fetchedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_station_price_history_fetchedAtEpochMillis` ON `${TABLE_NAME}` (`fetchedAtEpochMillis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "watched_station",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stationId` TEXT NOT NULL, `name` TEXT NOT NULL, `brandCode` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `watchedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`stationId`))",
+        "fields": [
+          {
+            "fieldPath": "stationId",
+            "columnName": "stationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brandCode",
+            "columnName": "brandCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "watchedAtEpochMillis",
+            "columnName": "watchedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stationId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8336bf1576eccbeccde3a76930930f79')"
+    ]
+  }
+}

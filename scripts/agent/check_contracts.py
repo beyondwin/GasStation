@@ -47,6 +47,7 @@ CI_REQUIRED_FILES = (
         "docs/AGENTS.md",
         "core/database/AGENTS.md",
         "benchmark/AGENTS.md",
+        "scripts/agent/verify-room-schemas.sh",
     ]
 )
 CI_REQUIRED_ANCHORS = {
@@ -58,7 +59,11 @@ CI_REQUIRED_ANCHORS = {
     ],
     "benchmark/AGENTS.md": ["demoBenchmark", "ANDROID_SERIAL"],
     ".codex/config.toml": ["hooks = true"],
-    ".github/workflows/android.yml": ["fetch-depth: 0", "GASSTATION_CI_BASE_REF"],
+    ".github/workflows/android.yml": [
+        "fetch-depth: 0",
+        "GASSTATION_CI_BASE_REF",
+        "scripts/agent/verify-room-schemas.sh",
+    ],
 }
 HOOK_CONFIG_EVENTS = {
     ".codex/hooks.json": {

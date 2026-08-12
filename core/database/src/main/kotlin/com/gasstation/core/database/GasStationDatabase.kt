@@ -20,7 +20,7 @@ import com.gasstation.core.database.station.WatchedStationEntity
         WatchedStationEntity::class,
     ],
     version = 5,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class GasStationDatabase : RoomDatabase() {
     abstract fun stationCacheDao(): StationCacheDao

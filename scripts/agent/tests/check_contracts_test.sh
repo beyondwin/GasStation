@@ -111,6 +111,8 @@ for hook_target in preflight.sh pre_tool_policy.py stop_check.py check-contracts
   printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/$hook_target"
   chmod +x "$fixture/repo/scripts/agent/$hook_target"
 done
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify-room-schemas.sh"
+chmod +x "$fixture/repo/scripts/agent/verify-room-schemas.sh"
 cat > "$fixture/repo/.github/workflows/android.yml" <<'EOF'
 name: Android CI
 jobs:
@@ -123,6 +125,7 @@ jobs:
       - run: scripts/agent/check-contracts.sh --ci
         env:
           GASSTATION_CI_BASE_REF: fixture-base
+      - run: scripts/agent/verify-room-schemas.sh
   static-analysis:
     runs-on: ubuntu-latest
   release-publish:
@@ -187,6 +190,20 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace("      - run: scripts/agent/verify-room-schemas.sh\n", ""))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/room-schema-workflow.out" 2>&1; then
+  fail "CI accepted a workflow without Room schema verification"
+fi
+assert_contains "$(cat "$fixture/room-schema-workflow.out")" ".github/workflows/android.yml:1: required contract anchor missing"
+assert_error_locations "$(cat "$fixture/room-schema-workflow.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 printf 'bad whitespace   \n' >> "$fixture/repo/README.md"
 if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/unstaged-diff.out" 2>&1; then

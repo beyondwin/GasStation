@@ -69,6 +69,7 @@ jobs:
             :domain:station:test \
             :domain:settings:test \
             :core:database:testDebugUnitTest \
+            :core:database:compileDebugAndroidTestKotlin \
             :core:datastore:testDebugUnitTest \
             :core:designsystem:testDebugUnitTest \
             :core:location:testDebugUnitTest \
@@ -84,6 +85,9 @@ jobs:
             :app:compileDemoDebugAndroidTestKotlin \
             :tools:demo-seed:test \
             --warning-mode fail
+
+      - name: Verify Room schema history
+        run: scripts/agent/verify-room-schemas.sh
 
   screenshot-tests:
     runs-on: ubuntu-latest
