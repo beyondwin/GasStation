@@ -367,6 +367,27 @@ class NetworkStationFetcherTest {
         assertSame(cause, failure.cause)
     }
 
+    @Test(timeout = 1_000L)
+    fun `fetchStations completes a cyclic direct cause chain as network`() = runBlocking {
+        val cause = IOException("offline")
+        val cycle = IllegalStateException("cyclic cause")
+        cause.initCause(cycle)
+        cycle.initCause(cause)
+
+        val result = NetworkStationFetcher(
+            opinetService = ThrowingOpinetService(cause),
+            opinetApiKey = "opinet-key",
+        ).fetchStations(
+            origin = TEST_ORIGIN,
+            radius = SearchRadius.KM_3,
+            fuelType = FuelType.GASOLINE,
+        )
+
+        val failure = result as NetworkStationFetchResult.Failure
+        assertEquals(NetworkStationFailure.Network, failure.reason)
+        assertSame(cause, failure.cause)
+    }
+
     @Test
     fun `fetchStations rethrows direct cancellation unchanged`() {
         val cancellation = CancellationException("cancelled")
