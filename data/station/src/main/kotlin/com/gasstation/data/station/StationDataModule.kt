@@ -39,6 +39,10 @@ abstract class StationDataModule {
 
         @Provides
         @Singleton
+        internal fun provideLatestWatchIntentGate(): LatestWatchIntentGate = LatestWatchIntentGate()
+
+        @Provides
+        @Singleton
         fun provideClock(): Clock = Clock.systemUTC()
     }
 }

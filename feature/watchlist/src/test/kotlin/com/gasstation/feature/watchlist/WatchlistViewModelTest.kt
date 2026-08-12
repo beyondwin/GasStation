@@ -16,10 +16,12 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
 import com.gasstation.domain.station.usecase.RemoveWatchedStationUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -229,6 +231,55 @@ class WatchlistViewModelTest {
         collectionJob.cancel()
     }
 
+    @Test
+    fun `superseded remove is silent`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        val repository = RecordingWatchlistRepository(
+            initial = listOf(summary()),
+            removeResult = WatchMutationResult.Superseded,
+        )
+        val analytics = RecordingStationEventLogger()
+        val viewModel = watchlistViewModel(
+            repository = repository,
+            preferences = MutableStateFlow(UserPreferences.default()),
+            analytics = analytics,
+        )
+        val collectionJob = collect(viewModel)
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.onAction(WatchlistAction.RemoveClicked("station-1"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("station-1"), repository.removedStationIds)
+        assertTrue(analytics.events.isEmpty())
+        collectionJob.cancel()
+    }
+
+    @Test
+    fun `cancelled remove is not logged as success`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        val repository = RecordingWatchlistRepository(
+            initial = listOf(summary()),
+            removeFailure = CancellationException("cancel remove"),
+        )
+        val analytics = RecordingStationEventLogger()
+        val viewModel = watchlistViewModel(
+            repository = repository,
+            preferences = MutableStateFlow(UserPreferences.default()),
+            analytics = analytics,
+        )
+        val collectionJob = collect(viewModel)
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.onAction(WatchlistAction.RemoveClicked("station-1"))
+        advanceUntilIdle()
+
+        assertTrue(analytics.events.isEmpty())
+        collectionJob.cancel()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.collect(viewModel: WatchlistViewModel) =
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collectLatest { }
@@ -286,7 +337,11 @@ private class ThrowingStationEventLogger : StationEventLogger {
     override fun log(event: StationEvent): Unit = throw IllegalStateException("analytics failed")
 }
 
-private class RecordingWatchlistRepository(initial: List<WatchedStationSummary>) : StationRepository {
+private class RecordingWatchlistRepository(
+    initial: List<WatchedStationSummary>,
+    private val removeResult: WatchMutationResult = WatchMutationResult.Committed,
+    private val removeFailure: Throwable? = null,
+) : StationRepository {
     val summaries = MutableStateFlow(initial)
     val queries = mutableListOf<WatchlistQuery>()
     val removedStationIds = mutableListOf<String>()
@@ -307,10 +362,13 @@ private class RecordingWatchlistRepository(initial: List<WatchedStationSummary>)
 
     override suspend fun refreshNearbyStations(query: StationQuery) = Unit
 
-    override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
+    override suspend fun updateWatchState(station: Station, watched: Boolean): WatchMutationResult = WatchMutationResult.Committed
 
-    override suspend fun removeWatchedStation(stationId: String) {
+    override suspend fun removeWatchedStation(stationId: String): WatchMutationResult {
         removedStationIds += stationId
+        removeFailure?.let { throw it }
+        if (removeResult == WatchMutationResult.Superseded) return removeResult
         summaries.value = summaries.value.filterNot { it.id == stationId }
+        return removeResult
     }
 }

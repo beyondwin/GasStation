@@ -496,9 +496,10 @@ private class ScriptedObservationRepository(var refreshFailure: Throwable? = nul
         refreshFailure?.let { throw it }
     }
 
-    override suspend fun updateWatchState(station: Station, watched: Boolean) = Unit
+    override suspend fun updateWatchState(station: Station, watched: Boolean) =
+        com.gasstation.domain.station.model.WatchMutationResult.Committed
 
-    override suspend fun removeWatchedStation(stationId: String) = Unit
+    override suspend fun removeWatchedStation(stationId: String) = com.gasstation.domain.station.model.WatchMutationResult.Committed
 }
 
 private class ObservationSubscription(val query: StationQuery) {

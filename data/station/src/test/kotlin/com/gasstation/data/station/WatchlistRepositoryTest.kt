@@ -3,6 +3,8 @@ package com.gasstation.data.station
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationCacheSnapshotEntity
+import com.gasstation.core.database.station.WatchedStationDao
+import com.gasstation.core.database.station.WatchedStationEntity
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
@@ -13,18 +15,27 @@ import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationPriceDelta
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.model.WatchlistQuery
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class WatchlistRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
@@ -552,7 +563,7 @@ class WatchlistRepositoryTest {
     }
 
     @Test
-    fun `updateWatchState upserts and deletes watched rows`() = runBlocking {
+    fun `updateWatchState commits insert and delete watched rows`() = runBlocking {
         val watchedStationDao = RecordingWatchedStationDao()
         val repository = repository(watchedStationDao = watchedStationDao)
         val station = Station(
@@ -564,7 +575,7 @@ class WatchlistRepositoryTest {
             coordinates = Coordinates(37.498095, 127.027610),
         )
 
-        repository.updateWatchState(station = station, watched = true)
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(station = station, watched = true))
 
         val watchedRow = watchedStationDao.currentWatchedStations().single()
 
@@ -573,16 +584,117 @@ class WatchlistRepositoryTest {
         assertEquals("GSC", watchedRow.brandCode)
         assertEquals(now.toEpochMilli(), watchedRow.watchedAtEpochMillis)
 
-        repository.updateWatchState(station = station, watched = false)
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(station = station, watched = false))
 
         assertTrue(watchedStationDao.currentWatchedStations().isEmpty())
         assertEquals(listOf("station-1"), watchedStationDao.deletedStationIds)
     }
 
+    @Test
+    fun `repeated ON commits while preserving first timestamp metadata and order`() = runBlocking {
+        val mutableClock = MutableTestClock(now)
+        val watchedStationDao = RecordingWatchedStationDao()
+        val repository = repository(watchedStationDao = watchedStationDao, clock = mutableClock)
+        val first = station("station-1", "Original")
+
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(first, watched = true))
+        mutableClock.current = now.plusSeconds(5)
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(station("station-2", "Second"), watched = true))
+        mutableClock.current = now.plusSeconds(10)
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(first.copy(name = "Replacement"), watched = true))
+
+        val rows = watchedStationDao.currentWatchedStations()
+        assertEquals(listOf("station-2", "station-1"), rows.map { it.stationId })
+        assertEquals(now.toEpochMilli(), rows.single { it.stationId == "station-1" }.watchedAtEpochMillis)
+        assertEquals("Original", rows.single { it.stationId == "station-1" }.name)
+    }
+
+    @Test
+    fun `ON then newer OFF finishes unwatched when ON commit is active`() = runTest(timeout = 10.seconds) {
+        val dao = ControllableWatchedStationDao(blockInsertFor = "station-1")
+        val repository = repository(watchedStationDao = dao)
+        val on = async { repository.updateWatchState(station("station-1"), watched = true) }
+        dao.operationEntered.await()
+        val off = async { repository.updateWatchState(station("station-1"), watched = false) }
+        runCurrent()
+
+        dao.releaseOperation.complete(Unit)
+
+        assertEquals(WatchMutationResult.Committed, on.await())
+        assertEquals(WatchMutationResult.Committed, off.await())
+        assertTrue(dao.currentRows().isEmpty())
+    }
+
+    @Test
+    fun `OFF then newer ON finishes watched when delete commit is active`() = runTest(timeout = 10.seconds) {
+        val dao = ControllableWatchedStationDao(
+            initial = listOf(watched("station-1", now)),
+            blockDeleteFor = "station-1",
+        )
+        val repository = repository(watchedStationDao = dao)
+        val off = async { repository.removeWatchedStation("station-1") }
+        dao.operationEntered.await()
+        val on = async { repository.updateWatchState(station("station-1"), watched = true) }
+        runCurrent()
+
+        dao.releaseOperation.complete(Unit)
+
+        assertEquals(WatchMutationResult.Committed, off.await())
+        assertEquals(WatchMutationResult.Committed, on.await())
+        assertEquals(listOf("station-1"), dao.currentRows().map { it.stationId })
+    }
+
+    @Test
+    fun `different station mutation progresses while another station commit is active`() = runTest(timeout = 10.seconds) {
+        val dao = ControllableWatchedStationDao(blockInsertFor = "station-1")
+        val repository = repository(watchedStationDao = dao)
+        val first = async { repository.updateWatchState(station("station-1"), watched = true) }
+        dao.operationEntered.await()
+        val second = async { repository.updateWatchState(station("station-2"), watched = true) }
+        runCurrent()
+
+        assertTrue(second.isCompleted)
+        assertEquals(WatchMutationResult.Committed, second.await())
+        dao.releaseOperation.complete(Unit)
+        assertEquals(WatchMutationResult.Committed, first.await())
+    }
+
+    @Test
+    fun `queued older intent is superseded without DAO action when newer intent registers`() = runTest(timeout = 10.seconds) {
+        val dao = ControllableWatchedStationDao(blockInsertFor = "station-1")
+        val repository = repository(watchedStationDao = dao)
+        val active = async { repository.updateWatchState(station("station-1"), watched = true) }
+        dao.operationEntered.await()
+        val older = async { repository.updateWatchState(station("station-1"), watched = false) }
+        val newer = async { repository.updateWatchState(station("station-1"), watched = true) }
+        runCurrent()
+
+        dao.releaseOperation.complete(Unit)
+
+        assertEquals(WatchMutationResult.Committed, active.await())
+        assertEquals(WatchMutationResult.Superseded, older.await())
+        assertEquals(WatchMutationResult.Committed, newer.await())
+        assertTrue(dao.deletedStationIds.isEmpty())
+        assertEquals(listOf("station-1"), dao.currentRows().map { it.stationId })
+    }
+
+    @Test
+    fun `DAO failure propagates and later same-station mutation commits`() = runTest(timeout = 10.seconds) {
+        val dao = FailOnceWatchedStationDao()
+        val repository = repository(watchedStationDao = dao)
+
+        val failure = runCatching { repository.updateWatchState(station("station-1"), watched = true) }.exceptionOrNull()
+
+        assertEquals("forced insert failure", failure?.message)
+        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(station("station-1"), watched = true))
+        assertEquals(listOf("station-1"), dao.currentRows().map { it.stationId })
+    }
+
     private fun repository(
         stationCacheDao: StationCacheDao = EmptyStationCacheDao(),
         stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
-        watchedStationDao: RecordingWatchedStationDao = RecordingWatchedStationDao(),
+        watchedStationDao: WatchedStationDao = RecordingWatchedStationDao(),
+        clock: Clock = this.clock,
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationBucketSnapshotObserver = RecordingStationBucketSnapshotObserver(stationCacheDao),
@@ -597,7 +709,81 @@ class WatchlistRepositoryTest {
         clock = clock,
         freshnessTicker = StationFreshnessTicker(StationCachePolicy(), clock),
         latestRefreshGate = LatestRefreshGate(),
+        latestWatchIntentGate = LatestWatchIntentGate(),
     )
+
+    private fun station(stationId: String, name: String = "Station $stationId") = Station(
+        id = stationId,
+        name = name,
+        brand = Brand.GSC,
+        price = MoneyWon(1_680),
+        distance = DistanceMeters(120),
+        coordinates = Coordinates(37.498095, 127.027610),
+    )
+
+    private class MutableTestClock(var current: Instant) : Clock() {
+        override fun getZone() = ZoneOffset.UTC
+        override fun withZone(zone: java.time.ZoneId): Clock = this
+        override fun instant(): Instant = current
+    }
+
+    private class ControllableWatchedStationDao(
+        initial: List<WatchedStationEntity> = emptyList(),
+        private val blockInsertFor: String? = null,
+        private val blockDeleteFor: String? = null,
+    ) : WatchedStationDao {
+        private val rows = initial.toMutableList()
+        val operationEntered = CompletableDeferred<Unit>()
+        val releaseOperation = CompletableDeferred<Unit>()
+        val deletedStationIds = mutableListOf<String>()
+
+        override suspend fun insertIfAbsent(entity: WatchedStationEntity): Long {
+            if (entity.stationId == blockInsertFor && !operationEntered.isCompleted) {
+                operationEntered.complete(Unit)
+                releaseOperation.await()
+            }
+            if (rows.any { it.stationId == entity.stationId }) return -1L
+            rows += entity
+            return rows.size.toLong()
+        }
+
+        override suspend fun delete(stationId: String) {
+            if (stationId == blockDeleteFor && !operationEntered.isCompleted) {
+                operationEntered.complete(Unit)
+                releaseOperation.await()
+            }
+            deletedStationIds += stationId
+            rows.removeAll { it.stationId == stationId }
+        }
+
+        override fun observeWatchedStationIds(): Flow<List<String>> = flowOf(currentRows().map { it.stationId })
+        override fun observeWatchedStations(): Flow<List<WatchedStationEntity>> = flowOf(currentRows())
+        fun currentRows(): List<WatchedStationEntity> = rows.sortedWith(
+            compareByDescending<WatchedStationEntity> { it.watchedAtEpochMillis }.thenBy { it.stationId },
+        )
+    }
+
+    private class FailOnceWatchedStationDao : WatchedStationDao {
+        private val rows = mutableListOf<WatchedStationEntity>()
+        private var shouldFail = true
+
+        override suspend fun insertIfAbsent(entity: WatchedStationEntity): Long {
+            if (shouldFail) {
+                shouldFail = false
+                error("forced insert failure")
+            }
+            rows += entity
+            return rows.size.toLong()
+        }
+
+        override suspend fun delete(stationId: String) {
+            rows.removeAll { it.stationId == stationId }
+        }
+
+        override fun observeWatchedStationIds(): Flow<List<String>> = flowOf(currentRows().map { it.stationId })
+        override fun observeWatchedStations(): Flow<List<WatchedStationEntity>> = flowOf(currentRows())
+        fun currentRows(): List<WatchedStationEntity> = rows.toList()
+    }
 
     private fun watchlistQuery(origin: Coordinates, fuelType: FuelType = FuelType.GASOLINE) =
         WatchlistQuery(origin = origin, fuelType = fuelType)

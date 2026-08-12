@@ -11,6 +11,7 @@ import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.CompletableDeferred
@@ -25,6 +26,8 @@ internal class FakeStationRepository(
     initialObservedResult: StationSearchResult? = result,
     private val refreshStarted: CompletableDeferred<Unit>? = null,
     private val releaseRefresh: CompletableDeferred<Unit>? = null,
+    var watchMutationResult: WatchMutationResult = WatchMutationResult.Committed,
+    var watchMutationFailure: Throwable? = null,
 ) : StationRepository {
     private val state = MutableStateFlow(result)
     private val observedResults =
@@ -64,11 +67,13 @@ internal class FakeStationRepository(
         persistedRefreshQueries += query
     }
 
-    override suspend fun updateWatchState(station: Station, watched: Boolean) {
+    override suspend fun updateWatchState(station: Station, watched: Boolean): WatchMutationResult {
         watchStateUpdates += station.id to watched
+        watchMutationFailure?.let { throw it }
+        return watchMutationResult
     }
 
-    override suspend fun removeWatchedStation(stationId: String) = Unit
+    override suspend fun removeWatchedStation(stationId: String): WatchMutationResult = WatchMutationResult.Committed
 }
 
 internal class FakeLocationRepository(

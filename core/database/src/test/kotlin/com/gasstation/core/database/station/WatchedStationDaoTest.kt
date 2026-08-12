@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,8 +37,8 @@ class WatchedStationDaoTest {
     }
 
     @Test
-    fun `observeWatchedStationIds returns newest first and updates order after upsert`() = runBlocking {
-        dao.upsert(
+    fun `repeated insert preserves original watched row and order`() = runBlocking {
+        val firstInsert = dao.insertIfAbsent(
             WatchedStationEntity(
                 stationId = "station-1",
                 name = "Gangnam First",
@@ -47,7 +48,7 @@ class WatchedStationDaoTest {
                 watchedAtEpochMillis = 1_744_947_200_000L,
             ),
         )
-        dao.upsert(
+        dao.insertIfAbsent(
             WatchedStationEntity(
                 stationId = "station-2",
                 name = "Gangnam Second",
@@ -60,7 +61,7 @@ class WatchedStationDaoTest {
 
         assertEquals(listOf("station-2", "station-1"), dao.observeWatchedStationIds().first())
 
-        dao.upsert(
+        val repeatedInsert = dao.insertIfAbsent(
             WatchedStationEntity(
                 stationId = "station-1",
                 name = "Gangnam First Updated",
@@ -71,10 +72,39 @@ class WatchedStationDaoTest {
             ),
         )
 
-        assertEquals(listOf("station-1", "station-2"), dao.observeWatchedStationIds().first())
+        assertEquals(-1L, repeatedInsert)
+        assertEquals(listOf("station-2", "station-1"), dao.observeWatchedStationIds().first())
+        assertEquals(
+            1_744_947_200_000L,
+            dao.observeWatchedStations().first().single { it.stationId == "station-1" }.watchedAtEpochMillis,
+        )
+        assertEquals("Gangnam First", dao.observeWatchedStations().first().single { it.stationId == "station-1" }.name)
+        assertTrue(firstInsert > 0L)
 
         dao.delete("station-1")
 
         assertEquals(listOf("station-2"), dao.observeWatchedStationIds().first())
+    }
+
+    @Test
+    fun `equal timestamps use station id ascending in both observations`() = runBlocking {
+        listOf("station-c", "station-a", "station-b").forEach { stationId ->
+            dao.insertIfAbsent(
+                WatchedStationEntity(
+                    stationId = stationId,
+                    name = stationId,
+                    brandCode = "GSC",
+                    latitude = 37.498095,
+                    longitude = 127.027610,
+                    watchedAtEpochMillis = 1_744_947_200_000L,
+                ),
+            )
+        }
+
+        assertEquals(listOf("station-a", "station-b", "station-c"), dao.observeWatchedStationIds().first())
+        assertEquals(
+            listOf("station-a", "station-b", "station-c"),
+            dao.observeWatchedStations().first().map { it.stationId },
+        )
     }
 }

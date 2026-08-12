@@ -9,6 +9,7 @@ import com.gasstation.domain.settings.usecase.ObserveUserPreferencesUseCase
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveWatchlistUseCase
 import com.gasstation.domain.station.usecase.RemoveWatchedStationUseCase
@@ -91,13 +92,16 @@ class WatchlistViewModel @Inject constructor(
             WatchlistAction.RetryLoad -> observe()
 
             is WatchlistAction.RemoveClicked -> viewModelScope.launch {
-                removeWatchedStation(action.stationId)
-                stationEventLogger.logSafely(
-                    StationEvent.WatchToggled(
-                        stationId = action.stationId,
-                        watched = false,
-                    ),
-                )
+                when (removeWatchedStation(action.stationId)) {
+                    WatchMutationResult.Committed -> stationEventLogger.logSafely(
+                        StationEvent.WatchToggled(
+                            stationId = action.stationId,
+                            watched = false,
+                        ),
+                    )
+
+                    WatchMutationResult.Superseded -> Unit
+                }
             }
         }
     }

@@ -66,12 +66,14 @@ internal class RecordingStationPriceHistoryDao(history: List<StationPriceHistory
 internal class RecordingWatchedStationDao(watchedStations: List<WatchedStationEntity> = emptyList()) : WatchedStationDao {
     private val entities = MutableStateFlow(watchedStations.sortedWatched())
 
-    val upsertedEntities = mutableListOf<WatchedStationEntity>()
+    val insertedEntities = mutableListOf<WatchedStationEntity>()
     val deletedStationIds = mutableListOf<String>()
 
-    override suspend fun upsert(entity: WatchedStationEntity) {
-        upsertedEntities += entity
-        entities.value = (entities.value.filterNot { it.stationId == entity.stationId } + entity).sortedWatched()
+    override suspend fun insertIfAbsent(entity: WatchedStationEntity): Long {
+        insertedEntities += entity
+        if (entities.value.any { it.stationId == entity.stationId }) return -1L
+        entities.value = (entities.value + entity).sortedWatched()
+        return entities.value.indexOfFirst { it.stationId == entity.stationId }.toLong() + 1L
     }
 
     override suspend fun delete(stationId: String) {
@@ -119,6 +121,7 @@ private fun List<StationPriceHistoryEntity>.sortedHistory(): List<StationPriceHi
         .thenByDescending { it.fetchedAtEpochMillis },
 )
 
-private fun List<WatchedStationEntity>.sortedWatched(): List<WatchedStationEntity> = sortedByDescending {
-    it.watchedAtEpochMillis
-}
+private fun List<WatchedStationEntity>.sortedWatched(): List<WatchedStationEntity> = sortedWith(
+    compareByDescending<WatchedStationEntity> { it.watchedAtEpochMillis }
+        .thenBy { it.stationId },
+)

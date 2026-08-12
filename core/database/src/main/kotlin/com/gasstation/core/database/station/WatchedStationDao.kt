@@ -8,15 +8,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WatchedStationDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(entity: WatchedStationEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(entity: WatchedStationEntity): Long
 
     @Query("DELETE FROM watched_station WHERE stationId = :stationId")
     suspend fun delete(stationId: String)
 
-    @Query("SELECT stationId FROM watched_station ORDER BY watchedAtEpochMillis DESC")
+    @Query("SELECT stationId FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC")
     fun observeWatchedStationIds(): Flow<List<String>>
 
-    @Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC")
+    @Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC")
     fun observeWatchedStations(): Flow<List<WatchedStationEntity>>
 }

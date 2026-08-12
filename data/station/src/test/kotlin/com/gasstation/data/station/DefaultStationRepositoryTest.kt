@@ -663,7 +663,7 @@ class DefaultStationRepositoryTest {
         runCurrent()
         mutableClock.advance(Duration.ofMinutes(4))
         advanceTimeBy(Duration.ofMinutes(4).toMillis())
-        watchedStationDao.upsert(
+        watchedStationDao.insertIfAbsent(
             watched(
                 stationId = "station-1",
                 watchedAt = mutableClock.instant(),
@@ -1211,6 +1211,7 @@ class DefaultStationRepositoryTest {
         transactionRunner: DatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
         clock: Clock = this.clock,
         latestRefreshGate: LatestRefreshGate = LatestRefreshGate(),
+        latestWatchIntentGate: LatestWatchIntentGate = LatestWatchIntentGate(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationBucketSnapshotObserver = stationBucketSnapshotObserver,
@@ -1225,6 +1226,7 @@ class DefaultStationRepositoryTest {
         clock = clock,
         freshnessTicker = StationFreshnessTicker(StationCachePolicy(), clock),
         latestRefreshGate = latestRefreshGate,
+        latestWatchIntentGate = latestWatchIntentGate,
     )
 
     private fun remoteStation(stationId: String) = RemoteStation(
@@ -1308,7 +1310,7 @@ class DefaultStationRepositoryTest {
         var observeSubscriptions: Int = 0
             private set
 
-        override suspend fun upsert(entity: WatchedStationEntity) = error("Not used")
+        override suspend fun insertIfAbsent(entity: WatchedStationEntity): Long = error("Not used")
 
         override suspend fun delete(stationId: String) = error("Not used")
 

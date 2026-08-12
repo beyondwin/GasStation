@@ -18,6 +18,7 @@ import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationQuery
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
 import com.gasstation.feature.stationlist.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -452,13 +453,16 @@ class StationListViewModel @Inject constructor(
             val entry = searchOrchestrator.searchResult.value.stations
                 .firstOrNull { it.station.id == stationId }
                 ?: return@launch
-            updateWatchState(entry.station, watched)
-            stationEventLogger.logSafely(
-                StationEvent.WatchToggled(
-                    stationId = stationId,
-                    watched = watched,
-                ),
-            )
+            when (updateWatchState(entry.station, watched)) {
+                WatchMutationResult.Committed -> stationEventLogger.logSafely(
+                    StationEvent.WatchToggled(
+                        stationId = stationId,
+                        watched = watched,
+                    ),
+                )
+
+                WatchMutationResult.Superseded -> Unit
+            }
         }
     }
 

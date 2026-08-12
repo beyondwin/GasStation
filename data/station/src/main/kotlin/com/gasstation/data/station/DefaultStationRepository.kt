@@ -21,6 +21,7 @@ import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationQueryCacheKey
 import com.gasstation.domain.station.model.StationSearchResult
+import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.CancellationException
@@ -51,6 +52,7 @@ class DefaultStationRepository @Inject internal constructor(
     private val clock: Clock,
     private val freshnessTicker: StationFreshnessTicker,
     private val latestRefreshGate: LatestRefreshGate,
+    private val latestWatchIntentGate: LatestWatchIntentGate,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
@@ -267,9 +269,9 @@ class DefaultStationRepository @Inject internal constructor(
         }
     }
 
-    override suspend fun updateWatchState(station: Station, watched: Boolean) {
+    override suspend fun updateWatchState(station: Station, watched: Boolean): WatchMutationResult = mutateWatchState(station.id) {
         if (watched) {
-            watchedStationDao.upsert(
+            watchedStationDao.insertIfAbsent(
                 WatchedStationEntity(
                     stationId = station.id,
                     name = station.name,
@@ -280,11 +282,29 @@ class DefaultStationRepository @Inject internal constructor(
                 ),
             )
         } else {
-            removeWatchedStation(station.id)
+            deleteWatchedStation(station.id)
         }
     }
 
-    override suspend fun removeWatchedStation(stationId: String) {
+    override suspend fun removeWatchedStation(stationId: String): WatchMutationResult = mutateWatchState(stationId) {
+        deleteWatchedStation(stationId)
+    }
+
+    private suspend fun <T> mutateWatchState(stationId: String, block: suspend () -> T): WatchMutationResult {
+        val ticket = latestWatchIntentGate.begin(stationId)
+        return try {
+            when (latestWatchIntentGate.commitIfLatest(ticket, block)) {
+                is LatestWatchCommitResult.Committed -> WatchMutationResult.Committed
+                LatestWatchCommitResult.Superseded -> WatchMutationResult.Superseded
+            }
+        } finally {
+            withContext(NonCancellable) {
+                latestWatchIntentGate.complete(ticket)
+            }
+        }
+    }
+
+    private suspend fun deleteWatchedStation(stationId: String) {
         watchedStationDao.delete(stationId)
     }
 
