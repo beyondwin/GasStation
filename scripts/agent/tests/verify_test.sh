@@ -118,4 +118,28 @@ fi
 [[ "$missing_value_status" -eq 64 ]] || fail "missing --changed-file value returned $missing_value_status instead of 64"
 assert_contains "$missing_value_error" "missing value for --changed-file"
 
+mkdir -p "$fixture/docs-scope/scripts/agent" "$fixture/docs-scope/scripts/docs"
+cp "$repo_root/scripts/agent/verify.sh" "$fixture/docs-scope/scripts/agent/verify.sh"
+cat > "$fixture/docs-scope/scripts/agent/check-contracts.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'contracts:%s\n' "$*" >> "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/calls.log"
+EOF
+cat > "$fixture/docs-scope/scripts/docs/validate.py" <<'EOF'
+#!/usr/bin/env python3
+import pathlib
+import sys
+root = pathlib.Path(__file__).resolve().parents[2]
+with (root / "calls.log").open("a") as output:
+    output.write("docs:" + " ".join(sys.argv[1:]) + "\n")
+EOF
+cat > "$fixture/docs-scope/gradlew" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$fixture/docs-scope/scripts/agent/check-contracts.sh" "$fixture/docs-scope/gradlew"
+"$fixture/docs-scope/scripts/agent/verify.sh" docs
+docs_calls=$(cat "$fixture/docs-scope/calls.log")
+assert_contains "$docs_calls" "contracts:"
+assert_contains "$docs_calls" "docs:--check-gradle-tasks"
+
 echo "verify_test: PASS"

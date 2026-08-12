@@ -1,0 +1,5 @@
+{
+  "activeModules": [":app", ":core:model"],
+  "ciJobs": ["agent-contracts", "static-analysis"],
+  "validAnchor": "Price & Distance"
+}

@@ -482,6 +482,14 @@ assert_contains "$(cat "$fixture/shell.out")" "shell syntax error"
 assert_error_locations "$(cat "$fixture/shell.out")"
 assert_not_contains "$(cat "$fixture/shell.out")" "$fixture/repo"
 
+printf '{\n' > "$fixture/repo/docs/documentation-catalog.json"
+if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/docs-validator.out" 2>&1; then
+  fail "agent contract check accepted a malformed documentation catalog"
+fi
+assert_contains "$(cat "$fixture/docs-validator.out")" "malformed catalog JSON"
+assert_error_locations "$(cat "$fixture/docs-validator.out")"
+rm "$fixture/repo/docs/documentation-catalog.json"
+
 if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
   for required in docs/AGENTS.md core/database/AGENTS.md benchmark/AGENTS.md; do
     [[ -f "$repo_root/$required" ]] || fail "missing nested contract: $required"

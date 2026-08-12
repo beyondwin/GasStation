@@ -140,6 +140,26 @@ def check_live_links(root: Path) -> list[str]:
     return issues
 
 
+def check_documentation_contracts(root: Path) -> list[str]:
+    """Delegate cataloged live-document checks to the focused validator."""
+    catalog = root / "docs" / "documentation-catalog.json"
+    validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
+    if not catalog.is_file():
+        return []
+    result = subprocess.run(
+        [sys.executable, str(validator), "--root", str(root)],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode == 0:
+        return []
+    issues = []
+    for line in result.stderr.splitlines():
+        if line.startswith("ERROR: "):
+            issues.append(line.removeprefix("ERROR: "))
+    return issues or [issue("docs/documentation-catalog.json", 1, "documentation validation failed")]
+
+
 def check_build_contract(root: Path) -> list[str]:
     issues: list[str] = []
     settings = (root / "settings.gradle.kts").read_text()
@@ -596,7 +616,10 @@ def main() -> int:
 
     issues = check_portable_agent_paths(root) + check_secrets_and_artifacts(root)
     if not args.quick:
-        issues += check_live_links(root)
+        if (root / "docs" / "documentation-catalog.json").is_file():
+            issues += check_documentation_contracts(root)
+        else:
+            issues += check_live_links(root)
         issues += check_build_contract(root)
         issues += check_shell_syntax(root)
         issues += check_diff(root, ci=args.ci)
