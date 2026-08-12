@@ -17,4 +17,5 @@ sealed interface StationListAction {
     data class PermissionChanged(val permissionState: LocationPermissionState) : StationListAction
     data class GpsAvailabilityChanged(val isEnabled: Boolean) : StationListAction
     data class StationClicked(val station: StationListItemUiModel) : StationListAction
+    data class CommandHandled(val commandId: Long) : StationListAction
 }

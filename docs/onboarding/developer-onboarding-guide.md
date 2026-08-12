@@ -233,7 +233,7 @@ Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회�
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommand.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
 

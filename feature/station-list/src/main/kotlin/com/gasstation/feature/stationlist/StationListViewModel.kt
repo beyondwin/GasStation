@@ -25,10 +25,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -44,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @HiltViewModel
-class StationListViewModel @Inject constructor(
+class StationListViewModel @Inject internal constructor(
     private val searchOrchestrator: StationSearchOrchestrator,
     private val updateWatchState: UpdateWatchStateUseCase,
     private val observeUserPreferences: ObserveUserPreferencesUseCase,
@@ -54,6 +51,7 @@ class StationListViewModel @Inject constructor(
     private val updateBrandFilter: UpdateBrandFilterUseCase,
     private val locationStateMachine: LocationStateMachine,
     private val stationEventLogger: StationEventLogger,
+    private val commandQueue: StationListCommandQueue,
 ) : ViewModel() {
     private val preferenceState = MutableStateFlow<PreferenceLoadState>(PreferenceLoadState.Loading)
     private var preferenceObservationJob: Job? = null
@@ -62,10 +60,8 @@ class StationListViewModel @Inject constructor(
     private val preferenceWriteInFlight = AtomicBoolean(false)
     private val transientState = MutableStateFlow(StationListTransientState())
     private val mutableUiState = MutableStateFlow(StationListUiState())
-    private val mutableEffects = MutableSharedFlow<StationListEffect>()
 
     val uiState = mutableUiState.asStateFlow()
-    val effects: SharedFlow<StationListEffect> = mutableEffects.asSharedFlow()
 
     init {
         observePreferences()
@@ -127,7 +123,7 @@ class StationListViewModel @Inject constructor(
         .distinctUntilChanged()
 
     private fun bindUiState(searchUiProjection: Flow<StationListSearchUiProjection>) {
-        combine(
+        val stateWithoutCommands = combine(
             preferenceState,
             locationStateMachine.state,
             transientState,
@@ -155,6 +151,9 @@ class StationListViewModel @Inject constructor(
                 pendingPreferenceWrite = transient.pendingPreferenceWrite,
                 lastUpdatedAt = resultProjection.fetchedAt,
             )
+        }
+        combine(stateWithoutCommands, commandQueue.commands) { state, commands ->
+            state.copy(pendingCommands = commands)
         }.onEach { mutableUiState.value = it }
             .launchIn(viewModelScope)
     }
@@ -212,26 +211,28 @@ class StationListViewModel @Inject constructor(
                 }
             }
 
+            is StationListAction.CommandHandled -> commandQueue.acknowledge(action.commandId)
+
             is StationListAction.StationClicked -> {
                 viewModelScope.launch {
                     val currentCoordinates = locationStateMachine.state.value.usableCoordinates()
                         ?: return@launch
                     val preferences = readyPreferencesOrNull() ?: return@launch
                     val provider = preferences.mapProvider
-                    stationEventLogger.logSafely(
-                        StationEvent.ExternalMapOpened(
-                            stationId = action.station.id,
-                            provider = provider,
-                        ),
-                    )
-                    mutableEffects.emit(
-                        StationListEffect.OpenExternalMap(
+                    commandQueue.enqueue(
+                        StationListCommandPayload.OpenExternalMap(
                             provider = provider,
                             stationName = action.station.name,
                             originLatitude = currentCoordinates.latitude,
                             originLongitude = currentCoordinates.longitude,
                             latitude = action.station.latitude,
                             longitude = action.station.longitude,
+                        ),
+                    )
+                    stationEventLogger.logSafely(
+                        StationEvent.ExternalMapOpened(
+                            stationId = action.station.id,
+                            provider = provider,
                         ),
                     )
                 }
@@ -251,8 +252,8 @@ class StationListViewModel @Inject constructor(
             val location = locationStateMachine.state.value
             if (location.permissionState == LocationPermissionState.Denied) {
                 if (showPermissionDeniedFeedback) {
-                    mutableEffects.emit(
-                        StationListEffect.ShowSnackbar(
+                    commandQueue.enqueue(
+                        StationListCommandPayload.ShowSnackbar(
                             StringResource.fromId(R.string.station_list_permission_denied),
                         ),
                     )
@@ -261,7 +262,7 @@ class StationListViewModel @Inject constructor(
             }
             if (readyPreferencesOrNull() == null) return@launchRefreshWork
             if (!location.isGpsEnabled) {
-                mutableEffects.emit(StationListEffect.OpenLocationSettings)
+                commandQueue.enqueue(StationListCommandPayload.OpenLocationSettings)
                 return@launchRefreshWork
             }
 
@@ -320,8 +321,8 @@ class StationListViewModel @Inject constructor(
             LocationAcquisitionResult.PermissionDenied -> {
                 logLocationFailure(result)
                 if (showPermissionDeniedFeedback) {
-                    mutableEffects.emit(
-                        StationListEffect.ShowSnackbar(
+                    commandQueue.enqueue(
+                        StationListCommandPayload.ShowSnackbar(
                             StringResource.fromId(R.string.station_list_permission_denied),
                         ),
                     )
@@ -357,12 +358,12 @@ class StationListViewModel @Inject constructor(
             stationEventLogger.logSafely(StationEvent.RefreshFailed(reason = it))
         }
         searchOrchestrator.onRefreshFailure(query = query, reason = reason)
-        mutableEffects.emit(StationListEffect.ShowSnackbar(reason.refreshFailureResource()))
+        commandQueue.enqueue(StationListCommandPayload.ShowSnackbar(reason.refreshFailureResource()))
     }
 
     private suspend fun onBlockingFailure(reason: StationListFailureReason, message: StringResource) {
         searchOrchestrator.onBlockingFailure(reason = reason)
-        mutableEffects.emit(StationListEffect.ShowSnackbar(message))
+        commandQueue.enqueue(StationListCommandPayload.ShowSnackbar(message))
     }
 
     private fun logLocationFailure(result: LocationAcquisitionResult) {
@@ -436,8 +437,8 @@ class StationListViewModel @Inject constructor(
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableEffects.emit(
-                    StationListEffect.ShowSnackbar(
+                commandQueue.enqueue(
+                    StationListCommandPayload.ShowSnackbar(
                         StringResource.fromId(R.string.station_list_preference_save_failed),
                     ),
                 )

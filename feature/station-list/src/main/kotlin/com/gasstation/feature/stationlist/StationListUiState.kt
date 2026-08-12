@@ -21,4 +21,5 @@ data class StationListUiState(
     val preferenceLoadFailed: Boolean = false,
     val pendingPreferenceWrite: Boolean = false,
     val lastUpdatedAt: Instant? = null,
+    val pendingCommands: List<StationListUiCommand> = emptyList(),
 )

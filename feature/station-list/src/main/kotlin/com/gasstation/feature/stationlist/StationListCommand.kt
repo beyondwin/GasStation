@@ -3,7 +3,9 @@ package com.gasstation.feature.stationlist
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.MapProvider
 
-sealed interface StationListEffect {
+data class StationListUiCommand(val id: Long, val payload: StationListCommandPayload)
+
+sealed interface StationListCommandPayload {
     data class OpenExternalMap(
         val provider: MapProvider,
         val stationName: String,
@@ -11,9 +13,9 @@ sealed interface StationListEffect {
         val originLongitude: Double?,
         val latitude: Double,
         val longitude: Double,
-    ) : StationListEffect
+    ) : StationListCommandPayload
 
-    data object OpenLocationSettings : StationListEffect
+    data object OpenLocationSettings : StationListCommandPayload
 
-    data class ShowSnackbar(val message: StringResource) : StationListEffect
+    data class ShowSnackbar(val message: StringResource) : StationListCommandPayload
 }

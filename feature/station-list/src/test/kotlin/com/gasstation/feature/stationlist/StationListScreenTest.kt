@@ -86,21 +86,31 @@ class StationListScreenTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun assertExternalMapFailureSnackbar(expectedMessage: String) = runTest {
         val snackbarHostState = SnackbarHostState()
-        val effect = StationListEffect.OpenExternalMap(
-            provider = MapProvider.NAVER_MAP,
-            stationName = "강남주유소",
-            originLatitude = 37.498095,
-            originLongitude = 127.027610,
-            latitude = 37.499095,
-            longitude = 127.128610,
+        val command = StationListUiCommand(
+            id = 17L,
+            payload = StationListCommandPayload.OpenExternalMap(
+                provider = MapProvider.NAVER_MAP,
+                stationName = "강남주유소",
+                originLatitude = 37.498095,
+                originLongitude = 127.027610,
+                latitude = 37.499095,
+                longitude = 127.128610,
+            ),
         )
+        val acknowledgements = mutableListOf<Long>()
 
         val showJob = launch {
-            openExternalMapOrShowFailure(
-                effect = effect,
-                onOpenExternalMap = { false },
-                snackbarHostState = snackbarHostState,
-                resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources,
+            handleAndAcknowledgeStationListCommand(
+                command = command,
+                handle = { payload ->
+                    openExternalMapOrShowFailure(
+                        command = payload as StationListCommandPayload.OpenExternalMap,
+                        onOpenExternalMap = { false },
+                        snackbarHostState = snackbarHostState,
+                        resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources,
+                    )
+                },
+                acknowledge = acknowledgements::add,
             )
         }
         runCurrent()
@@ -109,8 +119,10 @@ class StationListScreenTest {
             expectedMessage,
             snackbarHostState.currentSnackbarData?.visuals?.message,
         )
+        assertTrue(acknowledgements.isEmpty())
         snackbarHostState.currentSnackbarData?.dismiss()
         showJob.join()
+        assertEquals(listOf(17L), acknowledgements)
     }
 
     @Test

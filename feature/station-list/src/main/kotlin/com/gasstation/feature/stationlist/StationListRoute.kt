@@ -7,9 +7,12 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -27,13 +31,13 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.CancellationException
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun StationListRoute(
     onCoordinatesAvailable: (Coordinates?) -> Unit,
-    onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Boolean,
+    onOpenExternalMap: (StationListCommandPayload.OpenExternalMap) -> Boolean,
     onFirstContentDrawn: () -> Unit = {},
     viewModel: StationListViewModel = hiltViewModel(),
 ) {
@@ -83,24 +87,28 @@ fun StationListRoute(
         onCoordinatesAvailable = onCoordinatesAvailable,
     )
 
-    LaunchedEffect(viewModel, resources) {
-        viewModel.effects.collectLatest { effect ->
-            when (effect) {
-                is StationListEffect.OpenExternalMap -> openExternalMapOrShowFailure(
-                    effect = effect,
+    StationListCommandEffect(
+        command = uiState.pendingCommands.firstOrNull(),
+        handle = { payload ->
+            when (payload) {
+                is StationListCommandPayload.OpenExternalMap -> openExternalMapOrShowFailure(
+                    command = payload,
                     onOpenExternalMap = onOpenExternalMap,
                     snackbarHostState = snackbarHostState,
                     resources = resources,
                 )
 
-                StationListEffect.OpenLocationSettings -> {
+                StationListCommandPayload.OpenLocationSettings -> {
                     context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 }
 
-                is StationListEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message.resolve(context))
+                is StationListCommandPayload.ShowSnackbar -> snackbarHostState.showSnackbar(payload.message.resolve(context))
             }
-        }
-    }
+        },
+        acknowledge = { commandId ->
+            viewModel.onAction(StationListAction.CommandHandled(commandId))
+        },
+    )
 
     StationListScreen(
         uiState = uiState,
@@ -127,15 +135,75 @@ fun StationListRoute(
 }
 
 internal suspend fun openExternalMapOrShowFailure(
-    effect: StationListEffect.OpenExternalMap,
-    onOpenExternalMap: (StationListEffect.OpenExternalMap) -> Boolean,
+    command: StationListCommandPayload.OpenExternalMap,
+    onOpenExternalMap: (StationListCommandPayload.OpenExternalMap) -> Boolean,
     snackbarHostState: SnackbarHostState,
     resources: Resources,
 ) {
-    if (!onOpenExternalMap(effect)) {
+    if (!onOpenExternalMap(command)) {
         snackbarHostState.showSnackbar(
             resources.getString(R.string.station_list_external_map_failed),
         )
+    }
+}
+
+internal suspend fun handleAndAcknowledgeStationListCommand(
+    command: StationListUiCommand,
+    handle: suspend (StationListCommandPayload) -> Unit,
+    acknowledge: (Long) -> Unit,
+) {
+    handle(command.payload)
+    acknowledge(command.id)
+}
+
+@Composable
+internal fun StationListCommandEffect(
+    command: StationListUiCommand?,
+    handle: suspend (StationListCommandPayload) -> Unit,
+    acknowledge: (Long) -> Unit,
+) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val currentHandle by rememberUpdatedState(handle)
+    val currentAcknowledge by rememberUpdatedState(acknowledge)
+    var started by remember(lifecycle) { mutableStateOf(false) }
+    var startGeneration by remember(lifecycle) { mutableLongStateOf(0L) }
+
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (!started) {
+                        startGeneration += 1L
+                        started = true
+                    }
+                }
+
+                Lifecycle.Event.ON_STOP,
+                Lifecycle.Event.ON_DESTROY,
+                -> started = false
+
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    val startedForAttempt = started
+    val generationForAttempt = startGeneration
+    LaunchedEffect(command?.id, startedForAttempt, generationForAttempt) {
+        if (!startedForAttempt || command == null) return@LaunchedEffect
+        try {
+            handleAndAcknowledgeStationListCommand(
+                command = command,
+                handle = currentHandle,
+                acknowledge = currentAcknowledge,
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            // Retain the exact queue head. The next START or route attachment may retry it.
+        }
     }
 }
 

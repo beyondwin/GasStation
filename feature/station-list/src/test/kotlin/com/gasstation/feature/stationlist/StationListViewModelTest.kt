@@ -1,6 +1,5 @@
 package com.gasstation.feature.stationlist
 
-import app.cash.turbine.test
 import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.BrandFilter
@@ -534,7 +533,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `station click emits external map effect with persisted provider`() = runTest(dispatcher) {
+    fun `station click queues map command without collector and logs once`() = runTest(dispatcher) {
         val analytics = RecordingStationEventLogger()
         val repository = FakeStationRepository(
             result = StationSearchResult(
@@ -561,32 +560,105 @@ class StationListViewModelTest {
         viewModel.onAction(StationListAction.RefreshRequested)
         advanceUntilIdle()
 
-        viewModel.effects.test {
-            viewModel.onAction(
-                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-            )
-
-            assertEquals(
-                StationListEffect.OpenExternalMap(
-                    provider = MapProvider.NAVER_MAP,
-                    stationName = "강남주유소",
-                    originLatitude = 37.498095,
-                    originLongitude = 127.027610,
-                    latitude = 37.499095,
-                    longitude = 127.027610,
-                ),
-                awaitItem(),
-            )
-        }
-        assertEquals(
-            listOf(
-                StationEvent.ExternalMapOpened(
-                    stationId = "station-1",
-                    provider = MapProvider.NAVER_MAP,
-                ),
-            ),
-            analytics.events,
+        viewModel.onAction(
+            StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
         )
+        advanceUntilIdle()
+
+        assertEquals(
+            StationListCommandPayload.OpenExternalMap(
+                provider = MapProvider.NAVER_MAP,
+                stationName = "강남주유소",
+                originLatitude = 37.498095,
+                originLongitude = 127.027610,
+                latitude = 37.499095,
+                longitude = 127.027610,
+            ),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
+        val expectedEvents = listOf(
+            StationEvent.ExternalMapOpened(
+                stationId = "station-1",
+                provider = MapProvider.NAVER_MAP,
+            ),
+        )
+        assertEquals(expectedEvents, analytics.events)
+
+        val command = viewModel.uiState.value.pendingCommands.single()
+        repeat(2) {
+            runCatching {
+                handleAndAcknowledgeStationListCommand(
+                    command = command,
+                    handle = { throw IllegalStateException("route retry") },
+                    acknowledge = { id -> viewModel.onAction(StationListAction.CommandHandled(id)) },
+                )
+            }
+        }
+        advanceUntilIdle()
+
+        assertEquals(expectedEvents, analytics.events)
+        assertEquals(listOf(command), viewModel.uiState.value.pendingCommands)
+
+        handleAndAcknowledgeStationListCommand(
+            command = command,
+            handle = {},
+            acknowledge = { id -> viewModel.onAction(StationListAction.CommandHandled(id)) },
+        )
+        advanceUntilIdle()
+
+        assertEquals(expectedEvents, analytics.events)
+        assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
+    }
+
+    @Test
+    fun `two accepted feedback intents remain FIFO across a collector gap`() = runTest(dispatcher) {
+        val viewModel = stationListViewModel(
+            repository = FakeStationRepository(emptySearchResult()),
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(),
+        )
+        val expectedPayload = StationListCommandPayload.ShowSnackbar(
+            StringResource.fromId(R.string.station_list_permission_denied),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        repeat(2) {
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+        }
+
+        assertEquals(listOf(1L, 2L), viewModel.uiState.value.pendingCommands.map { it.id })
+        assertEquals(
+            listOf(expectedPayload, expectedPayload),
+            viewModel.uiState.value.pendingCommands.map { it.payload },
+        )
+    }
+
+    @Test
+    fun `CommandHandled for tail cannot remove it and exact head acknowledgement advances`() = runTest(dispatcher) {
+        val viewModel = stationListViewModel(
+            repository = FakeStationRepository(emptySearchResult()),
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(),
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        repeat(2) {
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+        }
+        val initial = viewModel.uiState.value.pendingCommands
+
+        viewModel.onAction(StationListAction.CommandHandled(initial.last().id))
+        runCurrent()
+        assertEquals(initial, viewModel.uiState.value.pendingCommands)
+
+        viewModel.onAction(StationListAction.CommandHandled(initial.first().id))
+        runCurrent()
+        assertEquals(listOf(initial.last()), viewModel.uiState.value.pendingCommands)
+
+        viewModel.onAction(StationListAction.CommandHandled(initial.first().id))
+        runCurrent()
+        assertEquals(listOf(initial.last()), viewModel.uiState.value.pendingCommands)
     }
 
     @Test
@@ -608,14 +680,12 @@ class StationListViewModelTest {
         analytics.events.clear()
 
         viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-        viewModel.effects.test {
-            viewModel.onAction(
-                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-            )
-            advanceUntilIdle()
+        viewModel.onAction(
+            StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+        )
+        advanceUntilIdle()
 
-            expectNoEvents()
-        }
+        assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
         assertTrue(analytics.events.isEmpty())
     }
 
@@ -637,15 +707,13 @@ class StationListViewModelTest {
         advanceUntilIdle()
         analytics.events.clear()
 
-        viewModel.effects.test {
-            viewModel.onAction(
-                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-            )
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            runCurrent()
+        viewModel.onAction(
+            StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        runCurrent()
 
-            expectNoEvents()
-        }
+        assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
         assertTrue(analytics.events.isEmpty())
     }
 
@@ -676,23 +744,22 @@ class StationListViewModelTest {
         viewModel.onAction(StationListAction.RefreshRequested)
         advanceUntilIdle()
 
-        viewModel.effects.test {
-            viewModel.onAction(
-                StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
-            )
+        viewModel.onAction(
+            StationListAction.StationClicked(StationListItemUiModel(stationEntry())),
+        )
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.OpenExternalMap(
-                    provider = MapProvider.NAVER_MAP,
-                    stationName = "강남주유소",
-                    originLatitude = 37.498095,
-                    originLongitude = 127.027610,
-                    latitude = 37.499095,
-                    longitude = 127.027610,
-                ),
-                awaitItem(),
-            )
-        }
+        assertEquals(
+            StationListCommandPayload.OpenExternalMap(
+                provider = MapProvider.NAVER_MAP,
+                stationName = "강남주유소",
+                originLatitude = 37.498095,
+                originLongitude = 127.027610,
+                latitude = 37.499095,
+                longitude = 127.027610,
+            ),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
     }
 
     @Test
@@ -1035,18 +1102,16 @@ class StationListViewModelTest {
             analytics = analytics,
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            locationLookupStarted.await()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        locationLookupStarted.await()
 
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.ApproximateGranted))
-            completeLocationLookup.complete(LocationLookupResult.Unavailable)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.ApproximateGranted))
+        completeLocationLookup.complete(LocationLookupResult.Unavailable)
+        advanceUntilIdle()
 
-            expectNoEvents()
-        }
+        assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
 
         assertTrue(analytics.events.isEmpty())
         assertEquals(null, viewModel.uiState.value.blockingFailure)
@@ -1097,17 +1162,15 @@ class StationListViewModelTest {
             ),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
-                awaitItem(),
-            )
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
         assertTrue(repository.refreshedQueries.isEmpty())
         assertEquals(null, viewModel.uiState.value.blockingFailure)
     }
@@ -1133,18 +1196,15 @@ class StationListViewModelTest {
             analytics = analytics,
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
 
         assertEquals(listOf(StationEvent.LocationFailed(resultType = "Unavailable")), analytics.events)
         assertTrue(repository.refreshedQueries.isEmpty())
@@ -1167,15 +1227,15 @@ class StationListViewModelTest {
             locationRepository = FakeLocationRepository(),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(StationListEffect.OpenLocationSettings, awaitItem())
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.OpenLocationSettings,
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
         assertTrue(repository.refreshedQueries.isEmpty())
     }
 
@@ -1196,18 +1256,15 @@ class StationListViewModelTest {
             locationRepository = FakeLocationRepository(),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(false))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
         assertTrue(repository.refreshedQueries.isEmpty())
     }
 
@@ -1357,18 +1414,15 @@ class StationListViewModelTest {
             analytics = analytics,
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
         assertEquals(1, repository.refreshedQueries.size)
         assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
         assertEquals(
@@ -1397,18 +1451,15 @@ class StationListViewModelTest {
             analytics = ThrowingStationEventLogger(),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
 
         assertEquals(1, repository.refreshedQueries.size)
         assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
@@ -1441,16 +1492,13 @@ class StationListViewModelTest {
 
         repository.refreshFailure = StationRefreshException(StationRefreshFailureReason.Timeout)
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_timeout)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_timeout)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
 
         assertEquals(2, repository.refreshedQueries.size)
         assertEquals(1, viewModel.uiState.value.stations.size)
@@ -1479,18 +1527,15 @@ class StationListViewModelTest {
             analytics = ThrowingStationEventLogger(),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
-                awaitItem(),
-            )
-            expectNoEvents()
-        }
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_location_failed)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
 
         assertTrue(repository.refreshedQueries.isEmpty())
         assertEquals(StationListFailureReason.LocationFailed, viewModel.uiState.value.blockingFailure)
@@ -1518,30 +1563,28 @@ class StationListViewModelTest {
             ),
         )
 
-        viewModel.effects.test {
-            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
-            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
-            viewModel.onAction(StationListAction.RefreshRequested)
-            advanceUntilIdle()
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
 
-            assertEquals(
-                StationListEffect.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
-                awaitItem(),
-            )
-            assertEquals(null, viewModel.uiState.value.blockingFailure)
+        assertEquals(
+            StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_refresh_failed)),
+            viewModel.uiState.value.pendingCommands.single().payload,
+        )
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
 
-            repository.emitObservedResult(
-                StationSearchResult(
-                    stations = emptyList(),
-                    freshness = StationFreshness.Stale,
-                    fetchedAt = null,
-                    hasCachedSnapshot = false,
-                ),
-            )
-            advanceUntilIdle()
+        repository.emitObservedResult(
+            StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = null,
+                hasCachedSnapshot = false,
+            ),
+        )
+        advanceUntilIdle()
 
-            expectNoEvents()
-        }
+        assertEquals(1, viewModel.uiState.value.pendingCommands.size)
 
         assertEquals(1, repository.refreshedQueries.size)
         assertEquals(1, repository.observedQueries.size)
@@ -1577,6 +1620,7 @@ private fun TestScope.stationListViewModel(
         updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
         stationEventLogger = analytics,
+        commandQueue = StationListCommandQueue(),
     )
     runCurrent()
     return viewModel

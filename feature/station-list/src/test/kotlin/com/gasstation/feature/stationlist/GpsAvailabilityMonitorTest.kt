@@ -204,6 +204,7 @@ private fun stationListViewModelForRouteTest(
         stationEventLogger = object : StationEventLogger {
             override fun log(event: com.gasstation.domain.station.model.StationEvent) = Unit
         },
+        commandQueue = StationListCommandQueue(),
     )
 }
 

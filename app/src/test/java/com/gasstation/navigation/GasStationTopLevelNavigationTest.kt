@@ -11,7 +11,11 @@ import androidx.navigation.navArgument
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.model.MapProvider
 import com.gasstation.feature.settings.SettingsSection
+import com.gasstation.feature.stationlist.StationListCommandPayload
+import com.gasstation.map.ExternalMapLaunchResult
+import com.gasstation.map.ExternalMapLauncher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,6 +28,49 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class GasStationTopLevelNavigationTest {
+
+    @Test
+    fun `external map command forwards every payload field unchanged`() {
+        val calls = mutableListOf<List<Any?>>()
+        val launcher = object : ExternalMapLauncher {
+            override fun open(
+                provider: MapProvider,
+                stationName: String,
+                originLatitude: Double?,
+                originLongitude: Double?,
+                latitude: Double,
+                longitude: Double,
+            ): ExternalMapLaunchResult {
+                calls += listOf(provider, stationName, originLatitude, originLongitude, latitude, longitude)
+                return ExternalMapLaunchResult.StoreOpened
+            }
+        }
+        val command = StationListCommandPayload.OpenExternalMap(
+            provider = MapProvider.KAKAO_MAP,
+            stationName = "테스트 주유소",
+            originLatitude = null,
+            originLongitude = null,
+            latitude = 37.5123,
+            longitude = 127.0456,
+        )
+
+        val handled = openExternalMapCommand(launcher, command)
+
+        assertTrue(handled)
+        assertEquals(
+            listOf(
+                listOf(
+                    MapProvider.KAKAO_MAP,
+                    "테스트 주유소",
+                    null,
+                    null,
+                    37.5123,
+                    127.0456,
+                ),
+            ),
+            calls,
+        )
+    }
 
     @Test
     fun `bottom bar is visible only on top level routes`() {

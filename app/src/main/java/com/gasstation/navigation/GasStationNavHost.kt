@@ -34,6 +34,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.feature.settings.SettingsDetailRoute
 import com.gasstation.feature.settings.SettingsRoute
 import com.gasstation.feature.settings.SettingsSection
+import com.gasstation.feature.stationlist.StationListCommandPayload
 import com.gasstation.feature.stationlist.StationListRoute
 import com.gasstation.feature.watchlist.WatchlistRoute
 import com.gasstation.map.ExternalMapLaunchResult
@@ -134,16 +135,7 @@ private fun NavGraphBuilder.gasStationDestinations(
     ) {
         StationListRoute(
             onCoordinatesAvailable = onCoordinatesAvailable,
-            onOpenExternalMap = { effect ->
-                externalMapLauncher.open(
-                    provider = effect.provider,
-                    stationName = effect.stationName,
-                    originLatitude = effect.originLatitude,
-                    originLongitude = effect.originLongitude,
-                    latitude = effect.latitude,
-                    longitude = effect.longitude,
-                ) != ExternalMapLaunchResult.Failed
-            },
+            onOpenExternalMap = { command -> openExternalMapCommand(externalMapLauncher, command) },
             onFirstContentDrawn = onStationListFirstContentDrawn,
         )
     }
@@ -199,6 +191,18 @@ private fun NavGraphBuilder.gasStationDestinations(
         )
     }
 }
+
+internal fun openExternalMapCommand(
+    externalMapLauncher: ExternalMapLauncher,
+    command: StationListCommandPayload.OpenExternalMap,
+): Boolean = externalMapLauncher.open(
+    provider = command.provider,
+    stationName = command.stationName,
+    originLatitude = command.originLatitude,
+    originLongitude = command.originLongitude,
+    latitude = command.latitude,
+    longitude = command.longitude,
+) != ExternalMapLaunchResult.Failed
 
 internal fun navigateTopLevelDestination(navController: NavHostController, route: String, lastWatchlistRoute: String?): String? {
     val nextWatchlistRoute = route.takeIf { it.isConcreteWatchlistRoute() }
