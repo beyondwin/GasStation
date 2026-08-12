@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.location.Address</mutatedClass></mutation>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.location.Address</mutatedClass></mutation>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.location.Location</mutatedClass></mutation>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.location.Address</mutatedClass></mutation>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.location.Location</mutatedClass></mutation>
+</mutations>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report name="fixture-coverage">
+  <sessioninfo id="fixture-session" start="1700000000000" dump="1700000001000"/>
+  <counter type="INSTRUCTION" missed="8" covered="12"/>
+  <counter type="BRANCH" missed="2" covered="3"/>
+  <counter type="LINE" missed="1" covered="4"/>
+</report>

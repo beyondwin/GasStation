@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.settings.Settings</mutatedClass></mutation>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.settings.Settings</mutatedClass></mutation>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.settings.Settings</mutatedClass></mutation>
+  <mutation detected="false" status="NO_COVERAGE"><mutatedClass>com.gasstation.domain.settings.Settings</mutatedClass></mutation>
+</mutations>

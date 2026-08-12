@@ -99,6 +99,15 @@
 
 통합 XML은 `build/reports/coverage/report.xml`에 생성되며 main/tag push의 Codecov 업로드가 이 파일을 사용합니다. 현재 커버리지는 신호 수집용이고, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking coverage threshold는 두지 않습니다.
 
+재현 가능한 관측 기준은 `config/quality/quality-baseline.json`입니다. 이 파일은 실행 시작 커밋 `7b8c149c9f792aaf43cc00a94ba671929008979e`에서 다음 순서로 생성한 JaCoCo 및 세 JVM PIT XML을 표준 라이브러리 파서로 묶습니다.
+
+```bash
+./gradlew coverageXmlReport :domain:station:pitest :domain:location:pitest :domain:settings:pitest --warning-mode fail
+python3 scripts/quality/capture_baseline.py --commit 7b8c149c9f792aaf43cc00a94ba671929008979e --coverage build/reports/coverage/report.xml --pitest domain/station/build/reports/pitest/mutations.xml --pitest domain/location/build/reports/pitest/mutations.xml --pitest domain/settings/build/reports/pitest/mutations.xml --output config/quality/quality-baseline.json
+```
+
+JaCoCo/PIT XML은 Git SHA를 포함하지 않으므로 `--commit`은 필수 명시값입니다. 보고서 생성기가 입력별 provenance를 제공할 때는 `--input-commit PATH=SHA`를 각 입력에 붙여 하나라도 다른 SHA인 캡처를 거부할 수 있습니다. JSON은 키 순서를 고정하고, 비교 대상 수치에는 wall-clock capture time을 넣지 않습니다.
+
 ## Mutation testing (변이 테스트)
 
 라인 커버리지 숫자만으로는 테스트가 실제 결함을 잡는지 알 수 없습니다. JVM-only 모듈(`gasstation.jvm.library`)에 변이 테스트를 적용해 테스트의 결함 탐지력을 측정·기록합니다. Pitest는 Android 모듈에서 불안정하므로 JVM 모듈로 한정합니다. 현재 `domain:station`, `domain:settings`, `domain:location` 세 모듈을 다룹니다.
@@ -107,21 +116,21 @@
 
 - **대상 선정 이유:** JVM-only 모듈 중 라인 커버리지가 가장 약한(48.57%) 1순위 모듈.
 - **실행 명령:** `./gradlew :domain:station:pitest`. 리포트는 `domain/station/build/reports/pitest/`.
-- **현재 변이 점수(2026-06-06 기준):** 보강 전 `Killed 19/60 (32%)`, test strength 70%, SURVIVED 8. 보강 후 `Killed 28/60 (47%)`, **test strength 97%**, SURVIVED 1. (전체 점수가 낮은 이유는 `no-coverage` 변이 31건 때문이며, 커버된 변이 기준 결함 탐지력은 test strength가 나타냅니다.) 남은 SURVIVED 1건은 `StationPriceDelta.from`의 `<` 경계 변이로, 상위 분기에서 `==` 케이스가 이미 처리돼 동작이 동일한 equivalent mutant라 추가 테스트로 잡을 수 없습니다.
+- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 32/65 (49%)`, `NO_COVERAGE 31`, `SURVIVED 2`, test strength 94%. 전체 점수가 낮은 이유는 no-coverage 변이 31건이며, baseline JSON의 상태별 카운터가 후속 ratchet의 단일 기준입니다.
 - **보강한 테스트:** `StationPriceDeltaTest`에 0(비음수 경계) 허용과 음수 previous price 거부 케이스를, `StationQueryCacheKeyTest`에 좌표→버킷의 정확한 곱셈/나눗셈 결과 검증과 `bucketMeters` 비양수 거부 케이스를 추가했습니다.
 - **게이트:** `mutationThreshold.set(40)` floor 게이트로 점수 하락을 막습니다. 현재 점수 47%가 40 floor를 넘어 통과하며, floor를 60으로 올리면 `Mutation score of 47 is below threshold of 60`으로 빌드가 실패함을 확인했습니다. report-only 베이스라인이 안정화된 모듈만 이렇게 게이트화합니다.
 
 ### `domain:settings` (report-only)
 
 - **실행 명령:** `./gradlew :domain:settings:pitest`. 리포트는 `domain/settings/build/reports/pitest/`.
-- **현재 변이 점수(2026-06-06 기준):** `Killed 5/22 (23%)`, test strength 33%, NO_COVERAGE 7, SURVIVED 10.
+- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 8/13 (62%)`, test strength 62%, `NO_COVERAGE 0`, `SURVIVED 5`.
 - **SURVIVED 분석(보강 불가):** SURVIVED 10건은 전부 use case의 `suspend operator fun invoke`에서 발생하는 coroutine-suspend **equivalent mutant**입니다(suspend 디스패치 라인의 `NegateConditionals`, Unit 반환의 `NullReturnVals`). 입력 케이스로는 동작 차이를 만들 수 없어 추가 테스트로 잡히지 않습니다. 따라서 별도 보강 없이 baseline만 기록합니다. (플랜은 SURVIVED 0을 예상했으나 실제는 10건이며 모두 등가 변이입니다.)
 - **report-only 결정:** equivalent mutant 비중이 높아 게이트화하지 않습니다.
 
 ### `domain:location` (report-only)
 
 - **실행 명령:** `./gradlew :domain:location:pitest`. 리포트는 `domain/location/build/reports/pitest/`.
-- **현재 변이 점수(2026-06-06 기준):** 보강 전 `Killed 51/68 (75%)`, test strength 78%, SURVIVED 14. 보강 후 `Killed 55/68 (81%)`, **test strength 85%**, SURVIVED 10.
+- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 55/68 (81%)`, test strength 85%, `NO_COVERAGE 3`, `SURVIVED 10`.
 - **보강한 테스트:** `AddressLabelNormalizerTest`에 (1) 선행 noise 토큰을 건너뛰고 bare metro(`서울`)를 이름으로 골라내는 fallback 경로, (2) district 앞의 가장 가까운 `시`/`도` 지역 선택, (3) dong 앞 trailing noise를 건너뛰고 행정 district를 고르는 케이스를 추가해 `findFallbackRegionIndexBefore`/`findLastAdminIndexBefore`의 실제 로직 갭(SURVIVED 4건)을 제거했습니다.
 - **SURVIVED 잔여 분석:** 남은 10건은 문자 범위(`'가'..'힣'`) 경계 변이와 인덱스 경계 변이(`dongIndex < 0`, `districtIndex >= 0` 등)로, 추적 결과 동작이 동일한 equivalent/near-equivalent mutant입니다.
 - **report-only 결정:** baseline 기록만 하고 게이트화는 점수 안정화 후 별도 결정합니다.

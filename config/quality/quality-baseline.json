@@ -1,0 +1,157 @@
+{
+  "coverage": {
+    "branch": {
+      "covered": 943,
+      "missed": 1081,
+      "total": 2024
+    },
+    "line": {
+      "covered": 2638,
+      "missed": 3651,
+      "total": 6289
+    }
+  },
+  "environment": {
+    "jacocoSessions": [
+      {
+        "dump": "1786534511731",
+        "id": "kws.local-d51eec3e",
+        "start": "1786534510890"
+      },
+      {
+        "dump": "1786534513637",
+        "id": "kws.local-741cb984",
+        "start": "1786534512228"
+      },
+      {
+        "dump": "1786534514655",
+        "id": "kws.local-2aa46b72",
+        "start": "1786534512735"
+      },
+      {
+        "dump": "1786534514911",
+        "id": "kws.local-3c0d427",
+        "start": "1786534512845"
+      },
+      {
+        "dump": "1786534516359",
+        "id": "kws.local-642c1134",
+        "start": "1786534514211"
+      },
+      {
+        "dump": "1786534518688",
+        "id": "kws.local-a599e879",
+        "start": "1786534515530"
+      },
+      {
+        "dump": "1786534519991",
+        "id": "kws.local-36aa92d4",
+        "start": "1786534517757"
+      },
+      {
+        "dump": "1786534523607",
+        "id": "kws.local-cd14a486",
+        "start": "1786534521528"
+      },
+      {
+        "dump": "1786534532918",
+        "id": "kws.local-f452e2c",
+        "start": "1786534519980"
+      },
+      {
+        "dump": "1786534534389",
+        "id": "kws.local-8a78dbb8",
+        "start": "1786534530870"
+      },
+      {
+        "dump": "1786534534576",
+        "id": "kws.local-9830ea40",
+        "start": "1786534521574"
+      },
+      {
+        "dump": "1786534534699",
+        "id": "kws.local-d22c4e5d",
+        "start": "1786534521644"
+      },
+      {
+        "dump": "1786534536664",
+        "id": "kws.local-6a2d1359",
+        "start": "1786534525189"
+      },
+      {
+        "dump": "1786534541472",
+        "id": "kws.local-aaed5666",
+        "start": "1786534528222"
+      },
+      {
+        "dump": "1786534541630",
+        "id": "kws.local-8f19b6d",
+        "start": "1786534527626"
+      },
+      {
+        "dump": "1786534547171",
+        "id": "kws.local-16f3c9b9",
+        "start": "1786534542774"
+      },
+      {
+        "dump": "1786534549652",
+        "id": "kws.local-9fdfdcf8",
+        "start": "1786534536029"
+      },
+      {
+        "dump": "1786534553952",
+        "id": "kws.local-8ced7396",
+        "start": "1786534543646"
+      }
+    ]
+  },
+  "inputs": {
+    "coverage": "build/reports/coverage/report.xml",
+    "pitest": [
+      "domain/station/build/reports/pitest/mutations.xml",
+      "domain/location/build/reports/pitest/mutations.xml",
+      "domain/settings/build/reports/pitest/mutations.xml"
+    ]
+  },
+  "mutation": {
+    "byReport": [
+      {
+        "module": ":domain:station",
+        "path": "domain/station/build/reports/pitest/mutations.xml",
+        "status": {
+          "KILLED": 32,
+          "NO_COVERAGE": 31,
+          "SURVIVED": 2,
+          "total": 65
+        }
+      },
+      {
+        "module": ":domain:location",
+        "path": "domain/location/build/reports/pitest/mutations.xml",
+        "status": {
+          "KILLED": 55,
+          "NO_COVERAGE": 3,
+          "SURVIVED": 10,
+          "total": 68
+        }
+      },
+      {
+        "module": ":domain:settings",
+        "path": "domain/settings/build/reports/pitest/mutations.xml",
+        "status": {
+          "KILLED": 8,
+          "NO_COVERAGE": 0,
+          "SURVIVED": 5,
+          "total": 13
+        }
+      }
+    ],
+    "status": {
+      "KILLED": 95,
+      "NO_COVERAGE": 34,
+      "SURVIVED": 17,
+      "total": 146
+    }
+  },
+  "sourceCommit": "7b8c149c9f792aaf43cc00a94ba671929008979e"
+}

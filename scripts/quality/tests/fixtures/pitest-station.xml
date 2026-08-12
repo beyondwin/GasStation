@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.station.Price</mutatedClass></mutation>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.station.Query</mutatedClass></mutation>
+  <mutation detected="false" status="SURVIVED"><mutatedClass>com.gasstation.domain.station.Price</mutatedClass></mutation>
+  <mutation detected="false" status="NO_COVERAGE"><mutatedClass>com.gasstation.domain.station.Price</mutatedClass></mutation>
+  <mutation detected="false" status="NO_COVERAGE"><mutatedClass>com.gasstation.domain.station.Query</mutatedClass></mutation>
+  <mutation detected="false" status="NO_COVERAGE"><mutatedClass>com.gasstation.domain.station.Query</mutatedClass></mutation>
+</mutations>
