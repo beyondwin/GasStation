@@ -68,24 +68,20 @@ class RefreshCoordinator @Inject constructor(
     ) {
         lateinit var work: ActiveRefreshWork
         val job = scope.launch(start = CoroutineStart.LAZY) {
-            try {
-                when (request) {
-                    is RefreshRequest.AcquireLocation -> executeLocationRequest(
-                        work = work,
-                        request = request,
-                        latestEligibleQuery = latestEligibleQuery,
-                        onResult = onResult,
-                    )
+            when (request) {
+                is RefreshRequest.AcquireLocation -> executeLocationRequest(
+                    work = work,
+                    request = request,
+                    latestEligibleQuery = latestEligibleQuery,
+                    onResult = onResult,
+                )
 
-                    is RefreshRequest.ActiveQuery -> executeActiveQueryRequest(
-                        work = work,
-                        query = request.query,
-                        latestEligibleQuery = latestEligibleQuery,
-                        onResult = onResult,
-                    )
-                }
-            } finally {
-                finishIfActive(work)
+                is RefreshRequest.ActiveQuery -> executeActiveQueryRequest(
+                    work = work,
+                    query = request.query,
+                    latestEligibleQuery = latestEligibleQuery,
+                    onResult = onResult,
+                )
             }
         }
 
@@ -96,6 +92,7 @@ class RefreshCoordinator @Inject constructor(
             work = ActiveRefreshWork(id = workId, job = job)
             mutableState.value = initialState(request)
             activeWork = work
+            job.invokeOnCompletion { finishIfActive(work) }
         }
         job.start()
     }

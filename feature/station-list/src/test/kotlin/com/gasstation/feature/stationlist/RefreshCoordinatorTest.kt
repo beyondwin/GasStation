@@ -24,11 +24,14 @@ import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -168,7 +171,46 @@ class RefreshCoordinatorTest {
     }
 
     @Test
-    fun `new request cancels old work and old finally cannot clear new state`() = runTest(timeout = 10.seconds) {
+    fun `already cancelled supplied scope finalizes without entering work body`() = runTest(timeout = 10.seconds) {
+        val fixture = coordinatorFixture().apply {
+            makeLocationUsable()
+            latestQuery = QUERY
+        }
+        val owner = Job().apply { cancel() }
+        val cancelledScope = CoroutineScope(owner + StandardTestDispatcher(testScheduler))
+
+        fixture.requestActive(cancelledScope, QUERY)
+        runCurrent()
+
+        assertTrue(fixture.results.isEmpty())
+        assertTrue(fixture.stationRepository.refreshedQueries.isEmpty())
+        assertEquals(RefreshCoordinatorState(), fixture.coordinator.state.value)
+    }
+
+    @Test
+    fun `scope cancellation after start but before first dispatch finalizes without entering work body`() = runTest(timeout = 10.seconds) {
+        val fixture = coordinatorFixture().apply {
+            makeLocationUsable()
+            latestQuery = QUERY
+        }
+        val owner = Job()
+        val queuedScope = CoroutineScope(owner + StandardTestDispatcher(testScheduler))
+
+        fixture.requestActive(queuedScope, QUERY)
+        assertEquals(
+            RefreshCoordinatorState(isLoading = true, isRefreshing = true, activeQuery = QUERY),
+            fixture.coordinator.state.value,
+        )
+        owner.cancel()
+        runCurrent()
+
+        assertTrue(fixture.results.isEmpty())
+        assertTrue(fixture.stationRepository.refreshedQueries.isEmpty())
+        assertEquals(RefreshCoordinatorState(), fixture.coordinator.state.value)
+    }
+
+    @Test
+    fun `new request cancels old work and old completion cannot clear new state`() = runTest(timeout = 10.seconds) {
         val oldStarted = CompletableDeferred<Unit>()
         val oldRelease = CompletableDeferred<Unit>()
         val newStarted = CompletableDeferred<Unit>()
