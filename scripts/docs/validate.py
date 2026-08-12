@@ -719,34 +719,44 @@ def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
             if stale_state and boundary:
                 issues.append(location(path, line_no, "duplicate freshness boundary claim"))
 
-            migration_subject = "migrationtesthelper" in normalized or any(
-                token in normalized for token in ("migration", "마이그레이션")
-            )
-            connected_device = any(
-                token in normalized
-                for token in (
-                    "device-executed",
-                    "connected device",
-                    "connected-device",
-                    "연결된 기기",
-                    "연결된 디바이스",
+            for claim_clause in re.split(r";+|(?<=[.!?])(?:\s+|$)", normalized):
+                migration_subject = "migrationtesthelper" in claim_clause or any(
+                    token in claim_clause for token in ("migration", "마이그레이션")
                 )
-            )
-            positive_execution = re.search(
-                r"\b(?:device-executed|executed|passed|ran)\b|"
-                r"실행했습니다|실행\s*완료|실행했다|통과했습니다|완료했습니다",
-                normalized,
-            )
-            negative = any(
-                token in normalized
-                for token in ("아닙니다", "아니다", "미실행", "있지 않", "쓰지 말", "unavailable", "not executed")
-            )
-            execution_prefix = normalized[: positive_execution.start()] if positive_execution else ""
-            conditional = any(
-                token in execution_prefix for token in ("없으면", "있을 때", "if ", "when ")
-            ) or any(token in normalized for token in ("only when", "있을 때만"))
-            if migration_subject and connected_device and positive_execution and not negative and not conditional:
-                issues.append(location(path, line_no, "connected-device migration execution overclaim"))
+                connected_device = any(
+                    token in claim_clause
+                    for token in (
+                        "device-executed",
+                        "connected device",
+                        "connected-device",
+                        "연결된 기기",
+                        "연결된 디바이스",
+                    )
+                )
+                positive_execution = re.search(
+                    r"\b(?:device-executed|executed|passed|ran)\b|"
+                    r"실행했습니다|실행\s*완료|실행했다|통과했습니다|완료했습니다",
+                    claim_clause,
+                )
+                negative = any(
+                    token in claim_clause
+                    for token in (
+                        "아닙니다",
+                        "아니다",
+                        "미실행",
+                        "있지 않",
+                        "쓰지 말",
+                        "unavailable",
+                        "not executed",
+                    )
+                )
+                execution_prefix = claim_clause[: positive_execution.start()] if positive_execution else ""
+                conditional = any(
+                    token in execution_prefix for token in ("없으면", "있을 때", "if ", "when ")
+                ) or any(token in claim_clause for token in ("only when", "있을 때만"))
+                if migration_subject and connected_device and positive_execution and not negative and not conditional:
+                    issues.append(location(path, line_no, "connected-device migration execution overclaim"))
+                    break
     return issues
 
 

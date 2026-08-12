@@ -434,6 +434,22 @@ class ValidatorTest(unittest.TestCase):
         )
         self.assert_rejected("connected-device migration execution overclaim")
 
+    def test_rejects_affirmative_device_claim_after_separate_conditional_clause(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "If this note needs revision, update it; "
+            "MigrationTestHelper migrations ran on a connected device.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
+
+    def test_rejects_affirmative_device_claim_after_separate_negative_clause(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "Legacy setup was not executed; "
+            "MigrationTestHelper migrations ran on a connected device.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
+
     def test_accepts_genuinely_conditional_connected_device_claim(self) -> None:
         self.repo.append(
             "docs/test-strategy.md",
