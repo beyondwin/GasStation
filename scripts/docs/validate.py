@@ -55,7 +55,7 @@ EXPECTED_LIVE_PATHS = {
 FENCE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE = re.compile(r"`[^`\n]*`")
 INLINE_VALUE = re.compile(r"`([^`\n]+)`")
-MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+['\"][^)]*['\"])?\s*\)")
+LINK_LABEL = re.compile(r"!?\[[^\]]*\]\(")
 HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 COMMAND_OWNER = re.compile(r"<!--\s*command-owner:\s*([A-Za-z0-9][A-Za-z0-9_.-]*)\s*-->")
 PERSONAL_HOME = re.compile(r"(?:/Users/[^/\s]+(?:/|\b)|/home/[^/\s]+(?:/|\b)|[A-Za-z]:\\Users\\[^\\\s]+(?:\\|\b))")
@@ -189,13 +189,61 @@ def load_catalog(root: Path) -> tuple[list[dict[str, object]], list[str]]:
     return valid_entries, issues
 
 
+def markdown_link_destinations(text: str):
+    """Yield Markdown inline destinations with balanced parentheses."""
+    for label in LINK_LABEL.finditer(text):
+        index = label.end()
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            continue
+        if text[index] == "<":
+            end = text.find(">", index + 1)
+            if end < 0:
+                continue
+            destination = text[index + 1:end]
+            cursor = end + 1
+        else:
+            start = index
+            depth = 0
+            while index < len(text):
+                character = text[index]
+                if character == "\\":
+                    index += 2
+                    continue
+                if character == "(":
+                    depth += 1
+                elif character == ")":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                elif character.isspace() and depth == 0:
+                    break
+                index += 1
+            destination = text[start:index]
+            cursor = index
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        if cursor < len(text) and text[cursor] in {'"', "'"}:
+            quote = text[cursor]
+            cursor += 1
+            while cursor < len(text) and text[cursor] != quote:
+                cursor += 2 if text[cursor] == "\\" else 1
+            if cursor >= len(text):
+                continue
+            cursor += 1
+            while cursor < len(text) and text[cursor].isspace():
+                cursor += 1
+        if cursor < len(text) and text[cursor] == ")":
+            yield destination, label.start()
+
+
 def parse_links(root: Path, relative: str, text: str) -> tuple[list[tuple[str, int]], list[str]]:
     links: list[tuple[str, int]] = []
     issues: list[str] = []
     clean = strip_code(text)
     source = root / relative
-    for match in MARKDOWN_LINK.finditer(clean):
-        raw = match.group(1).strip("<>")
+    for raw, offset in markdown_link_destinations(clean):
         parsed = urlsplit(raw)
         if parsed.scheme or raw.startswith("//"):
             continue
@@ -207,16 +255,16 @@ def parse_links(root: Path, relative: str, text: str) -> tuple[list[tuple[str, i
         try:
             target_relative = target.relative_to(root).as_posix()
         except ValueError:
-            issues.append(location(relative, line_number(clean, match.start()), f"link escapes repository: {raw}"))
+            issues.append(location(relative, line_number(clean, offset), f"link escapes repository: {raw}"))
             continue
         if not target.exists():
-            issues.append(location(relative, line_number(clean, match.start()), f"missing link target: {target_part}"))
+            issues.append(location(relative, line_number(clean, offset), f"missing link target: {target_part}"))
             continue
-        links.append((target_relative, line_number(clean, match.start())))
+        links.append((target_relative, line_number(clean, offset)))
         if parsed.fragment and target.is_file() and target.suffix.lower() == ".md":
             wanted = github_slug(parsed.fragment)
             if wanted not in headings(target.read_text(errors="replace")):
-                issues.append(location(relative, line_number(clean, match.start()), f"missing link anchor: {raw}"))
+                issues.append(location(relative, line_number(clean, offset), f"missing link anchor: {raw}"))
     return links, issues
 
 
@@ -249,8 +297,6 @@ def repository_reference_issues(
     text: str,
     modules: set[str],
     jobs: set[str],
-    *,
-    check_jobs: bool = True,
 ) -> list[str]:
     issues: list[str] = []
     for match in PERSONAL_HOME.finditer(text):
@@ -282,7 +328,7 @@ def repository_reference_issues(
             if path is None or not repository_path_exists(root, path_token):
                 issues.append(location(relative, line_number(without_fences, match.start()), f"missing repository path: {path_token}"))
     for match in CI_REFERENCE.finditer(without_fences):
-        if check_jobs and match.group(1) not in jobs:
+        if match.group(1) not in jobs:
             issues.append(location(relative, line_number(without_fences, match.start()), f"missing CI job: {match.group(1)}"))
     return issues
 
@@ -362,7 +408,7 @@ def canonical_gradle_tasks(texts: dict[str, str]) -> set[str]:
             if next_owner:
                 section = section[:next_owner.start()]
             blocks = re.findall(r"(?ms)^```(?:bash|sh|shell)?\s*\n(.*?)^```\s*$", section)
-            for block in blocks[:1]:
+            for block in blocks:
                 command = block.replace("\\\n", " ")
                 if "./gradlew" not in command:
                     continue
@@ -371,12 +417,27 @@ def canonical_gradle_tasks(texts: dict[str, str]) -> set[str]:
                 except ValueError:
                     continue
                 start = words.index("./gradlew") + 1
+                option_takes_value = {
+                    "--build-file", "-b", "--configuration-cache-problems",
+                    "--console", "--dependency-verification", "--gradle-user-home",
+                    "-g", "--include-build", "--init-script", "-I", "--max-workers",
+                    "--priority", "--project-cache-dir", "--project-dir", "-p",
+                    "--settings-file", "-c", "--tests", "--warning-mode",
+                    "--write-verification-metadata",
+                }
+                skip_value = False
                 for token in words[start:]:
+                    if skip_value:
+                        skip_value = False
+                        continue
+                    if token in option_takes_value:
+                        skip_value = True
+                        continue
                     if token.startswith("-"):
-                        break
+                        continue
                     if "=" in token:
                         continue
-                    if re.fullmatch(r":?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*", token):
+                    if re.fullmatch(r":[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)+|[A-Za-z][A-Za-z0-9_-]*", token):
                         tasks.add(token)
     return tasks
 
@@ -388,12 +449,18 @@ def check_gradle_tasks(root: Path, texts: dict[str, str]) -> list[str]:
     wrapper = root / "gradlew"
     if not wrapper.is_file():
         return [location("gradlew", 1, "Gradle wrapper missing for task validation")]
-    result = subprocess.run(
-        [str(wrapper), "tasks", "--all"],
-        cwd=root,
-        text=True,
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            [str(wrapper), "tasks", "--all"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return [location("gradlew", 1, "Gradle task discovery timed out after 30 seconds")]
+    except OSError as error:
+        return [location("gradlew", 1, f"Gradle task discovery could not start: {error}")]
     if result.returncode:
         return [location("gradlew", 1, "Gradle task discovery failed")]
     discovered: set[str] = set()
@@ -411,7 +478,6 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
     issues.extend(catalog_source_issues(root, entries))
     modules = active_modules(root)
     jobs = ci_jobs(root)
-    kinds = {entry.get("path"): entry.get("kind") for entry in entries}
     texts: dict[str, str] = {}
     graph: dict[str, set[str]] = {}
     for relative in sorted(live_paths):
@@ -423,16 +489,7 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
         links, link_issues = parse_links(root, relative, text)
         graph[relative] = {target for target, _ in links}
         issues.extend(link_issues)
-        issues.extend(
-            repository_reference_issues(
-                root,
-                relative,
-                text,
-                modules,
-                jobs,
-                check_jobs=kinds.get(relative) not in {"evidence", "history"},
-            )
-        )
+        issues.extend(repository_reference_issues(root, relative, text, modules, jobs))
     issues.extend(navigation_issues(live_paths, graph))
     issues.extend(owner_issues(texts))
     if include_gradle_tasks:

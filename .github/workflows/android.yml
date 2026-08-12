@@ -36,6 +36,7 @@ jobs:
         run: |
           scripts/agent/test.sh
           scripts/agent/check-contracts.sh --ci
+          python3 scripts/docs/validate.py --check-gradle-tasks
 
   static-analysis:
     runs-on: ubuntu-latest

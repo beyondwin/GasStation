@@ -5,6 +5,10 @@ test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$test_dir/../../.." && pwd)
 source "$test_dir/test_helpers.sh"
 
+# This legacy fixture predates the repository's exact 23-entry docs catalog.
+# Production calls do not set this explicitly test-only compatibility switch.
+export GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG=1
+
 assert_error_locations() {
   local output=$1
   local error_line
@@ -146,6 +150,8 @@ EOF
 git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
 ci_base=$(git -C "$fixture/repo" rev-parse HEAD^)
+
+assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scripts/docs/validate.py --check-gradle-tasks"
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
@@ -489,6 +495,22 @@ fi
 assert_contains "$(cat "$fixture/docs-validator.out")" "malformed catalog JSON"
 assert_error_locations "$(cat "$fixture/docs-validator.out")"
 rm "$fixture/repo/docs/documentation-catalog.json"
+
+if env -u GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/missing-catalog.out" 2>&1; then
+  fail "missing documentation catalog was accepted"
+fi
+assert_contains "$(cat "$fixture/missing-catalog.out")" "documentation catalog missing"
+
+mkdir -p "$fixture/no-validator/scripts/agent" "$fixture/no-validator/docs"
+make_git_repo "$fixture/no-validator"
+cp "$repo_root/scripts/agent/check_contracts.py" "$fixture/no-validator/scripts/agent/check_contracts.py"
+printf '{}\n' > "$fixture/no-validator/docs/documentation-catalog.json"
+git -C "$fixture/no-validator" add .
+git -C "$fixture/no-validator" commit -qm "test: missing validator fixture"
+if env -u GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG python3 "$fixture/no-validator/scripts/agent/check_contracts.py" --root "$fixture/no-validator" > "$fixture/missing-validator.out" 2>&1; then
+  fail "missing documentation validator was accepted"
+fi
+assert_contains "$(cat "$fixture/missing-validator.out")" "documentation validator missing"
 
 if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
   for required in docs/AGENTS.md core/database/AGENTS.md benchmark/AGENTS.md; do

@@ -7,14 +7,25 @@ import json
 import os
 import shutil
 import subprocess
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 TEST_DIR = Path(__file__).resolve().parent
 SCRIPT = TEST_DIR.parent / "validate.py"
 CASE_DATA = json.loads((TEST_DIR / "fixtures" / "cases.json").read_text())
+
+
+def load_validator():
+    spec = importlib.util.spec_from_file_location("docs_validate_review", SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("validator module could not be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 LIVE_PATHS = [
     "AGENTS.md",
@@ -167,6 +178,17 @@ class ValidatorTest(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_accepts_balanced_parenthesized_link_destinations_and_titles(self) -> None:
+        self.repo.write("docs/API(v2).md", "# Compact\n")
+        self.repo.write("docs/API (v3).md", "# Spaced\n")
+        self.repo.append(
+            "README.md",
+            '[compact](docs/API(v2).md "title")\n'
+            '[spaced](<docs/API (v3).md> "title")\n',
+        )
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_ignores_links_and_references_inside_code(self) -> None:
         self.repo.append(
             "README.md",
@@ -240,6 +262,14 @@ class ValidatorTest(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_rejects_stale_ci_job_in_cataloged_evidence(self) -> None:
+        for entry in self.repo.documents:
+            if entry["path"] == "CHANGELOG.md":
+                entry["kind"] = "evidence"
+        self.repo.write_catalog()
+        self.repo.append("CHANGELOG.md", "CI job `removed-job` used to run.\n")
+        self.assert_rejected("missing CI job: removed-job")
+
     def test_optional_gradle_check_discovers_once_and_checks_only_owned_commands(self) -> None:
         self.repo.append(
             "docs/verification-matrix.md",
@@ -267,6 +297,64 @@ class ValidatorTest(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertFalse((self.repo.root / "gradle-calls.txt").exists())
+
+    def test_gradle_check_extracts_all_owned_blocks_and_skips_option_values(self) -> None:
+        validator = load_validator()
+        owned_commands = (
+            "<!-- command-owner: verification.full -->\n"
+            "```bash\n./gradlew --warning-mode fail :app:first --continue\n```\n"
+            "Some explanation.\n"
+            "```bash\n./gradlew --max-workers 2 -Pprofile=ci :app:second --tests com.example.Test :app:third\n```\n"
+        )
+        self.assertEqual(
+            {":app:first", ":app:second", ":app:third"},
+            validator.canonical_gradle_tasks({"docs/verification-matrix.md": owned_commands}),
+        )
+        self.repo.append(
+            "docs/verification-matrix.md",
+            owned_commands,
+        )
+        self.repo.write(
+            "gradlew",
+            "#!/usr/bin/env bash\n"
+            "printf '%s\\n' ':app:first - First' ':app:second - Second' ':app:third - Third'\n",
+        )
+        (self.repo.root / "gradlew").chmod(0o755)
+        result = self.run_validator("--check-gradle-tasks")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_owned_block_without_gradle_tasks_does_not_invoke_gradle(self) -> None:
+        self.repo.append(
+            "docs/verification-matrix.md",
+            "<!-- command-owner: verification.none -->\n```bash\n./gradlew --version\n```\n",
+        )
+        self.repo.write("gradlew", "#!/usr/bin/env bash\nprintf called > gradle-calls.txt\n")
+        (self.repo.root / "gradlew").chmod(0o755)
+        result = self.run_validator("--check-gradle-tasks")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertFalse((self.repo.root / "gradle-calls.txt").exists())
+
+    def test_gradle_discovery_timeout_is_a_stable_issue(self) -> None:
+        validator = load_validator()
+        self.repo.write("gradlew", "#!/usr/bin/env bash\n")
+        with mock.patch.object(
+            validator.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(["gradlew", "tasks", "--all"], 30),
+        ):
+            issues = validator.check_gradle_tasks(self.repo.root, {
+                "README.md": "<!-- command-owner: slow -->\n```bash\n./gradlew :app:test\n```\n"
+            })
+        self.assertEqual(["gradlew:1: Gradle task discovery timed out after 30 seconds"], issues)
+
+    def test_gradle_discovery_os_error_is_a_stable_issue(self) -> None:
+        validator = load_validator()
+        self.repo.write("gradlew", "#!/usr/bin/env bash\n")
+        with mock.patch.object(validator.subprocess, "run", side_effect=OSError("permission denied")):
+            issues = validator.check_gradle_tasks(self.repo.root, {
+                "README.md": "<!-- command-owner: broken -->\n```bash\n./gradlew :app:test\n```\n"
+            })
+        self.assertEqual(["gradlew:1: Gradle task discovery could not start: permission denied"], issues)
 
 
 if __name__ == "__main__":
