@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations>
+  <mutation detected="true" status="KILLED"><mutatedClass>com.gasstation.domain.other.Other</mutatedClass></mutation>
+</mutations>

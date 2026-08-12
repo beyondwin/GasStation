@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ElementTree
 
 
 REQUIRED_MUTATION_STATUSES = ("KILLED", "NO_COVERAGE", "SURVIVED")
+EXPECTED_PITEST_MODULES = (":domain:station", ":domain:location", ":domain:settings")
 
 
 def counter(root, counter_type):
@@ -44,6 +45,16 @@ def parse_coverage(path):
     }, sessions
 
 
+def mutation_module(mutation, path):
+    mutated_class = mutation.findtext("mutatedClass")
+    if not mutated_class:
+        raise ValueError(f"PIT mutation has no mutatedClass: {path}")
+    parts = mutated_class.split(".")
+    if len(parts) < 4 or parts[:3] != ["com", "gasstation", "domain"]:
+        raise ValueError(f"PIT mutation is outside a domain module: {path}")
+    return f":domain:{parts[3]}"
+
+
 def parse_mutations(path):
     root = ElementTree.parse(path).getroot()
     if root.tag != "mutations":
@@ -54,14 +65,19 @@ def parse_mutations(path):
     if not mutations:
         raise ValueError(f"PIT report has no mutations: {path}")
 
+    modules = set()
     for mutation in mutations:
         status = mutation.attrib.get("status")
         if not status:
             raise ValueError(f"PIT mutation has no status: {path}")
         statuses[status] = statuses.get(status, 0) + 1
+        modules.add(mutation_module(mutation, path))
+
+    if len(modules) != 1:
+        raise ValueError(f"PIT report contains multiple domain modules: {path}")
 
     statuses["total"] = len(mutations)
-    return statuses
+    return statuses, modules.pop()
 
 
 def parse_input_commits(values, expected_paths, source_commit):
@@ -73,26 +89,18 @@ def parse_input_commits(values, expected_paths, source_commit):
         if "=" not in value:
             raise ValueError("input commit must use PATH=COMMIT")
         path_text, commit = value.split("=", 1)
-        path = str(Path(path_text))
+        path = str(Path(path_text).resolve())
         if not commit:
             raise ValueError("input commit may not be empty")
         if path in commits_by_path:
             raise ValueError(f"input commit repeated for {path}")
         commits_by_path[path] = commit
 
-    expected = {str(path) for path in expected_paths}
+    expected = {str(path.resolve()) for path in expected_paths}
     if set(commits_by_path) != expected:
         raise ValueError("input commits must identify every report exactly once")
     if any(commit != source_commit for commit in commits_by_path.values()):
         raise ValueError("reports were captured from mixed source commits")
-
-
-def report_module(path):
-    parts = Path(path).parts
-    for index, part in enumerate(parts[:-1]):
-        if part == "domain" and index + 1 < len(parts):
-            return f":domain:{parts[index + 1]}"
-    return Path(path).stem
 
 
 def capture(args):
@@ -105,24 +113,25 @@ def capture(args):
 
     if len(pitest_paths) != 3:
         raise ValueError("exactly three PIT reports are required")
+    if len({path.resolve() for path in pitest_paths}) != len(pitest_paths):
+        raise ValueError("PIT report paths must be distinct after normalization")
     parse_input_commits(args.input_commit, input_paths, args.commit)
 
     coverage, sessions = parse_coverage(coverage_path)
-    mutation_reports = []
+    reports_by_module = {}
     mutation_statuses = {status: 0 for status in REQUIRED_MUTATION_STATUSES}
     for path in pitest_paths:
-        statuses = parse_mutations(path)
-        mutation_reports.append(
-            {
-                "module": report_module(path),
-                "path": str(path),
-                "status": statuses,
-            }
-        )
+        statuses, module = parse_mutations(path)
+        if module in reports_by_module:
+            raise ValueError(f"multiple PIT reports identify {module}")
+        reports_by_module[module] = {"module": module, "path": str(path), "status": statuses}
         for status, count in statuses.items():
             if status != "total":
                 mutation_statuses[status] = mutation_statuses.get(status, 0) + count
-    mutation_statuses["total"] = sum(status for name, status in mutation_statuses.items() if name != "total")
+    if set(reports_by_module) != set(EXPECTED_PITEST_MODULES):
+        raise ValueError("PIT reports must identify station, location, and settings exactly once")
+    mutation_reports = [reports_by_module[module] for module in EXPECTED_PITEST_MODULES]
+    mutation_statuses["total"] = sum(count for name, count in mutation_statuses.items() if name != "total")
 
     return {
         "coverage": coverage,
@@ -131,7 +140,7 @@ def capture(args):
         },
         "inputs": {
             "coverage": str(coverage_path),
-            "pitest": [str(path) for path in pitest_paths],
+            "pitest": [report["path"] for report in mutation_reports],
         },
         "mutation": {
             "byReport": mutation_reports,

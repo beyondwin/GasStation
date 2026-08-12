@@ -30,21 +30,42 @@ class CaptureBaselineTest(unittest.TestCase):
             ])
 
             self.assertEqual(0, exit_code)
+            baseline = json.loads(output.read_text())
             self.assertEqual(
                 {
                     "branch": {"covered": 3, "missed": 2, "total": 5},
                     "line": {"covered": 4, "missed": 1, "total": 5},
                 },
-                json.loads(output.read_text())["coverage"],
+                baseline["coverage"],
             )
             self.assertEqual(
                 {"KILLED": 5, "NO_COVERAGE": 4, "SURVIVED": 6, "total": 15},
-                json.loads(output.read_text())["mutation"]["status"],
+                baseline["mutation"]["status"],
             )
-            self.assertEqual(COMMIT, json.loads(output.read_text())["sourceCommit"])
+            self.assertEqual(
+                [
+                    {
+                        "module": ":domain:station",
+                        "status": {"KILLED": 2, "NO_COVERAGE": 3, "SURVIVED": 1, "total": 6},
+                    },
+                    {
+                        "module": ":domain:location",
+                        "status": {"KILLED": 3, "NO_COVERAGE": 0, "SURVIVED": 2, "total": 5},
+                    },
+                    {
+                        "module": ":domain:settings",
+                        "status": {"KILLED": 0, "NO_COVERAGE": 1, "SURVIVED": 3, "total": 4},
+                    },
+                ],
+                [
+                    {"module": report["module"], "status": report["status"]}
+                    for report in baseline["mutation"]["byReport"]
+                ],
+            )
+            self.assertEqual(COMMIT, baseline["sourceCommit"])
             self.assertEqual(
                 [{"dump": "1700000001000", "id": "fixture-session", "start": "1700000000000"}],
-                json.loads(output.read_text())["environment"]["jacocoSessions"],
+                baseline["environment"]["jacocoSessions"],
             )
 
     def test_rejects_missing_report(self):
@@ -72,15 +93,40 @@ class CaptureBaselineTest(unittest.TestCase):
             ]))
         self.assertNotEqual(0, raised.exception.code)
 
-    def arguments(self, coverage=FIXTURES / "coverage.xml", extra=None):
+    def test_rejects_duplicate_resolved_pitest_path(self):
+        with self.assertRaises(SystemExit) as raised:
+            capture_baseline.main(self.arguments(pitest=[
+                FIXTURES / "pitest-station.xml",
+                FIXTURES / "pitest-location.xml",
+                FIXTURES / ".." / "fixtures" / "pitest-station.xml",
+            ]))
+        self.assertNotEqual(0, raised.exception.code)
+
+    def test_rejects_replaced_expected_pitest_module(self):
+        with self.assertRaises(SystemExit) as raised:
+            capture_baseline.main(self.arguments(pitest=[
+                FIXTURES / "pitest-station.xml",
+                FIXTURES / "pitest-location.xml",
+                FIXTURES / "pitest-other.xml",
+            ]))
+        self.assertNotEqual(0, raised.exception.code)
+
+    def arguments(self, coverage=FIXTURES / "coverage.xml", pitest=None, extra=None):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "quality-baseline.json"
+            pitest = pitest or [
+                FIXTURES / "pitest-station.xml",
+                FIXTURES / "pitest-location.xml",
+                FIXTURES / "pitest-settings.xml",
+            ]
             return [
                 "--commit", COMMIT,
                 "--coverage", str(coverage),
-                "--pitest", str(FIXTURES / "pitest-station.xml"),
-                "--pitest", str(FIXTURES / "pitest-location.xml"),
-                "--pitest", str(FIXTURES / "pitest-settings.xml"),
+                *[
+                    option
+                    for path in pitest
+                    for option in ("--pitest", str(path))
+                ],
                 "--output", str(output),
                 *(extra or []),
             ]

@@ -99,11 +99,11 @@
 
 통합 XML은 `build/reports/coverage/report.xml`에 생성되며 main/tag push의 Codecov 업로드가 이 파일을 사용합니다. 현재 커버리지는 신호 수집용이고, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking coverage threshold는 두지 않습니다.
 
-재현 가능한 관측 기준은 `config/quality/quality-baseline.json`입니다. 이 파일은 실행 시작 커밋 `7b8c149c9f792aaf43cc00a94ba671929008979e`에서 다음 순서로 생성한 JaCoCo 및 세 JVM PIT XML을 표준 라이브러리 파서로 묶습니다.
+재현 가능한 관측 기준은 `config/quality/quality-baseline.json`입니다. 현재 checked-in baseline의 historical `sourceCommit`은 실행 시작 커밋 `7b8c149c9f792aaf43cc00a94ba671929008979e`이며, 이후 재생성은 아래처럼 새로 생성한 보고서와 현재 HEAD를 함께 기록합니다.
 
 ```bash
-./gradlew coverageXmlReport :domain:station:pitest :domain:location:pitest :domain:settings:pitest --warning-mode fail
-python3 scripts/quality/capture_baseline.py --commit 7b8c149c9f792aaf43cc00a94ba671929008979e --coverage build/reports/coverage/report.xml --pitest domain/station/build/reports/pitest/mutations.xml --pitest domain/location/build/reports/pitest/mutations.xml --pitest domain/settings/build/reports/pitest/mutations.xml --output config/quality/quality-baseline.json
+./gradlew coverageXmlReport :domain:station:pitest :domain:location:pitest :domain:settings:pitest --warning-mode fail --rerun-tasks
+python3 scripts/quality/capture_baseline.py --commit "$(git rev-parse HEAD)" --coverage build/reports/coverage/report.xml --pitest domain/station/build/reports/pitest/mutations.xml --pitest domain/location/build/reports/pitest/mutations.xml --pitest domain/settings/build/reports/pitest/mutations.xml --output config/quality/quality-baseline.json
 ```
 
 JaCoCo/PIT XML은 Git SHA를 포함하지 않으므로 `--commit`은 필수 명시값입니다. 보고서 생성기가 입력별 provenance를 제공할 때는 `--input-commit PATH=SHA`를 각 입력에 붙여 하나라도 다른 SHA인 캡처를 거부할 수 있습니다. JSON은 키 순서를 고정하고, 비교 대상 수치에는 wall-clock capture time을 넣지 않습니다.
@@ -118,14 +118,14 @@ JaCoCo/PIT XML은 Git SHA를 포함하지 않으므로 `--commit`은 필수 명�
 - **실행 명령:** `./gradlew :domain:station:pitest`. 리포트는 `domain/station/build/reports/pitest/`.
 - **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 32/65 (49%)`, `NO_COVERAGE 31`, `SURVIVED 2`, test strength 94%. 전체 점수가 낮은 이유는 no-coverage 변이 31건이며, baseline JSON의 상태별 카운터가 후속 ratchet의 단일 기준입니다.
 - **보강한 테스트:** `StationPriceDeltaTest`에 0(비음수 경계) 허용과 음수 previous price 거부 케이스를, `StationQueryCacheKeyTest`에 좌표→버킷의 정확한 곱셈/나눗셈 결과 검증과 `bucketMeters` 비양수 거부 케이스를 추가했습니다.
-- **게이트:** `mutationThreshold.set(40)` floor 게이트로 점수 하락을 막습니다. 현재 점수 47%가 40 floor를 넘어 통과하며, floor를 60으로 올리면 `Mutation score of 47 is below threshold of 60`으로 빌드가 실패함을 확인했습니다. report-only 베이스라인이 안정화된 모듈만 이렇게 게이트화합니다.
+- **게이트:** `mutationThreshold.set(40)` floor 게이트로 점수 하락을 막습니다. 현재 baseline의 49%는 이 floor를 넘습니다. 47%와 `Mutation score of 47 is below threshold of 60`은 이전 60-mutant 실험의 historical 결과이며, 현재 65-mutant baseline 수치와 혼용하지 않습니다. report-only 베이스라인이 안정화된 모듈만 이렇게 게이트화합니다.
 
 ### `domain:settings` (report-only)
 
 - **실행 명령:** `./gradlew :domain:settings:pitest`. 리포트는 `domain/settings/build/reports/pitest/`.
 - **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 8/13 (62%)`, test strength 62%, `NO_COVERAGE 0`, `SURVIVED 5`.
-- **SURVIVED 분석(보강 불가):** SURVIVED 10건은 전부 use case의 `suspend operator fun invoke`에서 발생하는 coroutine-suspend **equivalent mutant**입니다(suspend 디스패치 라인의 `NegateConditionals`, Unit 반환의 `NullReturnVals`). 입력 케이스로는 동작 차이를 만들 수 없어 추가 테스트로 잡히지 않습니다. 따라서 별도 보강 없이 baseline만 기록합니다. (플랜은 SURVIVED 0을 예상했으나 실제는 10건이며 모두 등가 변이입니다.)
-- **report-only 결정:** equivalent mutant 비중이 높아 게이트화하지 않습니다.
+- **SURVIVED 분석:** 현재 baseline의 SURVIVED 5건은 다음 mutation-review task에서 개별적으로 분류합니다. 과거의 10-survivor equivalent-mutant 분석은 현재 결과에 적용하지 않으며, 이 문서는 다섯 개를 자동으로 equivalent라고 주장하지 않습니다.
+- **report-only 결정:** 현재 다섯 SURVIVED mutant의 개별 검토 전까지는 report-only로 유지합니다.
 
 ### `domain:location` (report-only)
 
