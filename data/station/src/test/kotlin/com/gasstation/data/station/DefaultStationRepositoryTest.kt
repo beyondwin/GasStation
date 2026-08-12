@@ -4,6 +4,7 @@ import com.gasstation.core.database.station.StationBucketSnapshot
 import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
+import com.gasstation.core.database.station.StationCacheSnapshotEntity
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
@@ -18,18 +19,29 @@ import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
+import com.gasstation.domain.station.model.StationSearchResult
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class DefaultStationRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
@@ -545,6 +557,136 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `observeNearbyStations cancels old freshness boundary and reschedules from new snapshot`() = runTest {
+        val mutableClock = MutableClock(now)
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val snapshots = MutableSharedFlow<StationBucketSnapshot>(extraBufferCapacity = 2)
+        val repository = repository(
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
+            clock = mutableClock,
+        )
+        val emissions = mutableListOf<StationSearchResult>()
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.observeNearbyStations(query).take(3).toList(emissions)
+        }
+
+        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = "old"))
+        runCurrent()
+        assertEquals(listOf(StationFreshness.Fresh), emissions.map { it.freshness })
+
+        mutableClock.advance(Duration.ofMinutes(4))
+        advanceTimeBy(Duration.ofMinutes(4).toMillis())
+        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = mutableClock.instant(), stationId = "new"))
+        runCurrent()
+
+        mutableClock.advance(Duration.ofMinutes(1).plusMillis(1))
+        advanceTimeBy(Duration.ofMinutes(1).plusMillis(1).toMillis())
+        runCurrent()
+        assertEquals(listOf(StationFreshness.Fresh, StationFreshness.Fresh), emissions.map { it.freshness })
+
+        mutableClock.advance(Duration.ofMinutes(4))
+        advanceTimeBy(Duration.ofMinutes(4).toMillis())
+        runCurrent()
+
+        assertEquals(
+            listOf(StationFreshness.Fresh, StationFreshness.Fresh, StationFreshness.Stale),
+            emissions.map { it.freshness },
+        )
+        assertTrue(job.isCompleted)
+    }
+
+    @Test
+    fun `cached empty snapshot ages without cache writes or database emission`() = runTest {
+        val mutableClock = MutableClock(now)
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val stationCacheDao = RecordingStationCacheDao()
+        val snapshots = MutableSharedFlow<StationBucketSnapshot>(extraBufferCapacity = 1)
+        val repository = repository(
+            stationCacheDao = stationCacheDao,
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
+            clock = mutableClock,
+        )
+        val emissions = mutableListOf<StationSearchResult>()
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.observeNearbyStations(query).take(2).toList(emissions)
+        }
+
+        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = null))
+        runCurrent()
+        mutableClock.advance(Duration.ofMinutes(5).plusMillis(1))
+        advanceTimeBy(Duration.ofMinutes(5).plusMillis(1).toMillis())
+        runCurrent()
+
+        assertEquals(listOf(StationFreshness.Fresh, StationFreshness.Stale), emissions.map { it.freshness })
+        assertTrue(emissions.all { it.hasCachedSnapshot && it.stations.isEmpty() })
+        assertEquals(0, stationCacheDao.replaceSnapshotCalls.size)
+        assertTrue(stationCacheDao.pruneCutoffCalls.isEmpty())
+        assertTrue(job.isCompleted)
+    }
+
+    @Test
+    fun `watch metadata emission reuses current freshness boundary`() = runTest {
+        val mutableClock = MutableClock(now)
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val snapshots = MutableSharedFlow<StationBucketSnapshot>(extraBufferCapacity = 1)
+        val watchedStationDao = RecordingWatchedStationDao()
+        val repository = repository(
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
+            watchedStationDao = watchedStationDao,
+            clock = mutableClock,
+        )
+        val emissions = mutableListOf<StationSearchResult>()
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.observeNearbyStations(query).take(3).toList(emissions)
+        }
+
+        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = "station-1"))
+        runCurrent()
+        mutableClock.advance(Duration.ofMinutes(4))
+        advanceTimeBy(Duration.ofMinutes(4).toMillis())
+        watchedStationDao.upsert(
+            watched(
+                stationId = "station-1",
+                watchedAt = mutableClock.instant(),
+            ),
+        )
+        runCurrent()
+
+        mutableClock.advance(Duration.ofMinutes(1).plusMillis(1))
+        advanceTimeBy(Duration.ofMinutes(1).plusMillis(1).toMillis())
+        runCurrent()
+
+        assertEquals(
+            listOf(StationFreshness.Fresh, StationFreshness.Fresh, StationFreshness.Stale),
+            emissions.map { it.freshness },
+        )
+        assertEquals(listOf(false, true, true), emissions.map { it.stations.single().isWatched })
+        assertTrue(job.isCompleted)
+    }
+
+    @Test
+    fun `snapshot without marker remains no cache and does not start freshness timer`() = runTest {
+        val mutableClock = MutableClock(now)
+        val repository = repository(
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ ->
+                flowOf(StationBucketSnapshot(marker = null, rows = emptyList()))
+            },
+            clock = mutableClock,
+        )
+
+        val result = repository.observeNearbyStations(stationQuery()).first()
+
+        assertEquals(StationFreshness.Stale, result.freshness)
+        assertEquals(null, result.fetchedAt)
+        assertEquals(false, result.hasCachedSnapshot)
+        assertTrue(result.stations.isEmpty())
+        assertEquals(0L, testScheduler.currentTime)
+    }
+
+    @Test
     fun `refreshNearbyStations records unexpected throwable via crashReporter and rethrows as StationRefreshException`() = runTest {
         val crashReporter = FakeCrashReporter()
         val query = stationQuery()
@@ -607,6 +749,7 @@ class DefaultStationRepositoryTest {
         analytics: StationEventLogger = RepositoryDoubles.RecordingStationEventLogger(),
         crashReporter: CrashReporter = FakeCrashReporter(),
         transactionRunner: ImmediateDatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
+        clock: Clock = this.clock,
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
         stationBucketSnapshotObserver = stationBucketSnapshotObserver,
@@ -619,6 +762,22 @@ class DefaultStationRepositoryTest {
         crashReporter = crashReporter,
         transactionRunner = transactionRunner,
         clock = clock,
+        freshnessTicker = StationFreshnessTicker(StationCachePolicy(), clock),
+    )
+
+    private fun bucketSnapshot(
+        cacheKey: com.gasstation.domain.station.model.StationQueryCacheKey,
+        fetchedAt: Instant,
+        stationId: String?,
+    ) = StationBucketSnapshot(
+        marker = StationCacheSnapshotEntity(
+            latitudeBucket = cacheKey.latitudeBucket,
+            longitudeBucket = cacheKey.longitudeBucket,
+            radiusMeters = cacheKey.radiusMeters,
+            fuelType = cacheKey.fuelType.name,
+            fetchedAtEpochMillis = fetchedAt.toEpochMilli(),
+        ),
+        rows = stationId?.let { listOf(stationEntity(cacheKey, stationId = it, fetchedAt = fetchedAt)) }.orEmpty(),
     )
 
     private fun stationQuery(
@@ -663,5 +822,17 @@ class DefaultStationRepositoryTest {
         override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>): Nothing = throw this.throwable
 
         override fun log(message: String) = Unit
+    }
+
+    private class MutableClock(private var current: Instant, private val zoneId: ZoneId = ZoneOffset.UTC) : Clock() {
+        override fun getZone(): ZoneId = zoneId
+
+        override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
+
+        override fun instant(): Instant = current
+
+        fun advance(duration: Duration) {
+            current = current.plus(duration)
+        }
     }
 }

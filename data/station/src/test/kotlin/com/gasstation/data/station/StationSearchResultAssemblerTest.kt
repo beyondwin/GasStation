@@ -6,6 +6,7 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
+import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -33,8 +34,7 @@ class StationSearchResultAssemblerTest {
             watchedStationIds = emptySet(),
             historyRowsByStationId = emptyMap(),
             fetchedAt = now,
-            cachePolicy = StationCachePolicy(),
-            now = now,
+            freshness = StationFreshness.Fresh,
         )
 
         assertEquals(listOf("ok"), result.stations.map { it.station.id })
@@ -52,8 +52,7 @@ class StationSearchResultAssemblerTest {
             watchedStationIds = emptySet(),
             historyRowsByStationId = emptyMap(),
             fetchedAt = now,
-            cachePolicy = StationCachePolicy(),
-            now = now,
+            freshness = StationFreshness.Fresh,
         )
 
         assertEquals(listOf("ok"), result.stations.map { it.station.id })
@@ -71,8 +70,7 @@ class StationSearchResultAssemblerTest {
             watchedStationIds = emptySet(),
             historyRowsByStationId = emptyMap(),
             fetchedAt = now,
-            cachePolicy = StationCachePolicy(),
-            now = now,
+            freshness = StationFreshness.Fresh,
         )
 
         assertEquals(listOf("rto", "rtx", "nho"), result.stations.map { it.station.id })

@@ -46,6 +46,7 @@ class DefaultStationRepository @Inject constructor(
     private val crashReporter: CrashReporter,
     private val transactionRunner: DatabaseTransactionRunner,
     private val clock: Clock,
+    private val freshnessTicker: StationFreshnessTicker,
 ) : StationRepository {
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
@@ -63,26 +64,27 @@ class DefaultStationRepository @Inject constructor(
             }
 
             val fetchedAt = Instant.ofEpochMilli(snapshot.fetchedAtEpochMillis)
-            if (cachedStations.isEmpty()) {
-                return@flatMapLatest flowOf(snapshotOnlyResult(fetchedAt))
-            }
+            freshnessTicker.observe(fetchedAt).flatMapLatest { freshness ->
+                if (cachedStations.isEmpty()) {
+                    return@flatMapLatest flowOf(snapshotOnlyResult(fetchedAt, freshness))
+                }
 
-            val stationIds = cachedStations.map { it.stationId }.distinct()
-            combine(
-                watchedStationDao.observeWatchedStationIds(),
-                stationPriceHistoryDao.observeByStationIdsAndFuelType(
-                    stationIds = stationIds,
-                    fuelType = query.fuelType.name,
-                ),
-            ) { watchedStationIds, historyRows ->
-                cachedStations.toSearchResult(
-                    query = query,
-                    watchedStationIds = watchedStationIds.toSet(),
-                    historyRowsByStationId = historyRows.groupByStationId(),
-                    fetchedAt = fetchedAt,
-                    cachePolicy = cachePolicy,
-                    now = clock.instant(),
-                )
+                val stationIds = cachedStations.map { it.stationId }.distinct()
+                combine(
+                    watchedStationDao.observeWatchedStationIds(),
+                    stationPriceHistoryDao.observeByStationIdsAndFuelType(
+                        stationIds = stationIds,
+                        fuelType = query.fuelType.name,
+                    ),
+                ) { watchedStationIds, historyRows ->
+                    cachedStations.toSearchResult(
+                        query = query,
+                        watchedStationIds = watchedStationIds.toSet(),
+                        historyRowsByStationId = historyRows.groupByStationId(),
+                        fetchedAt = fetchedAt,
+                        freshness = freshness,
+                    )
+                }
             }
         }
     }
@@ -94,9 +96,9 @@ class DefaultStationRepository @Inject constructor(
         hasCachedSnapshot = false,
     )
 
-    private fun snapshotOnlyResult(fetchedAt: Instant): StationSearchResult = StationSearchResult(
+    private fun snapshotOnlyResult(fetchedAt: Instant, freshness: StationFreshness): StationSearchResult = StationSearchResult(
         stations = emptyList(),
-        freshness = cachePolicy.freshnessOf(fetchedAt, clock.instant()),
+        freshness = freshness,
         fetchedAt = fetchedAt,
         hasCachedSnapshot = true,
     )

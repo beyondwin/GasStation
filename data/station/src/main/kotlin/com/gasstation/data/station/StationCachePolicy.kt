@@ -11,5 +11,10 @@ class StationCachePolicy(private val staleAfter: Duration = Duration.ofMinutes(5
         StationFreshness.Fresh
     }
 
+    fun staleBoundaryDelay(fetchedAt: Instant, now: Instant): Duration? {
+        val staleAt = fetchedAt.plus(staleAfter).plusMillis(1)
+        return Duration.between(now, staleAt).takeIf { !it.isNegative && !it.isZero }
+    }
+
     fun pruneCutoff(now: Instant): Instant = now.minus(retainFor)
 }

@@ -4,6 +4,7 @@ import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.model.SortOrder
 import com.gasstation.data.station.mapper.toDomainStation
+import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
@@ -15,8 +16,7 @@ internal fun List<StationCacheEntity>.toSearchResult(
     watchedStationIds: Set<String>,
     historyRowsByStationId: Map<String, List<StationPriceHistoryEntity>>,
     fetchedAt: Instant,
-    cachePolicy: StationCachePolicy,
-    now: Instant,
+    freshness: StationFreshness,
 ): StationSearchResult {
     val stations = mapNotNull { cacheRow ->
         val station = cacheRow.toDomainStation(query.coordinates) ?: return@mapNotNull null
@@ -35,7 +35,7 @@ internal fun List<StationCacheEntity>.toSearchResult(
 
     return StationSearchResult(
         stations = stations,
-        freshness = cachePolicy.freshnessOf(fetchedAt, now),
+        freshness = freshness,
         fetchedAt = fetchedAt,
         hasCachedSnapshot = true,
     )

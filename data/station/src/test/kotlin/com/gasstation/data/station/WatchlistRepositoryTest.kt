@@ -595,6 +595,7 @@ class WatchlistRepositoryTest {
         crashReporter = NoOpCrashReporter,
         transactionRunner = ImmediateDatabaseTransactionRunner(),
         clock = clock,
+        freshnessTicker = StationFreshnessTicker(StationCachePolicy(), clock),
     )
 
     private fun watchlistQuery(origin: Coordinates, fuelType: FuelType = FuelType.GASOLINE) =
