@@ -1,6 +1,7 @@
 package com.gasstation.core.observability
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 import java.util.concurrent.CancellationException
 
@@ -20,6 +21,19 @@ class CrashReporterContractTest {
         val reporter = FakeCrashReporter()
         reporter.log("refresh started")
         assertEquals(listOf("refresh started"), reporter.logs)
+    }
+
+    @Test
+    fun `recordNonFatalSafely forwards original throwable and metadata`() {
+        val reporter = FakeCrashReporter()
+        val original = IllegalArgumentException("original")
+        val metadata = mapOf("module" to "core:location", "operation" to "resolveAddress")
+
+        reporter.recordNonFatalSafely(original, metadata)
+
+        assertEquals(1, reporter.records.size)
+        assertSame(original, reporter.records.single().throwable)
+        assertEquals(metadata, reporter.records.single().metadata)
     }
 
     @Test

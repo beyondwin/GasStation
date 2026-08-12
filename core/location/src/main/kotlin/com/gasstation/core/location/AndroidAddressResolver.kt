@@ -25,29 +25,12 @@ internal class AndroidAddressResolver @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val crashReporter: CrashReporter,
 ) : AddressResolver {
-    override suspend fun addressFor(coordinates: Coordinates): LocationAddressLookupResult = try {
-        val address = Geocoder(context, Locale.KOREA)
+    override suspend fun addressFor(coordinates: Coordinates): LocationAddressLookupResult = resolveAddressWithReporting(crashReporter) {
+        Geocoder(context, Locale.KOREA)
             .firstAddressFor(
                 latitude = coordinates.latitude,
                 longitude = coordinates.longitude,
             )
-        val label = address?.toDisplayLabel()
-
-        if (label == null) {
-            LocationAddressLookupResult.Unavailable
-        } else {
-            LocationAddressLookupResult.Success(label)
-        }
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: IOException) {
-        LocationAddressLookupResult.Error(exception)
-    } catch (exception: Exception) {
-        crashReporter.recordNonFatalSafely(
-            exception,
-            mapOf("module" to "core:location", "operation" to "resolveAddress"),
-        )
-        LocationAddressLookupResult.Error(exception)
     }
 
     private suspend fun Geocoder.firstAddressFor(latitude: Double, longitude: Double): Address? =
@@ -65,6 +48,30 @@ internal class AndroidAddressResolver @Inject constructor(
                 getFromLocation(latitude, longitude, 1)?.firstOrNull()
             }
         }
+}
+
+internal suspend fun resolveAddressWithReporting(
+    crashReporter: CrashReporter,
+    lookup: suspend () -> Address?,
+): LocationAddressLookupResult = try {
+    val address = lookup()
+    val label = address?.toDisplayLabel()
+
+    if (label == null) {
+        LocationAddressLookupResult.Unavailable
+    } else {
+        LocationAddressLookupResult.Success(label)
+    }
+} catch (exception: CancellationException) {
+    throw exception
+} catch (exception: IOException) {
+    LocationAddressLookupResult.Error(exception)
+} catch (exception: Exception) {
+    crashReporter.recordNonFatalSafely(
+        exception,
+        mapOf("module" to "core:location", "operation" to "resolveAddress"),
+    )
+    LocationAddressLookupResult.Error(exception)
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
