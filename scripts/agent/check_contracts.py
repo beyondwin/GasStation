@@ -140,13 +140,11 @@ def check_live_links(root: Path) -> list[str]:
     return issues
 
 
-def check_documentation_contracts(root: Path, allow_missing_catalog: bool = False) -> list[str]:
+def check_documentation_contracts(root: Path) -> list[str]:
     """Delegate cataloged live-document checks to the focused validator."""
     catalog = root / "docs" / "documentation-catalog.json"
     validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
     if not catalog.is_file():
-        if allow_missing_catalog:
-            return check_live_links(root)
         return [issue("docs/documentation-catalog.json", 1, "documentation catalog missing")]
     if not validator.is_file():
         return [issue("scripts/docs/validate.py", 1, "documentation validator missing")]
@@ -620,12 +618,7 @@ def main() -> int:
 
     issues = check_portable_agent_paths(root) + check_secrets_and_artifacts(root)
     if not args.quick:
-        issues += check_documentation_contracts(
-            root,
-            allow_missing_catalog=os.environ.get(
-                "GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG"
-            ) == "1",
-        )
+        issues += check_documentation_contracts(root)
         issues += check_build_contract(root)
         issues += check_shell_syntax(root)
         issues += check_diff(root, ci=args.ci)

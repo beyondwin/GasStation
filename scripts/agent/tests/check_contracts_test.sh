@@ -5,10 +5,6 @@ test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$test_dir/../../.." && pwd)
 source "$test_dir/test_helpers.sh"
 
-# This legacy fixture predates the repository's exact 23-entry docs catalog.
-# Production calls do not set this explicitly test-only compatibility switch.
-export GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG=1
-
 assert_error_locations() {
   local output=$1
   local error_line
@@ -147,6 +143,42 @@ jobs:
           )
           gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
+mkdir -p "$fixture/repo/docs/onboarding" "$fixture/repo/docs/adr"
+mkdir -p "$fixture/repo/docs/superpowers"
+printf '# Onboarding\n' > "$fixture/repo/docs/onboarding/developer-onboarding-guide.md"
+printf '# Decision\n' > "$fixture/repo/docs/adr/2026-05-18-backend-proxy-escalation.md"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify.sh"
+chmod +x "$fixture/repo/scripts/agent/verify.sh"
+FIXTURE_REPO="$fixture/repo" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+root = Path(os.environ["FIXTURE_REPO"])
+paths = [
+    "AGENTS.md", "README.md", "CONTRIBUTING.md", "CHANGELOG.md", ".impeccable.md",
+    "docs/README.md", "docs/AGENTS.md", "docs/onboarding/developer-onboarding-guide.md",
+    "docs/agent-workflow.md", "docs/project-reading-guide.md", "docs/architecture.md",
+    "docs/module-contracts.md", "docs/state-model.md", "docs/offline-strategy.md",
+    "docs/test-strategy.md", "docs/verification-matrix.md", "docs/security-trade-offs.md",
+    "docs/deployment.md", "docs/performance.md", "docs/build-velocity.md",
+    "core/database/AGENTS.md", "benchmark/AGENTS.md",
+    "docs/adr/2026-05-18-backend-proxy-escalation.md",
+]
+entries = [{
+    "path": path,
+    "kind": "contract",
+    "owner": f"fixture owner for {path}",
+    "authoritativeSources": ["settings.gradle.kts"],
+    "reviewTriggers": ["fixture changes"],
+    "verificationScope": "python3 scripts/docs/validate.py",
+} for path in paths]
+(root / "docs/documentation-catalog.json").write_text(
+    json.dumps({"schemaVersion": 1, "documents": entries}, indent=2) + "\n"
+)
+links = [f"- [{path}]({os.path.relpath(path, 'docs')})" for path in paths if path != "docs/README.md"]
+(root / "docs/README.md").write_text("# Documentation hub\n\n" + "\n".join(links) + "\n")
+PY
 git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
 ci_base=$(git -C "$fixture/repo" rev-parse HEAD^)
@@ -496,7 +528,7 @@ assert_contains "$(cat "$fixture/docs-validator.out")" "malformed catalog JSON"
 assert_error_locations "$(cat "$fixture/docs-validator.out")"
 rm "$fixture/repo/docs/documentation-catalog.json"
 
-if env -u GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/missing-catalog.out" 2>&1; then
+if GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG=1 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/missing-catalog.out" 2>&1; then
   fail "missing documentation catalog was accepted"
 fi
 assert_contains "$(cat "$fixture/missing-catalog.out")" "documentation catalog missing"
@@ -507,7 +539,7 @@ cp "$repo_root/scripts/agent/check_contracts.py" "$fixture/no-validator/scripts/
 printf '{}\n' > "$fixture/no-validator/docs/documentation-catalog.json"
 git -C "$fixture/no-validator" add .
 git -C "$fixture/no-validator" commit -qm "test: missing validator fixture"
-if env -u GASSTATION_TEST_ALLOW_MISSING_DOCS_CATALOG python3 "$fixture/no-validator/scripts/agent/check_contracts.py" --root "$fixture/no-validator" > "$fixture/missing-validator.out" 2>&1; then
+if python3 "$fixture/no-validator/scripts/agent/check_contracts.py" --root "$fixture/no-validator" > "$fixture/missing-validator.out" 2>&1; then
   fail "missing documentation validator was accepted"
 fi
 assert_contains "$(cat "$fixture/missing-validator.out")" "documentation validator missing"
