@@ -1,48 +1,6 @@
 # 프로젝트 읽기 가이드
 
-이 문서는 처음 보는 사람과 에이전트가 "지금 목적에 맞게 무엇을 먼저 읽어야 하는가"를 찾는 라우터입니다. 운영 계약은 `AGENTS.md`, 작업 절차는 `docs/agent-workflow.md`, 모듈 위치 판단은 `docs/module-contracts.md`가 소유하고, 여기서는 문서 선택과 읽기 순서만 제공합니다.
-
-## 문서 분류
-
-### 현재 계약 문서
-
-현재 구조, 책임, 상태, 오프라인 정책, 테스트 의미, 검증 명령을 판단할 때 우선합니다.
-
-1. `AGENTS.md`
-2. `README.md`
-3. `docs/project-reading-guide.md`
-4. `docs/agent-workflow.md`
-5. `docs/module-contracts.md`
-6. `docs/architecture.md`
-7. `docs/state-model.md`
-8. `docs/offline-strategy.md`
-9. `docs/test-strategy.md`
-10. `docs/verification-matrix.md`
-11. `docs/security-trade-offs.md`
-12. `docs/deployment.md`
-13. `docs/performance.md`
-14. `docs/adr/`
-
-현재 계약은 위 문서와 실제 코드가 기준입니다. 활성 모듈은 항상 `settings.gradle.kts`의 Gradle include 기준으로 판단합니다.
-
-### 학습 문서
-
-- `docs/onboarding/developer-onboarding-guide.md`: 처음 프로젝트를 맡은 개발자가 제품 목적, 기술 선택, 런타임 흐름, 첫 변경 절차를 순서대로 이해하기 위한 핸드북입니다.
-- `CONTRIBUTING.md`: 새 기여자가 실행, 검증, 커밋 기준을 빠르게 확인하기 위한 기여 가이드입니다.
-- `.impeccable.md`: UI 작업 시 yellow/black/white 정체성과 가격 우선 정보 위계를 확인하는 디자인 컨텍스트입니다.
-
-학습 문서는 이해를 돕지만 현재 계약을 대체하지 않습니다. 판단이 겹치면 현재 계약 문서를 우선합니다.
-
-### 이력과 근거 문서
-
-- `docs/superpowers/specs/`: 작성 당시 설계 결정 기록
-- `docs/superpowers/plans/`: 작성 당시 구현 계획 기록
-- `docs/history/`: 심층 분석과 개선 이력
-- `docs/improvements/`: 특정 개선 패스의 설계와 구현 기록
-- `docs/release-notes/`: 릴리스별 변경 근거
-- `docs/compose-metrics/`: Compose stability 측정 스냅샷
-
-이 문서들은 왜 그런 결정이 있었는지 이해할 때 유용합니다. 하지만 그 안에는 작성 당시의 모듈 경계, API 키, Gradle 명령, 구현 계획이 남아 있을 수 있으므로 현재 기준을 판단할 때는 `settings.gradle.kts`, 현재 계약 문서, 실제 코드를 우선합니다.
+이 문서는 질문·기능·변경 목적에서 실제 코드와 현재 계약으로 가는 라우터입니다. 전체 문서 분류와 독자별 시작점은 [문서 허브](README.md)를, 각 live 문서의 소유·검토 조건은 [documentation-catalog.json](documentation-catalog.json)을 사용합니다. 현재 판단은 항상 실제 코드와 `settings.gradle.kts`를 우선합니다.
 
 ## 에이전트 Fast Path
 
@@ -53,39 +11,13 @@
 5. 관련 테스트 파일을 먼저 읽고 현재 계약을 확인합니다.
 6. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 사용자가 이력 분석을 요청했거나 현재 판단의 배경이 필요할 때만 근거로 봅니다.
 
-## 신규 개발자 Fast Path
-
-1. `README.md`에서 제품 목적, 실행 모드, 대표 구조를 봅니다.
-2. `docs/onboarding/developer-onboarding-guide.md`의 1장부터 6장까지 읽어 제품과 기술 선택을 이해합니다.
-3. `demo` 경로로 앱을 실행하거나 `README.md`의 미리보기와 5분 코드 투어를 따라갑니다.
-4. 목록 화면을 처음 추적할 때는 이 문서의 "권장 코드 읽기 순서" 중 "목록 플로우"를 따릅니다.
-5. 실제 변경 전에는 `docs/agent-workflow.md`, `docs/module-contracts.md`, 관련 현재 계약 문서를 다시 확인합니다.
-
-## 먼저 볼 문서
-
-전체를 처음 훑을 때의 기본 순서는 아래와 같습니다.
-
-1. `AGENTS.md`
-2. `README.md`
-3. `docs/project-reading-guide.md`
-4. `docs/onboarding/developer-onboarding-guide.md`
-5. `docs/architecture.md`
-6. `docs/module-contracts.md`
-7. `docs/agent-workflow.md`
-8. `docs/state-model.md`
-9. `docs/offline-strategy.md`
-10. `docs/test-strategy.md`
-11. `docs/verification-matrix.md`
-
-이 순서는 "운영 계약 -> 큰 그림 -> 라우터 -> 개발자 온보딩 -> 구조 -> 경계 -> 작업 절차 -> 상태 -> 캐시/오프라인 -> 테스트 의미 -> 실행 명령" 순서입니다.
-
 ## 질문별 가장 빠른 진입점
 
 | 질문 | 먼저 볼 파일 |
 | --- | --- |
 | 모든 작업에 적용되는 운영 원칙은 어디서 보나 | `AGENTS.md` |
 | 나는 에이전트이고 변경 작업을 시작하려 한다 | `AGENTS.md`, `settings.gradle.kts`, `docs/agent-workflow.md`, 이 문서의 변경 목적별 진입점 |
-| 처음 프로젝트를 맡은 개발자는 무엇부터 보면 되나 | `README.md`, `docs/onboarding/developer-onboarding-guide.md`, 이 문서의 신규 개발자 Fast Path |
+| 처음 프로젝트를 맡은 개발자는 무엇부터 보면 되나 | [문서 허브](README.md)의 "새 기여자와 로컬 실행", `docs/onboarding/developer-onboarding-guide.md` |
 | 앱 전체 구조는 어디서 보나 | 먼저 `settings.gradle.kts`, `README.md`, `docs/architecture.md`; 더 깊게는 `docs/module-contracts.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |
@@ -186,23 +118,23 @@ watchlist는 별도 세션 상태가 거의 없고, 저장소 조합이 핵심�
 
 여기까지 보면 `demo`가 단순 mock이 아니라 "실제 규칙을 seed 데이터로 재현하는 경로"라는 점이 명확해집니다.
 
-## 변경 목적별 바로 열 파일
+## 기능 소유자와 변경 계약별 바로 열 파일
 
-- 목록 UI를 바꾸려면:
+- 목록 UI를 바꾸려면 (`feature:station-list`, 디자인 표현은 `core:designsystem`):
   `feature/station-list/StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `StationListQuerySummary.kt`, `StationListBodyState.kt`, `core/designsystem/*`
-- 정렬/필터 규칙을 바꾸려면:
+- 정렬/필터 규칙을 바꾸려면 (`domain:station` 모델, `data:station` 조합):
   `domain/station/model/*`, `data/station/DefaultStationRepository.kt`
-- stale 기준이나 캐시 동작을 바꾸려면:
+- stale 기준이나 캐시 동작을 바꾸려면 (`data:station`, `core:database`; 계약은 `docs/offline-strategy.md`):
   `data/station/StationCachePolicy.kt`, `core/database/station/*`
-- watchlist 비교 규칙을 바꾸려면:
+- watchlist 비교 규칙을 바꾸려면 (`data:station` 조합, `feature:watchlist` 표시):
   `data/station/DefaultStationRepository.kt`, `data/station/WatchlistSummaryAssembler.kt`, `feature/watchlist/*`
-- 설정 항목을 바꾸려면:
+- 설정 항목을 바꾸려면 (`domain:settings` use case, `data:settings`, `core:datastore`, `feature:settings`):
   `domain/settings/model/UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `data/settings/DefaultSettingsRepository.kt`, `feature/settings/*`
-- 위치 경계를 바꾸려면:
+- 위치 경계를 바꾸려면 (`feature:station-list -> domain:location -> core:location`):
   `domain/location/*`, `core/location/*`, `core/observability/*`, `feature/station-list/*`
-- demo 재현 데이터를 바꾸려면:
+- demo 재현 데이터를 바꾸려면 (`tools:demo-seed`, `app` demo flavor):
   `tools/demo-seed/*`, `app/src/demo/assets/demo-station-seed.json`, `app/src/demo/kotlin/*`
-- 검증 명령을 바꾸려면:
+- 검증 명령을 바꾸려면 (계약 소유자 `docs/verification-matrix.md`):
   `docs/verification-matrix.md`와 실제 Gradle task 표면
 
 ## 길을 잃었을 때

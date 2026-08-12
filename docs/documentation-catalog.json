@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "kind": "contract",
+      "owner": "저장소 운영 계약",
+      "authoritativeSources": ["settings.gradle.kts", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["모듈 경계 또는 활성 Gradle include 변경", "에이전트 작업 절차 또는 검증 진입점 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 연결된 경로와 명령은 실제 저장소 표면과 대조"
+    },
+    {
+      "path": "README.md",
+      "kind": "product",
+      "owner": "제품 개요와 빠른 시작",
+      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/MainActivity.kt"],
+      "reviewTriggers": ["제품 지원 범위, flavor, 버전 또는 첫 실행 경로 변경", "사용자 흐름이나 공개 스크린샷 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; quick start와 모듈·버전 주장은 Gradle 설정과 대조"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "kind": "runbook",
+      "owner": "기여와 로컬 개발 절차",
+      "authoritativeSources": ["gradle/libs.versions.toml", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["필수 JDK·Android SDK·Python 버전 변경", "기여·검증·커밋 절차 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 도구 버전과 명령은 wrapper 및 agent script와 대조"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "kind": "evidence",
+      "owner": "현재 릴리스 변경 요약",
+      "authoritativeSources": ["app/build.gradle.kts", "docs/release-notes", ".github/workflows/android.yml"],
+      "reviewTriggers": ["versionName 또는 versionCode 변경", "릴리스 노트·태그·배포 산출물 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 현재 버전의 release note와 app build 설정을 대조"
+    },
+    {
+      "path": ".impeccable.md",
+      "kind": "contract",
+      "owner": "제품 UI 정체성과 인터페이스 품질 기준",
+      "authoritativeSources": ["core/designsystem/src/main/kotlin/com/gasstation/core/designsystem", "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist"],
+      "reviewTriggers": ["공통 디자인 토큰 또는 chrome 변경", "가격 우선 정보 위계나 주요 화면 UI 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; UI 변경은 해당 feature 테스트와 screenshot 계약을 함께 검토"
+    },
+    {
+      "path": "docs/README.md",
+      "kind": "runbook",
+      "owner": "문서 탐색과 독자별 진입 경로",
+      "authoritativeSources": ["docs/documentation-catalog.json", "settings.gradle.kts", "scripts/agent/check_contracts.py"],
+      "reviewTriggers": ["현재 문서의 소유·경로·분류 변경", "새 live 문서 또는 specialist hub 추가"],
+      "verificationScope": "scripts/agent/verify.sh docs; 카탈로그 항목과 허브 링크를 수동으로 대조"
+    },
+    {
+      "path": "docs/AGENTS.md",
+      "kind": "contract",
+      "owner": "docs 하위 변경 운영 계약",
+      "authoritativeSources": ["scripts/agent/check_contracts.py", "scripts/agent/verify.sh", "settings.gradle.kts", ".github/workflows/android.yml"],
+      "reviewTriggers": ["live 문서 집합 또는 분류 변경", "문서 검증 명령·CI 계약 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; checker의 live set과 문서 분류를 대조"
+    },
+    {
+      "path": "docs/agent-workflow.md",
+      "kind": "runbook",
+      "owner": "기능·수정 작업의 표준 실행 순서",
+      "authoritativeSources": ["settings.gradle.kts", "docs/module-contracts.md", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["모듈 책임 또는 상태·캐시 작업 경로 변경", "작업 시작·검증·handoff 절차 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 링크된 계약·명령과 관련 테스트 경로를 대조"
+    },
+    {
+      "path": "docs/project-reading-guide.md",
+      "kind": "runbook",
+      "owner": "질문·기능·변경 목적에서 코드와 계약으로 가는 읽기 경로",
+      "authoritativeSources": ["settings.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt", "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt"],
+      "reviewTriggers": ["주요 feature owner 또는 코드 진입점 이동", "현재 계약 문서의 경로·소유 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 표의 파일과 모듈 경로를 실제 저장소에서 확인"
+    },
+    {
+      "path": "docs/architecture.md",
+      "kind": "contract",
+      "owner": "활성 모듈 그래프와 런타임 아키텍처",
+      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt"],
+      "reviewTriggers": ["Gradle include·모듈 의존·flavor 조립 변경", "앱 시작 또는 navigation 구조 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; module graph는 settings와 build files로 대조"
+    },
+    {
+      "path": "docs/module-contracts.md",
+      "kind": "contract",
+      "owner": "모듈 책임과 금지 의존",
+      "authoritativeSources": ["settings.gradle.kts", "build-logic", "app/build.gradle.kts"],
+      "reviewTriggers": ["모듈 추가·삭제·의존 방향 변경", "계층 책임 또는 구현 위치 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; verifyModuleBoundaries와 active include를 함께 확인"
+    },
+    {
+      "path": "docs/state-model.md",
+      "kind": "contract",
+      "owner": "화면 상태·액션·effect 모델",
+      "authoritativeSources": ["feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist", "feature/settings/src/main/kotlin/com/gasstation/feature/settings", "feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist"],
+      "reviewTriggers": ["UI state·action·effect 또는 navigation payload 변경", "권한·GPS·refresh·설정 상태 전이 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; feature ViewModel·route 테스트와 상태 모델을 대조"
+    },
+    {
+      "path": "docs/offline-strategy.md",
+      "kind": "contract",
+      "owner": "station cache, stale, retry, fallback 정책",
+      "authoritativeSources": ["data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt"],
+      "reviewTriggers": ["캐시 키·TTL·stale 의미 변경", "refresh 실패·retry·watchlist fallback 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; data:station과 core:database 테스트를 대조"
+    },
+    {
+      "path": "docs/test-strategy.md",
+      "kind": "contract",
+      "owner": "테스트 계층과 회귀 보호 전략",
+      "authoritativeSources": ["scripts/agent/verify.sh", ".github/workflows/android.yml", "build-logic"],
+      "reviewTriggers": ["테스트 source set·screenshot·device·CI job 변경", "회귀 위험 분류 또는 test ownership 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; Gradle task와 CI job을 실제 workflow·build logic과 대조"
+    },
+    {
+      "path": "docs/verification-matrix.md",
+      "kind": "runbook",
+      "owner": "변경 유형에서 검증 명령을 선택하는 매트릭스",
+      "authoritativeSources": ["scripts/agent/verify.sh", "scripts/agent/test.sh", ".github/workflows/android.yml"],
+      "reviewTriggers": ["verify scope·Gradle task·CI gate 변경", "새 feature·data·release 위험 경로 추가"],
+      "verificationScope": "scripts/agent/verify.sh docs; 명시된 명령과 CI job이 실제로 존재하는지 확인"
+    },
+    {
+      "path": "docs/security-trade-offs.md",
+      "kind": "contract",
+      "owner": "보안 선택과 승격 조건",
+      "authoritativeSources": ["app/build.gradle.kts", "core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt", "app/src/prod/kotlin"],
+      "reviewTriggers": ["secret 주입·network endpoint·cleartext 정책 변경", "proxy 도입 또는 배포 범위 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; app/network 설정과 현재 ADR을 대조"
+    },
+    {
+      "path": "docs/deployment.md",
+      "kind": "runbook",
+      "owner": "Android release, tag, GitHub Release, APK 산출물",
+      "authoritativeSources": ["app/build.gradle.kts", ".github/workflows/android.yml", "docs/release-notes"],
+      "reviewTriggers": ["version·tag·release asset·서명·publish workflow 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; release workflow와 현재 release note 계약을 대조"
+    },
+    {
+      "path": "docs/performance.md",
+      "kind": "evidence",
+      "owner": "deterministic demo macrobenchmark와 성능 근거",
+      "authoritativeSources": ["benchmark/src/main/kotlin/com/gasstation/benchmark", "app/build.gradle.kts", "benchmark/build.gradle.kts"],
+      "reviewTriggers": ["benchmark journey·selector·build variant 변경", "새 물리 기기 측정 또는 성능 수치 갱신"],
+      "verificationScope": "scripts/agent/verify.sh docs; benchmark source·Gradle task·측정 artifact 경로를 대조"
+    },
+    {
+      "path": "docs/build-velocity.md",
+      "kind": "runbook",
+      "owner": "build-speed 결정과 CI 검증 범위",
+      "authoritativeSources": ["gradle.properties", ".github/workflows/android.yml", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["Gradle parallel·cache·configuration-cache 설정 변경", "CI job 분리 또는 기본 검증 gate 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; gradle.properties와 workflow task 분리를 대조"
+    },
+    {
+      "path": "docs/adr/2026-05-18-backend-proxy-escalation.md",
+      "kind": "decision",
+      "owner": "Opinet backend proxy 승격 결정",
+      "authoritativeSources": ["core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt", "core/network/src/main/kotlin/com/gasstation/core/network/station/ProxyStationFetcher.kt", "app/build.gradle.kts"],
+      "reviewTriggers": ["Opinet endpoint mode·API key 주입·proxy 배포 상태 변경", "공개 배포 또는 server-side 정책 도입"],
+      "verificationScope": "scripts/agent/verify.sh docs; network boundary와 security-trade-offs 계약을 대조"
+    }
+  ]
+}
