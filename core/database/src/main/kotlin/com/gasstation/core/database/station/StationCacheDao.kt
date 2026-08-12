@@ -32,6 +32,7 @@ abstract class StationCacheDao {
           AND longitudeBucket = :longitudeBucket
           AND radiusMeters = :radiusMeters
           AND fuelType = :fuelType
+        ORDER BY stationId ASC
         """,
     )
     abstract suspend fun readStations(

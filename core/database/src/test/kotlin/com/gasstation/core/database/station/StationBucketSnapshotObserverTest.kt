@@ -174,7 +174,16 @@ class StationBucketSnapshotObserverTest {
     }
 
     @Test
-    fun `unrelated bucket invalidation is suppressed and collection cancels cleanly`() = runBlocking {
+    fun `nonempty snapshot remains stable after unrelated bucket write and collection cancels cleanly`() = runBlocking {
+        dao.replaceSnapshot(
+            cacheKey = CACHE_KEY,
+            fetchedAtEpochMillis = OLDER_FETCHED_AT,
+            entities = listOf(
+                station("station-z", OLDER_FETCHED_AT),
+                station("station-a", OLDER_FETCHED_AT),
+            ),
+        )
+        database.openHelper.writableDatabase.execSQL("PRAGMA reverse_unordered_selects = ON")
         val snapshots = Channel<StationBucketSnapshot>(Channel.UNLIMITED)
         val collection = launch {
             observer.observe(
@@ -184,7 +193,9 @@ class StationBucketSnapshotObserverTest {
                 fuelType = CACHE_KEY.fuelType,
             ).collect(snapshots::send)
         }
-        withTimeout(5_000) { snapshots.receive() }
+        val targetSnapshot = withTimeout(5_000) { snapshots.receive() }
+        assertEquals(listOf("station-a", "station-z"), targetSnapshot.rows.map { it.stationId })
+        assertTimestampInvariant(listOf(targetSnapshot))
 
         val otherKey = CACHE_KEY.copy(latitudeBucket = CACHE_KEY.latitudeBucket + 1)
         dao.replaceSnapshot(
