@@ -206,6 +206,17 @@ class ValidatorTest(unittest.TestCase):
         self.assertIn(old, text)
         target.write_text(text.replace(old, new, 1))
 
+    def register_policy_consumer(self, path: str, policy: str) -> None:
+        self.repo.append(
+            path,
+            f"<!-- station-data-policy-ref: {policy} -->"
+            f"[structured `{policy}` contract](offline-strategy.md#기계-판독-정책-계약)\n",
+        )
+        manifest_path = self.repo.root / VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH
+        manifest = json.loads(manifest_path.read_text())
+        manifest["consumers"][path] = {policy: 1}
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False))
+
     def test_rejects_external_suffix_as_canonical_policy_link(self) -> None:
         self.replace_policy_reference(
             "README.md",
@@ -236,6 +247,24 @@ class ValidatorTest(unittest.TestCase):
             "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약)",
             "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약) "
             "보관 후 300초까지는 최신이며 그 뒤에는 오래된 결과입니다.",
+        )
+        self.assert_rejected("must be a reference-only statement")
+
+    def test_rejects_obsolete_prose_before_reference_marker(self) -> None:
+        self.replace_policy_reference(
+            "docs/agent-workflow.md",
+            "<!-- station-data-policy-ref: retry -->",
+            "Timeout과 Network 실패에 한해 재시도합니다. "
+            "<!-- station-data-policy-ref: retry -->",
+        )
+        self.assert_rejected("must be a reference-only statement")
+
+    def test_rejects_link_decoy_before_reference_marker(self) -> None:
+        self.replace_policy_reference(
+            "docs/agent-workflow.md",
+            "<!-- station-data-policy-ref: retry -->",
+            "[obsolete](offline-strategy.md) "
+            "<!-- station-data-policy-ref: retry -->",
         )
         self.assert_rejected("must be a reference-only statement")
 
@@ -290,6 +319,19 @@ class ValidatorTest(unittest.TestCase):
         self.repo.append(path, "Timeout과 Network 실패에 한해 한 번 재시도합니다.\n")
         self.assert_rejected("duplicate automatic retry policy claim")
 
+    def test_rejects_category_only_exclusive_retry_claim_in_current_consumer(self) -> None:
+        self.repo.append(
+            "docs/agent-workflow.md",
+            "Timeout과 Network 실패에 한해 재시도합니다.\n",
+        )
+        self.assert_rejected("duplicate automatic retry policy claim")
+
+    def test_rejects_category_only_exclusive_retry_claim_in_registered_new_consumer(self) -> None:
+        path = "docs/architecture.md"
+        self.register_policy_consumer(path, "retry")
+        self.repo.append(path, "Timeout과 Network 실패에 한해 재시도합니다.\n")
+        self.assert_rejected("duplicate automatic retry policy claim")
+
     def test_rejects_korean_synonym_automatic_retry_claim(self) -> None:
         self.repo.append(
             "docs/architecture.md",
@@ -303,6 +345,35 @@ class ValidatorTest(unittest.TestCase):
             "보관 후 300초까지는 최신이며 그 뒤에는 오래된 결과입니다.\n",
         )
         self.assert_rejected("duplicate freshness boundary claim")
+
+    def test_rejects_one_sided_five_minute_stale_claim_in_current_consumer(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "stale은 5분을 넘긴 결과입니다.\n",
+        )
+        self.assert_rejected("duplicate freshness boundary claim")
+
+    def test_rejects_one_sided_300_second_stale_claim_in_registered_new_consumer(self) -> None:
+        path = "docs/architecture.md"
+        self.register_policy_consumer(path, "freshness")
+        self.repo.append(path, "stale은 300초를 넘긴 결과입니다.\n")
+        self.assert_rejected("duplicate freshness boundary claim")
+
+    def test_rejects_migration_test_helper_device_execution_overclaim(self) -> None:
+        self.repo.append(
+            "docs/test-strategy.md",
+            "MigrationTestHelper migration은 device-executed 되었습니다.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
+
+    def test_rejects_connected_device_migration_execution_overclaim_in_registered_new_consumer(self) -> None:
+        path = "docs/architecture.md"
+        self.register_policy_consumer(path, "schema")
+        self.repo.append(
+            path,
+            "MigrationTestHelper migration을 connected device에서 실행 완료했습니다.\n",
+        )
+        self.assert_rejected("connected-device migration execution overclaim")
 
     def test_rejects_structured_station_policy_source_drift(self) -> None:
         policy = json.loads(POLICY_TEXT)

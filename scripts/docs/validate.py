@@ -637,11 +637,13 @@ def station_policy_reference_issues(
             line_end = text.find("\n", match.end())
             if line_end < 0:
                 line_end = len(text)
+            prefix = text[line_start:match.start()].strip()
             suffix = text[match.end():line_end].strip()
             links = list(markdown_link_destinations(suffix))
             policy = match.group(1)
             reference_only = (
-                len(links) == 1
+                not prefix
+                and len(links) == 1
                 and links[0][1] == 0
                 and links[0][2] == len(suffix)
                 and f"`{policy}`" in suffix[: suffix.find("](")]
@@ -682,21 +684,61 @@ def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
             )
             exclusive = any(token in normalized for token in ("only", "한해", "경우에만"))
             retry_action = any(token in normalized for token in ("retry", "재시도", "더 요청"))
-            bounded = any(
-                token in normalized
-                for token in ("1회", "한 번", "한번", "한 차례", "500ms", "500 ms", "반 초")
-            )
-            if timeout_category and network_category and exclusive and retry_action and bounded:
+            if timeout_category and network_category and exclusive and retry_action:
                 issues.append(location(path, line_no, "duplicate automatic retry policy claim"))
 
-            fresh_state = "fresh" in normalized or "최신" in normalized
             stale_state = "stale" in normalized or "오래된" in normalized
             boundary = any(
                 re.search(pattern, normalized)
                 for pattern in (r"300\s*초", r"5\s*분", r"300000\s*ms", r"300001\s*ms")
             )
-            if fresh_state and stale_state and boundary:
+            if stale_state and boundary:
                 issues.append(location(path, line_no, "duplicate freshness boundary claim"))
+
+            migration_subject = "migrationtesthelper" in normalized or any(
+                token in normalized for token in ("migration", "마이그레이션")
+            )
+            connected_device = any(
+                token in normalized
+                for token in (
+                    "device-executed",
+                    "connected device",
+                    "connected-device",
+                    "연결된 기기",
+                    "연결된 디바이스",
+                )
+            )
+            positive_execution = any(
+                token in normalized
+                for token in (
+                    "device-executed",
+                    "executed",
+                    "passed",
+                    "실행했습니다",
+                    "실행 완료",
+                    "통과했습니다",
+                    "완료했습니다",
+                )
+            )
+            unavailable_or_conditional = any(
+                token in normalized
+                for token in (
+                    "아닙니다",
+                    "아니다",
+                    "미실행",
+                    "없으면",
+                    "있지 않",
+                    "쓰지 말",
+                    "unavailable",
+                    "not executed",
+                    "있을 때",
+                    "if ",
+                    "when ",
+                    "only when",
+                )
+            )
+            if migration_subject and connected_device and positive_execution and not unavailable_or_conditional:
+                issues.append(location(path, line_no, "connected-device migration execution overclaim"))
     return issues
 
 
