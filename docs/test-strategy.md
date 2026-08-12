@@ -23,13 +23,13 @@
 | --- | --- | --- |
 | `core:model` | `ValueObjectInvariantTest`, `CoordinatesDistanceTest`, `BrandFilterTest`, `core:model/SharedEnumContractTest` | 값 객체 불변식 유지, 좌표 거리 계산, 공유 enum identity와 UI/transport field 배제, RTO/RTX/NHO의 `ALTEUL` 그룹 매칭과 ETC-last 선택 순서 |
 | `domain:*` | `StationPriceDeltaTest`, `StationQueryCacheKeyTest`, `AddressLabelNormalizerTest`, `LocationUseCasesTest`, `UpdateSettingsUseCasesTest`, `DomainContractSurfaceTest`, `UserPreferencesTest` | 순수 규칙, 주소 라벨 정규화, 계약 표면, `StationEvent` variant 계약, 캐시 키 계산, 유스케이스 위임 |
-| `core:database` | `StationCacheDaoTest`, `StationPriceHistoryDaoTest`, `WatchedStationDaoTest`, `GasStationDatabaseMigrationTest` | Room DAO와 migration, 오래된 cache pruning, watchlist 최신 캐시용 deterministic latest row/index |
-| `core:network` | `LocalKoreanCoordinateTransformTest`, `NetworkStationFetcherTest`, `ProxyStationFetcherTest`, `NetworkRuntimeConfigTest` | 좌표 변환, direct/proxy 원격 fetcher, endpoint 모드 설정 주입과 proxy base URL 검증 |
+| `core:database` | `StationCacheDaoTest`, `StationBucketSnapshotObserverTest`, `StationPriceHistoryDaoTest`, `WatchedStationDaoTest`, `GasStationDatabaseMigrationTest`, compiled `GasStationDatabaseMigrationInstrumentedTest` | Room DAO, atomic marker/row snapshot과 stable ordering, 오래된 cache pruning, exported v1–v5 schema/migration contract, watchlist 최신 캐시용 deterministic latest row/index. Instrumented migration은 device가 있을 때 platform SQLite에서 실행하고, 항상-on host evidence는 Robolectric/compile/assets입니다. |
+| `core:network` | `LocalKoreanCoordinateTransformTest`, `NetworkStationFetcherTest`, `ProxyStationFetcherTest`, `NetworkRuntimeConfigTest` | 좌표 변환, direct/proxy typed transport classification·HTTP retry-owner parity·fuel validation, endpoint 모드 설정 주입과 proxy base URL 검증 |
 | `core:location` | `AddressLabelFormatterTest`, `AndroidForegroundLocationProviderSurfaceTest`, `AndroidForegroundLocationProviderTest`, `DefaultLocationRepositoryTest`, `LocationAvailabilityFlowTest`, `LocationPermissionStateTest`, `GeocoderAsyncLookupTest`, `AndroidAddressResolverDeviceTest` | Android 위치 조회 표면, API 33+ 지오코더 callback wrapping, Android Address 후보 변환과 domain 정규화 적용, domain location 구현, availability broadcast 반영, device-backed callback smoke |
 | `core:datastore` | `UserPreferencesSerializerTest`, `AndroidUserPreferencesDataSourceTest` | storage-local 설정 DTO 직렬화와 DataStore 업데이트 |
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest`, Roborazzi snapshot | Urban Signal `#FFFCF2`/`#222222`/`#FFDC00` token, typography/spacing, chrome와 shared primitive, 실제 `Brand` drawable 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, legacy RTO/RTX/NHO 저장값의 ALTEUL migration, legacy `KAKAO_NAVI`의 `KAKAO_MAP` migration과 현재 이름 재저장, 알 수 없는 enum name fallback |
-| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, 선택 유종 전용 watchlist cache/history와 가격 없음 identity fallback, stale/retention 규칙, 성공 refresh 이후 pruning과 `SearchRefreshed` event, `Timeout`/`Network` retry once 정책과 retry event, 원격 오류 매핑 |
+| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `StationFreshnessTickerTest`, `LatestRefreshGateTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, timer boundary와 metadata 재projection, key별 latest-write/tombstone/ABA side-effect silence, 선택 유종 전용 watchlist cache/history와 가격 없음 identity fallback, retention/pruning·`SearchRefreshed`, typed retry-once 정책과 원격 오류 매핑 |
 | `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, denied가 retained coordinate/cache/refresh보다 먼저 이기는 gate, query/cache/failure orchestration, price-first row와 2줄 typed summary, 반경/유종/브랜드 menu interaction, 320dp popup containment와 마지막 항목 scroll, 네 가지 가격 이력 상태, 320dp·200% 글꼴의 summary/station metadata, stale/empty/permission/GPS/failure, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
 | `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest`, Roborazzi overview/detail | 설정 상태, update use case dispatch, flat row, 실제 브랜드 tile, route/summary 계약 |
 | `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 선택 유종 readiness/query 전환, 가격 없음 저장 identity 유지와 명시적 unavailable UI, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
@@ -67,7 +67,9 @@
 - `DefaultStationRepository`
   스냅샷 마커, 캐시 행, 가격 히스토리, 성공 refresh 이후 pruning, watchlist fallback이 한 곳에서 조합됩니다.
 - `StationRetryPolicy`
-  일시적 refresh 실패는 data 계층에서 한 번만 재시도하고, cancellation, 재시도 불가 실패, 예기치 않은 두 번째 예외는 즉시 전파해야 합니다.
+  일시적 refresh 실패는 data 계층에서 한 번만 재시도하고, cancellation, 재시도 불가 실패, superseded work, 예기치 않은 두 번째 예외는 즉시 전파하거나 조용히 종료해야 합니다. direct/proxy와 OkHttp의 실제 stack에서도 HTTP 408이 두 번 재시도되지 않는지를 함께 막습니다.
+- `StationBucketSnapshotObserver` / `StationFreshnessTicker` / `LatestRefreshGate`
+  marker와 row의 torn emission, 5분 경계 timer의 재구독, 과거 요청의 늦은 persistence, replacement entry ABA, superseded analytics/reporting을 각각 독립 테스트로 막습니다.
 - `LocationStateMachine`, `StationSearchOrchestrator`, `StationListViewModel`
   권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다. denied permission은 demo override, 보존 좌표, cache/render, refresh보다 우선하며 GPS 설정 안내와 섞이지 않아야 합니다.
 - `AddressLabelNormalizer` / `AddressLabelFormatter`
@@ -150,6 +152,9 @@ JaCoCo/PIT XML은 Git SHA를 포함하지 않으므로 `--commit`은 필수 명�
 - demo는 재현 가능한 시작 상태를 제공한다
 - 현재 주소는 행정동까지만 보여준다
 - stale 결과를 유지한다
+- cache snapshot은 marker/rows를 원자적으로 읽고 시간 경과만으로 stale을 다시 낸다
+- 최신 refresh intent만 persistence와 event/reporting side effect를 남긴다
+- exported Room schema 1–5와 v2→v3 history reset은 host에서 항상 검증하고, device migration 실행은 target이 있을 때만 주장한다
 - watchlist는 저장 항목 비교를 지원한다
 - watchlist는 선택 유종의 cache/history만 사용하고 가격이 없어도 저장 identity를 유지한다
 - 설정은 `UserPreferences`를 편집한다

@@ -48,7 +48,7 @@ Room은 네 개의 저장 단위를 씁니다.
 
 ## observeNearbyStations 동작
 
-저장소는 먼저 현재 쿼리 버킷의 스냅샷 마커와 캐시 행을 같이 읽습니다.
+저장소는 `station_cache`와 `station_cache_snapshot` 양쪽 invalidation을 관찰합니다. invalidation마다 마커와 `stationId ASC`로 정렬한 행을 **하나의 Room transaction** 안에서 읽어 `StationBucketSnapshot` 하나만 내보냅니다. 두 DAO `Flow`를 `combine`하는 것은 원자 관찰이 아니므로 사용하지 않습니다.
 
 ### 경우 1. 스냅샷 마커가 없음
 
@@ -58,6 +58,8 @@ Room은 네 개의 저장 단위를 씁니다.
 - `hasCachedSnapshot = false`
 
 이 상태는 "아직 보여줄 캐시가 없음"을 뜻합니다.
+
+마커가 없으면 관찰자는 행을 빈 목록으로 정규화합니다. 따라서 이전 행이 잠시 남아 있어도 no-cache 상태에 섞이지 않습니다.
 
 ### 경우 2. 스냅샷 마커는 있지만 캐시 행이 0건
 
@@ -81,15 +83,20 @@ Room은 네 개의 저장 단위를 씁니다.
 
 `StationCachePolicy`는 현재 5분 기준으로 `Fresh`와 `Stale`를 나누고, 오래된 캐시 정리 cutoff도 같은 정책 객체에서 계산합니다.
 
-- 5분 이내: `Fresh`
-- 5분 초과: `Stale`
+- age `<= 5분`: `Fresh`
+- age `> 5분`: `Stale`
+- millisecond 저장 정밀도에서 첫 stale 순간은 `5분 + 1ms`
 - 보관 기본값: refresh 성공 시각 기준 7일
+
+각 atomic snapshot은 하나의 cancellable `StationFreshnessTicker`를 소유합니다. ticker는 즉시 현재 freshness를 내보내고 fresh일 때만 남은 경계까지 기다렸다가 Stale을 한 번 내보냅니다. 새 마커가 오면 이전 ticker를 취소하고 새로 예약합니다. watch/history metadata 변경은 현재 freshness로 읽기 모델만 다시 만들며 ticker나 metadata subscription을 다시 시작하지 않습니다. 이 시간 경과 emission은 **Room mutation이나 database invalidation 없이** 일어납니다.
 
 stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를 띄우고 마지막 갱신 시각을 보여줍니다.
 
 ## 새로고침 성공 시
 
-`refreshNearbyStations()` 성공 시 저장소는 한 버킷 단위로 아래 작업을 합니다.
+`refreshNearbyStations()`는 정확한 `StationQueryCacheKey`별 latest-started gate를 먼저 등록합니다. 같은 key의 원격 I/O는 겹칠 수 있고 다른 key는 독립적이지만, **최신 등록 generation**만 guarded transaction에 들어갈 수 있습니다. 이미 transaction에 들어간 commit은 나중 등록이 같은 key mutex를 기다리는 동안 먼저 선형화됩니다.
+
+승인된 generation에서만 `fetchedAt`은 guarded write 안에서, entity 생성과 transaction 직전에 잡습니다. 그 뒤 성공 시 저장소는 한 버킷 단위로 아래 작업을 합니다.
 
 1. 기존 `station_cache` 행 삭제
 2. 새 스냅샷 행 저장
@@ -99,18 +106,17 @@ stale이라고 해서 결과를 버리지는 않습니다. UI는 stale 배너를
 6. `StationCachePolicy.pruneCutoff()`보다 오래된 `station_cache` 행과 `station_cache_snapshot` 마커 정리
 7. `StationEvent.SearchRefreshed` 기록
 
-즉 스냅샷 교체는 "행 + 마커"가 함께 움직이는 구조입니다. pruning은 성공한 persistence 뒤에만 실행되므로 실패한 refresh가 기존 캐시를 지우지 않습니다.
+즉 스냅샷 교체는 "행 + 마커"가 함께 움직이는 구조입니다. pruning은 성공한 persistence 뒤에만 실행되므로 실패한 refresh가 기존 캐시를 지우지 않습니다. participant tombstone은 모든 generation이 끝날 때까지 남고, opaque entry identity가 replacement entry에 대한 stale ticket의 ABA 재사용을 막습니다.
 
 ## 새로고침 실패 시
 
-원격 조회가 실패하면 저장소는 `StationRefreshException(reason)`을 던집니다.
+원격 경계는 다음 typed failure vocabulary를 `StationRefreshException(reason)`으로 옮깁니다: `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`. direct/proxy는 같은 semantic validation을 따르고, 요청 유종과 같지 않은 proxy 행은 거부합니다. 원시 빈 목록은 `Success(emptyList())`인 성공이며, 모두 거부된 non-empty payload만 `InvalidPayload`입니다.
 
-- `Timeout`
-- `Network`
-- `InvalidPayload`
-- `Unknown`
+`StationRetryPolicy`는 `Timeout`, `Network`, HTTP 408, HTTP 429, HTTP 500–599만 500ms 뒤 한 번 재시도합니다. 다른 HTTP 4xx, `InvalidPayload`, `Unknown`, cancellation, 그리고 이미 superseded된 작업은 재시도하지 않습니다. OkHttp가 HTTP 408의 숨은 두 번째 소유자가 되지 않도록 station data retry policy가 application retry를 단독으로 소유합니다.
 
-`StationRetryPolicy`는 실패 시 기존 스냅샷을 지우거나 바꾸지 않습니다. `Timeout`과 `Network` 실패만 500ms 뒤 한 번 재시도하고, 두 번째 시도가 성공하면 `StationEvent.RetryAttempted(succeeded=true)`, `StationRefreshException`으로 끝나면 `succeeded=false`를 남깁니다. 예기치 않은 두 번째 예외와 cancellation은 retry 이벤트로 포장하지 않고 그대로 전파합니다. `InvalidPayload`와 `Unknown`은 재시도하지 않습니다.
+`StationRetryPolicy`는 실패 시 기존 스냅샷을 지우거나 바꾸지 않습니다. 두 번째 시도가 성공하면 `StationEvent.RetryAttempted(succeeded=true)`, 재시도 후 `StationRefreshException`으로 끝나면 `succeeded=false`를 남깁니다. 예기치 않은 두 번째 예외와 cancellation은 retry 이벤트로 포장하지 않고 그대로 전파합니다.
+
+새 generation에 superseded된 성공이나 실패는 side effect를 남기지 않는 정상 종료입니다. 즉 retry, failure report, snapshot/history/prune, `SearchRefreshed`, `RetryAttempted`를 남기지 않습니다.
 
 하지만 기존 `station_cache`와 `station_cache_snapshot`은 지우지 않습니다. 이 덕분에 UI는 실패 중에도 마지막 성공 결과를 계속 렌더링할 수 있습니다.
 
@@ -137,5 +143,8 @@ watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 ## 운영 메모
 
 - `prod` 검색과 demo seed 생성은 모두 `opinet.apikey`만 사용합니다.
-- `GasStationDatabaseMigrationTest`는 `station_cache_snapshot` 도입과 stationId 선행 최신 캐시 index를 포함한 현재 DB version 5 migration을 검증합니다.
+- `CrashReporter.recordNonFatalSafely`는 ordinary reporter failure가 원래 recoverable station/location error를 바꾸지 않게 하며 cancellation과 fatal `Error`는 보존합니다. SDK-neutral observability 계약은 `core:observability`가 소유하고 flavor별 SDK binding은 `app`에 남습니다.
+- Room은 `exportSchema = true`이며 canonical checked-in schema는 `core/database/schemas/com.gasstation.core.database.GasStationDatabase/`의 versions 1–5입니다. v5 현재 생성물은 version-introducing commit/toolchain에서 남긴 historical v5와 byte-identical이고, CI schema gate는 tracked/untracked drift와 generated current schema의 불일치를 막습니다.
+- `MigrationTestHelper` 계약은 모든 지원 시작점 1/2/3/4→5, v2→v3의 의도된 disposable price-history reset, 그리고 v4의 성공한 빈 snapshot marker 보존을 다룹니다. v2→v3에서도 cache와 watch 행은 보존됩니다.
+- host Robolectric의 production-builder/index 및 migration tests는 항상 실행합니다. Task 6 당시 connected device가 없었으므로 instrumented migration tests는 compile/assets 검증만 되었고 device-executed라고 주장하지 않습니다.
 - 문서나 UI에서 "캐시 있음"을 말할 때는 `fetchedAt != null`보다 `hasCachedSnapshot` 의미를 기준으로 이해하는 편이 더 정확합니다.

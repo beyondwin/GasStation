@@ -111,6 +111,34 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
   :benchmark:assemble
 ```
 
+## Station data correctness 집중 회귀
+
+typed transport/retry owner, safe diagnostics, atomic bucket observation, time-driven freshness, latest-started persistence, exported Room schema를 함께 바꿨거나 live 계약으로 설명할 때는 다음 focused regression을 실행합니다.
+
+```bash
+./gradlew \
+  :domain:station:test \
+  :core:network:test \
+  :core:observability:test \
+  :core:database:testDebugUnitTest \
+  :core:database:compileDebugAndroidTestKotlin \
+  :core:location:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  verifyModuleBoundaries \
+  --warning-mode fail
+
+scripts/agent/verify-room-schemas.sh
+PYTHONDONTWRITEBYTECODE=1 scripts/agent/test.sh
+PYTHONDONTWRITEBYTECODE=1 scripts/agent/verify.sh docs
+python3 scripts/docs/validate.py --check-gradle-tasks
+git diff --check
+```
+
+`verify-room-schemas.sh`는 versions 1–5 canonical artifact를 검사한 뒤 별도 temporary output으로 current v5를 강제 생성해 byte-compare합니다. `compileDebugAndroidTestKotlin`은 instrumented `MigrationTestHelper` source와 assets의 compile/package 경로를 확인하지만 device 실행은 아닙니다. target이 연결돼 있지 않다면 `connectedDebugAndroidTest`를 실행했다고 쓰지 말고 host/compile evidence와 미실행 사유를 남깁니다.
+
+이 변경이 branch final HEAD라면 위 결과 뒤 `scripts/agent/verify.sh auto`를 실행합니다. known 2GiB parallel benchmark OOM이 재현될 때만 문서화된 process-level resource control로 재시도하며 repository memory policy는 이 문서 변경만으로 바꾸지 않습니다.
+
 ## 경로별 신뢰 확인
 
 `demo`, `prod`, demo seed 도구까지 같이 확인해야 할 때 권장합니다.
