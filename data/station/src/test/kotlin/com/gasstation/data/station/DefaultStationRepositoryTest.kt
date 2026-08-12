@@ -526,6 +526,22 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `refreshNearbyStations preserves unknown failure when crash reporter throws`() = runTest {
+        val original = IllegalStateException("unexpected boom")
+        val repository = repository(
+            remoteDataSource = ThrowingStationRemoteDataSource(original),
+            crashReporter = ThrowingCrashReporter(IllegalStateException("reporter failed")),
+        )
+
+        val error = assertThrows(StationRefreshException::class.java) {
+            runBlocking { repository.refreshNearbyStations(stationQuery()) }
+        }
+
+        assertEquals(StationRefreshFailureReason.Unknown, error.reason)
+        assertEquals(original, error.cause)
+    }
+
+    @Test
     fun `refreshNearbyStations does not record StationRefreshException via crashReporter`() = runTest {
         val crashReporter = FakeCrashReporter()
         val query = stationQuery()
@@ -602,5 +618,11 @@ class DefaultStationRepositoryTest {
 
     private companion object {
         const val CACHE_BUCKET_METERS = 250
+    }
+
+    private class ThrowingCrashReporter(private val throwable: Throwable) : CrashReporter {
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>): Nothing = throw this.throwable
+
+        override fun log(message: String) = Unit
     }
 }

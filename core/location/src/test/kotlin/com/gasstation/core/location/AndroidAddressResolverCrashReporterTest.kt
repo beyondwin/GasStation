@@ -2,6 +2,7 @@ package com.gasstation.core.location
 
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.observability.CrashReporter
+import com.gasstation.core.observability.recordNonFatalSafely
 import com.gasstation.domain.location.LocationAddressLookupResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -45,6 +46,20 @@ class AndroidAddressResolverCrashReporterTest {
         assertEquals(0, crashReporter.records.size)
     }
 
+    @Test
+    fun `unexpected geocoder failure remains Error when crashReporter throws`() = runBlocking {
+        val original = IllegalStateException("unexpected geocoder state")
+        val resolver = crashReportingAddressResolver(
+            throwable = original,
+            crashReporter = ThrowingCrashReporter(IllegalStateException("reporter failed")),
+        )
+
+        val result = resolver.addressFor(Coordinates(37.498095, 127.027610))
+
+        assertTrue(result is LocationAddressLookupResult.Error)
+        assertEquals(original, (result as LocationAddressLookupResult.Error).throwable)
+    }
+
     /**
      * Factory that mirrors the exception-handling contract of AndroidAddressResolver:
      * - CancellationException → rethrown
@@ -60,7 +75,7 @@ class AndroidAddressResolverCrashReporterTest {
             } catch (exception: java.io.IOException) {
                 LocationAddressLookupResult.Error(exception)
             } catch (exception: Exception) {
-                crashReporter.recordNonFatal(
+                crashReporter.recordNonFatalSafely(
                     exception,
                     mapOf("module" to "core:location", "operation" to "resolveAddress"),
                 )
@@ -74,6 +89,12 @@ class AndroidAddressResolverCrashReporterTest {
         override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) {
             records += Record(throwable, metadata)
         }
+        override fun log(message: String) = Unit
+    }
+
+    private class ThrowingCrashReporter(private val throwable: Throwable) : CrashReporter {
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>): Nothing = throw this.throwable
+
         override fun log(message: String) = Unit
     }
 }

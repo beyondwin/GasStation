@@ -7,6 +7,7 @@ import com.gasstation.core.database.station.StationPriceHistoryEntity
 import com.gasstation.core.database.station.WatchedStationDao
 import com.gasstation.core.database.station.WatchedStationEntity
 import com.gasstation.core.observability.CrashReporter
+import com.gasstation.core.observability.recordNonFatalSafely
 import com.gasstation.data.station.mapper.toEntity
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
@@ -143,7 +144,7 @@ class DefaultStationRepository @Inject constructor(
         } catch (exception: StationRefreshException) {
             throw exception
         } catch (throwable: Throwable) {
-            crashReporter.recordNonFatal(
+            crashReporter.recordNonFatalSafely(
                 throwable,
                 mapOf("module" to "data:station", "operation" to "refreshNearbyStations"),
             )

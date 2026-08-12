@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.observability.CrashReporter
+import com.gasstation.core.observability.recordNonFatalSafely
 import com.gasstation.domain.location.LocationAddressLookupResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellableContinuation
@@ -42,7 +43,7 @@ internal class AndroidAddressResolver @Inject constructor(
     } catch (exception: IOException) {
         LocationAddressLookupResult.Error(exception)
     } catch (exception: Exception) {
-        crashReporter.recordNonFatal(
+        crashReporter.recordNonFatalSafely(
             exception,
             mapOf("module" to "core:location", "operation" to "resolveAddress"),
         )
