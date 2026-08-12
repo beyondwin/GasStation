@@ -5,6 +5,10 @@ import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationCacheSnapshotEntity
+import com.gasstation.core.database.station.StationPriceHistoryDao
+import com.gasstation.core.database.station.StationPriceHistoryEntity
+import com.gasstation.core.database.station.WatchedStationDao
+import com.gasstation.core.database.station.WatchedStationEntity
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
@@ -22,8 +26,11 @@ import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -668,6 +675,37 @@ class DefaultStationRepositoryTest {
     }
 
     @Test
+    fun `freshness transition does not resubscribe cold metadata streams`() = runTest {
+        val mutableClock = MutableClock(now)
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val watchedStationDao = ColdOneShotWatchedStationDao()
+        val stationPriceHistoryDao = ColdOneShotStationPriceHistoryDao()
+        val repository = repository(
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ ->
+                flowOf(bucketSnapshot(cacheKey, fetchedAt = now, stationId = "station-1"))
+            },
+            stationPriceHistoryDao = stationPriceHistoryDao,
+            watchedStationDao = watchedStationDao,
+            clock = mutableClock,
+        )
+        val emissions = mutableListOf<StationSearchResult>()
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.observeNearbyStations(query).take(2).toList(emissions)
+        }
+
+        runCurrent()
+        mutableClock.advance(Duration.ofMinutes(5).plusMillis(1))
+        advanceTimeBy(Duration.ofMinutes(5).plusMillis(1).toMillis())
+        runCurrent()
+
+        assertEquals(listOf(StationFreshness.Fresh, StationFreshness.Stale), emissions.map { it.freshness })
+        assertEquals(1, watchedStationDao.observeSubscriptions)
+        assertEquals(1, stationPriceHistoryDao.observeSubscriptions)
+        assertTrue(job.isCompleted)
+    }
+
+    @Test
     fun `snapshot without marker remains no cache and does not start freshness timer`() = runTest {
         val mutableClock = MutableClock(now)
         val repository = repository(
@@ -741,8 +779,8 @@ class DefaultStationRepositoryTest {
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
         stationBucketSnapshotObserver: StationBucketSnapshotObserver = RecordingStationBucketSnapshotObserver(stationCacheDao),
-        stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
-        watchedStationDao: RecordingWatchedStationDao = RecordingWatchedStationDao(),
+        stationPriceHistoryDao: StationPriceHistoryDao = RecordingStationPriceHistoryDao(),
+        watchedStationDao: WatchedStationDao = RecordingWatchedStationDao(),
         remoteDataSource: StationRemoteDataSource = FakeStationRemoteDataSource(
             RemoteStationFetchResult.Success(emptyList()),
         ),
@@ -822,6 +860,43 @@ class DefaultStationRepositoryTest {
         override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>): Nothing = throw this.throwable
 
         override fun log(message: String) = Unit
+    }
+
+    private class ColdOneShotWatchedStationDao : WatchedStationDao {
+        var observeSubscriptions: Int = 0
+            private set
+
+        override suspend fun upsert(entity: WatchedStationEntity) = error("Not used")
+
+        override suspend fun delete(stationId: String) = error("Not used")
+
+        override fun observeWatchedStationIds(): Flow<List<String>> = flow {
+            observeSubscriptions++
+            if (observeSubscriptions == 1) emit(emptyList())
+            awaitCancellation()
+        }
+
+        override fun observeWatchedStations(): Flow<List<WatchedStationEntity>> = error("Not used")
+    }
+
+    private class ColdOneShotStationPriceHistoryDao : StationPriceHistoryDao {
+        var observeSubscriptions: Int = 0
+            private set
+
+        override suspend fun insert(entity: StationPriceHistoryEntity) = error("Not used")
+
+        override suspend fun insertAll(entities: List<StationPriceHistoryEntity>) = error("Not used")
+
+        override fun observeByStationIds(stationIds: List<String>): Flow<List<StationPriceHistoryEntity>> = error("Not used")
+
+        override fun observeByStationIdsAndFuelType(stationIds: List<String>, fuelType: String): Flow<List<StationPriceHistoryEntity>> =
+            flow {
+                observeSubscriptions++
+                if (observeSubscriptions == 1) emit(emptyList())
+                awaitCancellation()
+            }
+
+        override suspend fun keepLatestTenByStationAndFuelType(stationId: String, fuelType: String) = error("Not used")
     }
 
     private class MutableClock(private var current: Instant, private val zoneId: ZoneId = ZoneOffset.UTC) : Clock() {

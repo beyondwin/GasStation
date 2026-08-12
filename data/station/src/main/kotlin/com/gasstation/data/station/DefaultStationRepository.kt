@@ -64,27 +64,28 @@ class DefaultStationRepository @Inject constructor(
             }
 
             val fetchedAt = Instant.ofEpochMilli(snapshot.fetchedAtEpochMillis)
-            freshnessTicker.observe(fetchedAt).flatMapLatest { freshness ->
-                if (cachedStations.isEmpty()) {
-                    return@flatMapLatest flowOf(snapshotOnlyResult(fetchedAt, freshness))
+            if (cachedStations.isEmpty()) {
+                return@flatMapLatest freshnessTicker.observe(fetchedAt).map { freshness ->
+                    snapshotOnlyResult(fetchedAt, freshness)
                 }
+            }
 
-                val stationIds = cachedStations.map { it.stationId }.distinct()
-                combine(
-                    watchedStationDao.observeWatchedStationIds(),
-                    stationPriceHistoryDao.observeByStationIdsAndFuelType(
-                        stationIds = stationIds,
-                        fuelType = query.fuelType.name,
-                    ),
-                ) { watchedStationIds, historyRows ->
-                    cachedStations.toSearchResult(
-                        query = query,
-                        watchedStationIds = watchedStationIds.toSet(),
-                        historyRowsByStationId = historyRows.groupByStationId(),
-                        fetchedAt = fetchedAt,
-                        freshness = freshness,
-                    )
-                }
+            val stationIds = cachedStations.map { it.stationId }.distinct()
+            combine(
+                freshnessTicker.observe(fetchedAt),
+                watchedStationDao.observeWatchedStationIds(),
+                stationPriceHistoryDao.observeByStationIdsAndFuelType(
+                    stationIds = stationIds,
+                    fuelType = query.fuelType.name,
+                ),
+            ) { freshness, watchedStationIds, historyRows ->
+                cachedStations.toSearchResult(
+                    query = query,
+                    watchedStationIds = watchedStationIds.toSet(),
+                    historyRowsByStationId = historyRows.groupByStationId(),
+                    fetchedAt = fetchedAt,
+                    freshness = freshness,
+                )
             }
         }
     }
