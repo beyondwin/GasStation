@@ -7,5 +7,7 @@ sealed interface StationRefreshFailureReason {
 
     data object InvalidPayload : StationRefreshFailureReason
 
+    data class Http(val statusCode: Int) : StationRefreshFailureReason
+
     data object Unknown : StationRefreshFailureReason
 }

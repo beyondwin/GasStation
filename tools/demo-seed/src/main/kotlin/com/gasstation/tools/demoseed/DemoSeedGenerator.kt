@@ -128,8 +128,9 @@ private class SharedNetworkSeedStationFetcher(private val fetcher: NetworkStatio
                 )
             }
 
-            NetworkStationFetchResult.Failure -> error(
-                "Shared network fetcher failed for ${radius.name}/${fuelType.name}.",
+            is NetworkStationFetchResult.Failure -> throw IllegalStateException(
+                "Shared network fetcher failed for ${radius.name}/${fuelType.name}: ${result.reason}.",
+                result.cause,
             )
         }
 }

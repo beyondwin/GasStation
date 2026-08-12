@@ -48,6 +48,9 @@ class StationRetryPolicy @Inject constructor(private val stationEventLogger: Sta
         StationRefreshFailureReason.InvalidPayload,
         StationRefreshFailureReason.Unknown,
         -> false
+
+        is StationRefreshFailureReason.Http ->
+            statusCode == 408 || statusCode == 429 || statusCode in 500..599
     }
 
     companion object {

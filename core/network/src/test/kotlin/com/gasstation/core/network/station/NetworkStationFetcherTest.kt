@@ -4,14 +4,22 @@ import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.network.di.NetworkModule
+import com.gasstation.core.network.model.OpinetResponseDto
 import com.gasstation.core.network.model.OpinetStationDto
+import com.gasstation.core.network.service.OpinetService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.HttpException
+import java.io.IOException
+import java.io.InterruptedIOException
 
 class NetworkStationFetcherTest {
     @Test
@@ -234,9 +242,136 @@ class NetworkStationFetcherTest {
                 fuelType = FuelType.LPG,
             )
 
-            assertEquals(NetworkStationFetchResult.Failure, result)
+            assertEquals(
+                NetworkStationFetchResult.Failure(NetworkStationFailure.InvalidPayload),
+                result,
+            )
         } finally {
             opinetServer.shutdown()
         }
     }
+
+    @Test
+    fun `fetchStations classifies direct HTTP statuses and preserves the Retrofit cause`() = runBlocking {
+        listOf(408, 429, 500, 404).forEach { statusCode ->
+            val server = MockWebServer()
+            val response = MockResponse()
+                .setResponseCode(statusCode)
+                .addHeader("Content-Type", "application/json")
+                .setBody("""{"error":"status-$statusCode"}""")
+            server.enqueue(response)
+            if (statusCode == 408) server.enqueue(response)
+            server.start()
+
+            try {
+                val result = directFetcher(server).fetchStations(
+                    origin = TEST_ORIGIN,
+                    radius = SearchRadius.KM_3,
+                    fuelType = FuelType.GASOLINE,
+                )
+
+                val failure = result as NetworkStationFetchResult.Failure
+                assertEquals(NetworkStationFailure.Http(statusCode), failure.reason)
+                val cause = failure.cause as HttpException
+                assertEquals(statusCode, cause.code())
+            } finally {
+                server.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `fetchStations classifies malformed direct body and preserves the parsing cause`() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .addHeader("Content-Type", "application/json")
+                .setBody("not-json"),
+        )
+        server.start()
+
+        try {
+            val result = directFetcher(server).fetchStations(
+                origin = TEST_ORIGIN,
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            val failure = result as NetworkStationFetchResult.Failure
+            assertEquals(NetworkStationFailure.InvalidPayload, failure.reason)
+            assertTrue(failure.cause.hasJsonParsingCause())
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun `fetchStations classifies direct timeout network and unknown failures with the original cause`() = runBlocking {
+        val cases = listOf(
+            InterruptedIOException("slow") to NetworkStationFailure.Timeout,
+            IOException("offline") to NetworkStationFailure.Network,
+            IllegalStateException("unexpected") to NetworkStationFailure.Unknown,
+        )
+
+        cases.forEach { (expectedCause, expectedReason) ->
+            val result = NetworkStationFetcher(
+                opinetService = ThrowingOpinetService(expectedCause),
+                opinetApiKey = "opinet-key",
+            ).fetchStations(
+                origin = TEST_ORIGIN,
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+
+            val failure = result as NetworkStationFetchResult.Failure
+            assertEquals(expectedReason, failure.reason)
+            assertSame(expectedCause, failure.cause)
+        }
+    }
+
+    @Test
+    fun `fetchStations rethrows direct cancellation unchanged`() {
+        val cancellation = CancellationException("cancelled")
+        val fetcher = NetworkStationFetcher(
+            opinetService = ThrowingOpinetService(cancellation),
+            opinetApiKey = "opinet-key",
+        )
+
+        val thrown = assertThrows(CancellationException::class.java) {
+            runBlocking {
+                fetcher.fetchStations(
+                    origin = TEST_ORIGIN,
+                    radius = SearchRadius.KM_3,
+                    fuelType = FuelType.GASOLINE,
+                )
+            }
+        }
+
+        assertSame(cancellation, thrown)
+    }
+
+    private fun directFetcher(server: MockWebServer) = NetworkStationFetcher(
+        opinetService = NetworkModule.provideOpinetService(server.url("/").toString()),
+        opinetApiKey = "opinet-key",
+    )
+
+    private class ThrowingOpinetService(private val throwable: Throwable) : OpinetService {
+        override suspend fun findStations(
+            code: String,
+            x: Double,
+            y: Double,
+            radius: Int,
+            sort: String,
+            fuelType: String,
+            out: String,
+        ): OpinetResponseDto = throw throwable
+    }
+
+    private companion object {
+        val TEST_ORIGIN = Coordinates(latitude = 37.497927, longitude = 127.027583)
+    }
 }
+
+private fun Throwable?.hasJsonParsingCause(): Boolean = generateSequence(this) { it.cause }
+    .map { it::class.java.simpleName }
+    .any { it == "JsonSyntaxException" || it == "JsonParseException" || it == "MalformedJsonException" }

@@ -111,4 +111,18 @@ class DomainContractSurfaceTest {
             },
         )
     }
+
+    @Test
+    fun `station refresh failures expose HTTP status without transport types`() {
+        assertEquals(
+            setOf("Timeout", "Network", "InvalidPayload", "Http", "Unknown"),
+            StationRefreshFailureReason::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+        )
+        assertEquals(429, StationRefreshFailureReason.Http(429).statusCode)
+        assertTrue(
+            StationRefreshFailureReason::class.java.permittedSubclasses.none { subclass ->
+                subclass.declaredFields.any { field -> field.type.name.startsWith("retrofit2.") }
+            },
+        )
+    }
 }

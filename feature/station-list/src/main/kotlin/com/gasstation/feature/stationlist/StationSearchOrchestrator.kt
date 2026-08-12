@@ -161,6 +161,7 @@ private fun StationRefreshFailureReason?.toStationListFailureReason(): StationLi
 
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
+    is StationRefreshFailureReason.Http,
     StationRefreshFailureReason.Unknown,
     null,
     -> StationListFailureReason.RefreshFailed

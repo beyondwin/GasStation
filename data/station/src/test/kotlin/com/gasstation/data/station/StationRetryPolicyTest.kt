@@ -72,6 +72,27 @@ class StationRetryPolicyTest {
     }
 
     @Test
+    fun `http 408 retries once`() = runTest {
+        assertRetriesOnce(StationRefreshFailureReason.Http(408))
+    }
+
+    @Test
+    fun `http 429 retries once`() = runTest {
+        assertRetriesOnce(StationRefreshFailureReason.Http(429))
+    }
+
+    @Test
+    fun `http 500 and 599 retry once`() = runTest {
+        assertRetriesOnce(StationRefreshFailureReason.Http(500))
+        assertRetriesOnce(StationRefreshFailureReason.Http(599))
+    }
+
+    @Test
+    fun `http 404 does not retry`() = runTest {
+        assertDoesNotRetry(StationRefreshFailureReason.Http(404))
+    }
+
+    @Test
     fun `successful retry returns result when retry success logging fails`() = runTest {
         val throwingPolicy = StationRetryPolicy(stationEventLogger = ThrowingStationEventLogger())
         var callCount = 0
@@ -217,6 +238,36 @@ class StationRetryPolicyTest {
         }
 
         assertEquals(listOf(0L, 500L), attemptTimes)
+    }
+
+    private suspend fun assertRetriesOnce(reason: StationRefreshFailureReason) {
+        var callCount = 0
+
+        val result = policy.withRetry {
+            callCount += 1
+            if (callCount == 1) throw StationRefreshException(reason)
+            "ok"
+        }
+
+        assertEquals("ok", result)
+        assertEquals(2, callCount)
+        val event = assertIs<StationEvent.RetryAttempted>(logger.events.last())
+        assertEquals(reason, event.originalReason)
+        assertEquals(true, event.succeeded)
+    }
+
+    private suspend fun assertDoesNotRetry(reason: StationRefreshFailureReason) {
+        var callCount = 0
+
+        val exception = assertFailsWith<StationRefreshException> {
+            policy.withRetry {
+                callCount += 1
+                throw StationRefreshException(reason)
+            }
+        }
+
+        assertEquals(reason, exception.reason)
+        assertEquals(1, callCount)
     }
 }
 

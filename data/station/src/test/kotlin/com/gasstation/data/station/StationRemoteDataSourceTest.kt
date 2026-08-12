@@ -6,16 +6,14 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.core.network.station.NetworkRemoteStation
+import com.gasstation.core.network.station.NetworkStationFailure
 import com.gasstation.core.network.station.NetworkStationFetchResult
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationQuery
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertSame
 import org.junit.Test
-import java.io.InterruptedIOException
 import java.net.SocketTimeoutException
 
 class StationRemoteDataSourceTest {
@@ -56,57 +54,59 @@ class StationRemoteDataSourceTest {
     }
 
     @Test
-    fun `socket timeout maps to timeout failure`() = runBlocking {
+    fun `network timeout failure maps to domain timeout and preserves cause`() = runBlocking {
+        val cause = SocketTimeoutException("slow")
         val dataSource = DefaultStationRemoteDataSource(
-            stationNetworkSource = ThrowingStationNetworkSource(SocketTimeoutException("slow")),
+            stationNetworkSource = FakeStationNetworkSource(
+                NetworkStationFetchResult.Failure(
+                    reason = NetworkStationFailure.Timeout,
+                    cause = cause,
+                ),
+            ),
         )
         val result = dataSource.fetchStations(stationQuery())
 
-        assertTrue(result is RemoteStationFetchResult.Failure)
         val failure = result as RemoteStationFetchResult.Failure
         assertEquals(StationRefreshFailureReason.Timeout, failure.reason)
-        assertTrue(failure.cause is SocketTimeoutException)
+        assertSame(cause, failure.cause)
     }
 
     @Test
-    fun `interrupted io timeout maps to timeout failure`() = runBlocking {
-        val dataSource = DefaultStationRemoteDataSource(
-            stationNetworkSource = ThrowingStationNetworkSource(InterruptedIOException("call timeout")),
+    fun `every network failure maps to the matching domain reason and preserves cause`() = runBlocking {
+        val cases = listOf(
+            NetworkStationFailure.Network to StationRefreshFailureReason.Network,
+            NetworkStationFailure.InvalidPayload to StationRefreshFailureReason.InvalidPayload,
+            NetworkStationFailure.Http(429) to StationRefreshFailureReason.Http(429),
+            NetworkStationFailure.Unknown to StationRefreshFailureReason.Unknown,
         )
-        val result = dataSource.fetchStations(stationQuery())
 
-        assertTrue(result is RemoteStationFetchResult.Failure)
-        val failure = result as RemoteStationFetchResult.Failure
-        assertEquals(StationRefreshFailureReason.Timeout, failure.reason)
-        assertTrue(failure.cause is InterruptedIOException)
+        cases.forEach { (networkReason, domainReason) ->
+            val cause = IllegalStateException(networkReason.toString())
+            val dataSource = DefaultStationRemoteDataSource(
+                stationNetworkSource = FakeStationNetworkSource(
+                    NetworkStationFetchResult.Failure(networkReason, cause),
+                ),
+            )
+            val result = dataSource.fetchStations(stationQuery())
+
+            val failure = result as RemoteStationFetchResult.Failure
+            assertEquals(domainReason, failure.reason)
+            assertSame(cause, failure.cause)
+        }
     }
 
     @Test
-    fun `payload parsing failure maps to invalid payload`() = runBlocking {
+    fun `network failure without a cause maps without inventing one`() = runBlocking {
         val dataSource = DefaultStationRemoteDataSource(
-            stationNetworkSource = ThrowingStationNetworkSource(JsonSyntaxException("malformed json")),
+            stationNetworkSource = FakeStationNetworkSource(
+                NetworkStationFetchResult.Failure(NetworkStationFailure.InvalidPayload),
+            ),
         )
         val result = dataSource.fetchStations(stationQuery())
 
-        assertTrue(result is RemoteStationFetchResult.Failure)
         val failure = result as RemoteStationFetchResult.Failure
         assertEquals(StationRefreshFailureReason.InvalidPayload, failure.reason)
-        assertTrue(failure.cause is JsonSyntaxException)
-    }
-
-    @Test
-    fun `cancellation exception is rethrown`() {
-        runBlocking {
-            val dataSource = DefaultStationRemoteDataSource(
-                stationNetworkSource = ThrowingStationNetworkSource(CancellationException("cancelled")),
-            )
-
-            assertThrows(CancellationException::class.java) {
-                runBlocking {
-                    dataSource.fetchStations(stationQuery())
-                }
-            }
-        }
+        assertEquals(null, failure.cause)
     }
 
     private fun stationQuery() = StationQuery(
@@ -122,12 +122,4 @@ class StationRemoteDataSourceTest {
         override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult =
             result
     }
-
-    private class ThrowingStationNetworkSource(private val throwable: Throwable) :
-        com.gasstation.core.network.station.StationNetworkSource {
-        override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): NetworkStationFetchResult =
-            throw throwable
-    }
-
-    private class JsonSyntaxException(message: String) : RuntimeException(message)
 }

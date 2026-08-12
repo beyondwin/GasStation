@@ -513,6 +513,7 @@ private fun StationRefreshFailureReason?.refreshFailureResource(): StringResourc
 
     StationRefreshFailureReason.Network,
     StationRefreshFailureReason.InvalidPayload,
+    is StationRefreshFailureReason.Http,
     StationRefreshFailureReason.Unknown,
     null,
     -> StringResource.fromId(R.string.station_list_refresh_failed)
