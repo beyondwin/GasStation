@@ -32,6 +32,8 @@ import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -153,6 +155,7 @@ internal suspend fun handleAndAcknowledgeStationListCommand(
     acknowledge: (Long) -> Unit,
 ) {
     handle(command.payload)
+    currentCoroutineContext().ensureActive()
     acknowledge(command.id)
 }
 

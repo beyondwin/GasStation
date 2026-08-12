@@ -2,6 +2,9 @@ package com.gasstation.feature.stationlist
 
 import com.gasstation.core.designsystem.string.StringResource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -57,6 +60,27 @@ class StationListCommandHandlerTest {
         }.exceptionOrNull()
 
         assertSame(expected, actual)
+        assertTrue(acknowledgements.isEmpty())
+    }
+
+    @Test
+    fun `cancellation recorded before normal handler return is propagated and not acknowledged`() = runTest {
+        val expected = CancellationException("cancelled after side effect")
+        val acknowledgements = mutableListOf<Long>()
+
+        val attempt = async {
+            handleAndAcknowledgeStationListCommand(
+                command = command(id = 44L),
+                handle = {
+                    currentCoroutineContext().cancel(expected)
+                },
+                acknowledge = acknowledgements::add,
+            )
+        }
+        val actual = runCatching { attempt.await() }.exceptionOrNull()
+
+        assertTrue(actual is CancellationException)
+        assertEquals(expected.message, actual?.message)
         assertTrue(acknowledgements.isEmpty())
     }
 
