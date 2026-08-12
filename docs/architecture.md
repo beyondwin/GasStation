@@ -75,7 +75,7 @@ flowchart LR
 | 모듈 | 책임 |
 | --- | --- |
 | `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, first-content startup reporting bridge, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결, flavor별 `CrashReporter` 구현(NoOp/Logcat) Hilt 바인딩 |
-| `feature:station-list` | 권한/GPS/위치/새로고침을 포함한 목록 화면 상태와 effect 처리 |
+| `feature:station-list` | 권한/GPS/위치/새로고침 workflow, 검색 관찰 상태, 승인형 UI command를 포함한 목록 화면 처리 |
 | `feature:settings` | 설정 요약 목록과 상세 선택 화면 렌더링, 같은 `SettingsViewModel` 공유 |
 | `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability 유스케이스 |
@@ -125,12 +125,12 @@ Launcher, themed monochrome, splash는 `ic_brand_drop`의 같은 refined-droplet
 
 1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
 2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다. 앱 진입은 Android permission dialog를 열지 않습니다. 권한 안내 CTA만 permission request를 시작하며, terminal denial이 두 번 이상이고 rationale을 더 보여 줄 수 없으면 같은 CTA가 앱 설정 화면을 엽니다.
-3. ViewModel은 `LocationStateMachine`을 통해 `ObserveLocationAvailabilityUseCase`와 새로고침 시점의 `GetCurrentLocationUseCase`를 다루고, 별도로 `ObserveUserPreferencesUseCase`를 구독합니다. DataStore의 첫 선호값 emission이 readiness 경계이므로 Nearby는 그 전 `UserPreferences.default()`를 렌더링하거나 action에 쓰지 않습니다.
+3. ViewModel은 ViewModel-scoped `LocationStateMachine`으로 `ObserveLocationAvailabilityUseCase`를 다루고, 같은 machine을 공유하는 ViewModel-scoped `RefreshCoordinator`가 새로고침 시점의 `GetCurrentLocationUseCase`를 호출합니다. ViewModel은 별도로 `ObserveUserPreferencesUseCase`를 구독하며, DataStore의 첫 선호값 emission이 readiness 경계이므로 Nearby는 그 전 `UserPreferences.default()`를 렌더링하거나 action에 쓰지 않습니다.
 4. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `GetCurrentAddressUseCase` 주소 라벨 조회는 non-blocking 표시용 context로 뒤따릅니다. `core:location`은 Android 주소 후보를 `domain:location` 정규화 함수로 변환하고, `LocationStateMachine`은 정규화된 라벨을 표시용으로 저장합니다.
-5. `StationListViewModel`은 permission, GPS, 현재 좌표, loaded preferences가 모두 준비된 경우에만 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 active `StationQuery`를 만듭니다. denied permission은 body state에서 가장 먼저 평가되어 demo override, retained coordinate, cache result, auto/manual refresh보다 우선합니다. GPS 비활성화는 permission과 별도 body state와 location-settings CTA를 사용합니다. `StationSearchOrchestrator`는 usable location으로 만든 query만 관찰하고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
-6. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 ViewModel은 active query를 새 조건으로 전환하고 `RefreshNearbyStationsUseCase`를 호출합니다. 브랜드 필터와 정렬은 캐시 키에는 없지만, 화면은 새 조건으로 즉시 읽기 모델을 다시 만들고 원격 성공 시 같은 버킷 스냅샷을 최신 데이터로 교체합니다.
+5. `StationListViewModel`은 permission, known/enabled GPS, 현재 좌표, loaded preferences가 모두 준비된 경우에만 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 eligible `StationQuery`를 만듭니다. denied permission은 body state에서 가장 먼저 평가되어 demo override, retained coordinate, cache result, auto/manual refresh보다 우선합니다. GPS 비활성화는 permission과 별도 body state와 location-settings command를 사용합니다. `StationSearchOrchestrator`는 usable location으로 만든 query만 관찰하고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
+6. 쓰기 work는 `LocationStateMachine -> RefreshCoordinator -> RefreshNearbyStationsUseCase` 경로를 따릅니다. coordinator는 한 개의 opaque active-work identity와 job만 유지하고, 위치 획득 뒤와 refresh 결과 전달 전에 latest eligible query를 재검증합니다. `RefreshStarting(query)`를 inline callback으로 먼저 전달해 `StationSearchOrchestrator.ensureActiveQuery(query)`가 즉시 활성화되므로 빠른 fake/실패도 새 query에 귀속됩니다. 읽기 관찰은 별도로 `StationSearchOrchestrator -> ObserveNearbyStationsUseCase` 경로를 유지합니다.
 7. `DefaultStationRepository.observeNearbyStations()`는 atomic Room bucket snapshot 아래에서 freshness ticker, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다. marker/row 원자성, 시간 경계, latest refresh persistence의 상세 정책은 [오프라인 전략](offline-strategy.md)이 소유합니다.
-8. ViewModel은 loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합을 맡고, UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 effect를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
+8. `RefreshCoordinator.state`가 loading/refreshing을 소유하고, ViewModel은 사용자 action dispatch, coordinator 결과를 orchestrator/analytics/FIFO command로 번역, 최종 `StationListUiState` 조합을 맡습니다. UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 command를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
 
 첫 usable content가 렌더링되면 `feature:station-list`가 순수 policy로 이 상태를 판단하고, `app`의 Compose host가 그 신호를 받아 `reportFullyDrawn()`을 한 번 호출합니다. 이 연결은 startup metric 보고용이며, 검색 정책이나 cache/stale 판단은 계속 feature/data/domain 경계에 남습니다.
 

@@ -10,10 +10,11 @@
 | 목록 위치 상태 | `LocationStateMachine` | `StationListViewModel` 생존 동안만 유지 | 권한, GPS availability, 현재 좌표, 주소 라벨, recovery refresh flag |
 | navigation 좌표 payload | `GasStationNavHost` | app navigation graph 생존 동안 유지 | 관심 tab 활성화와 watchlist 거리 기준 route |
 | 목록 검색 상태 | `StationSearchOrchestrator` | `StationListViewModel` 생존 동안만 유지 | active query, cache snapshot state, observed search result, pending blocking refresh failure |
-| 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |
+| 목록 refresh 상태 | `RefreshCoordinator` | `StationListViewModel` 생존 동안만 유지 | 단일 in-flight refresh work, work identity, loading/refreshing flag, active refresh query |
+| 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | 사용자 action dispatch, collaborator 결과 routing, 최종 `StationListUiState` 조합 |
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
 | 설정 화면 파생 상태 | `SettingsUiState` | `UserPreferences`로부터 항상 재생성 가능 | 요약 라벨과 선택 옵션 |
-| 단발성 UI effect | `StationListEffect` | 한 번 소비하고 버림 | snackbar, 위치 설정 열기, 외부 지도 열기 |
+| 승인 대기 UI command | `StationListCommandQueue` | `StationListViewModel` 생존 동안만 유지 | snackbar, 위치 설정 열기, 외부 지도 열기를 FIFO로 보관하고 exact-head ID로 승인 |
 | 구조화 이벤트 | `StationEvent` | 영속 상태가 아니라 관찰/진단용 로그 | `domain:station` 계약으로 watch toggle, refresh/location 실패, retry 결과 같은 앱 이벤트 표현 |
 | 비치명 예외 보고 | `CrashReporter` | 영속 상태가 아니라 관찰/진단용 로그 | `core:observability` 계약으로 예상하지 못한 nonfatal exception 보고 |
 
@@ -43,11 +44,12 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 
 ## 2. 목록 런타임 상태
 
-목록 화면의 런타임 상태는 단일 세션 객체가 아니라 세 책임으로 나뉩니다.
+목록 화면의 런타임 상태는 단일 세션 객체가 아니라 네 책임으로 나뉩니다.
 
 - `LocationStateMachine`: permission, GPS availability, current coordinates, address label, recovery refresh flag를 소유합니다.
 - `StationSearchOrchestrator`: active query, cache snapshot state, observed search result, pending blocking refresh failure를 소유합니다.
-- `StationListViewModel`: loading flag, 사용자 action dispatch, one-shot effect, 최종 `StationListUiState` composition을 소유합니다.
+- `RefreshCoordinator`: 위치 획득에서 최신 eligible query 검증, 단일 refresh job/work identity, loading/refreshing 상태, `RefreshNearbyStationsUseCase` 호출을 소유합니다.
+- `StationListViewModel`: 사용자 action dispatch, coordinator 결과를 검색 상태·analytics·command로 번역, 최종 `StationListUiState` composition을 소유합니다.
 
 이 값들은 저장되지 않습니다. 화면을 떠나면 사라지고, 앱 재시작 후 복원 대상도 아닙니다.
 
@@ -58,7 +60,7 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 - 주소 라벨 조회는 표시용 context입니다. 주소 라벨 resolution은 non-blocking이어야 하며 주유소 refresh를 지연시키지 않습니다. API 33 이상 지오코더 callback 오류는 주소 조회 `Error`, 빈 성공 결과는 `Unavailable`로만 들어오고 cancellation은 상태로 저장하지 않고 전파합니다.
 - `demo`와 `prod`는 같은 permission state machine을 통과합니다. denied는 먼저 `currentCoordinates`, address label, recovery refresh flag를 비우고 permission guidance를 body state의 최우선으로 만듭니다. 따라서 demo override, retained coordinate, cached station list, auto/manual refresh가 denial을 우회하지 않습니다.
 - `demo`에서는 `DemoLocationOverride`가 availability를 사용 가능으로 만들되, approximate 또는 precise grant 뒤에만 고정 좌표를 공급합니다. `prod`에서는 같은 repository 경계가 Android provider 결과를 `LocationLookupResult`로 변환하므로, ViewModel이 success, timeout, unavailable, permission denied, error를 구분해 처리합니다.
-- GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다. GPS 비활성화는 permission denial과 다른 상태입니다. permission이 granted일 때만 GPS 안내가 location settings effect를 열고, denied 상태의 새로고침은 permission guidance/snackbar를 유지합니다.
+- GPS 상태는 resume 시점 단발 확인이 아니라 availability flow를 통해 화면이 foreground인 동안 계속 반영됩니다. GPS 비활성화는 permission denial과 다른 상태입니다. permission이 granted일 때만 GPS 안내가 location settings command를 열고, denied 상태의 새로고침은 permission guidance/snackbar를 유지합니다.
 - 권한 dialog는 explicit-action 전용입니다. `StationListRoute`는 입장 시 자동 요청하지 않고 안내 CTA에서만 요청합니다. 같은 route 세션에서 terminal denial이 반복되면 CTA는 Android app settings로 전환됩니다. 이 request-count UI 정책은 cold launch나 프로세스 재시작을 넘어 영속되는 marker가 아닙니다.
 
 ## 3. 저장소 읽기 모델
@@ -67,9 +69,10 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 
 - `UserPreferences`
 - `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
+- `RefreshCoordinator`가 소유한 refresh work와 indicator 상태
 - `StationSearchResult`
 
-Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. permission이 denied로 바뀌면 cached `StationSearchResult`가 남아 있어도 permission guidance가 먼저 렌더링되고, 좌표 없는 자동/수동 refresh는 시작하지 않습니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `StationListViewModel`은 이전 query와 다음 query를 비교해 새 조건으로 refresh를 요청합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
+Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. permission이 denied로 바뀌면 cached `StationSearchResult`가 남아 있어도 permission guidance가 먼저 렌더링되고, 좌표 없는 자동/수동 refresh는 시작하지 않습니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `RefreshCoordinator.requiresRefresh`가 새 조건 refresh 필요 여부를 판단합니다. coordinator는 위치 획득 뒤와 원격 결과 전달 직전에 현재 preferences와 위치로 만든 latest eligible query를 다시 확인하며, superseded/cancelled work는 analytics·blocking failure·command 없이 종료합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
 목록 좌표는 app에 navigation payload로도 전달됩니다. 이는 watchlist의 거리 기준과 관심 tab 활성화에만 쓰이며, 검색 정책이나 위치 세션의 소유권을 app으로 옮기지 않습니다. 좌표가 바뀌면 이전 concrete watchlist route를 제거해 restore가 stale 좌표를 재사용하지 않게 합니다.
 
@@ -127,15 +130,15 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 
 즉 설정 화면은 "영속 상태를 편집하는 얇은 UI 계층"에 가깝습니다.
 
-## 7. 단발성 UI effect
+## 7. 승인 대기 UI command
 
-영속 상태나 세션 상태로 저장하지 않는 반응도 있습니다.
+프로세스 재시작 이후 복원하지 않지만 route collector가 잠시 없어도 잃으면 안 되는 반응은 ViewModel-lifetime FIFO queue에 둡니다.
 
-- `StationListEffect.ShowSnackbar(message: StringResource)` — i18n을 위해 `String`이 아닌 `StringResource`를 보유. Compose 레이어에서 `message.resolve(context)`로 표시.
-- `StationListEffect.OpenLocationSettings`
-- `StationListEffect.OpenExternalMap`
+- `StationListCommandPayload.ShowSnackbar(message: StringResource)` — i18n을 위해 `String`이 아닌 `StringResource`를 보유. Compose 레이어에서 `message.resolve(context)`로 표시.
+- `StationListCommandPayload.OpenLocationSettings`
+- `StationListCommandPayload.OpenExternalMap`
 
-이 값들은 복원 대상이 아니라 즉시 소비 대상입니다. 화면 재구성 후 그대로 남겨 두면 중복 실행되므로 `SharedFlow`로 분리합니다. 외부 지도 effect가 전달되면 app은 현재 `mapProvider`로 명시적 package route를 시도하고 app route -> Play Store app URI -> HTTPS Store 순으로 fallback합니다. 모든 경로가 실패한 결과는 feature callback의 `false`로 돌아와 snackbar feedback을 냅니다.
+`StationListCommandQueue`는 command를 ID 순 FIFO로 보관하고 route가 현재 head를 정상 처리한 뒤 exact ID를 승인할 때만 제거합니다. 처리 중 cancellation이나 예외는 head를 남겨 다음 START/재부착에서 재시도하므로 외부 side effect는 at-least-once 경계입니다. queue는 `SavedStateHandle`이나 영속 저장소에 기록하지 않으므로 process-death 복원은 보장하지 않습니다. 외부 지도 command가 전달되면 app은 현재 `mapProvider`로 명시적 package route를 시도하고 app route -> Play Store app URI -> HTTPS Store 순으로 fallback합니다. 모든 경로가 실패한 결과는 feature callback의 `false`로 돌아와 snackbar feedback을 냅니다.
 
 ## 8. 구조화 이벤트
 
@@ -155,8 +158,9 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 - 오래 유지되는 사용자 선택: `UserPreferences`
 - 실행 중 위치 환경: `LocationStateMachine`
 - 실행 중 검색/cache/failure 판단: `StationSearchOrchestrator`
-- 목록 화면 action/effect/UI 조합: `StationListViewModel`
+- 실행 중 단일 위치-새로고침 work: `RefreshCoordinator`
+- 목록 화면 action/result routing/UI 조합: `StationListViewModel`
 - 화면에 그릴 데이터 조합: `StationSearchResult`, `WatchedStationSummary`
 - 설정 화면 라벨과 옵션: `SettingsUiState`
-- 한 번만 소비할 반응: `StationListEffect`
+- 승인 뒤 제거할 FIFO 반응: `StationListCommandQueue`, `StationListCommandPayload`
 - 복원하지 않는 관찰 이벤트: `StationEvent`

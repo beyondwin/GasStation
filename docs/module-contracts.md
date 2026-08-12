@@ -16,7 +16,7 @@
 | 모듈 | 소유 범위 | 직접 의존 | 이 모듈에 두지 말 것 |
 | --- | --- | --- | --- |
 | `app` | Hilt 조립, startup hook, navigation, flavor 연결, 외부 앱 handoff, network endpoint 모드 선택(`AppConfigModule` via `BuildConfig.STATION_ENDPOINT_MODE`/`PROXY_BASE_URL`), `StationEventLogger` 구현 연결, flavor별 `CrashReporter` 구현/Hilt 바인딩 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
-| `feature:station-list` | 목록 화면 상태, 새로고침/권한/GPS 흐름, 정규화된 주소 라벨 표시/저장, effect | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출 |
+| `feature:station-list` | `LocationStateMachine` 위치 상태, `RefreshCoordinator` 단일 refresh work, `StationSearchOrchestrator` 검색 관찰/cache 판단, 정규화된 주소 표시, 승인형 FIFO UI command, 최종 목록 화면 상태 | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출, data retry/cache policy 복제 |
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `domain:settings`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |

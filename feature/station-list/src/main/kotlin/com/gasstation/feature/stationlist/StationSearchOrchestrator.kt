@@ -1,12 +1,10 @@
 package com.gasstation.feature.stationlist
 
-import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.model.StationFreshness
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
-import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -23,10 +21,7 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class StationSearchOrchestrator @Inject constructor(
-    private val observeNearbyStations: ObserveNearbyStationsUseCase,
-    private val refreshNearbyStations: RefreshNearbyStationsUseCase,
-) {
+class StationSearchOrchestrator @Inject constructor(private val observeNearbyStations: ObserveNearbyStationsUseCase) {
     private val mutableActiveQueryState = MutableStateFlow(ActiveStationQueryState())
     private val mutableSearchResult = MutableStateFlow(emptySearchResult())
     private val mutableBlockingFailure = MutableStateFlow<StationListFailureReason?>(null)
@@ -78,20 +73,17 @@ class StationSearchOrchestrator @Inject constructor(
         }
     }
 
-    suspend fun refresh(query: StationQuery): RefreshOutcome {
-        if (activeQueryState.value.query != query) {
-            onQueryChanged(query)
+    fun ensureActiveQuery(query: StationQuery) {
+        synchronized(observationLock) {
+            if (mutableActiveQueryState.value.query == query) return
+            onQueryChangedLocked(query)
         }
-        return try {
-            refreshNearbyStations(query)
-            if (activeQueryState.value.query == query) {
-                clearBlockingFailure()
-            }
-            RefreshOutcome.Success
-        } catch (cancellationException: CancellationException) {
-            throw cancellationException
-        } catch (throwable: Throwable) {
-            RefreshOutcome.Failed((throwable as? StationRefreshException)?.reason)
+    }
+
+    fun onRefreshSucceeded(query: StationQuery) {
+        synchronized(observationLock) {
+            if (mutableActiveQueryState.value.query != query) return
+            clearBlockingFailureLocked()
         }
     }
 
@@ -107,7 +99,7 @@ class StationSearchOrchestrator @Inject constructor(
             if (query != null && activeQueryState.value.query != query) return
 
             when (activeQueryState.value.cacheState) {
-                CachedSnapshotState.Present -> clearBlockingFailure()
+                CachedSnapshotState.Present -> clearBlockingFailureLocked()
 
                 CachedSnapshotState.Absent -> {
                     pendingBlockingFailure.value = null
@@ -123,35 +115,33 @@ class StationSearchOrchestrator @Inject constructor(
 
     fun clearBlockingFailure() {
         synchronized(observationLock) {
-            pendingBlockingFailure.value = null
-            mutableBlockingFailure.value = null
+            clearBlockingFailureLocked()
         }
     }
 
-    fun shouldRefreshForCriteriaChange(previous: StationQuery?, next: StationQuery?): Boolean = previous != null &&
-        next != null &&
-        previous.coordinates == next.coordinates &&
-        (
-            previous.radius != next.radius ||
-                previous.fuelType != next.fuelType ||
-                previous.brandFilter != next.brandFilter ||
-                previous.sortOrder != next.sortOrder
-            )
-
     private fun onQueryChanged(query: StationQuery?) {
         synchronized(observationLock) {
-            val previousQuery = activeQueryState.value.query
-            mutableActiveQueryState.value = ActiveStationQueryState(
-                query = query,
-                cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
-            )
-            if (previousQuery != query) {
-                activeObservationSession = null
-                mutableSearchResult.value = emptySearchResult()
-                mutableObservationFailed.value = false
-                clearBlockingFailure()
-            }
+            onQueryChangedLocked(query)
         }
+    }
+
+    private fun onQueryChangedLocked(query: StationQuery?) {
+        val previousQuery = mutableActiveQueryState.value.query
+        mutableActiveQueryState.value = ActiveStationQueryState(
+            query = query,
+            cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
+        )
+        if (previousQuery != query) {
+            activeObservationSession = null
+            mutableSearchResult.value = emptySearchResult()
+            mutableObservationFailed.value = false
+            clearBlockingFailureLocked()
+        }
+    }
+
+    private fun clearBlockingFailureLocked() {
+        pendingBlockingFailure.value = null
+        mutableBlockingFailure.value = null
     }
 
     private fun onObservationSessionStarted(session: ObservationSession) {
@@ -194,7 +184,7 @@ class StationSearchOrchestrator @Inject constructor(
 
     private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
         if (hasCachedSnapshot) {
-            clearBlockingFailure()
+            clearBlockingFailureLocked()
             return
         }
 
@@ -217,11 +207,6 @@ enum class CachedSnapshotState {
     Unknown,
     Present,
     Absent,
-}
-
-sealed interface RefreshOutcome {
-    data object Success : RefreshOutcome
-    data class Failed(val reason: StationRefreshFailureReason?) : RefreshOutcome
 }
 
 private fun StationRefreshFailureReason?.toStationListFailureReason(): StationListFailureReason = when (this) {

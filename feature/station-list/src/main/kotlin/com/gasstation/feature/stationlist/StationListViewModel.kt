@@ -50,15 +50,14 @@ class StationListViewModel @Inject internal constructor(
     private val updateFuelType: UpdateFuelTypeUseCase,
     private val updateBrandFilter: UpdateBrandFilterUseCase,
     private val locationStateMachine: LocationStateMachine,
+    private val refreshCoordinator: RefreshCoordinator,
     private val stationEventLogger: StationEventLogger,
     private val commandQueue: StationListCommandQueue,
 ) : ViewModel() {
     private val preferenceState = MutableStateFlow<PreferenceLoadState>(PreferenceLoadState.Loading)
     private var preferenceObservationJob: Job? = null
-    private var activeRefreshJob: Job? = null
-    private var refreshWorkId: Long = 0
     private val preferenceWriteInFlight = AtomicBoolean(false)
-    private val transientState = MutableStateFlow(StationListTransientState())
+    private val preferenceMutationState = MutableStateFlow(StationListPreferenceMutationState())
     private val mutableUiState = MutableStateFlow(StationListUiState())
 
     val uiState = mutableUiState.asStateFlow()
@@ -94,9 +93,9 @@ class StationListViewModel @Inject internal constructor(
         }.distinctUntilChanged()
             .onEach { query ->
                 if (query == null) {
-                    cancelActiveRefresh()
-                } else if (searchOrchestrator.shouldRefreshForCriteriaChange(previousQuery, query)) {
-                    refreshActiveQuery(query)
+                    refreshCoordinator.cancel()
+                } else if (refreshCoordinator.requiresRefresh(previousQuery, query)) {
+                    requestRefresh(RefreshRequest.ActiveQuery(query))
                 }
                 previousQuery = query
             }
@@ -123,13 +122,13 @@ class StationListViewModel @Inject internal constructor(
         .distinctUntilChanged()
 
     private fun bindUiState(searchUiProjection: Flow<StationListSearchUiProjection>) {
-        val stateWithoutCommands = combine(
+        val stateWithoutFailure = combine(
             preferenceState,
             locationStateMachine.state,
-            transientState,
+            preferenceMutationState,
+            refreshCoordinator.state,
             searchUiProjection,
-            searchOrchestrator.blockingFailure,
-        ) { currentPreferenceState, location, transient, resultProjection, blockingFailure ->
+        ) { currentPreferenceState, location, preferenceMutation, refresh, resultProjection ->
             val readyPreferences =
                 (currentPreferenceState as? PreferenceLoadState.Ready)?.preferences
             StationListUiState(
@@ -140,17 +139,22 @@ class StationListViewModel @Inject internal constructor(
                 isGpsEnabled = location.isGpsEnabled,
                 isAvailabilityKnown = location.isAvailabilityKnown,
                 isLoading =
-                transient.isLoading ||
+                refresh.isLoading ||
                     currentPreferenceState is PreferenceLoadState.Loading,
-                isRefreshing = transient.isRefreshing,
+                isRefreshing = refresh.isRefreshing,
                 isStale = resultProjection.freshness is StationFreshness.Stale,
-                blockingFailure = blockingFailure,
                 stations = resultProjection.stations,
                 preferences = readyPreferences,
                 preferenceLoadFailed = currentPreferenceState is PreferenceLoadState.Failed,
-                pendingPreferenceWrite = transient.pendingPreferenceWrite,
+                pendingPreferenceWrite = preferenceMutation.pendingPreferenceWrite,
                 lastUpdatedAt = resultProjection.fetchedAt,
             )
+        }
+        val stateWithoutCommands = combine(
+            stateWithoutFailure,
+            searchOrchestrator.blockingFailure,
+        ) { state, blockingFailure ->
+            state.copy(blockingFailure = blockingFailure)
         }
         combine(stateWithoutCommands, commandQueue.commands) { state, commands ->
             state.copy(pendingCommands = commands)
@@ -171,6 +175,8 @@ class StationListViewModel @Inject internal constructor(
             StationListAction.RetryClicked -> {
                 if (preferenceState.value is PreferenceLoadState.Failed) {
                     observePreferences()
+                } else if (searchOrchestrator.observationFailed.value) {
+                    searchOrchestrator.retryObservation()
                 } else {
                     refresh(showPermissionDeniedFeedback = true)
                 }
@@ -200,14 +206,14 @@ class StationListViewModel @Inject internal constructor(
             is StationListAction.PermissionChanged -> {
                 locationStateMachine.onPermissionChanged(action.permissionState)
                 if (action.permissionState == LocationPermissionState.Denied) {
-                    cancelActiveRefresh()
+                    refreshCoordinator.cancel()
                 }
             }
 
             is StationListAction.GpsAvailabilityChanged -> {
                 locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
                 if (!action.isEnabled) {
-                    cancelActiveRefresh()
+                    refreshCoordinator.cancel()
                 }
             }
 
@@ -248,75 +254,80 @@ class StationListViewModel @Inject internal constructor(
     }
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
-        launchRefreshWork {
-            val location = locationStateMachine.state.value
-            if (location.permissionState == LocationPermissionState.Denied) {
-                if (showPermissionDeniedFeedback) {
+        if (readyPreferencesOrNull() == null) return
+        requestRefresh(
+            RefreshRequest.AcquireLocation(
+                showPermissionDeniedFeedback = showPermissionDeniedFeedback,
+            ),
+        )
+    }
+
+    private fun readyPreferencesOrNull(): UserPreferences? = (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
+
+    private fun latestEligibleQuery(): StationQuery? {
+        val preferences = readyPreferencesOrNull() ?: return null
+        val coordinates = locationStateMachine.state.value.usableCoordinates() ?: return null
+        return buildQuery(preferences, coordinates)
+    }
+
+    private fun requestRefresh(request: RefreshRequest) {
+        refreshCoordinator.request(
+            scope = viewModelScope,
+            request = request,
+            latestEligibleQuery = ::latestEligibleQuery,
+            onResult = ::onRefreshResult,
+        )
+    }
+
+    private fun onRefreshResult(result: RefreshCoordinatorResult) {
+        when (result) {
+            is RefreshCoordinatorResult.PermissionRequired -> {
+                if (result.showFeedback) {
                     commandQueue.enqueue(
                         StationListCommandPayload.ShowSnackbar(
                             StringResource.fromId(R.string.station_list_permission_denied),
                         ),
                     )
                 }
-                return@launchRefreshWork
-            }
-            if (readyPreferencesOrNull() == null) return@launchRefreshWork
-            if (!location.isGpsEnabled) {
-                commandQueue.enqueue(StationListCommandPayload.OpenLocationSettings)
-                return@launchRefreshWork
             }
 
-            transientState.update {
-                it.copy(
-                    isLoading = location.currentCoordinates == null,
-                    isRefreshing = true,
+            RefreshCoordinatorResult.GpsDisabled -> {
+                commandQueue.enqueue(StationListCommandPayload.OpenLocationSettings)
+            }
+
+            is RefreshCoordinatorResult.LocationAcquired -> {
+                searchOrchestrator.clearBlockingFailure()
+                viewModelScope.launch {
+                    locationStateMachine.resolveAddressLabel(result.coordinates)
+                }
+            }
+
+            is RefreshCoordinatorResult.LocationAcquisitionFailed -> handleLocationFailure(
+                result = result.result,
+                showPermissionDeniedFeedback = result.showPermissionDeniedFeedback,
+            )
+
+            is RefreshCoordinatorResult.RefreshStarting -> searchOrchestrator.ensureActiveQuery(result.query)
+
+            is RefreshCoordinatorResult.RefreshSucceeded -> searchOrchestrator.onRefreshSucceeded(result.query)
+
+            is RefreshCoordinatorResult.RefreshFailed -> {
+                result.reason?.let { reason ->
+                    stationEventLogger.logSafely(StationEvent.RefreshFailed(reason = reason))
+                }
+                searchOrchestrator.onRefreshFailure(query = result.query, reason = result.reason)
+                commandQueue.enqueue(
+                    StationListCommandPayload.ShowSnackbar(result.reason.refreshFailureResource()),
                 )
             }
-
-            val coordinates = handleLocationResult(
-                locationStateMachine.acquireLocation(),
-                showPermissionDeniedFeedback = showPermissionDeniedFeedback,
-            ) ?: return@launchRefreshWork
-            if (!locationStateMachine.state.value.hasEligibleCoordinates(coordinates)) {
-                return@launchRefreshWork
-            }
-
-            refreshAddressLabel(coordinates)
-
-            val preferences = readyPreferencesOrNull() ?: return@launchRefreshWork
-            val query = buildQuery(preferences, coordinates)
-            if (!isRefreshQueryEligible(query)) {
-                return@launchRefreshWork
-            }
-            when (val outcome = searchOrchestrator.refresh(query)) {
-                RefreshOutcome.Success -> Unit
-                is RefreshOutcome.Failed -> handleRefreshFailure(query, outcome.reason)
-            }
         }
     }
 
-    private fun readyPreferencesOrNull(): UserPreferences? = (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
-
-    private fun isRefreshQueryEligible(query: StationQuery): Boolean {
-        val latestPreferences = readyPreferencesOrNull() ?: return false
-        return locationStateMachine.state.value.hasEligibleCoordinates(query.coordinates) &&
-            buildQuery(latestPreferences, query.coordinates) == query
-    }
-
-    private fun refreshAddressLabel(coordinates: Coordinates) {
-        viewModelScope.launch {
-            locationStateMachine.resolveAddressLabel(coordinates)
-        }
-    }
-
-    private suspend fun handleLocationResult(result: LocationAcquisitionResult, showPermissionDeniedFeedback: Boolean): Coordinates? =
+    private fun handleLocationFailure(result: LocationAcquisitionResult, showPermissionDeniedFeedback: Boolean) {
         when (result) {
-            is LocationAcquisitionResult.Success -> {
-                searchOrchestrator.clearBlockingFailure()
-                result.coordinates
-            }
-
-            LocationAcquisitionResult.Superseded -> null
+            is LocationAcquisitionResult.Success,
+            LocationAcquisitionResult.Superseded,
+            -> Unit
 
             LocationAcquisitionResult.PermissionDenied -> {
                 logLocationFailure(result)
@@ -327,7 +338,6 @@ class StationListViewModel @Inject internal constructor(
                         ),
                     )
                 }
-                null
             }
 
             LocationAcquisitionResult.TimedOut -> {
@@ -336,7 +346,6 @@ class StationListViewModel @Inject internal constructor(
                     reason = StationListFailureReason.LocationTimedOut,
                     message = StringResource.fromId(R.string.station_list_location_timeout),
                 )
-                null
             }
 
             LocationAcquisitionResult.Unavailable,
@@ -347,21 +356,11 @@ class StationListViewModel @Inject internal constructor(
                     reason = StationListFailureReason.LocationFailed,
                     message = StringResource.fromId(R.string.station_list_location_failed),
                 )
-                null
             }
         }
-
-    private suspend fun handleRefreshFailure(query: StationQuery, reason: StationRefreshFailureReason?) {
-        if (searchOrchestrator.activeQueryState.value.query != query) return
-
-        reason?.let {
-            stationEventLogger.logSafely(StationEvent.RefreshFailed(reason = it))
-        }
-        searchOrchestrator.onRefreshFailure(query = query, reason = reason)
-        commandQueue.enqueue(StationListCommandPayload.ShowSnackbar(reason.refreshFailureResource()))
     }
 
-    private suspend fun onBlockingFailure(reason: StationListFailureReason, message: StringResource) {
+    private fun onBlockingFailure(reason: StationListFailureReason, message: StringResource) {
         searchOrchestrator.onBlockingFailure(reason = reason)
         commandQueue.enqueue(StationListCommandPayload.ShowSnackbar(message))
     }
@@ -372,65 +371,10 @@ class StationListViewModel @Inject internal constructor(
         }
     }
 
-    private fun refreshActiveQuery(query: StationQuery) {
-        launchRefreshWork {
-            if (!locationStateMachine.state.value.hasEligibleCoordinates(query.coordinates)) {
-                return@launchRefreshWork
-            }
-            transientState.update {
-                it.copy(
-                    isLoading = true,
-                    isRefreshing = true,
-                )
-            }
-
-            when (val outcome = searchOrchestrator.refresh(query)) {
-                RefreshOutcome.Success -> Unit
-
-                is RefreshOutcome.Failed -> {
-                    handleRefreshFailure(query, outcome.reason)
-                }
-            }
-        }
-    }
-
-    private fun launchRefreshWork(block: suspend () -> Unit) {
-        activeRefreshJob?.cancel()
-        val workId = ++refreshWorkId
-        val job = viewModelScope.launch {
-            try {
-                block()
-            } finally {
-                if (refreshWorkId == workId) {
-                    activeRefreshJob = null
-                    finishRefreshIndicators()
-                }
-            }
-        }
-        activeRefreshJob = job.takeIf { it.isActive }
-    }
-
-    private fun cancelActiveRefresh() {
-        if (activeRefreshJob == null) return
-        refreshWorkId += 1
-        activeRefreshJob?.cancel()
-        activeRefreshJob = null
-        finishRefreshIndicators()
-    }
-
-    private fun finishRefreshIndicators() {
-        transientState.update {
-            it.copy(
-                isLoading = false,
-                isRefreshing = false,
-            )
-        }
-    }
-
     private fun updatePreference(update: suspend () -> UserPreferences) {
         if (preferenceState.value !is PreferenceLoadState.Ready) return
         if (!preferenceWriteInFlight.compareAndSet(false, true)) return
-        transientState.update { it.copy(pendingPreferenceWrite = true) }
+        preferenceMutationState.update { it.copy(pendingPreferenceWrite = true) }
         viewModelScope.launch {
             try {
                 preferenceState.value = PreferenceLoadState.Ready(update())
@@ -443,7 +387,7 @@ class StationListViewModel @Inject internal constructor(
                     ),
                 )
             } finally {
-                transientState.update { it.copy(pendingPreferenceWrite = false) }
+                preferenceMutationState.update { it.copy(pendingPreferenceWrite = false) }
                 preferenceWriteInFlight.set(false)
             }
         }
@@ -484,11 +428,7 @@ private sealed interface PreferenceLoadState {
     data object Failed : PreferenceLoadState
 }
 
-private data class StationListTransientState(
-    val isLoading: Boolean = false,
-    val isRefreshing: Boolean = false,
-    val pendingPreferenceWrite: Boolean = false,
-)
+private data class StationListPreferenceMutationState(val pendingPreferenceWrite: Boolean = false)
 
 private data class StationListSearchUiProjection(
     val sourceStations: List<StationListEntry> = emptyList(),
@@ -498,13 +438,8 @@ private data class StationListSearchUiProjection(
 )
 
 private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
-    permissionState != LocationPermissionState.Denied && isGpsEnabled
+    permissionState != LocationPermissionState.Denied && isAvailabilityKnown && isGpsEnabled
 }
-
-private fun LocationState.hasEligibleCoordinates(coordinates: Coordinates): Boolean = permissionState != LocationPermissionState.Denied &&
-    isAvailabilityKnown &&
-    isGpsEnabled &&
-    currentCoordinates == coordinates
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null

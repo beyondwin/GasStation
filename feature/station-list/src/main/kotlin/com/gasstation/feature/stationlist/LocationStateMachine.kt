@@ -8,6 +8,7 @@ import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.domain.location.ObserveLocationAvailabilityUseCase
 import com.gasstation.domain.location.normalizeCurrentAddressLabel
+import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
+@ViewModelScoped
 class LocationStateMachine @Inject constructor(
     private val getCurrentLocation: GetCurrentLocationUseCase,
     private val getCurrentAddress: GetCurrentAddressUseCase,

@@ -28,6 +28,8 @@ import com.gasstation.domain.station.model.StationPriceDelta
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchMutationResult
+import com.gasstation.domain.station.model.WatchedStationSummary
+import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
@@ -35,8 +37,10 @@ import com.gasstation.feature.stationlist.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -885,7 +889,6 @@ class StationListViewModelTest {
         val repository = FakeStationRepository(emptySearchResult())
         val searchOrchestrator = StationSearchOrchestrator(
             observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
         )
         val locationLookupStarted = CompletableDeferred<Unit>()
         val releaseLocationLookup = CompletableDeferred<Unit>()
@@ -944,7 +947,6 @@ class StationListViewModelTest {
         )
         val searchOrchestrator = StationSearchOrchestrator(
             observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
         )
         val viewModel = stationListViewModel(
             repository = repository,
@@ -979,7 +981,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `permission denial cancels a remote refresh before it can persist`() = runTest(dispatcher) {
+    fun `permission denial cancels remote refresh and finalizes state`() = runTest(dispatcher) {
         val refreshStarted = CompletableDeferred<Unit>()
         val releaseRefresh = CompletableDeferred<Unit>()
         val repository = FakeStationRepository(
@@ -1008,10 +1010,12 @@ class StationListViewModelTest {
         assertEquals(1, repository.refreshedQueries.size)
         assertTrue(repository.persistedRefreshQueries.isEmpty())
         assertEquals(null, viewModel.uiState.value.currentCoordinates)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.isRefreshing)
     }
 
     @Test
-    fun `gps off cancels a remote refresh before it can persist`() = runTest(dispatcher) {
+    fun `gps off cancels remote refresh and finalizes state`() = runTest(dispatcher) {
         val refreshStarted = CompletableDeferred<Unit>()
         val releaseRefresh = CompletableDeferred<Unit>()
         val repository = FakeStationRepository(
@@ -1040,6 +1044,8 @@ class StationListViewModelTest {
         assertEquals(1, repository.refreshedQueries.size)
         assertTrue(repository.persistedRefreshQueries.isEmpty())
         assertEquals(false, viewModel.uiState.value.isGpsEnabled)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.isRefreshing)
     }
 
     @Test
@@ -1080,7 +1086,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `superseded location result is silent and emits no failure analytics`() = runTest(dispatcher, timeout = 10.seconds) {
+    fun `superseded location is silent with no analytics blocking failure or command`() = runTest(dispatcher, timeout = 10.seconds) {
         val repository = FakeStationRepository(emptySearchResult())
         val locationLookupStarted = CompletableDeferred<Unit>()
         val completeLocationLookup = CompletableDeferred<LocationLookupResult>()
@@ -1393,7 +1399,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `refresh failure without cache shows snackbar and blocking failure`() = runTest(dispatcher) {
+    fun `refresh failure queues durable snackbar without route collector and logs once`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
                 stations = emptyList(),
@@ -1542,7 +1548,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `refresh failure promotes blocking failure after observed no-cache result resolves unknown cache state`() = runTest(dispatcher) {
+    fun `manual immediate refresh failure is associated with newly activated query`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
                 stations = emptyList(),
@@ -1592,6 +1598,33 @@ class StationListViewModelTest {
         assertTrue(viewModel.uiState.value.stations.isEmpty())
         assertEquals(StationListFailureReason.RefreshFailed, viewModel.uiState.value.blockingFailure)
     }
+
+    @Test
+    fun `retry click retries failed observation without starting remote refresh`() = runTest(dispatcher) {
+        val repository = FailingObservationStationRepository()
+        val searchOrchestrator = StationSearchOrchestrator(
+            observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(),
+            searchOrchestrator = searchOrchestrator,
+        )
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+        assertTrue(searchOrchestrator.observationFailed.value)
+        val refreshCallsBeforeRetry = repository.refreshCalls
+
+        viewModel.onAction(StationListAction.RetryClicked)
+        runCurrent()
+
+        assertEquals(2, repository.observationSubscriptions)
+        assertEquals(refreshCallsBeforeRetry, repository.refreshCalls)
+        assertFalse(searchOrchestrator.observationFailed.value)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1600,18 +1633,18 @@ private fun TestScope.stationListViewModel(
     settingsFixture: SettingsUseCaseTestFixture,
     locationRepository: LocationRepository,
     analytics: StationEventLogger = RecordingStationEventLogger(),
-    searchOrchestrator: StationSearchOrchestrator = StationSearchOrchestrator(
-        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-        refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
-    ),
+    searchOrchestrator: StationSearchOrchestrator? = null,
 ): StationListViewModel {
     val locationStateMachine = LocationStateMachine(
         getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
         getCurrentAddress = GetCurrentAddressUseCase(locationRepository),
         observeAvailability = ObserveLocationAvailabilityUseCase(locationRepository),
     )
+    val resolvedSearchOrchestrator = searchOrchestrator ?: StationSearchOrchestrator(
+        observeNearbyStations = ObserveNearbyStationsUseCase(repository),
+    )
     val viewModel = StationListViewModel(
-        searchOrchestrator = searchOrchestrator,
+        searchOrchestrator = resolvedSearchOrchestrator,
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
         togglePreferredSortOrder = settingsFixture.togglePreferredSortOrder,
@@ -1619,6 +1652,10 @@ private fun TestScope.stationListViewModel(
         updateFuelType = settingsFixture.updateFuelType,
         updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
+        refreshCoordinator = RefreshCoordinator(
+            locationStateMachine = locationStateMachine,
+            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        ),
         stationEventLogger = analytics,
         commandQueue = StationListCommandQueue(),
     )
@@ -1651,3 +1688,27 @@ private fun emptySearchResult(): StationSearchResult = StationSearchResult(
     fetchedAt = null,
     hasCachedSnapshot = false,
 )
+
+private class FailingObservationStationRepository : StationRepository {
+    var observationSubscriptions = 0
+    var refreshCalls = 0
+
+    override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> = flow {
+        observationSubscriptions += 1
+        if (observationSubscriptions == 1) {
+            throw IllegalStateException("first observation failed")
+        }
+        emit(emptySearchResult())
+        awaitCancellation()
+    }
+
+    override fun observeWatchlist(query: WatchlistQuery): Flow<List<WatchedStationSummary>> = MutableSharedFlow()
+
+    override suspend fun refreshNearbyStations(query: StationQuery) {
+        refreshCalls += 1
+    }
+
+    override suspend fun updateWatchState(station: Station, watched: Boolean): WatchMutationResult = WatchMutationResult.Committed
+
+    override suspend fun removeWatchedStation(stationId: String): WatchMutationResult = WatchMutationResult.Committed
+}

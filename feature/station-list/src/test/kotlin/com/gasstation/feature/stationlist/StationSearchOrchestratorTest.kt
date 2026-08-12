@@ -9,7 +9,6 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
-import com.gasstation.domain.station.StationRefreshException
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.StationRepository
 import com.gasstation.domain.station.model.Station
@@ -21,7 +20,6 @@ import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import com.gasstation.domain.station.usecase.ObserveNearbyStationsUseCase
-import com.gasstation.domain.station.usecase.RefreshNearbyStationsUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
@@ -338,111 +336,81 @@ class StationSearchOrchestratorTest {
     }
 
     @Test
-    fun `criteria change with same coordinates requires refresh`() {
+    fun `ensure active query activates a manual immediate refresh query`() {
         val orchestrator = stationSearchOrchestrator(ScriptedObservationRepository())
         val query = stationQuery()
-        val nextQuery = query.copy(fuelType = FuelType.DIESEL)
 
-        assertTrue(orchestrator.shouldRefreshForCriteriaChange(query, nextQuery))
+        orchestrator.ensureActiveQuery(query)
+
+        assertEquals(query, orchestrator.activeQueryState.value.query)
+        assertEquals(CachedSnapshotState.Unknown, orchestrator.activeQueryState.value.cacheState)
+        assertEquals(canonicalEmptyResult(), orchestrator.searchResult.value)
     }
 
     @Test
-    fun `criteria change with different coordinates does not count as criteria refresh`() {
-        val orchestrator = stationSearchOrchestrator(ScriptedObservationRepository())
-        val query = stationQuery()
-        val nextQuery = query.copy(
-            coordinates = Coordinates(37.500000, 127.030000),
-            fuelType = FuelType.DIESEL,
-        )
-
-        assertFalse(orchestrator.shouldRefreshForCriteriaChange(query, nextQuery))
-    }
-
-    @Test
-    fun `refresh success clears blocking failure for active query`() = runTest {
+    fun `ensure already active query preserves present cache result and observation session`() = runTest {
         val repository = ScriptedObservationRepository()
         val orchestrator = stationSearchOrchestrator(repository)
         val query = stationQuery()
+        val result = cachedResult()
         val job = launch { orchestrator.observe(MutableStateFlow<StationQuery?>(query)).collect {} }
         runCurrent()
-
-        repository.latestSubscription(query).emit(noCacheResult())
+        repository.latestSubscription(query).emit(result)
         runCurrent()
-        orchestrator.onRefreshFailure(query, StationRefreshFailureReason.Unknown)
-        assertEquals(StationListFailureReason.RefreshFailed, orchestrator.blockingFailure.value)
 
-        assertEquals(RefreshOutcome.Success, orchestrator.refresh(query))
+        orchestrator.ensureActiveQuery(query)
 
-        assertNull(orchestrator.blockingFailure.value)
-        assertEquals(listOf(query), repository.refreshedQueries)
+        assertSame(result, orchestrator.searchResult.value)
+        assertEquals(CachedSnapshotState.Present, orchestrator.activeQueryState.value.cacheState)
+        assertEquals(1, repository.subscriptionCount(query))
+        assertFalse(orchestrator.observationFailed.value)
         job.cancel()
     }
 
     @Test
-    fun `refresh failure with cached snapshot does not expose blocking failure`() = runTest {
-        val repository = ScriptedObservationRepository(
-            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-        )
+    fun `refresh success clears blocking failure only for matching active query`() = runTest {
+        val repository = ScriptedObservationRepository()
         val orchestrator = stationSearchOrchestrator(repository)
         val query = stationQuery()
+        val staleQuery = query.copy(sortOrder = SortOrder.PRICE)
         val job = launch { orchestrator.observe(MutableStateFlow<StationQuery?>(query)).collect {} }
         runCurrent()
-
-        repository.latestSubscription(query).emit(cachedResult())
+        repository.latestSubscription(query).emit(noCacheResult())
         runCurrent()
-        val outcome = orchestrator.refresh(query)
-        orchestrator.onRefreshFailure(query, (outcome as RefreshOutcome.Failed).reason)
+        assertEquals(CachedSnapshotState.Absent, orchestrator.activeQueryState.value.cacheState)
+        assertEquals(query, orchestrator.activeQueryState.value.query)
+        orchestrator.onRefreshFailure(query, StationRefreshFailureReason.Timeout)
+        assertEquals(StationListFailureReason.RefreshTimedOut, orchestrator.blockingFailure.value)
 
-        assertEquals(RefreshOutcome.Failed(StationRefreshFailureReason.Unknown), outcome)
+        orchestrator.onRefreshSucceeded(staleQuery)
+        assertEquals(StationListFailureReason.RefreshTimedOut, orchestrator.blockingFailure.value)
+        orchestrator.onRefreshSucceeded(query)
+
         assertNull(orchestrator.blockingFailure.value)
         job.cancel()
     }
 
     @Test
-    fun `refresh failure without cached snapshot exposes blocking failure`() = runTest {
-        val repository = ScriptedObservationRepository(
-            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-        )
+    fun `stale refresh failure cannot replace current query blocking state`() = runTest {
+        val repository = ScriptedObservationRepository()
         val orchestrator = stationSearchOrchestrator(repository)
-        val query = stationQuery()
-        val job = launch { orchestrator.observe(MutableStateFlow<StationQuery?>(query)).collect {} }
+        val oldQuery = stationQuery()
+        val activeQuery = oldQuery.copy(fuelType = FuelType.DIESEL)
+        val job = launch { orchestrator.observe(MutableStateFlow<StationQuery?>(activeQuery)).collect {} }
         runCurrent()
-
-        repository.latestSubscription(query).emit(noCacheResult())
+        repository.latestSubscription(activeQuery).emit(noCacheResult())
         runCurrent()
-        val outcome = orchestrator.refresh(query)
-        orchestrator.onRefreshFailure(query, (outcome as RefreshOutcome.Failed).reason)
+        orchestrator.onRefreshFailure(activeQuery, StationRefreshFailureReason.Timeout)
 
-        assertEquals(RefreshOutcome.Failed(StationRefreshFailureReason.Unknown), outcome)
-        assertEquals(StationListFailureReason.RefreshFailed, orchestrator.blockingFailure.value)
-        job.cancel()
-    }
+        orchestrator.onRefreshFailure(oldQuery, StationRefreshFailureReason.Unknown)
 
-    @Test
-    fun `refresh failure before cache state is known waits for observed result`() = runTest {
-        val repository = ScriptedObservationRepository(
-            refreshFailure = StationRefreshException(StationRefreshFailureReason.Unknown),
-        )
-        val orchestrator = stationSearchOrchestrator(repository)
-        val query = stationQuery()
-        val job = launch { orchestrator.observe(MutableStateFlow<StationQuery?>(query)).collect {} }
-        runCurrent()
-
-        val outcome = orchestrator.refresh(query)
-        orchestrator.onRefreshFailure(query, (outcome as RefreshOutcome.Failed).reason)
-        assertNull(orchestrator.blockingFailure.value)
-
-        repository.latestSubscription(query).emit(noCacheResult())
-        runCurrent()
-
-        assertEquals(StationListFailureReason.RefreshFailed, orchestrator.blockingFailure.value)
+        assertEquals(StationListFailureReason.RefreshTimedOut, orchestrator.blockingFailure.value)
         job.cancel()
     }
 }
 
 private fun stationSearchOrchestrator(repository: StationRepository): StationSearchOrchestrator = StationSearchOrchestrator(
     observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-    refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
 )
 
 private class ScriptedObservationRepository(var refreshFailure: Throwable? = null) : StationRepository {

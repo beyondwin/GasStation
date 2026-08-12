@@ -192,7 +192,6 @@ private fun stationListViewModelForRouteTest(
     return StationListViewModel(
         searchOrchestrator = StationSearchOrchestrator(
             observeNearbyStations = ObserveNearbyStationsUseCase(repository),
-            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
         ),
         updateWatchState = UpdateWatchStateUseCase(repository),
         observeUserPreferences = settingsFixture.observeUserPreferences,
@@ -201,6 +200,10 @@ private fun stationListViewModelForRouteTest(
         updateFuelType = settingsFixture.updateFuelType,
         updateBrandFilter = settingsFixture.updateBrandFilter,
         locationStateMachine = locationStateMachine,
+        refreshCoordinator = RefreshCoordinator(
+            locationStateMachine = locationStateMachine,
+            refreshNearbyStations = RefreshNearbyStationsUseCase(repository),
+        ),
         stationEventLogger = object : StationEventLogger {
             override fun log(event: com.gasstation.domain.station.model.StationEvent) = Unit
         },
