@@ -144,7 +144,7 @@ watchlist는 현재 목록보다 더 방어적으로 동작합니다.
 
 - `prod` 검색과 demo seed 생성은 모두 `opinet.apikey`만 사용합니다.
 - `CrashReporter.recordNonFatalSafely`는 ordinary reporter failure가 원래 recoverable station/location error를 바꾸지 않게 하며 cancellation과 fatal `Error`는 보존합니다. SDK-neutral observability 계약은 `core:observability`가 소유하고 flavor별 SDK binding은 `app`에 남습니다.
-- Room은 `exportSchema = true`이며 canonical checked-in schema는 `core/database/schemas/com.gasstation.core.database.GasStationDatabase/`의 versions 1–5입니다. v5 현재 생성물은 version-introducing commit/toolchain에서 남긴 historical v5와 byte-identical이고, CI schema gate는 tracked/untracked drift와 generated current schema의 불일치를 막습니다.
+- Room은 `exportSchema = true`이며 canonical checked-in schema는 `core/database/schemas/com.gasstation.core.database.GasStationDatabase/`의 versions 1–5입니다. 각 historical JSON은 해당 version을 도입한 정확한 commit/toolchain에서 생성했습니다: v1 `e64634f`(Room 2.6.1/KSP 1.9.23-1.0.20), v2 `a705fdb`·v3 `9b070ab`·v4 `014127f`(Room 2.8.4/KSP 2.3.6), v5 `da96a5f`(Room 2.8.4/KSP 2.3.7). 현재 v5 재생성 결과는 이 historical v5와 byte-identical이고, CI schema gate는 tracked/untracked drift와 generated current schema의 불일치를 막습니다.
 - `MigrationTestHelper` 계약은 모든 지원 시작점 1/2/3/4→5, v2→v3의 의도된 disposable price-history reset, 그리고 v4의 성공한 빈 snapshot marker 보존을 다룹니다. v2→v3에서도 cache와 watch 행은 보존됩니다.
 - host Robolectric의 production-builder/index 및 migration tests는 항상 실행합니다. Task 6 당시 connected device가 없었으므로 instrumented migration tests는 compile/assets 검증만 되었고 device-executed라고 주장하지 않습니다.
 - 문서나 UI에서 "캐시 있음"을 말할 때는 `fetchedAt != null`보다 `hasCachedSnapshot` 의미를 기준으로 이해하는 편이 더 정확합니다.

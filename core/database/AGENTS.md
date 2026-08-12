@@ -17,6 +17,6 @@
 ## Required Verification
 
 - schema나 DAO 동작을 바꾸기 전에 `StationCacheDaoTest`와 `GasStationDatabaseMigrationTest`를 읽는다.
-- database 변경에는 `./gradlew :core:database:testDebugUnitTest`를 실행한다. schema/migration 변경에는 `scripts/agent/verify-room-schemas.sh`와 `:core:database:compileDebugAndroidTestKotlin`을 추가하고, connected device가 없으면 compiled/assets evidence와 미실행 사유를 남긴다.
-- repository assembly, pruning, cache, watchlist fallback이 바뀔 수 있으면 `./gradlew :data:station:testDebugUnitTest`를 추가한다.
-- dependency 변경에는 `./gradlew verifyModuleBoundaries`를 실행한다.
+- database 변경에는 [검증 매트릭스의 station data correctness 집중 회귀](../../docs/verification-matrix.md#station-data-correctness-집중-회귀)에서 변경 위험에 맞는 database/schema/asset 검증을 선택한다.
+- repository assembly, pruning, cache, watchlist fallback 영향이 있으면 [오프라인 전략](../../docs/offline-strategy.md)과 data repository 회귀를 함께 점검한다.
+- dependency 변경에는 모듈 경계 검증을 포함한다. connected device가 없으면 compile/merged-asset evidence와 미실행 사유를 구분해 남긴다.

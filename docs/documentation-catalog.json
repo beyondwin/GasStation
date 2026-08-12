@@ -109,8 +109,8 @@
       "path": "docs/offline-strategy.md",
       "kind": "contract",
       "owner": "station cache, stale, retry, fallback 정책",
-      "authoritativeSources": ["data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt"],
-      "reviewTriggers": ["캐시 키·TTL·stale 의미 변경", "refresh 실패·retry·watchlist fallback 변경"],
+      "authoritativeSources": ["data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationCachePolicy.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationFreshnessTicker.kt", "data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt", "data/station/src/main/kotlin/com/gasstation/data/station/LatestRefreshGate.kt", "core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFailure.kt", "core/observability/src/main/kotlin/com/gasstation/core/observability/CrashReporter.kt", "core/database/src/main/kotlin/com/gasstation/core/database/station/StationBucketSnapshotObserver.kt", "core/database/src/main/kotlin/com/gasstation/core/database/GasStationDatabase.kt", "core/database/schemas/com.gasstation.core.database.GasStationDatabase"],
+      "reviewTriggers": ["캐시 키·TTL·stale·atomic snapshot 의미 변경", "transport failure·retry owner·latest refresh intent 변경", "observability failure isolation·Room schema·migration·watchlist fallback 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; data:station과 core:database 테스트를 대조"
     },
     {
