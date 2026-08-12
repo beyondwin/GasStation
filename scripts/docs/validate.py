@@ -21,6 +21,16 @@ STATION_DATA_POLICY_PATH = "docs/station-data-policy.json"
 STATION_DATA_POLICY_OWNER = "docs/offline-strategy.md"
 STATION_DATA_POLICY_START = "<!-- station-data-policy:start -->"
 STATION_DATA_POLICY_END = "<!-- station-data-policy:end -->"
+STATION_DATA_POLICY_REFERENCE = re.compile(
+    r"<!--\s*station-data-policy-ref:\s*(retry|freshness|schema|superseded)\s*-->"
+)
+STATION_DATA_POLICY_ANCHOR = "offline-strategy.md#기계-판독-정책-계약"
+REQUIRED_STATION_DATA_POLICY_REFERENCES = {
+    "README.md": {"retry": 2},
+    "docs/onboarding/developer-onboarding-guide.md": {"retry": 1, "freshness": 1},
+    "docs/agent-workflow.md": {"retry": 1},
+    "docs/test-strategy.md": {"retry": 1, "freshness": 1},
+}
 REQUIRED_FIELDS = (
     "path",
     "kind",
@@ -523,6 +533,121 @@ def station_data_policy_issues(
     return issues
 
 
+def without_station_data_policy_block(path: str, text: str) -> str:
+    if path != STATION_DATA_POLICY_OWNER:
+        return text
+    if STATION_DATA_POLICY_START not in text or STATION_DATA_POLICY_END not in text:
+        return text
+    start = text.index(STATION_DATA_POLICY_START)
+    end = text.index(STATION_DATA_POLICY_END, start) + len(STATION_DATA_POLICY_END)
+    return text[:start] + "\n" * text[start:end].count("\n") + text[end:]
+
+
+def markdown_policy_statements(path: str, text: str) -> list[tuple[int, str]]:
+    prose = strip_fenced_code(without_station_data_policy_block(path, text))
+    return [
+        (line_no, line.replace("`", "").strip())
+        for line_no, line in enumerate(prose.splitlines(), 1)
+        if line.strip() and not line.lstrip().startswith("<!--")
+    ]
+
+
+def policy_words(statement: str) -> list[str]:
+    return re.findall(r"[a-z_]+|\d+|[가-힣]+", statement.casefold())
+
+
+def catalog_policy_prose_issues(texts: dict[str, str]) -> list[str]:
+    issues: list[str] = []
+    for path, expected in REQUIRED_STATION_DATA_POLICY_REFERENCES.items():
+        text = texts.get(path, "")
+        matches = list(STATION_DATA_POLICY_REFERENCE.finditer(text))
+        counts = Counter(match.group(1) for match in matches)
+        for policy, count in expected.items():
+            if counts[policy] != count:
+                issues.append(
+                    location(
+                        path,
+                        1,
+                        f"station data policy reference marker {policy} must occur {count} time(s)",
+                    )
+                )
+        if set(counts) - set(expected):
+            issues.append(location(path, 1, "unexpected station data policy reference marker"))
+        lines = text.splitlines()
+        for match in matches:
+            line_no = line_number(text, match.start())
+            current_remainder = text[match.end():].split("\n", 1)[0].strip()
+            next_statement = current_remainder or next(
+                (line.strip() for line in lines[line_no:] if line.strip()), ""
+            )
+            policy = match.group(1)
+            if STATION_DATA_POLICY_ANCHOR not in next_statement or f"`{policy}`" not in next_statement:
+                issues.append(
+                    location(
+                        path,
+                        line_no,
+                        f"station data policy reference marker {policy} must precede its canonical link",
+                    )
+                )
+
+    retry_category_tokens = {"timeout", "network", "408", "429", "500", "599", "600"}
+    provenance_tokens = {
+        "e64634f", "a705fdb", "9b070ab", "014127f", "da96a5f",
+        "compiled_assets_verified", "device_executed", "no_connected_device",
+    }
+    for path in REQUIRED_STATION_DATA_POLICY_REFERENCES:
+        text = texts.get(path, "")
+        for line_no, statement in markdown_policy_statements(path, text):
+            if path == "docs/test-strategy.md" and statement.startswith("|"):
+                continue
+            words = policy_words(statement)
+            word_set = set(words)
+            declarative = any(
+                word.startswith(("소유", "적용", "분류", "기준", "정책", "실행", "검증"))
+                or word.endswith(("합니다", "됩니다", "입니다", "않습니다"))
+                for word in words
+            )
+            retry = declarative and any(
+                word.startswith("retry") or word.startswith("재시도")
+                for word in words
+            )
+            freshness = any(
+                word in {"fresh", "freshness", "stale"} or word.startswith("신선")
+                for word in words
+            )
+            retry_categories = retry_category_tokens & word_set
+            retry_count = (
+                ({"1", "회"} <= word_set)
+                or ({"한", "번"} <= word_set)
+                or "once" in word_set
+            )
+            retry_delay = retry and {"500", "ms"} <= word_set
+            exclusive = retry and any(
+                word in {"only", "한해"}
+                or word.endswith("에한해")
+                or (word.endswith("만") and word != "하지만")
+                for word in words
+            )
+            if retry and retry_categories and retry_count:
+                issues.append(location(path, line_no, "duplicate station retry classification/count"))
+            elif retry_delay:
+                issues.append(location(path, line_no, "duplicate station retry delay"))
+            elif retry and retry_categories:
+                label = "exclusive retry classification" if exclusive else "retry classification"
+                issues.append(location(path, line_no, f"duplicate station {label}"))
+            elif retry and retry_count:
+                issues.append(location(path, line_no, "duplicate station retry count"))
+            freshness_unit = bool(
+                {"ms", "밀리초"} & word_set
+                or any(word == "분" or "분을" in word or "분이" in word for word in words)
+            )
+            if declarative and freshness and freshness_unit and ({"5", "300000", "300001"} & word_set):
+                issues.append(location(path, line_no, "duplicate station freshness boundary"))
+            if provenance_tokens & word_set:
+                issues.append(location(path, line_no, "duplicate station migration evidence/provenance"))
+    return issues
+
+
 def navigation_issues(live_paths: set[str], graph: dict[str, set[str]]) -> list[str]:
     distances = {HUB_PATH: 0}
     queue = deque([HUB_PATH])
@@ -648,6 +773,7 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
     issues.extend(navigation_issues(live_paths, graph))
     issues.extend(owner_issues(texts))
     issues.extend(station_data_policy_issues(root, entries, texts))
+    issues.extend(catalog_policy_prose_issues(texts))
     if include_gradle_tasks:
         issues.extend(check_gradle_tasks(root, texts))
     return sorted(set(issues))

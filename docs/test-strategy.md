@@ -67,9 +67,9 @@
 - `DefaultStationRepository`
   스냅샷 마커, 캐시 행, 가격 히스토리, 성공 refresh 이후 pruning, watchlist fallback이 한 곳에서 조합됩니다.
 - `StationRetryPolicy`
-  일시적 refresh 실패는 data 계층에서 한 번만 재시도하고, cancellation, 재시도 불가 실패, superseded work, 예기치 않은 두 번째 예외는 즉시 전파하거나 조용히 종료해야 합니다. direct/proxy와 OkHttp의 실제 stack에서도 HTTP 408이 두 번 재시도되지 않는지를 함께 막습니다.
+  <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](offline-strategy.md#기계-판독-정책-계약)에 맞춰 direct/proxy 분류, 단일 retry owner, cancellation·superseded 종료와 예기치 않은 예외 전파를 검증합니다.
 - `StationBucketSnapshotObserver` / `StationFreshnessTicker` / `LatestRefreshGate`
-  marker와 row의 torn emission, 5분 경계 timer의 재구독, 과거 요청의 늦은 persistence, replacement entry ABA, superseded analytics/reporting을 각각 독립 테스트로 막습니다.
+  marker와 row의 torn emission, <!-- station-data-policy-ref: freshness -->[구조화된 `freshness` 계약](offline-strategy.md#기계-판독-정책-계약)의 timer 소유권과 metadata 재투영, 과거 요청의 늦은 persistence, replacement entry ABA, superseded analytics/reporting을 각각 독립 테스트로 막습니다.
 - `LocationStateMachine`, `StationSearchOrchestrator`, `StationListViewModel`
   권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다. denied permission은 demo override, 보존 좌표, cache/render, refresh보다 우선하며 GPS 설정 안내와 섞이지 않아야 합니다.
 - `AddressLabelNormalizer` / `AddressLabelFormatter`

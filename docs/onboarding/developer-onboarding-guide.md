@@ -302,7 +302,7 @@ Room 저장 모델의 핵심은 `station_cache_snapshot`입니다. `station_cach
 refresh 성공 흐름은 다음과 같습니다.
 
 1. `DefaultStationRepository.refreshNearbyStations()`가 remote data source를 호출합니다.
-2. `StationRetryPolicy`가 `Timeout`과 `Network` 실패에 한해 500ms 뒤 한 번 재시도합니다.
+2. `StationRetryPolicy`의 분류·횟수·지연은 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](../offline-strategy.md#기계-판독-정책-계약)을 따릅니다.
 3. remote 결과를 cache entity와 price history entity로 바꿉니다.
 4. transaction 안에서 snapshot을 교체하고 가격 이력을 추가합니다.
 5. 오래된 cache/snapshot을 정리합니다.
@@ -411,7 +411,7 @@ watchlist는 별도 위치 조회나 refresh 세션 상태를 들고 있지 않�
 | --- | --- |
 | snapshot | 특정 query bucket에 대해 마지막으로 성공한 조회 결과 |
 | snapshot marker | `station_cache_snapshot` 행. 결과가 0건이어도 성공한 조회였음을 남김 |
-| stale | `StationCachePolicy` 기준 5분을 넘긴 저장 결과 |
+| stale | <!-- station-data-policy-ref: freshness -->[오프라인 전략의 구조화된 `freshness` 계약](../offline-strategy.md#기계-판독-정책-계약)이 판정한 저장 결과 |
 | blocking failure | 캐시가 없어 화면 전체가 실패 상태로 가야 하는 실패 |
 
 실패 처리 기준은 `StationSearchOrchestrator`와 `StationSearchResult.hasCachedSnapshot`이 함께 만듭니다.

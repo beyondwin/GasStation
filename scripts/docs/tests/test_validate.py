@@ -83,7 +83,7 @@ class FixtureRepository:
         self.write(VALIDATOR.STATION_DATA_POLICY_PATH, POLICY_TEXT)
         self.write(
             VALIDATOR.STATION_DATA_POLICY_OWNER,
-            "# offline-strategy\n\n"
+            "# offline-strategy\n\n## 기계 판독 정책 계약\n\n"
             + VALIDATOR.STATION_DATA_POLICY_START
             + "\n```json\n"
             + POLICY_TEXT.rstrip()
@@ -91,6 +91,30 @@ class FixtureRepository:
             + VALIDATOR.STATION_DATA_POLICY_END
             + "\n",
         )
+        reference_lines = {
+            "README.md": (
+                "<!-- station-data-policy-ref: retry -->"
+                "[structured `retry` contract](docs/offline-strategy.md#기계-판독-정책-계약)\n"
+            ) * 2,
+            "docs/onboarding/developer-onboarding-guide.md": (
+                "<!-- station-data-policy-ref: retry -->"
+                "[structured `retry` contract](../offline-strategy.md#기계-판독-정책-계약)\n"
+                "<!-- station-data-policy-ref: freshness -->"
+                "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약)\n"
+            ),
+            "docs/agent-workflow.md": (
+                "<!-- station-data-policy-ref: retry -->"
+                "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+            ),
+            "docs/test-strategy.md": (
+                "<!-- station-data-policy-ref: retry -->"
+                "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+                "<!-- station-data-policy-ref: freshness -->"
+                "[structured `freshness` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+            ),
+        }
+        for path, references in reference_lines.items():
+            self.append(path, references)
         self.write_hub_direct_links()
         self.write_catalog()
 

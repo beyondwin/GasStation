@@ -14,6 +14,7 @@ from scripts.docs.validate import (
     STATION_DATA_POLICY_PATH,
     STATION_DATA_POLICY_START,
     load_catalog,
+    catalog_policy_prose_issues,
     parse_station_data_policy_block,
     station_data_policy_issues,
     strict_json_loads,
@@ -171,6 +172,59 @@ class DataCorrectnessContractDocsTest(unittest.TestCase):
             "CrashReporter.recordNonFatalSafely",
         ):
             self.assertIn(term, self.offline)
+
+    def test_cataloged_live_prose_has_no_duplicate_normative_policy(self) -> None:
+        entries, catalog_issues = load_catalog(ROOT)
+        self.assertEqual([], catalog_issues)
+        texts = {
+            entry["path"]: (ROOT / entry["path"]).read_text(encoding="utf-8")
+            for entry in entries
+            if isinstance(entry.get("path"), str) and entry["path"].endswith(".md")
+        }
+        self.assertEqual([], catalog_policy_prose_issues(texts))
+
+    def test_catalog_policy_prose_mutations_are_rejected_per_live_file(self) -> None:
+        entries, _ = load_catalog(ROOT)
+        texts = {
+            entry["path"]: (ROOT / entry["path"]).read_text(encoding="utf-8")
+            for entry in entries
+            if isinstance(entry.get("path"), str) and entry["path"].endswith(".md")
+        }
+        mutations = (
+            ("README.md", "\nTimeout/Network 실패는 1회 재시도합니다.\n", "retry classification/count"),
+            ("README.md", "\nNetwork 오류는 500ms 뒤 retry합니다.\n", "retry delay"),
+            (
+                "docs/onboarding/developer-onboarding-guide.md",
+                "\nTimeout과 Network 실패에 한해 재시도합니다.\n",
+                "exclusive retry classification",
+            ),
+            (
+                "docs/onboarding/developer-onboarding-guide.md",
+                "\nstale은 5분을 넘긴 결과입니다.\n",
+                "freshness boundary",
+            ),
+            (
+                "docs/agent-workflow.md",
+                "\nHTTP 408과 429는 한 번 retry합니다.\n",
+                "retry classification/count",
+            ),
+            (
+                "docs/test-strategy.md",
+                "\nretryable HTTP 범위는 500-599입니다.\n",
+                "retry classification",
+            ),
+            (
+                "docs/test-strategy.md",
+                "\nFresh는 age <= 300000ms입니다.\n",
+                "freshness boundary",
+            ),
+        )
+        for path, statement, expected in mutations:
+            with self.subTest(path=path, statement=statement):
+                mutated = dict(texts)
+                mutated[path] += statement
+                issues = catalog_policy_prose_issues(mutated)
+                self.assertTrue(any(expected in issue and issue.startswith(path + ":") for issue in issues))
 
 
 if __name__ == "__main__":

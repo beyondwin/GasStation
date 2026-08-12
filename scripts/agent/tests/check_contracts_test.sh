@@ -180,13 +180,41 @@ entries = [{
 offline = next(entry for entry in entries if entry["path"] == "docs/offline-strategy.md")
 offline["authoritativeSources"].insert(0, "docs/station-data-policy.json")
 (root / "docs/offline-strategy.md").write_text(
-    "# Offline strategy\n\n"
+    "# Offline strategy\n\n## 기계 판독 정책 계약\n\n"
     "<!-- station-data-policy:start -->\n"
     "```json\n"
     + (root / "docs/station-data-policy.json").read_text().rstrip()
     + "\n```\n"
     "<!-- station-data-policy:end -->\n"
 )
+references = {
+    "README.md": (
+        "<!-- station-data-policy-ref: retry -->"
+        "[structured `retry` contract](docs/offline-strategy.md#기계-판독-정책-계약)"
+    ) * 2,
+    "docs/onboarding/developer-onboarding-guide.md": (
+        "<!-- station-data-policy-ref: retry -->"
+        "[structured `retry` contract](../offline-strategy.md#기계-판독-정책-계약)\n"
+        "<!-- station-data-policy-ref: freshness -->"
+        "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약)\n"
+    ),
+    "docs/agent-workflow.md": (
+        "<!-- station-data-policy-ref: retry -->"
+        "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+    ),
+    "docs/test-strategy.md": (
+        "<!-- station-data-policy-ref: retry -->"
+        "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+        "<!-- station-data-policy-ref: freshness -->"
+        "[structured `freshness` contract](offline-strategy.md#기계-판독-정책-계약)\n"
+    ),
+}
+for path, text in references.items():
+    target = root / path
+    if path == "README.md":
+        target.write_text(target.read_text().rstrip("\n") + " " + text + "\n")
+    else:
+        target.write_text(target.read_text() + text)
 (root / "docs/documentation-catalog.json").write_text(
     json.dumps({"schemaVersion": 1, "documents": entries}, indent=2) + "\n"
 )
