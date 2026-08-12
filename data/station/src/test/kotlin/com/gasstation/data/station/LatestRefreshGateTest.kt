@@ -182,6 +182,50 @@ class LatestRefreshGateTest {
         gate.complete(afterCleanup)
     }
 
+    @Test
+    fun `completed stale ticket cannot commit against replacement entry`() = runTest(timeout = 10.seconds) {
+        val gate = LatestRefreshGate()
+        val stale = gate.begin(key)
+        gate.complete(stale)
+        val replacement = gate.begin(key)
+        var staleBlockExecuted = false
+
+        val staleResult = gate.commitIfLatest(stale) {
+            staleBlockExecuted = true
+        }
+
+        assertIs<LatestCommitResult.Superseded>(staleResult)
+        assertFalse(staleBlockExecuted)
+        assertEquals(
+            "replacement",
+            assertIs<LatestCommitResult.Committed<String>>(
+                gate.commitIfLatest(replacement) { "replacement" },
+            ).value,
+        )
+        gate.complete(replacement)
+    }
+
+    @Test
+    fun `stale complete cannot invalidate replacement entry`() = runTest(timeout = 10.seconds) {
+        val gate = LatestRefreshGate()
+        val stale = gate.begin(key)
+        gate.complete(stale)
+        val replacement = gate.begin(key)
+
+        gate.complete(stale)
+
+        assertEquals(
+            "replacement",
+            assertIs<LatestCommitResult.Committed<String>>(
+                gate.commitIfLatest(replacement) { "replacement" },
+            ).value,
+        )
+        gate.complete(replacement)
+        val afterReplacement = gate.begin(key)
+        assertEquals(1L, afterReplacement.generation)
+        gate.complete(afterReplacement)
+    }
+
     private fun cacheKey(latitudeBucket: Int) = StationQueryCacheKey(
         latitudeBucket = latitudeBucket,
         longitudeBucket = 200,

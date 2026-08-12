@@ -1168,8 +1168,9 @@ class DefaultStationRepositoryTest {
 
         val refresh = async { repository.refreshNearbyStations(query) }
         fetch.started.await()
+        val gateBlockerTicket = gate.begin(cacheKey)
         val gateBlocker = launch {
-            gate.commitIfLatest(RefreshTicket(cacheKey, generation = 1L)) {
+            gate.commitIfLatest(gateBlockerTicket) {
                 gateEntered.complete(Unit)
                 releaseGate.await()
             }
@@ -1191,6 +1192,7 @@ class DefaultStationRepositoryTest {
         assertTrue(analytics.events.isEmpty())
         assertEquals(0, transactions.invocations)
 
+        gate.complete(gateBlockerTicket)
         val afterCleanup = gate.begin(cacheKey)
         assertEquals(1L, afterCleanup.generation)
         gate.complete(afterCleanup)

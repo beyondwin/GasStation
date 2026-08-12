@@ -6,7 +6,21 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-internal data class RefreshTicket(val key: StationQueryCacheKey, val generation: Long)
+internal data class RefreshTicket(val key: StationQueryCacheKey, val generation: Long) {
+    private var entryIdentity: RefreshEntryIdentity? = null
+
+    internal constructor(
+        key: StationQueryCacheKey,
+        generation: Long,
+        entryIdentity: RefreshEntryIdentity,
+    ) : this(key, generation) {
+        this.entryIdentity = entryIdentity
+    }
+
+    internal fun wasIssuedBy(entryIdentity: RefreshEntryIdentity): Boolean = this.entryIdentity === entryIdentity
+}
+
+internal class RefreshEntryIdentity
 
 internal sealed interface LatestCommitResult<out T> {
     data class Committed<T>(val value: T) : LatestCommitResult<T>
@@ -28,7 +42,11 @@ internal class LatestRefreshGate {
                 val generation = entry.nextGeneration++
                 entry.latestGeneration = generation
                 entry.activeGenerations += generation
-                RefreshTicket(key = key, generation = generation)
+                RefreshTicket(
+                    key = key,
+                    generation = generation,
+                    entryIdentity = entry.identity,
+                )
             }
         } catch (throwable: Throwable) {
             withContext(NonCancellable) {
@@ -39,7 +57,9 @@ internal class LatestRefreshGate {
     }
 
     suspend fun <T> commitIfLatest(ticket: RefreshTicket, block: suspend () -> T): LatestCommitResult<T> {
-        val entry = registryMutex.withLock { entries[ticket.key] }
+        val entry = registryMutex.withLock {
+            entries[ticket.key]?.takeIf { ticket.wasIssuedBy(it.identity) }
+        }
             ?: return LatestCommitResult.Superseded
 
         return entry.commitMutex.withLock {
@@ -52,7 +72,9 @@ internal class LatestRefreshGate {
     }
 
     suspend fun complete(ticket: RefreshTicket) {
-        val entry = registryMutex.withLock { entries[ticket.key] } ?: return
+        val entry = registryMutex.withLock {
+            entries[ticket.key]?.takeIf { ticket.wasIssuedBy(it.identity) }
+        } ?: return
         val completed = entry.commitMutex.withLock {
             entry.activeGenerations.remove(ticket.generation)
         }
@@ -71,6 +93,7 @@ internal class LatestRefreshGate {
     }
 
     private class Entry {
+        val identity = RefreshEntryIdentity()
         val commitMutex = Mutex()
         val activeGenerations = mutableSetOf<Long>()
         var nextGeneration = 1L
