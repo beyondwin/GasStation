@@ -153,6 +153,7 @@ printf '# Decision\n' > "$fixture/repo/docs/adr/2026-05-18-backend-proxy-escalat
 printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify.sh"
 chmod +x "$fixture/repo/scripts/agent/verify.sh"
 cp "$repo_root/docs/station-data-policy.json" "$fixture/repo/docs/station-data-policy.json"
+cp "$repo_root/docs/station-data-policy-consumers.json" "$fixture/repo/docs/station-data-policy-consumers.json"
 FIXTURE_REPO="$fixture/repo" python3 - <<'PY'
 import json
 import os
@@ -179,6 +180,7 @@ entries = [{
 } for path in paths]
 offline = next(entry for entry in entries if entry["path"] == "docs/offline-strategy.md")
 offline["authoritativeSources"].insert(0, "docs/station-data-policy.json")
+offline["authoritativeSources"].insert(1, "docs/station-data-policy-consumers.json")
 (root / "docs/offline-strategy.md").write_text(
     "# Offline strategy\n\n## 기계 판독 정책 계약\n\n"
     "<!-- station-data-policy:start -->\n"
@@ -190,8 +192,10 @@ offline["authoritativeSources"].insert(0, "docs/station-data-policy.json")
 references = {
     "README.md": (
         "<!-- station-data-policy-ref: retry -->"
-        "[structured `retry` contract](docs/offline-strategy.md#기계-판독-정책-계약)"
-    ) * 2,
+        "[structured `retry` contract](docs/offline-strategy.md#기계-판독-정책-계약)\n"
+        "<!-- station-data-policy-ref: retry -->"
+        "[structured `retry` contract](docs/offline-strategy.md#기계-판독-정책-계약)\n"
+    ),
     "docs/onboarding/developer-onboarding-guide.md": (
         "<!-- station-data-policy-ref: retry -->"
         "[structured `retry` contract](../offline-strategy.md#기계-판독-정책-계약)\n"
@@ -211,10 +215,7 @@ references = {
 }
 for path, text in references.items():
     target = root / path
-    if path == "README.md":
-        target.write_text(target.read_text().rstrip("\n") + " " + text + "\n")
-    else:
-        target.write_text(target.read_text() + text)
+    target.write_text(target.read_text() + text)
 (root / "docs/documentation-catalog.json").write_text(
     json.dumps({"schemaVersion": 1, "documents": entries}, indent=2) + "\n"
 )
@@ -248,7 +249,7 @@ printf 'bad whitespace   \n' >> "$fixture/repo/README.md"
 if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/unstaged-diff.out" 2>&1; then
   fail "unstaged whitespace was accepted"
 fi
-assert_contains "$(cat "$fixture/unstaged-diff.out")" "README.md:4: trailing whitespace"
+assert_contains "$(cat "$fixture/unstaged-diff.out")" "README.md:6: trailing whitespace"
 assert_error_locations "$(cat "$fixture/unstaged-diff.out")"
 git -C "$fixture/repo" restore README.md
 

@@ -18,19 +18,14 @@ from urllib.parse import unquote, urlsplit
 CATALOG_PATH = "docs/documentation-catalog.json"
 HUB_PATH = "docs/README.md"
 STATION_DATA_POLICY_PATH = "docs/station-data-policy.json"
+STATION_DATA_POLICY_CONSUMERS_PATH = "docs/station-data-policy-consumers.json"
 STATION_DATA_POLICY_OWNER = "docs/offline-strategy.md"
 STATION_DATA_POLICY_START = "<!-- station-data-policy:start -->"
 STATION_DATA_POLICY_END = "<!-- station-data-policy:end -->"
 STATION_DATA_POLICY_REFERENCE = re.compile(
     r"<!--\s*station-data-policy-ref:\s*(retry|freshness|schema|superseded)\s*-->"
 )
-STATION_DATA_POLICY_ANCHOR = "offline-strategy.md#기계-판독-정책-계약"
-REQUIRED_STATION_DATA_POLICY_REFERENCES = {
-    "README.md": {"retry": 2},
-    "docs/onboarding/developer-onboarding-guide.md": {"retry": 1, "freshness": 1},
-    "docs/agent-workflow.md": {"retry": 1},
-    "docs/test-strategy.md": {"retry": 1, "freshness": 1},
-}
+STATION_DATA_POLICY_FIELDS = {"retry", "freshness", "schema", "superseded"}
 REQUIRED_FIELDS = (
     "path",
     "kind",
@@ -163,6 +158,24 @@ def strip_fenced_code(text: str) -> str:
             output.append("\n" if line.endswith("\n") else "")
         elif marker:
             output.append("\n" if line.endswith("\n") else "")
+        else:
+            output.append(line)
+    return "".join(output)
+
+
+def strip_fenced_code_preserving_offsets(text: str) -> str:
+    output: list[str] = []
+    marker: Optional[str] = None
+    for line in text.splitlines(keepends=True):
+        match = FENCE.match(line)
+        hidden = marker is not None or match is not None
+        if match and marker is None:
+            marker = match.group(1)
+        elif match and marker and match.group(1) == marker:
+            marker = None
+        if hidden:
+            newline = "\n" if line.endswith("\n") else ""
+            output.append(" " * (len(line) - len(newline)) + newline)
         else:
             output.append(line)
     return "".join(output)
@@ -307,7 +320,7 @@ def markdown_link_destinations(text: str):
             while cursor < len(text) and text[cursor].isspace():
                 cursor += 1
         if cursor < len(text) and text[cursor] == ")":
-            yield destination, label.start()
+            yield destination, label.start(), cursor + 1
 
 
 def parse_links(root: Path, relative: str, text: str) -> tuple[list[tuple[str, int]], list[str]]:
@@ -315,7 +328,7 @@ def parse_links(root: Path, relative: str, text: str) -> tuple[list[tuple[str, i
     issues: list[str] = []
     clean = strip_code(text)
     source = root / relative
-    for raw, offset in markdown_link_destinations(clean):
+    for raw, offset, _ in markdown_link_destinations(clean):
         parsed = urlsplit(raw)
         if parsed.scheme or raw.startswith("//"):
             continue
@@ -533,118 +546,157 @@ def station_data_policy_issues(
     return issues
 
 
-def without_station_data_policy_block(path: str, text: str) -> str:
-    if path != STATION_DATA_POLICY_OWNER:
-        return text
-    if STATION_DATA_POLICY_START not in text or STATION_DATA_POLICY_END not in text:
-        return text
-    start = text.index(STATION_DATA_POLICY_START)
-    end = text.index(STATION_DATA_POLICY_END, start) + len(STATION_DATA_POLICY_END)
-    return text[:start] + "\n" * text[start:end].count("\n") + text[end:]
-
-
-def markdown_policy_statements(path: str, text: str) -> list[tuple[int, str]]:
-    prose = strip_fenced_code(without_station_data_policy_block(path, text))
-    return [
-        (line_no, line.replace("`", "").strip())
-        for line_no, line in enumerate(prose.splitlines(), 1)
-        if line.strip() and not line.lstrip().startswith("<!--")
-    ]
-
-
-def policy_words(statement: str) -> list[str]:
-    return re.findall(r"[a-z_]+|\d+|[가-힣]+", statement.casefold())
-
-
-def catalog_policy_prose_issues(texts: dict[str, str]) -> list[str]:
+def load_station_data_policy_consumers(root: Path) -> tuple[dict[str, object], list[str]]:
+    path = root / STATION_DATA_POLICY_CONSUMERS_PATH
+    try:
+        payload = strict_json_loads(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        return {}, [location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, f"consumer manifest unavailable: {error}")]
+    except (json.JSONDecodeError, ValueError) as error:
+        line = error.lineno if isinstance(error, json.JSONDecodeError) else 1
+        return {}, [location(STATION_DATA_POLICY_CONSUMERS_PATH, line, f"invalid consumer manifest: {error}")]
+    if not isinstance(payload, dict):
+        return {}, [location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer manifest must be an object")]
+    expected_keys = {"schemaVersion", "canonicalOwner", "canonicalAnchor", "statementMode", "consumers"}
     issues: list[str] = []
-    for path, expected in REQUIRED_STATION_DATA_POLICY_REFERENCES.items():
-        text = texts.get(path, "")
-        matches = list(STATION_DATA_POLICY_REFERENCE.finditer(text))
-        counts = Counter(match.group(1) for match in matches)
-        for policy, count in expected.items():
-            if counts[policy] != count:
-                issues.append(
-                    location(
-                        path,
-                        1,
-                        f"station data policy reference marker {policy} must occur {count} time(s)",
-                    )
-                )
-        if set(counts) - set(expected):
-            issues.append(location(path, 1, "unexpected station data policy reference marker"))
-        lines = text.splitlines()
+    if set(payload) != expected_keys:
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer manifest keys differ"))
+    if type(payload.get("schemaVersion")) is not int or payload.get("schemaVersion") != 1:
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer schemaVersion must be 1"))
+    if payload.get("canonicalOwner") != STATION_DATA_POLICY_OWNER:
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer canonicalOwner differs"))
+    if payload.get("canonicalAnchor") != "기계-판독-정책-계약":
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer canonicalAnchor differs"))
+    if payload.get("statementMode") != "reference_only":
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumer statementMode differs"))
+    consumers = payload.get("consumers")
+    if not isinstance(consumers, dict):
+        issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "consumers must be an object"))
+        return payload, issues
+    for consumer, counts in consumers.items():
+        if not isinstance(consumer, str) or not consumer.endswith(".md") or not isinstance(counts, dict):
+            issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, "invalid consumer entry"))
+            continue
+        if not counts or set(counts) - STATION_DATA_POLICY_FIELDS:
+            issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, f"invalid policy fields for {consumer}"))
+        if any(type(count) is not int or count <= 0 for count in counts.values()):
+            issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, f"invalid policy count for {consumer}"))
+    return payload, issues
+
+
+def resolve_policy_link(root: Path, relative: str, raw: str) -> Optional[tuple[str, str]]:
+    parsed = urlsplit(raw)
+    if parsed.scheme or parsed.netloc or raw.startswith("//"):
+        return None
+    source = root / relative
+    target_part = unquote(parsed.path)
+    target = source if not target_part else (source.parent / target_part).resolve()
+    try:
+        target_relative = target.relative_to(root).as_posix()
+    except ValueError:
+        return None
+    return target_relative, github_slug(unquote(parsed.fragment))
+
+
+def station_policy_reference_issues(
+    root: Path,
+    entries: list[dict[str, object]],
+    texts: dict[str, str],
+) -> list[str]:
+    manifest, issues = load_station_data_policy_consumers(root)
+    consumers = manifest.get("consumers") if isinstance(manifest, dict) else None
+    if not isinstance(consumers, dict):
+        return issues
+    live_paths = {entry.get("path") for entry in entries if isinstance(entry.get("path"), str)}
+    canonical_owner = manifest.get("canonicalOwner")
+    canonical_anchor = github_slug(str(manifest.get("canonicalAnchor", "")))
+    manifest_catalog_owners = [
+        entry.get("path")
+        for entry in entries
+        if isinstance(entry.get("authoritativeSources"), list)
+        for source in entry["authoritativeSources"]
+        if source == STATION_DATA_POLICY_CONSUMERS_PATH
+    ]
+    if manifest_catalog_owners != [canonical_owner]:
+        issues.append(
+            location(
+                CATALOG_PATH,
+                1,
+                f"station policy consumer manifest catalog owner must be exactly {canonical_owner}",
+            )
+        )
+
+    actual: dict[str, Counter[str]] = {}
+    for path, text in texts.items():
+        matches = list(STATION_DATA_POLICY_REFERENCE.finditer(strip_fenced_code_preserving_offsets(text)))
+        if matches:
+            actual[path] = Counter(match.group(1) for match in matches)
         for match in matches:
             line_no = line_number(text, match.start())
-            current_remainder = text[match.end():].split("\n", 1)[0].strip()
-            next_statement = current_remainder or next(
-                (line.strip() for line in lines[line_no:] if line.strip()), ""
-            )
+            line_start = text.rfind("\n", 0, match.start()) + 1
+            line_end = text.find("\n", match.end())
+            if line_end < 0:
+                line_end = len(text)
+            suffix = text[match.end():line_end].strip()
+            links = list(markdown_link_destinations(suffix))
             policy = match.group(1)
-            if STATION_DATA_POLICY_ANCHOR not in next_statement or f"`{policy}`" not in next_statement:
-                issues.append(
-                    location(
-                        path,
-                        line_no,
-                        f"station data policy reference marker {policy} must precede its canonical link",
-                    )
-                )
-
-    retry_category_tokens = {"timeout", "network", "408", "429", "500", "599", "600"}
-    provenance_tokens = {
-        "e64634f", "a705fdb", "9b070ab", "014127f", "da96a5f",
-        "compiled_assets_verified", "device_executed", "no_connected_device",
-    }
-    for path in REQUIRED_STATION_DATA_POLICY_REFERENCES:
-        text = texts.get(path, "")
-        for line_no, statement in markdown_policy_statements(path, text):
-            if path == "docs/test-strategy.md" and statement.startswith("|"):
+            reference_only = (
+                len(links) == 1
+                and links[0][1] == 0
+                and links[0][2] == len(suffix)
+                and f"`{policy}`" in suffix[: suffix.find("](")]
+            )
+            if not reference_only:
+                issues.append(location(path, line_no, "station data policy marker must be a reference-only statement"))
                 continue
-            words = policy_words(statement)
-            word_set = set(words)
-            declarative = any(
-                word.startswith(("소유", "적용", "분류", "기준", "정책", "실행", "검증"))
-                or word.endswith(("합니다", "됩니다", "입니다", "않습니다"))
-                for word in words
+            resolved = resolve_policy_link(root, path, links[0][0])
+            if resolved != (canonical_owner, canonical_anchor):
+                issues.append(location(path, line_no, "station data policy link must resolve to the canonical owner and anchor"))
+
+    for path in sorted(set(actual) - set(consumers)):
+        issues.append(location(path, 1, "unregistered station data policy consumer"))
+    for path, expected in consumers.items():
+        if path not in live_paths or path not in texts:
+            issues.append(location(STATION_DATA_POLICY_CONSUMERS_PATH, 1, f"consumer is not cataloged live Markdown: {path}"))
+            continue
+        expected_counter = Counter(expected)
+        if actual.get(path, Counter()) != expected_counter:
+            issues.append(location(path, 1, f"station data policy marker counts differ: expected {dict(expected_counter)}"))
+    return issues
+
+
+def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
+    """Target high-risk duplicate values; structural references remain the primary gate."""
+    issues: list[str] = []
+    for path, text in texts.items():
+        if path == STATION_DATA_POLICY_OWNER:
+            continue
+        prose = strip_fenced_code(text)
+        for line_no, line in enumerate(prose.splitlines(), 1):
+            if STATION_DATA_POLICY_REFERENCE.search(line):
+                continue
+            normalized = INLINE_CODE.sub(lambda match: match.group(0).strip("`"), line).casefold()
+            timeout_category = "timeout" in normalized or "타임아웃" in normalized
+            network_category = "network" in normalized or "네트워크" in normalized or re.search(
+                r"통신\s*장애", normalized
             )
-            retry = declarative and any(
-                word.startswith("retry") or word.startswith("재시도")
-                for word in words
+            exclusive = any(token in normalized for token in ("only", "한해", "경우에만"))
+            retry_action = any(token in normalized for token in ("retry", "재시도", "더 요청"))
+            bounded = any(
+                token in normalized
+                for token in ("1회", "한 번", "한번", "한 차례", "500ms", "500 ms", "반 초")
             )
-            freshness = any(
-                word in {"fresh", "freshness", "stale"} or word.startswith("신선")
-                for word in words
+            if timeout_category and network_category and exclusive and retry_action and bounded:
+                issues.append(location(path, line_no, "duplicate automatic retry policy claim"))
+
+            fresh_state = "fresh" in normalized or "최신" in normalized
+            stale_state = "stale" in normalized or "오래된" in normalized
+            boundary = any(
+                re.search(pattern, normalized)
+                for pattern in (r"300\s*초", r"5\s*분", r"300000\s*ms", r"300001\s*ms")
             )
-            retry_categories = retry_category_tokens & word_set
-            retry_count = (
-                ({"1", "회"} <= word_set)
-                or ({"한", "번"} <= word_set)
-                or "once" in word_set
-            )
-            retry_delay = retry and {"500", "ms"} <= word_set
-            exclusive = retry and any(
-                word in {"only", "한해"}
-                or word.endswith("에한해")
-                or (word.endswith("만") and word != "하지만")
-                for word in words
-            )
-            if retry and retry_categories and retry_count:
-                issues.append(location(path, line_no, "duplicate station retry classification/count"))
-            elif retry_delay:
-                issues.append(location(path, line_no, "duplicate station retry delay"))
-            elif retry and retry_categories:
-                label = "exclusive retry classification" if exclusive else "retry classification"
-                issues.append(location(path, line_no, f"duplicate station {label}"))
-            elif retry and retry_count:
-                issues.append(location(path, line_no, "duplicate station retry count"))
-            freshness_unit = bool(
-                {"ms", "밀리초"} & word_set
-                or any(word == "분" or "분을" in word or "분이" in word for word in words)
-            )
-            if declarative and freshness and freshness_unit and ({"5", "300000", "300001"} & word_set):
-                issues.append(location(path, line_no, "duplicate station freshness boundary"))
-            if provenance_tokens & word_set:
-                issues.append(location(path, line_no, "duplicate station migration evidence/provenance"))
+            if fresh_state and stale_state and boundary:
+                issues.append(location(path, line_no, "duplicate freshness boundary claim"))
     return issues
 
 
@@ -773,7 +825,8 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
     issues.extend(navigation_issues(live_paths, graph))
     issues.extend(owner_issues(texts))
     issues.extend(station_data_policy_issues(root, entries, texts))
-    issues.extend(catalog_policy_prose_issues(texts))
+    issues.extend(station_policy_reference_issues(root, entries, texts))
+    issues.extend(station_policy_claim_issues(texts))
     if include_gradle_tasks:
         issues.extend(check_gradle_tasks(root, texts))
     return sorted(set(issues))

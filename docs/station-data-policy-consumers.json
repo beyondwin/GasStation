@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "canonicalOwner": "docs/offline-strategy.md",
+  "canonicalAnchor": "기계-판독-정책-계약",
+  "statementMode": "reference_only",
+  "consumers": {
+    "README.md": {"retry": 2},
+    "docs/agent-workflow.md": {"retry": 1},
+    "docs/onboarding/developer-onboarding-guide.md": {"retry": 1, "freshness": 1},
+    "docs/test-strategy.md": {"retry": 1, "freshness": 1}
+  }
+}

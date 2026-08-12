@@ -147,7 +147,8 @@ feature가 `SettingsRepository`를 직접 호출하지 않게 유지한다. 설�
 - 실패해도 기존 스냅샷은 유지한다.
 - 성공한 빈 결과와 캐시 없음은 다르다.
 - UI 전면 실패 판단은 `hasCachedSnapshot` 의미를 기준으로 한다.
-- `StationRetryPolicy`의 정확한 분류·횟수·지연은 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](offline-strategy.md#기계-판독-정책-계약)을 따르고, retry 결과는 `StationEvent.RetryAttempted`로 기록한다.
+- `StationRetryPolicy`가 application retry를 소유하고, retry 결과는 `StationEvent.RetryAttempted`로 기록한다.
+  <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](offline-strategy.md#기계-판독-정책-계약)
 
 변경 전 확인 파일:
 

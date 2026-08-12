@@ -41,7 +41,8 @@
 - `demo`와 `prod`는 같은 위치 권한 상태기를 사용합니다. 권한 거부는 demo 고정 좌표, 기존 좌표, 캐시 결과, 자동/수동 refresh보다 먼저 Nearby를 권한 안내로 전환하며, approximate 또는 precise grant 뒤에만 demo 고정 좌표가 공급됩니다.
 - 현재 위치 주소는 지오코더가 반환한 전체 주소를 그대로 노출하지 않고, `domain:location`의 순수 정규화 규칙으로 행정동 단위의 짧은 라벨을 만들어 목록 상단에 표시합니다.
 - `station_cache_snapshot`과 `StationSearchResult.hasCachedSnapshot`으로 "성공한 빈 결과"와 "캐시 자체가 없음"을 구분합니다.
-- 목록은 stale 결과와 실패 시 기존 스냅샷을 유지합니다. 재시도 분류와 실행 규칙은 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)이 소유합니다. 성공한 refresh는 보관 정책에 따라 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
+- 목록은 stale 결과와 실패 시 기존 스냅샷을 유지합니다. 성공한 refresh는 보관 정책에 따라 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
+  <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)
 - `StationListViewModel`은 최종 UI state/effect 조합에 집중하고, 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, refresh retry는 `StationRetryPolicy`가 맡습니다.
 - `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. `CrashReporter` 같은 비치명 예외 보고 계약은 `core:observability`가 소유하고, 앱이 flavor별 구현을 바인딩합니다.
 - 주변 주유소는 테두리 없는 price-first row로 보여주며, 가격을 32sp hero로 두고 거리·역명·유종·실제 브랜드 로고를 보조 정보로 배치합니다. 상단 요약은 최저가·검색 건수와 평균가·절약액을 두 줄로 압축하고, 반경·유종·브랜드 chip은 같은 anchored menu 패턴을 사용합니다. 가격 이력은 보조 `가격` label이나 `-` 대신 `가격 이력 없음`, `변동 없음`, `▲ N원`, `▼ N원`을 명시합니다.
@@ -119,7 +120,8 @@ flowchart LR
 1. `StationListRoute`가 권한 상태를 전달하고 foreground 구간에서 위치 availability를 수집해 `StationListViewModel`에 반영합니다. 앱 진입만으로 Android 권한 dialog를 열지 않으며, 사용자가 권한 안내의 CTA를 누를 때만 요청합니다. terminal denial이 반복되면 CTA는 Android 앱 설정 열기로 바뀝니다.
 2. DataStore의 첫 `UserPreferences` emission이 Nearby와 Settings의 readiness 경계입니다. 두 화면은 그 emission 전 `UserPreferences.default()`를 렌더링하거나 action에 사용하지 않습니다. Nearby ViewModel은 permission, GPS, 좌표, 선호값이 모두 준비된 뒤에만 검색 입력을 담은 `StationQuery`를 만들고 저장소 읽기 모델을 구독합니다. permission denial은 GPS 비활성화와 별도 안내이며, 어느 flavor에서도 retained coordinate나 캐시 목록을 우회 표시하지 않습니다. 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query를 새 조건으로 갱신하고 refresh를 요청합니다.
 3. 현재 주소 라벨은 `domain:location`의 `AddressLabelNormalizer`가 행정동 중심으로 정규화하고, `core:location`은 Android 지오코더 후보를 그 규칙에 통과시킵니다.
-4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷은 유지됩니다. 정확한 재시도 정책은 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)을 따르고, `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
+4. `prod` 새로고침 성공 시 Room 스냅샷과 가격 히스토리가 갱신되고 오래된 캐시는 정리되며, 실패 시 기존 스냅샷을 유지합니다. `demo`는 고정 좌표 + seed 기반 remote source로 같은 갱신 규칙을 재현합니다.
+   <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)
 5. 목록에서 저장한 주유소는 `주변·관심·설정` bottom navigation의 관심 화면에서 선택 유종의 가격 변화와 거리 기준으로 다시 비교할 수 있습니다. 관심 화면은 반경·브랜드·Nearby 정렬과 무관하게 저장 항목을 유지하며, 선택 유종의 캐시와 이력이 없으면 행을 제거하지 않고 `선택 유종 가격 없음`을 표시합니다.
 6. 주유소 행 클릭 시 사용자가 선택한 외부 지도 앱으로 길찾기 handoff를 요청합니다. TMAP·카카오맵·네이버 지도 intent는 대상 package를 명시하고, 네이버 지도에는 runtime application ID를 `appname`으로 전달합니다. 앱 route를 열지 못하면 Play Store app URI, HTTPS Store 순으로 시도하며 최종 실패는 화면 feedback으로 돌아옵니다.
 

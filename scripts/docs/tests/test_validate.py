@@ -80,7 +80,28 @@ class FixtureRepository:
         self.documents = [self.entry(path) for path in LIVE_PATHS]
         offline = next(entry for entry in self.documents if entry["path"] == VALIDATOR.STATION_DATA_POLICY_OWNER)
         offline["authoritativeSources"].insert(0, VALIDATOR.STATION_DATA_POLICY_PATH)
+        offline["authoritativeSources"].insert(1, VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH)
         self.write(VALIDATOR.STATION_DATA_POLICY_PATH, POLICY_TEXT)
+        self.write(
+            VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH,
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "canonicalOwner": VALIDATOR.STATION_DATA_POLICY_OWNER,
+                    "canonicalAnchor": "기계-판독-정책-계약",
+                    "statementMode": "reference_only",
+                    "consumers": {
+                        "README.md": {"retry": 2},
+                        "docs/agent-workflow.md": {"retry": 1},
+                        "docs/onboarding/developer-onboarding-guide.md": {"retry": 1, "freshness": 1},
+                        "docs/test-strategy.md": {"retry": 1, "freshness": 1},
+                    },
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
         self.write(
             VALIDATOR.STATION_DATA_POLICY_OWNER,
             "# offline-strategy\n\n## 기계 판독 정책 계약\n\n"
@@ -178,6 +199,110 @@ class ValidatorTest(unittest.TestCase):
         result = self.run_validator()
         self.assertNotEqual(0, result.returncode, result.stdout)
         self.assertIn(expected, result.stderr)
+
+    def replace_policy_reference(self, path: str, old: str, new: str) -> None:
+        target = self.repo.root / path
+        text = target.read_text()
+        self.assertIn(old, text)
+        target.write_text(text.replace(old, new, 1))
+
+    def test_rejects_external_suffix_as_canonical_policy_link(self) -> None:
+        self.replace_policy_reference(
+            "README.md",
+            "docs/offline-strategy.md#기계-판독-정책-계약",
+            "https://example.invalid/offline-strategy.md#기계-판독-정책-계약",
+        )
+        self.assert_rejected("must resolve to the canonical owner and anchor")
+
+    def test_rejects_document_top_link_with_plain_anchor_decoy(self) -> None:
+        self.replace_policy_reference(
+            "README.md",
+            "docs/offline-strategy.md#기계-판독-정책-계약)",
+            "docs/offline-strategy.md) offline-strategy.md#기계-판독-정책-계약",
+        )
+        self.assert_rejected("station data policy marker must be a reference-only statement")
+
+    def test_rejects_wrong_canonical_policy_fragment(self) -> None:
+        self.replace_policy_reference(
+            "docs/agent-workflow.md",
+            "offline-strategy.md#기계-판독-정책-계약",
+            "offline-strategy.md#stale-판정",
+        )
+        self.assert_rejected("must resolve to the canonical owner and anchor")
+
+    def test_rejects_normative_synonym_appended_to_reference_statement(self) -> None:
+        self.replace_policy_reference(
+            "docs/onboarding/developer-onboarding-guide.md",
+            "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약)",
+            "[structured `freshness` contract](../offline-strategy.md#기계-판독-정책-계약) "
+            "보관 후 300초까지는 최신이며 그 뒤에는 오래된 결과입니다.",
+        )
+        self.assert_rejected("must be a reference-only statement")
+
+    def test_unrelated_retry_ui_prose_is_not_a_station_policy_claim(self) -> None:
+        self.repo.append(
+            "docs/onboarding/developer-onboarding-guide.md",
+            "Network 실패 화면은 사용자에게 재시도 버튼을 제공합니다.\n",
+        )
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_rejects_unregistered_marker_in_new_catalog_consumer(self) -> None:
+        validator = load_validator()
+        path = "docs/architecture.md"
+        self.repo.append(
+            path,
+            "<!-- station-data-policy-ref: retry -->"
+            "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n",
+        )
+        entries, _ = validator.load_catalog(self.repo.root)
+        texts = {
+            entry["path"]: (self.repo.root / entry["path"]).read_text()
+            for entry in entries
+            if entry["path"].endswith(".md")
+        }
+        issues = validator.station_policy_reference_issues(self.repo.root, entries, texts)
+        self.assertTrue(any("unregistered station data policy consumer" in issue for issue in issues))
+
+    def test_registered_new_catalog_consumer_is_structurally_accepted(self) -> None:
+        path = "docs/architecture.md"
+        self.repo.append(
+            path,
+            "<!-- station-data-policy-ref: retry -->"
+            "[structured `retry` contract](offline-strategy.md#기계-판독-정책-계약)\n",
+        )
+        manifest_path = self.repo.root / VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH
+        manifest = json.loads(manifest_path.read_text())
+        manifest["consumers"][path] = {"retry": 1}
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False))
+        result = self.run_validator()
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_rejects_manifest_consumer_missing_from_catalog(self) -> None:
+        manifest_path = self.repo.root / VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH
+        manifest = json.loads(manifest_path.read_text())
+        manifest["consumers"]["docs/not-cataloged.md"] = {"freshness": 1}
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False))
+        self.assert_rejected("consumer is not cataloged live Markdown")
+
+    def test_rejects_registered_new_consumer_with_exclusive_retry_claim_without_marker(self) -> None:
+        path = "docs/architecture.md"
+        self.repo.append(path, "Timeout과 Network 실패에 한해 한 번 재시도합니다.\n")
+        self.assert_rejected("duplicate automatic retry policy claim")
+
+    def test_rejects_korean_synonym_automatic_retry_claim(self) -> None:
+        self.repo.append(
+            "docs/architecture.md",
+            "타임아웃이나 통신 장애인 경우에만 반 초 뒤 단 한 차례 더 요청합니다.\n",
+        )
+        self.assert_rejected("duplicate automatic retry policy claim")
+
+    def test_rejects_korean_synonym_freshness_boundary_claim(self) -> None:
+        self.repo.append(
+            "docs/architecture.md",
+            "보관 후 300초까지는 최신이며 그 뒤에는 오래된 결과입니다.\n",
+        )
+        self.assert_rejected("duplicate freshness boundary claim")
 
     def test_rejects_structured_station_policy_source_drift(self) -> None:
         policy = json.loads(POLICY_TEXT)
