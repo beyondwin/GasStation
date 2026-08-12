@@ -12,9 +12,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
@@ -28,21 +31,52 @@ class StationSearchOrchestrator @Inject constructor(
     private val mutableSearchResult = MutableStateFlow(emptySearchResult())
     private val mutableBlockingFailure = MutableStateFlow<StationListFailureReason?>(null)
     private val pendingBlockingFailure = MutableStateFlow<PendingBlockingFailure?>(null)
+    private val mutableObservationFailed = MutableStateFlow(false)
+    private val retryGeneration = MutableStateFlow(0L)
+    private val observationLock = Any()
+    private var activeObservationSession: ObservationSession? = null
 
     val activeQueryState = mutableActiveQueryState.asStateFlow()
     val searchResult = mutableSearchResult.asStateFlow()
     val blockingFailure = mutableBlockingFailure.asStateFlow()
+    val observationFailed = mutableObservationFailed.asStateFlow()
 
-    fun observe(queryFlow: Flow<StationQuery?>): Flow<StationSearchResult> = queryFlow.distinctUntilChanged()
+    fun observe(queryFlow: Flow<StationQuery?>): Flow<StationSearchResult> = queryFlow
+        .distinctUntilChanged()
         .onEach(::onQueryChanged)
-        .flatMapLatest { query ->
-            if (query == null) {
+        .combine(retryGeneration) { query, generation ->
+            ObservationSession(query, generation)
+        }
+        .distinctUntilChanged()
+        .flatMapLatest { session ->
+            onObservationSessionStarted(session)
+            if (session.query == null) {
                 flowOf(emptySearchResult())
+                    .onEach { result -> onObservedResult(session, result) }
             } else {
-                observeNearbyStations(query)
+                observeNearbyStations(session.query)
+                    .onEach { result -> onObservedResult(session, result) }
+                    .onCompletion { cause ->
+                        if (cause == null) {
+                            markObservationFailed(session)
+                        }
+                    }
+                    .catch { throwable ->
+                        if (throwable is CancellationException) throw throwable
+                        markObservationFailed(session)
+                    }
             }
         }
-        .onEach(::onObservedResult)
+
+    fun retryObservation() {
+        synchronized(observationLock) {
+            val session = activeObservationSession
+            if (!mutableObservationFailed.value || session?.query == null) return
+
+            mutableObservationFailed.value = false
+            retryGeneration.value += 1L
+        }
+    }
 
     suspend fun refresh(query: StationQuery): RefreshOutcome {
         if (activeQueryState.value.query != query) {
@@ -69,25 +103,29 @@ class StationSearchOrchestrator @Inject constructor(
     }
 
     fun onBlockingFailure(query: StationQuery? = activeQueryState.value.query, reason: StationListFailureReason) {
-        if (query != null && activeQueryState.value.query != query) return
+        synchronized(observationLock) {
+            if (query != null && activeQueryState.value.query != query) return
 
-        when (activeQueryState.value.cacheState) {
-            CachedSnapshotState.Present -> clearBlockingFailure()
+            when (activeQueryState.value.cacheState) {
+                CachedSnapshotState.Present -> clearBlockingFailure()
 
-            CachedSnapshotState.Absent -> {
-                pendingBlockingFailure.value = null
-                mutableBlockingFailure.value = reason
-            }
+                CachedSnapshotState.Absent -> {
+                    pendingBlockingFailure.value = null
+                    mutableBlockingFailure.value = reason
+                }
 
-            CachedSnapshotState.Unknown -> {
-                pendingBlockingFailure.value = query?.let { PendingBlockingFailure(it, reason) }
+                CachedSnapshotState.Unknown -> {
+                    pendingBlockingFailure.value = query?.let { PendingBlockingFailure(it, reason) }
+                }
             }
         }
     }
 
     fun clearBlockingFailure() {
-        pendingBlockingFailure.value = null
-        mutableBlockingFailure.value = null
+        synchronized(observationLock) {
+            pendingBlockingFailure.value = null
+            mutableBlockingFailure.value = null
+        }
     }
 
     fun shouldRefreshForCriteriaChange(previous: StationQuery?, next: StationQuery?): Boolean = previous != null &&
@@ -101,30 +139,58 @@ class StationSearchOrchestrator @Inject constructor(
             )
 
     private fun onQueryChanged(query: StationQuery?) {
-        val previousQuery = activeQueryState.value.query
-        mutableActiveQueryState.value = ActiveStationQueryState(
-            query = query,
-            cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
-        )
-        if (previousQuery != query) {
-            clearBlockingFailure()
+        synchronized(observationLock) {
+            val previousQuery = activeQueryState.value.query
+            mutableActiveQueryState.value = ActiveStationQueryState(
+                query = query,
+                cacheState = if (query == null) CachedSnapshotState.Absent else CachedSnapshotState.Unknown,
+            )
+            if (previousQuery != query) {
+                activeObservationSession = null
+                mutableSearchResult.value = emptySearchResult()
+                mutableObservationFailed.value = false
+                clearBlockingFailure()
+            }
         }
     }
 
-    private fun onObservedResult(result: StationSearchResult) {
-        mutableSearchResult.value = result
-        val hasCachedSnapshot = result.hasCachedSnapshot
-        mutableActiveQueryState.update { current ->
-            current.copy(
-                cacheState = if (hasCachedSnapshot) {
-                    CachedSnapshotState.Present
-                } else {
-                    CachedSnapshotState.Absent
-                },
-            )
+    private fun onObservationSessionStarted(session: ObservationSession) {
+        synchronized(observationLock) {
+            activeObservationSession = session
+            mutableObservationFailed.value = false
         }
-        syncBlockingFailureWithObservedResult(hasCachedSnapshot)
     }
+
+    private fun onObservedResult(session: ObservationSession?, result: StationSearchResult) {
+        synchronized(observationLock) {
+            if (!isActive(session)) return
+
+            mutableSearchResult.value = result
+            val hasCachedSnapshot = result.hasCachedSnapshot
+            mutableActiveQueryState.update { current ->
+                current.copy(
+                    cacheState = if (hasCachedSnapshot) {
+                        CachedSnapshotState.Present
+                    } else {
+                        CachedSnapshotState.Absent
+                    },
+                )
+            }
+            syncBlockingFailureWithObservedResult(hasCachedSnapshot)
+        }
+    }
+
+    private fun markObservationFailed(session: ObservationSession) {
+        synchronized(observationLock) {
+            if (isActive(session)) {
+                mutableObservationFailed.value = true
+            }
+        }
+    }
+
+    private fun isActive(session: ObservationSession?): Boolean = session != null &&
+        activeObservationSession === session &&
+        activeQueryState.value.query == session.query
 
     private fun syncBlockingFailureWithObservedResult(hasCachedSnapshot: Boolean) {
         if (hasCachedSnapshot) {
@@ -140,6 +206,8 @@ class StationSearchOrchestrator @Inject constructor(
         mutableBlockingFailure.value = pendingFailure.reason
     }
 }
+
+private data class ObservationSession(val query: StationQuery?, val retryGeneration: Long)
 
 data class ActiveStationQueryState(val query: StationQuery? = null, val cacheState: CachedSnapshotState = CachedSnapshotState.Absent)
 
