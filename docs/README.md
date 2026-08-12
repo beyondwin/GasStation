@@ -28,6 +28,11 @@
 - build cache·configuration cache와 CI 속도 결정: [빌드 속도](build-velocity.md)
 - 현재 릴리스 변경 요약: [CHANGELOG.md](../CHANGELOG.md)
 
+### 모듈별 운영 계약
+
+- Room schema, snapshot, migration, cache 데이터 변경: [core:database AGENTS](../core/database/AGENTS.md)
+- macrobenchmark 증거, physical device, selector 계약: [benchmark AGENTS](../benchmark/AGENTS.md)
+
 ## 4. 결정·근거·이력 조사
 
 - 현재 수용된 아키텍처 결정: [ADR — Backend Proxy Escalation](adr/2026-05-18-backend-proxy-escalation.md)

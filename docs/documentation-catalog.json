@@ -58,6 +58,14 @@
       "verificationScope": "scripts/agent/verify.sh docs; checker의 live set과 문서 분류를 대조"
     },
     {
+      "path": "docs/onboarding/developer-onboarding-guide.md",
+      "kind": "runbook",
+      "owner": "새 Android 기여자의 제품·코드·변경 흐름 온보딩",
+      "authoritativeSources": ["settings.gradle.kts", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/agent-workflow.md"],
+      "reviewTriggers": ["활성 모듈·flavor·핵심 사용자 흐름 변경", "온보딩의 코드 읽기·첫 변경·검증 경로 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 연결된 live 계약과 온보딩에 지목된 코드·모듈 경로를 대조"
+    },
+    {
       "path": "docs/agent-workflow.md",
       "kind": "runbook",
       "owner": "기능·수정 작업의 표준 실행 순서",
@@ -152,6 +160,22 @@
       "authoritativeSources": ["gradle.properties", ".github/workflows/android.yml", "scripts/agent/verify.sh"],
       "reviewTriggers": ["Gradle parallel·cache·configuration-cache 설정 변경", "CI job 분리 또는 기본 검증 gate 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; gradle.properties와 workflow task 분리를 대조"
+    },
+    {
+      "path": "core/database/AGENTS.md",
+      "kind": "contract",
+      "owner": "core:database schema·snapshot·migration 변경 운영 계약",
+      "authoritativeSources": ["core/database/build.gradle.kts", "core/database/src/main/kotlin/com/gasstation/core/database", "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt"],
+      "reviewTriggers": ["Room entity·DAO·schema version·migration 변경", "snapshot 교체·pruning·cache·watchlist fallback 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; :core:database:testDebugUnitTest, 필요 시 :data:station:testDebugUnitTest와 verifyModuleBoundaries를 선택"
+    },
+    {
+      "path": "benchmark/AGENTS.md",
+      "kind": "contract",
+      "owner": "benchmark 증거·selector·physical-device 실행 운영 계약",
+      "authoritativeSources": ["benchmark/build.gradle.kts", "benchmark/src/main/kotlin/com/gasstation/benchmark", "docs/performance.md", "docs/verification-matrix.md"],
+      "reviewTriggers": ["macrobenchmark journey·selector·baseline profile 변경", "측정 device·build variant·성능 수치 또는 evidence artifact 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; benchmark assemble와 physical-device 명령·보고 경계는 performance 및 verification 문서와 대조"
     },
     {
       "path": "docs/adr/2026-05-18-backend-proxy-escalation.md",
