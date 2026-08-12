@@ -1,6 +1,7 @@
 package com.gasstation.data.station
 
 import com.gasstation.core.database.DatabaseTransactionRunner
+import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.StationPriceHistoryEntity
@@ -35,6 +36,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultStationRepository @Inject constructor(
     private val stationCacheDao: StationCacheDao,
+    private val stationBucketSnapshotObserver: StationBucketSnapshotObserver,
     private val stationPriceHistoryDao: StationPriceHistoryDao,
     private val watchedStationDao: WatchedStationDao,
     private val remoteDataSource: StationRemoteDataSource,
@@ -48,22 +50,14 @@ class DefaultStationRepository @Inject constructor(
     override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> {
         val cacheKey = query.toCacheKey(bucketMeters = DEFAULT_BUCKET_METERS)
 
-        return combine(
-            stationCacheDao.observeSnapshot(
-                latitudeBucket = cacheKey.latitudeBucket,
-                longitudeBucket = cacheKey.longitudeBucket,
-                radiusMeters = cacheKey.radiusMeters,
-                fuelType = cacheKey.fuelType.name,
-            ),
-            stationCacheDao.observeStations(
-                latitudeBucket = cacheKey.latitudeBucket,
-                longitudeBucket = cacheKey.longitudeBucket,
-                radiusMeters = cacheKey.radiusMeters,
-                fuelType = cacheKey.fuelType.name,
-            ),
-        ) { snapshot, cachedStations ->
-            snapshot to cachedStations
-        }.flatMapLatest { (snapshot, cachedStations) ->
+        return stationBucketSnapshotObserver.observe(
+            latitudeBucket = cacheKey.latitudeBucket,
+            longitudeBucket = cacheKey.longitudeBucket,
+            radiusMeters = cacheKey.radiusMeters,
+            fuelType = cacheKey.fuelType.name,
+        ).flatMapLatest { bucketSnapshot ->
+            val snapshot = bucketSnapshot.marker
+            val cachedStations = bucketSnapshot.rows
             if (snapshot == null) {
                 return@flatMapLatest flowOf(emptySearchResult())
             }

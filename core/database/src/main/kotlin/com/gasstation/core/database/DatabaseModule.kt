@@ -2,6 +2,8 @@ package com.gasstation.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.gasstation.core.database.station.RoomStationBucketSnapshotObserver
+import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationPriceHistoryDao
 import com.gasstation.core.database.station.WatchedStationDao
@@ -35,6 +37,9 @@ object DatabaseModule {
 
     @Provides
     fun provideStationCacheDao(database: GasStationDatabase): StationCacheDao = database.stationCacheDao()
+
+    @Provides
+    fun provideStationBucketSnapshotObserver(observer: RoomStationBucketSnapshotObserver): StationBucketSnapshotObserver = observer
 
     @Provides
     fun provideStationPriceHistoryDao(database: GasStationDatabase): StationPriceHistoryDao = database.stationPriceHistoryDao()

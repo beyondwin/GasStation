@@ -1,5 +1,7 @@
 package com.gasstation.data.station
 
+import com.gasstation.core.database.station.StationBucketSnapshot
+import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.StationCacheSnapshotEntity
@@ -112,6 +114,30 @@ internal class RecordingStationCacheDao : StationCacheDao() {
         }
     }
 
+    override suspend fun readStations(
+        latitudeBucket: Int,
+        longitudeBucket: Int,
+        radiusMeters: Int,
+        fuelType: String,
+    ): List<StationCacheEntity> = entities.value.filter {
+        it.latitudeBucket == latitudeBucket &&
+            it.longitudeBucket == longitudeBucket &&
+            it.radiusMeters == radiusMeters &&
+            it.fuelType == fuelType
+    }
+
+    override suspend fun readSnapshot(
+        latitudeBucket: Int,
+        longitudeBucket: Int,
+        radiusMeters: Int,
+        fuelType: String,
+    ): StationCacheSnapshotEntity? = snapshots.value.firstOrNull {
+        it.latitudeBucket == latitudeBucket &&
+            it.longitudeBucket == longitudeBucket &&
+            it.radiusMeters == radiusMeters &&
+            it.fuelType == fuelType
+    }
+
     override suspend fun upsertAll(entities: List<StationCacheEntity>) {
         this.entities.value = this.entities.value + entities
     }
@@ -190,4 +216,27 @@ internal class RecordingStationCacheDao : StationCacheDao() {
         radiusMeters = cacheKey.radiusMeters,
         fuelType = cacheKey.fuelType.name,
     ).first()
+}
+
+internal class RecordingStationBucketSnapshotObserver(private val stationCacheDao: StationCacheDao) : StationBucketSnapshotObserver {
+    override fun observe(latitudeBucket: Int, longitudeBucket: Int, radiusMeters: Int, fuelType: String): Flow<StationBucketSnapshot> =
+        kotlinx.coroutines.flow.combine(
+            stationCacheDao.observeSnapshot(
+                latitudeBucket = latitudeBucket,
+                longitudeBucket = longitudeBucket,
+                radiusMeters = radiusMeters,
+                fuelType = fuelType,
+            ),
+            stationCacheDao.observeStations(
+                latitudeBucket = latitudeBucket,
+                longitudeBucket = longitudeBucket,
+                radiusMeters = radiusMeters,
+                fuelType = fuelType,
+            ),
+        ) { marker, rows ->
+            StationBucketSnapshot(
+                marker = marker,
+                rows = if (marker == null) emptyList() else rows,
+            )
+        }
 }

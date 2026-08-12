@@ -27,6 +27,22 @@ abstract class StationCacheDao {
 
     @Query(
         """
+        SELECT * FROM station_cache
+        WHERE latitudeBucket = :latitudeBucket
+          AND longitudeBucket = :longitudeBucket
+          AND radiusMeters = :radiusMeters
+          AND fuelType = :fuelType
+        """,
+    )
+    abstract suspend fun readStations(
+        latitudeBucket: Int,
+        longitudeBucket: Int,
+        radiusMeters: Int,
+        fuelType: String,
+    ): List<StationCacheEntity>
+
+    @Query(
+        """
         SELECT * FROM station_cache_snapshot
         WHERE latitudeBucket = :latitudeBucket
           AND longitudeBucket = :longitudeBucket
@@ -40,6 +56,22 @@ abstract class StationCacheDao {
         radiusMeters: Int,
         fuelType: String,
     ): Flow<StationCacheSnapshotEntity?>
+
+    @Query(
+        """
+        SELECT * FROM station_cache_snapshot
+        WHERE latitudeBucket = :latitudeBucket
+          AND longitudeBucket = :longitudeBucket
+          AND radiusMeters = :radiusMeters
+          AND fuelType = :fuelType
+        """,
+    )
+    abstract suspend fun readSnapshot(
+        latitudeBucket: Int,
+        longitudeBucket: Int,
+        radiusMeters: Int,
+        fuelType: String,
+    ): StationCacheSnapshotEntity?
 
     @Query(
         """

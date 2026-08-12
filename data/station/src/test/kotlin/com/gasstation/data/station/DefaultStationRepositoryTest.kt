@@ -1,5 +1,7 @@
 package com.gasstation.data.station
 
+import com.gasstation.core.database.station.StationBucketSnapshot
+import com.gasstation.core.database.station.StationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheDao
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.model.BrandFilter
@@ -19,6 +21,7 @@ import com.gasstation.domain.station.model.StationQuery
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
@@ -284,6 +287,40 @@ class DefaultStationRepositoryTest {
 
         assertEquals(listOf("cheap-gsc", "expensive-gsc"), result.stations.map { it.station.id })
         assertEquals(StationFreshness.Fresh, result.freshness)
+        assertEquals(now, result.fetchedAt)
+    }
+
+    @Test
+    fun `observeNearbyStations reads the injected atomic bucket snapshot`() = runBlocking {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val atomicSnapshot = StationBucketSnapshot(
+            marker = com.gasstation.core.database.station.StationCacheSnapshotEntity(
+                latitudeBucket = cacheKey.latitudeBucket,
+                longitudeBucket = cacheKey.longitudeBucket,
+                radiusMeters = cacheKey.radiusMeters,
+                fuelType = cacheKey.fuelType.name,
+                fetchedAtEpochMillis = now.toEpochMilli(),
+            ),
+            rows = listOf(
+                stationEntity(
+                    cacheKey = cacheKey,
+                    stationId = "atomic-station",
+                    fetchedAt = now,
+                ),
+            ),
+        )
+        val repository = repository(
+            stationCacheDao = RecordingStationCacheDao(),
+            stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ ->
+                flowOf(atomicSnapshot)
+            },
+        )
+
+        val result = repository.observeNearbyStations(query).first()
+
+        assertEquals(listOf("atomic-station"), result.stations.map { it.station.id })
+        assertTrue(result.hasCachedSnapshot)
         assertEquals(now, result.fetchedAt)
     }
 
@@ -561,6 +598,7 @@ class DefaultStationRepositoryTest {
 
     private fun repository(
         stationCacheDao: StationCacheDao = RecordingStationCacheDao(),
+        stationBucketSnapshotObserver: StationBucketSnapshotObserver = RecordingStationBucketSnapshotObserver(stationCacheDao),
         stationPriceHistoryDao: RecordingStationPriceHistoryDao = RecordingStationPriceHistoryDao(),
         watchedStationDao: RecordingWatchedStationDao = RecordingWatchedStationDao(),
         remoteDataSource: StationRemoteDataSource = FakeStationRemoteDataSource(
@@ -571,6 +609,7 @@ class DefaultStationRepositoryTest {
         transactionRunner: ImmediateDatabaseTransactionRunner = ImmediateDatabaseTransactionRunner(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
+        stationBucketSnapshotObserver = stationBucketSnapshotObserver,
         stationPriceHistoryDao = stationPriceHistoryDao,
         watchedStationDao = watchedStationDao,
         remoteDataSource = remoteDataSource,

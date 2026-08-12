@@ -585,6 +585,7 @@ class WatchlistRepositoryTest {
         watchedStationDao: RecordingWatchedStationDao = RecordingWatchedStationDao(),
     ) = DefaultStationRepository(
         stationCacheDao = stationCacheDao,
+        stationBucketSnapshotObserver = RecordingStationBucketSnapshotObserver(stationCacheDao),
         stationPriceHistoryDao = stationPriceHistoryDao,
         watchedStationDao = watchedStationDao,
         remoteDataSource = NoOpStationRemoteDataSource,
@@ -632,6 +633,20 @@ class WatchlistRepositoryTest {
             radiusMeters: Int,
             fuelType: String,
         ): Flow<StationCacheSnapshotEntity?> = flowOf(null)
+
+        override suspend fun readStations(
+            latitudeBucket: Int,
+            longitudeBucket: Int,
+            radiusMeters: Int,
+            fuelType: String,
+        ): List<StationCacheEntity> = emptyList()
+
+        override suspend fun readSnapshot(
+            latitudeBucket: Int,
+            longitudeBucket: Int,
+            radiusMeters: Int,
+            fuelType: String,
+        ): StationCacheSnapshotEntity? = null
 
         override fun observeLatestStationsByIds(stationIds: List<String>): Flow<List<StationCacheEntity>> = flowOf(emptyList())
 
