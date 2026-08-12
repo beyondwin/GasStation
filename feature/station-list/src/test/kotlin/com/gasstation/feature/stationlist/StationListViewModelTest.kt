@@ -48,6 +48,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StationListViewModelTest {
@@ -1007,6 +1008,47 @@ class StationListViewModelTest {
         assertEquals(null, viewModel.uiState.value.currentAddressLabel)
         assertTrue(repository.refreshedQueries.isEmpty())
         assertTrue(repository.observedQueries.isEmpty())
+    }
+
+    @Test
+    fun `superseded location result is silent and emits no failure analytics`() = runTest(dispatcher, timeout = 10.seconds) {
+        val repository = FakeStationRepository(emptySearchResult())
+        val locationLookupStarted = CompletableDeferred<Unit>()
+        val completeLocationLookup = CompletableDeferred<LocationLookupResult>()
+        val analytics = RecordingStationEventLogger()
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = object : LocationRepository {
+                override fun observeAvailability(): Flow<Boolean> = MutableSharedFlow()
+
+                override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult {
+                    locationLookupStarted.complete(Unit)
+                    return completeLocationLookup.await()
+                }
+
+                override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult =
+                    LocationAddressLookupResult.Unavailable
+            },
+            analytics = analytics,
+        )
+
+        viewModel.effects.test {
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            locationLookupStarted.await()
+
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.ApproximateGranted))
+            completeLocationLookup.complete(LocationLookupResult.Unavailable)
+            advanceUntilIdle()
+
+            expectNoEvents()
+        }
+
+        assertTrue(analytics.events.isEmpty())
+        assertEquals(null, viewModel.uiState.value.blockingFailure)
+        assertTrue(repository.refreshedQueries.isEmpty())
     }
 
     @Test

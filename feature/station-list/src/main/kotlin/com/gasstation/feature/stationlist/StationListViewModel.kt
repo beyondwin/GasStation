@@ -303,8 +303,7 @@ class StationListViewModel @Inject constructor(
 
     private fun refreshAddressLabel(coordinates: Coordinates) {
         viewModelScope.launch {
-            val addressLabel = locationStateMachine.resolveAddressLabel(coordinates)
-            locationStateMachine.onAddressResolved(coordinates, addressLabel)
+            locationStateMachine.resolveAddressLabel(coordinates)
         }
     }
 
@@ -314,6 +313,8 @@ class StationListViewModel @Inject constructor(
                 searchOrchestrator.clearBlockingFailure()
                 result.coordinates
             }
+
+            LocationAcquisitionResult.Superseded -> null
 
             LocationAcquisitionResult.PermissionDenied -> {
                 logLocationFailure(result)
@@ -502,6 +503,7 @@ private fun LocationState.hasEligibleCoordinates(coordinates: Coordinates): Bool
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
     is LocationAcquisitionResult.Success -> null
+    LocationAcquisitionResult.Superseded -> null
     LocationAcquisitionResult.PermissionDenied -> "PermissionDenied"
     LocationAcquisitionResult.TimedOut -> "TimedOut"
     LocationAcquisitionResult.Unavailable -> "Unavailable"
