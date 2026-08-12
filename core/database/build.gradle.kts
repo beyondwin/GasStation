@@ -28,7 +28,10 @@ class RoomSchemaArgProvider(
 }
 
 extensions.configure<KspExtension> {
-    arg(RoomSchemaArgProvider(layout.projectDirectory.dir("schemas")))
+    val schemaOutput = providers.gradleProperty("gasstation.roomSchemaOutput")
+        .map { layout.dir(providers.provider { file(it).canonicalFile }).get() }
+        .orElse(layout.projectDirectory.dir("schemas"))
+    arg(RoomSchemaArgProvider(schemaOutput.get()))
 }
 
 dependencies {

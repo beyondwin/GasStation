@@ -35,9 +35,11 @@ class GasStationDatabaseMigrationInstrumentedTest {
 
         helper.runMigrationsAndValidate(databaseName, 5, true, *allMigrations).use { database ->
             assertEquals(2, database.rowCount("station_cache"))
+            assertCacheRow(database, stationId = "station-old", fetchedAtEpochMillis = 100L)
+            assertCacheRow(database, stationId = "station-latest", fetchedAtEpochMillis = 200L)
             assertEquals(0, database.rowCount("station_price_history"))
             assertEquals(0, database.rowCount("watched_station"))
-            assertEquals(200L, database.snapshotTimestamp())
+            assertSnapshotRow(database, fetchedAtEpochMillis = 200L)
             assertLatestByStationIndex(database)
         }
     }
@@ -59,9 +61,11 @@ class GasStationDatabaseMigrationInstrumentedTest {
             GasStationDatabase.MIGRATION_4_5,
         ).use { database ->
             assertEquals(1, database.rowCount("station_cache"))
+            assertCacheRow(database, stationId = "station-1", fetchedAtEpochMillis = 300L)
             assertEquals(1, database.rowCount("watched_station"))
+            assertWatchedRow(database)
             assertEquals(0, database.rowCount("station_price_history"))
-            assertEquals(300L, database.snapshotTimestamp())
+            assertSnapshotRow(database, fetchedAtEpochMillis = 300L)
             assertLatestByStationIndex(database)
         }
     }
@@ -81,7 +85,9 @@ class GasStationDatabaseMigrationInstrumentedTest {
             GasStationDatabase.MIGRATION_2_3,
         ).use { database ->
             assertEquals(1, database.rowCount("station_cache"))
+            assertCacheRow(database, stationId = "station-1", fetchedAtEpochMillis = 400L)
             assertEquals(1, database.rowCount("watched_station"))
+            assertWatchedRow(database)
             assertEquals(0, database.rowCount("station_price_history"))
         }
     }
@@ -102,10 +108,12 @@ class GasStationDatabaseMigrationInstrumentedTest {
             GasStationDatabase.MIGRATION_4_5,
         ).use { database ->
             assertEquals(1, database.rowCount("station_cache"))
+            assertCacheRow(database, stationId = "station-1", fetchedAtEpochMillis = 500L)
             assertEquals(1, database.rowCount("watched_station"))
+            assertWatchedRow(database)
             assertEquals(1, database.rowCount("station_price_history"))
-            assertEquals("GASOLINE", database.singleString("SELECT fuelType FROM station_price_history"))
-            assertEquals(500L, database.snapshotTimestamp())
+            assertHistoryRow(database)
+            assertSnapshotRow(database, fetchedAtEpochMillis = 500L)
             assertLatestByStationIndex(database)
         }
     }
@@ -126,9 +134,12 @@ class GasStationDatabaseMigrationInstrumentedTest {
             GasStationDatabase.MIGRATION_4_5,
         ).use { database ->
             assertEquals(1, database.rowCount("station_cache"))
+            assertCacheRow(database, stationId = "station-1", fetchedAtEpochMillis = 600L)
             assertEquals(1, database.rowCount("watched_station"))
+            assertWatchedRow(database)
             assertEquals(1, database.rowCount("station_price_history"))
-            assertEquals(600L, database.snapshotTimestamp())
+            assertHistoryRow(database)
+            assertSnapshotRow(database, fetchedAtEpochMillis = 600L)
             assertLatestByStationIndex(database)
         }
     }
@@ -146,8 +157,7 @@ class GasStationDatabaseMigrationInstrumentedTest {
             GasStationDatabase.MIGRATION_4_5,
         ).use { database ->
             assertEquals(0, database.rowCount("station_cache"))
-            assertEquals(1, database.rowCount("station_cache_snapshot"))
-            assertEquals(700L, database.snapshotTimestamp())
+            assertSnapshotRow(database, fetchedAtEpochMillis = 700L)
             assertLatestByStationIndex(database)
         }
     }
@@ -232,23 +242,85 @@ class GasStationDatabaseMigrationInstrumentedTest {
         cursor.getInt(0)
     }
 
-    private fun SupportSQLiteDatabase.singleString(query: String): String = query(query).use { cursor ->
-        check(cursor.moveToFirst())
-        cursor.getString(0)
+    private fun assertCacheRow(database: SupportSQLiteDatabase, stationId: String, fetchedAtEpochMillis: Long) {
+        database.query(
+            """
+            SELECT latitudeBucket, longitudeBucket, radiusMeters, fuelType,
+                   stationId, brandCode, name, priceWon, latitude, longitude,
+                   fetchedAtEpochMillis
+            FROM station_cache
+            WHERE stationId = ?
+            """.trimIndent(),
+            arrayOf(stationId),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(16_649, cursor.getInt(0))
+            assertEquals(50_811, cursor.getInt(1))
+            assertEquals(3_000, cursor.getInt(2))
+            assertEquals("GASOLINE", cursor.getString(3))
+            assertEquals(stationId, cursor.getString(4))
+            assertEquals("GSC", cursor.getString(5))
+            assertEquals("Migrated Station", cursor.getString(6))
+            assertEquals(1_699, cursor.getInt(7))
+            assertEquals(37.498095, cursor.getDouble(8), DOUBLE_TOLERANCE)
+            assertEquals(127.027610, cursor.getDouble(9), DOUBLE_TOLERANCE)
+            assertEquals(fetchedAtEpochMillis, cursor.getLong(10))
+            assertTrue(!cursor.moveToNext())
+        }
     }
 
-    private fun SupportSQLiteDatabase.snapshotTimestamp(): Long = query(
-        """
-            SELECT fetchedAtEpochMillis
+    private fun assertWatchedRow(database: SupportSQLiteDatabase) {
+        database.query(
+            """
+            SELECT stationId, name, brandCode, latitude, longitude,
+                   watchedAtEpochMillis
+            FROM watched_station
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("station-1", cursor.getString(0))
+            assertEquals("Migrated Watched Station", cursor.getString(1))
+            assertEquals("GSC", cursor.getString(2))
+            assertEquals(37.498095, cursor.getDouble(3), DOUBLE_TOLERANCE)
+            assertEquals(127.027610, cursor.getDouble(4), DOUBLE_TOLERANCE)
+            assertEquals(650L, cursor.getLong(5))
+            assertTrue(!cursor.moveToNext())
+        }
+    }
+
+    private fun assertHistoryRow(database: SupportSQLiteDatabase) {
+        database.query(
+            """
+            SELECT stationId, fuelType, priceWon, fetchedAtEpochMillis
+            FROM station_price_history
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("station-1", cursor.getString(0))
+            assertEquals("GASOLINE", cursor.getString(1))
+            assertEquals(1_699, cursor.getInt(2))
+            assertEquals(500L, cursor.getLong(3))
+            assertTrue(!cursor.moveToNext())
+        }
+    }
+
+    private fun assertSnapshotRow(database: SupportSQLiteDatabase, fetchedAtEpochMillis: Long) {
+        assertEquals(1, database.rowCount("station_cache_snapshot"))
+        database.query(
+            """
+            SELECT latitudeBucket, longitudeBucket, radiusMeters, fuelType,
+                   fetchedAtEpochMillis
             FROM station_cache_snapshot
-            WHERE latitudeBucket = 16649
-              AND longitudeBucket = 50811
-              AND radiusMeters = 3000
-              AND fuelType = 'GASOLINE'
-        """.trimIndent(),
-    ).use { cursor ->
-        check(cursor.moveToFirst())
-        cursor.getLong(0)
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(16_649, cursor.getInt(0))
+            assertEquals(50_811, cursor.getInt(1))
+            assertEquals(3_000, cursor.getInt(2))
+            assertEquals("GASOLINE", cursor.getString(3))
+            assertEquals(fetchedAtEpochMillis, cursor.getLong(4))
+            assertTrue(!cursor.moveToNext())
+        }
     }
 
     private fun assertLatestByStationIndex(database: SupportSQLiteDatabase) {
@@ -277,6 +349,8 @@ class GasStationDatabaseMigrationInstrumentedTest {
     }
 
     private companion object {
+        const val DOUBLE_TOLERANCE = 0.0000001
+
         val allMigrations = arrayOf(
             GasStationDatabase.MIGRATION_1_2,
             GasStationDatabase.MIGRATION_2_3,
