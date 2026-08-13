@@ -1467,6 +1467,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
+                    hasCachedSnapshot = true,
                     preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),
@@ -1516,6 +1517,7 @@ class StationListScreenTest {
             StationListScreen(
                 uiState = StationListUiState(
                     permissionState = LocationPermissionState.PreciseGranted,
+                    hasCachedSnapshot = true,
                     preferences = UserPreferences.default(),
                 ),
                 snackbarHostState = androidx.compose.material3.SnackbarHostState(),

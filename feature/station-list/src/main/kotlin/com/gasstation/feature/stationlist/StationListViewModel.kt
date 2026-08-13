@@ -15,8 +15,6 @@ import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
-import com.gasstation.domain.station.model.StationFreshness
-import com.gasstation.domain.station.model.StationListEntry
 import com.gasstation.domain.station.model.StationQuery
 import com.gasstation.domain.station.model.WatchMutationResult
 import com.gasstation.domain.station.usecase.UpdateWatchStateUseCase
@@ -36,7 +34,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -104,61 +101,44 @@ class StationListViewModel @Inject internal constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun searchUiProjection(): Flow<StationListSearchUiProjection> = searchOrchestrator.searchResult
-        .runningFold(StationListSearchUiProjection()) { previous, result ->
-            val stationItems = if (previous.sourceStations == result.stations) {
-                previous.stations
-            } else {
-                result.stations.map(::StationListItemUiModel)
-            }
-            StationListSearchUiProjection(
-                sourceStations = result.stations,
-                stations = stationItems,
-                freshness = result.freshness,
-                fetchedAt = result.fetchedAt,
-            )
-        }
+    private fun searchUiProjection(): Flow<StationListSearchProjection> = searchOrchestrator.searchResult
+        .runningFold(StationListSearchProjection(), ::projectStationSearchResult)
         .drop(1)
         .distinctUntilChanged()
 
-    private fun bindUiState(searchUiProjection: Flow<StationListSearchUiProjection>) {
-        val stateWithoutFailure = combine(
+    private fun bindUiState(searchUiProjection: Flow<StationListSearchProjection>) {
+        val baseInputs = combine(
             preferenceState,
-            locationStateMachine.state,
             preferenceMutationState,
+            locationStateMachine.state,
             refreshCoordinator.state,
             searchUiProjection,
-        ) { currentPreferenceState, location, preferenceMutation, refresh, resultProjection ->
-            val readyPreferences =
-                (currentPreferenceState as? PreferenceLoadState.Ready)?.preferences
-            StationListUiState(
-                currentCoordinates = location.currentCoordinates,
-                currentAddressLabel = location.currentAddressLabel,
-                permissionState = location.permissionState,
-                needsRecoveryRefresh = location.needsRecoveryRefresh,
-                isGpsEnabled = location.isGpsEnabled,
-                isAvailabilityKnown = location.isAvailabilityKnown,
-                isLoading =
-                refresh.isLoading ||
-                    currentPreferenceState is PreferenceLoadState.Loading,
-                isRefreshing = refresh.isRefreshing,
-                isStale = resultProjection.freshness is StationFreshness.Stale,
-                stations = resultProjection.stations,
-                preferences = readyPreferences,
-                preferenceLoadFailed = currentPreferenceState is PreferenceLoadState.Failed,
-                pendingPreferenceWrite = preferenceMutation.pendingPreferenceWrite,
-                lastUpdatedAt = resultProjection.fetchedAt,
+        ) { preference, preferenceMutation, location, refresh, search ->
+            StationListBaseStateInputs(
+                preference = preference,
+                preferenceMutation = preferenceMutation,
+                location = location,
+                refresh = refresh,
+                search = search,
             )
         }
-        val stateWithoutCommands = combine(
-            stateWithoutFailure,
+        combine(
+            baseInputs,
             searchOrchestrator.blockingFailure,
-        ) { state, blockingFailure ->
-            state.copy(blockingFailure = blockingFailure)
-        }
-        combine(stateWithoutCommands, commandQueue.commands) { state, commands ->
-            state.copy(pendingCommands = commands)
-        }.onEach { mutableUiState.value = it }
+            commandQueue.commands,
+        ) { base, blockingFailure, commands ->
+            StationListStateAssembler.assemble(
+                StationListStateInputs(
+                    preference = base.preference,
+                    preferenceMutation = base.preferenceMutation,
+                    location = base.location,
+                    refresh = base.refresh,
+                    search = base.search,
+                    blockingFailure = blockingFailure,
+                    pendingCommands = commands,
+                ),
+            )
+        }.onEach { assembledState -> mutableUiState.value = assembledState }
             .launchIn(viewModelScope)
     }
 
@@ -419,23 +399,6 @@ class StationListViewModel @Inject internal constructor(
         sortOrder = preferences.sortOrder,
     )
 }
-
-private sealed interface PreferenceLoadState {
-    data object Loading : PreferenceLoadState
-
-    data class Ready(val preferences: UserPreferences) : PreferenceLoadState
-
-    data object Failed : PreferenceLoadState
-}
-
-private data class StationListPreferenceMutationState(val pendingPreferenceWrite: Boolean = false)
-
-private data class StationListSearchUiProjection(
-    val sourceStations: List<StationListEntry> = emptyList(),
-    val stations: List<StationListItemUiModel> = emptyList(),
-    val freshness: StationFreshness = StationFreshness.Stale,
-    val fetchedAt: Instant? = null,
-)
 
 private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
     permissionState != LocationPermissionState.Denied && isAvailabilityKnown && isGpsEnabled

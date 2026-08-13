@@ -15,6 +15,7 @@ data class StationListUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isStale: Boolean = false,
+    val hasCachedSnapshot: Boolean = false,
     val blockingFailure: StationListFailureReason? = null,
     val stations: List<StationListItemUiModel> = emptyList(),
     val preferences: UserPreferences? = null,

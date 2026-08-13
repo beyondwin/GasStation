@@ -106,7 +106,7 @@ flowchart LR
 화면별 핵심 계약:
 
 - `feature:station-list`: 32sp 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 실제 drawable 아이콘만 노출하고 visible brand label은 렌더링하지 않습니다.
-- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh를, `StationListFilterRail.kt`와 `StationListFilterMenu.kt`는 filter chip과 anchored menu를, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListPriceHistoryUiModel.kt`는 명시적인 가격 이력 표시 상태를, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 typed summary와 body 분기를 맡습니다.
+- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh를, `StationListFilterRail.kt`와 `StationListFilterMenu.kt`는 filter chip과 anchored menu를, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListPriceHistoryUiModel.kt`는 명시적인 가격 이력 표시 상태를, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를 맡습니다. `StationListStateInputs.kt`는 typed immutable input과 station item identity projection을, `StationListStateAssembler.kt`는 부수효과 없는 최종 UI state 조합을, `StationListQuerySummary.kt`와 `StationListBodyState.kt`는 typed summary와 snapshot-aware body 분기를 맡습니다.
 - `feature:watchlist`: 28sp 가격과 108–116dp 기본 row로 저장 항목을 비교합니다. 실제 brand icon만 보여주며 visible label은 반복하지 않고, 200% 글꼴에서는 row가 확장되어 scroll됩니다.
 - `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
 - `app`: `주변·관심·설정` bottom navigation의 tab별 state/scroll을 `saveState`/`restoreState`로 보존하고 SettingsDetail에서만 bottom navigation을 숨깁니다.
@@ -130,7 +130,7 @@ Launcher, themed monochrome, splash는 `ic_brand_drop`의 같은 refined-droplet
 5. `StationListViewModel`은 permission, known/enabled GPS, 현재 좌표, loaded preferences가 모두 준비된 경우에만 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 eligible `StationQuery`를 만듭니다. denied permission은 body state에서 가장 먼저 평가되어 demo override, retained coordinate, cache result, auto/manual refresh보다 우선합니다. GPS 비활성화는 permission과 별도 body state와 location-settings command를 사용합니다. `StationSearchOrchestrator`는 usable location으로 만든 query만 관찰하고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
 6. 쓰기 work는 `LocationStateMachine -> RefreshCoordinator -> RefreshNearbyStationsUseCase` 경로를 따릅니다. coordinator는 한 개의 opaque active-work identity와 job만 유지하고, 위치 획득 뒤와 refresh 결과 전달 전에 latest eligible query를 재검증합니다. `RefreshStarting(query)`를 inline callback으로 먼저 전달해 `StationSearchOrchestrator.ensureActiveQuery(query)`가 즉시 활성화되므로 빠른 fake/실패도 새 query에 귀속됩니다. 읽기 관찰은 별도로 `StationSearchOrchestrator -> ObserveNearbyStationsUseCase` 경로를 유지합니다.
 7. `DefaultStationRepository.observeNearbyStations()`는 atomic Room bucket snapshot 아래에서 freshness ticker, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다. marker/row 원자성, 시간 경계, latest refresh persistence의 상세 정책은 [오프라인 전략](offline-strategy.md)이 소유합니다.
-8. `RefreshCoordinator.state`가 loading/refreshing을 소유하고, ViewModel은 사용자 action dispatch, coordinator 결과를 orchestrator/analytics/FIFO command로 번역, 최종 `StationListUiState` 조합을 맡습니다. UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 command를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
+8. `RefreshCoordinator.state`가 loading/refreshing을 소유하고, ViewModel은 사용자 action dispatch, coordinator 결과를 orchestrator/analytics/FIFO command로 번역하며 collaborator flow의 lifecycle 수집과 UI state 게시를 맡습니다. `projectStationSearchResult`는 metadata-only emission에서 이미 매핑한 station list identity를 재사용하고, `StationListStateAssembler`는 location, preference, refresh, search, blocking failure, FIFO command의 typed immutable snapshot을 I/O·clock·Flow·logging 없이 최종 `StationListUiState`로 조합합니다. UI는 목록, stale 배너, 전면 오류, snackbar, 외부 지도 command를 구분해 렌더링합니다. 목록 row의 브랜드 영역은 실제 브랜드 아이콘만 보여주고 브랜드 텍스트는 생략합니다.
 
 첫 usable content가 렌더링되면 `feature:station-list`가 순수 policy로 이 상태를 판단하고, `app`의 Compose host가 그 신호를 받아 `reportFullyDrawn()`을 한 번 호출합니다. 이 연결은 startup metric 보고용이며, 검색 정책이나 cache/stale 판단은 계속 feature/data/domain 경계에 남습니다.
 
@@ -143,7 +143,7 @@ Launcher, themed monochrome, splash는 `ic_brand_drop`의 같은 refined-droplet
 5. `core:network`은 direct/proxy transport failure를 typed reason으로 분류하고, `data:station`의 `StationRetryPolicy`가 retryable reason의 한 번 재시도를 단독 소유합니다. `core:observability`의 safe reporter는 SDK-neutral 진단만 제공하며 flavor SDK binding은 `app`이 조립합니다.
 6. 성공은 key별 latest generation만 guarded transaction에서 스냅샷과 가격 히스토리를 갱신하고, `StationCachePolicy.retainFor` 기준 7일보다 오래된 캐시 행과 스냅샷 마커를 정리합니다. superseded completion은 정상적으로 조용히 끝납니다.
 7. 최종 최신 실패 시 `StationRefreshException(reason)`이 올라오고, 기존 캐시는 그대로 유지됩니다.
-8. 전면 실패 여부는 `StationListUiState.blockingFailure`와 `StationSearchResult.hasCachedSnapshot` 조합으로 결정합니다.
+8. 전면 실패 여부는 `StationListUiState.blockingFailure`와 repository marker에서 그대로 투영한 `StationListUiState.hasCachedSnapshot` 조합으로 결정합니다. marker가 있는 빈 결과는 성공한 EmptyState입니다. marker와 row가 모두 없을 때 known blocking failure가 있으면 Failure, 없으면 아직 결과가 없는 InitialLoading입니다.
 
 중요한 점은 `fetchedAt`만으로 캐시 존재를 판단하지 않는다는 것입니다. 코드가 실제로 보는 기준은 `StationSearchResult.hasCachedSnapshot`이며, 이 값은 `station_cache_snapshot` 행 존재 여부와 맞물립니다.
 

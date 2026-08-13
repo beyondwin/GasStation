@@ -11,7 +11,7 @@
 | navigation 좌표 payload | `GasStationNavHost` | app navigation graph 생존 동안 유지 | 관심 tab 활성화와 watchlist 거리 기준 route |
 | 목록 검색 상태 | `StationSearchOrchestrator` | `StationListViewModel` 생존 동안만 유지 | active query, cache snapshot state, observed search result, pending blocking refresh failure |
 | 목록 refresh 상태 | `RefreshCoordinator` | `StationListViewModel` 생존 동안만 유지 | 단일 in-flight refresh work, work identity, loading/refreshing flag, active refresh query |
-| 목록 UI 조합 상태 | `StationListViewModel` | `StationListViewModel` 생존 동안만 유지 | 사용자 action dispatch, collaborator 결과 routing, 최종 `StationListUiState` 조합 |
+| 목록 UI 조합 상태 | `StationListStateAssembler` | 조합 결과는 `StationListViewModel` 생존 동안만 유지 | immutable collaborator snapshot을 최종 `StationListUiState`로 순수 투영 |
 | 저장소 읽기 모델 | `StationSearchResult`, `WatchedStationSummary` | Room/DataStore/원격 데이터에서 다시 계산 가능 | 화면에 보여줄 데이터 조합 |
 | 설정 화면 파생 상태 | `SettingsUiState` | `UserPreferences`로부터 항상 재생성 가능 | 요약 라벨과 선택 옵션 |
 | 승인 대기 UI command | `StationListCommandQueue` | `StationListViewModel` 생존 동안만 유지 | snackbar, 위치 설정 열기, 외부 지도 열기를 FIFO로 보관하고 exact-head ID로 승인 |
@@ -49,7 +49,8 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 - `LocationStateMachine`: permission, GPS availability, current coordinates, address label, recovery refresh flag를 소유합니다.
 - `StationSearchOrchestrator`: active query, cache snapshot state, observed search result, pending blocking refresh failure를 소유합니다.
 - `RefreshCoordinator`: 위치 획득에서 최신 eligible query 검증, 단일 refresh job/work identity, loading/refreshing 상태, `RefreshNearbyStationsUseCase` 호출을 소유합니다.
-- `StationListViewModel`: 사용자 action dispatch, coordinator 결과를 검색 상태·analytics·command로 번역, 최종 `StationListUiState` composition을 소유합니다.
+- `StationListViewModel`: 사용자 action dispatch, coordinator 결과를 검색 상태·analytics·command로 번역하고 collaborator flow의 lifecycle 수집과 UI state 게시를 소유합니다.
+- `StationListStateAssembler`: typed immutable inputs를 받아 I/O, clock, flow, logging, mutation 없이 최종 `StationListUiState`를 순수하게 조합합니다.
 
 이 값들은 저장되지 않습니다. 화면을 떠나면 사라지고, 앱 재시작 후 복원 대상도 아닙니다.
 
@@ -65,18 +66,19 @@ DataStore의 첫 emission이 선호값 readiness 경계입니다. Nearby와 Sett
 
 ## 3. 저장소 읽기 모델
 
-목록 화면은 세션 상태만으로 그려지지 않습니다. ViewModel은 다음 세 입력을 결합해 `StationListUiState`를 만듭니다.
+목록 화면은 세션 상태만으로 그려지지 않습니다. ViewModel은 다음 입력을 typed snapshot으로 결합하고, `StationListStateAssembler`가 그 snapshot을 `StationListUiState`로 투영합니다.
 
 - `UserPreferences`
 - `LocationStateMachine`과 `StationSearchOrchestrator`가 소유한 목록 런타임 상태
 - `RefreshCoordinator`가 소유한 refresh work와 indicator 상태
-- `StationSearchResult`
+- `StationSearchResult`에서 만든 `StationListSearchProjection`
+- `StationSearchOrchestrator.blockingFailure`와 `StationListCommandQueue.commands`
 
 Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`가 모두 준비된 뒤에만 `StationQuery`를 만듭니다. permission이 denied로 바뀌면 cached `StationSearchResult`가 남아 있어도 permission guidance가 먼저 렌더링되고, 좌표 없는 자동/수동 refresh는 시작하지 않습니다. 현재 좌표가 유지된 상태에서 `UserPreferences`의 반경, 유종, 브랜드, 정렬 조건이 바뀌면 `RefreshCoordinator.requiresRefresh`가 새 조건 refresh 필요 여부를 판단합니다. coordinator는 위치 획득 뒤와 원격 결과 전달 직전에 현재 preferences와 위치로 만든 latest eligible query를 다시 확인하며, superseded/cancelled work는 analytics·blocking failure·command 없이 종료합니다. 브랜드 필터와 정렬은 캐시 키에 들어가지 않지만 `StationQuery`와 읽기 모델에는 포함되므로, UI는 즉시 새 조건으로 다시 계산되고 원격 성공 시 스냅샷도 최신화됩니다.
 
 목록 좌표는 app에 navigation payload로도 전달됩니다. 이는 watchlist의 거리 기준과 관심 tab 활성화에만 쓰이며, 검색 정책이나 위치 세션의 소유권을 app으로 옮기지 않습니다. 좌표가 바뀌면 이전 concrete watchlist route를 제거해 restore가 stale 좌표를 재사용하지 않게 합니다.
 
-`StationListViewModel`은 `StationSearchResult.stations` source list가 같고 freshness나 metadata만 바뀐 emission에서는 기존 `StationListItemUiModel` list identity를 재사용합니다. 이 최적화는 UI projection 내부 구현이며, 캐시 존재 여부나 blocking failure 의미를 바꾸지 않습니다.
+`projectStationSearchResult`는 `StationSearchResult.stations` source list가 같고 freshness나 metadata만 바뀐 emission에서 기존 `StationListItemUiModel` list identity를 재사용합니다. assembler는 이미 매핑된 station list와 FIFO command list를 복사·정렬·필터링하지 않고 그대로 전달합니다. 이 identity 최적화는 assembler 앞의 순수 search projection이 소유하며, 캐시 존재 여부나 blocking failure 의미를 바꾸지 않습니다.
 
 `StationSearchResult`의 의미:
 
@@ -93,6 +95,8 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 - 아직 캐시 자체가 없어 아무 것도 보여줄 수 없는 상태
 
 즉 "빈 결과"와 "실패 + 캐시 없음"은 같은 상태가 아닙니다.
+
+assembler는 repository의 `hasCachedSnapshot`을 UI state에 그대로 전달하고, `hasCachedSnapshot == true`이면서 `freshness == Stale`일 때만 stale content로 표시합니다. 따라서 초기 no-cache sentinel의 `Stale`은 stale 배너를 만들지 않습니다. body 분기는 명시적 snapshot marker 또는 방어적으로 이미 보이는 row가 있을 때만 `Results`에 진입합니다. marker가 있는 빈 목록은 성공한 EmptyState이고, marker도 row도 없는 idle/loading 상태는 첫 결과 전 `InitialLoading`입니다.
 
 ## 4. blocking failure 규칙
 
@@ -159,7 +163,8 @@ Nearby는 permission, GPS availability, 현재 좌표, loaded `UserPreferences`�
 - 실행 중 위치 환경: `LocationStateMachine`
 - 실행 중 검색/cache/failure 판단: `StationSearchOrchestrator`
 - 실행 중 단일 위치-새로고침 work: `RefreshCoordinator`
-- 목록 화면 action/result routing/UI 조합: `StationListViewModel`
+- 목록 화면 action/result routing과 flow lifecycle: `StationListViewModel`
+- immutable snapshot의 최종 UI 조합: `StationListStateAssembler`
 - 화면에 그릴 데이터 조합: `StationSearchResult`, `WatchedStationSummary`
 - 설정 화면 라벨과 옵션: `SettingsUiState`
 - 승인 뒤 제거할 FIFO 반응: `StationListCommandQueue`, `StationListCommandPayload`

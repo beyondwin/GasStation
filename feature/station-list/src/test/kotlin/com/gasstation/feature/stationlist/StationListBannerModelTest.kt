@@ -1,6 +1,8 @@
 package com.gasstation.feature.stationlist
 
 import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.settings.model.UserPreferences
+import com.gasstation.domain.station.model.StationFreshness
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant
@@ -46,5 +48,28 @@ class StationListBannerModelTest {
         )
 
         assertEquals(emptyList<StationListBannerModel>(), StationListBannerModel.from(uiState))
+    }
+
+    @Test
+    fun `no-cache stale sentinel does not produce stale banner`() {
+        val assembled = StationListStateAssembler.assemble(
+            StationListStateInputs(
+                preference = PreferenceLoadState.Ready(UserPreferences.default()),
+                preferenceMutation = StationListPreferenceMutationState(),
+                location = LocationState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    isAvailabilityKnown = true,
+                ),
+                refresh = RefreshCoordinatorState(),
+                search = StationListSearchProjection(
+                    freshness = StationFreshness.Stale,
+                    hasCachedSnapshot = false,
+                ),
+                blockingFailure = null,
+                pendingCommands = emptyList(),
+            ),
+        )
+
+        assertEquals(emptyList<StationListBannerModel>(), StationListBannerModel.from(assembled))
     }
 }

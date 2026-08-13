@@ -140,6 +140,7 @@ class RoborazziStationListScreenTest {
         isAvailabilityKnown = true,
         isGpsEnabled = true,
         isLoading = false,
+        hasCachedSnapshot = true,
         preferences = UserPreferences.default(),
         stations = emptyList(),
         blockingFailure = null,

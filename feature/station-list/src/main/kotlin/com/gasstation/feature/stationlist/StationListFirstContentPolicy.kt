@@ -8,5 +8,5 @@ internal fun StationListUiState.hasFirstUsableContent(): Boolean = when (toBodyS
 
     is StationListBodyState.Failure -> true
 
-    StationListBodyState.Results -> stations.isNotEmpty() || (!isLoading && !isRefreshing)
+    StationListBodyState.Results -> true
 }

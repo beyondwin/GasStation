@@ -14,12 +14,15 @@ internal sealed interface StationListBodyState {
     data object Results : StationListBodyState
 }
 
-internal fun StationListUiState.toBodyState(): StationListBodyState = when {
-    permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
-    !isGpsEnabled -> StationListBodyState.GpsRequired
-    preferenceLoadFailed -> StationListBodyState.Failure(StationListFailureReason.PreferencesFailed)
-    preferences == null -> StationListBodyState.InitialLoading
-    isLoading && stations.isEmpty() -> StationListBodyState.InitialLoading
-    blockingFailure != null && stations.isEmpty() -> StationListBodyState.Failure(blockingFailure)
-    else -> StationListBodyState.Results
+internal fun StationListUiState.toBodyState(): StationListBodyState {
+    val hasRenderableSnapshot = hasCachedSnapshot || stations.isNotEmpty()
+    return when {
+        permissionState == LocationPermissionState.Denied -> StationListBodyState.PermissionRequired
+        !isGpsEnabled -> StationListBodyState.GpsRequired
+        preferenceLoadFailed -> StationListBodyState.Failure(StationListFailureReason.PreferencesFailed)
+        preferences == null -> StationListBodyState.InitialLoading
+        blockingFailure != null && !hasRenderableSnapshot -> StationListBodyState.Failure(blockingFailure)
+        !hasRenderableSnapshot -> StationListBodyState.InitialLoading
+        else -> StationListBodyState.Results
+    }
 }

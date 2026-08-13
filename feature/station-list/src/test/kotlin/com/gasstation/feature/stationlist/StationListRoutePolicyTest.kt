@@ -182,6 +182,7 @@ class StationListRoutePolicyTest {
                 permissionState = LocationPermissionState.PreciseGranted,
                 isLoading = false,
                 isRefreshing = false,
+                hasCachedSnapshot = true,
                 stations = emptyList(),
                 preferences = UserPreferences.default(),
             ).hasFirstUsableContent(),
@@ -189,11 +190,12 @@ class StationListRoutePolicyTest {
     }
 
     @Test
-    fun `first content waits for empty results while refresh is still active`() {
+    fun `first content waits for no-cache results while refresh is still active`() {
         assertFalse(
             StationListUiState(
                 permissionState = LocationPermissionState.PreciseGranted,
                 isRefreshing = true,
+                preferences = UserPreferences.default(),
                 stations = emptyList(),
             ).hasFirstUsableContent(),
         )

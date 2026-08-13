@@ -64,6 +64,37 @@ class StationListViewModelTest {
     private val dispatcher = mainDispatcherRule.dispatcher
 
     @Test
+    fun `view model publishes assembler output for collaborator snapshots`() = runTest(dispatcher) {
+        val cachedAt = Instant.parse("2026-08-13T00:00:00Z")
+        val repository = FakeStationRepository(
+            result = StationSearchResult(
+                stations = emptyList(),
+                freshness = StationFreshness.Stale,
+                fetchedAt = cachedAt,
+                hasCachedSnapshot = true,
+            ),
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        advanceUntilIdle()
+
+        with(viewModel.uiState.value) {
+            assertTrue(hasCachedSnapshot)
+            assertTrue(isStale)
+            assertEquals(cachedAt, lastUpdatedAt)
+            assertEquals(UserPreferences.default(), preferences)
+            assertEquals(StationListBodyState.Results, toBodyState())
+        }
+    }
+
+    @Test
     fun `preferences do not default or start a query before first emission`() = runTest(dispatcher) {
         val repository = FakeStationRepository(emptySearchResult())
         val settings = SettingsUseCaseTestFixture(initialPreferences = null)
@@ -215,7 +246,7 @@ class StationListViewModelTest {
                 stations = listOf(stationEntry()),
                 freshness = StationFreshness.Stale,
                 fetchedAt = null,
-                hasCachedSnapshot = false,
+                hasCachedSnapshot = true,
             ),
         )
         val settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default())
@@ -276,7 +307,7 @@ class StationListViewModelTest {
     }
 
     @Test
-    fun `freshness update with same station entries keeps mapped station item list instance`() = runTest(dispatcher) {
+    fun `freshness-only search emission preserves published station list identity`() = runTest(dispatcher) {
         val firstResult = StationSearchResult(
             stations = listOf(stationEntry()),
             freshness = StationFreshness.Fresh,
@@ -310,8 +341,52 @@ class StationListViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.isStale)
+        assertTrue(viewModel.uiState.value.hasCachedSnapshot)
         assertEquals(Instant.parse("2026-04-18T00:01:00Z"), viewModel.uiState.value.lastUpdatedAt)
         assertSame(initialStations, viewModel.uiState.value.stations)
+    }
+
+    @Test
+    fun `refresh-state emission preserves pending command list and exact FIFO contents`() = runTest(dispatcher) {
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val repository = FakeStationRepository(
+            result = emptySearchResult(),
+            refreshStarted = refreshStarted,
+            releaseRefresh = releaseRefresh,
+        )
+        val viewModel = stationListViewModel(
+            repository = repository,
+            settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+            locationRepository = FakeLocationRepository(),
+        )
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.Denied))
+        repeat(2) {
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+        }
+        val commands = viewModel.uiState.value.pendingCommands
+
+        viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+        viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+        viewModel.onAction(StationListAction.RefreshRequested)
+        refreshStarted.await()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isRefreshing)
+        assertSame(commands, viewModel.uiState.value.pendingCommands)
+        assertEquals(listOf(1L, 2L), viewModel.uiState.value.pendingCommands.map { it.id })
+        assertEquals(
+            listOf(
+                StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
+                StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_permission_denied)),
+            ),
+            viewModel.uiState.value.pendingCommands.map { it.payload },
+        )
+
+        releaseRefresh.complete(Unit)
+        advanceUntilIdle()
     }
 
     @Test
