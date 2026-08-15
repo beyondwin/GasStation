@@ -22,6 +22,8 @@ dependencies {
     implementation(libs.findLibrary("hilt-gradlePlugin").get())
     implementation(libs.findLibrary("spotless-gradlePlugin").get())
     implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
+    testImplementation(gradleTestKit())
+    testImplementation(libs.findLibrary("junit").get())
 }
 
 gradlePlugin {
