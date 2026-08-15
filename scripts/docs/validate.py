@@ -432,6 +432,46 @@ def kotlin_function_names(text: str) -> list[str]:
     return [match.group("name").strip("`") for match in pattern.finditer(executable)]
 
 
+def watched_station_dao_direct_source(text: str) -> str:
+    executable = strip_kotlin_comments_and_literals(text)
+    depths: list[int] = []
+    depth = 0
+    for character in executable:
+        depths.append(depth)
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth = max(0, depth - 1)
+
+    interfaces = [
+        match
+        for match in re.finditer(r"\binterface\s+WatchedStationDao\b", executable)
+        if depths[match.start()] == 0
+    ]
+    if len(interfaces) != 1:
+        return ""
+    opening_brace = executable.find("{", interfaces[0].end())
+    if opening_brace < 0 or depths[opening_brace] != 0:
+        return ""
+    closing_brace = next(
+        (
+            index
+            for index in range(opening_brace + 1, len(executable))
+            if executable[index] == "}" and depths[index] == 1
+        ),
+        -1,
+    )
+    if closing_brace < 0:
+        return ""
+
+    return "".join(
+        character
+        if opening_brace < index < closing_brace and depths[index] == 1 and character not in "{}"
+        else "\n" if character == "\n" else " "
+        for index, character in enumerate(text)
+    )
+
+
 def strip_code(text: str) -> str:
     return INLINE_CODE.sub("", strip_fenced_code(text))
 
@@ -1254,25 +1294,46 @@ def station_list_state_source_surface_issues(root: Path) -> list[str]:
         issues.append(location(paths["command"], 1, "command queue must retain exact-head acknowledgement"))
     if "OnConflictStrategy.IGNORE" not in executable_sources["watch_dao"]:
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain OnConflictStrategy.IGNORE"))
-    watch_bindings = kotlin_room_query_bindings(sources["watch_dao"])
-    expected_watch_queries = {
+    direct_watch_source = watched_station_dao_direct_source(sources["watch_dao"])
+    watch_bindings = kotlin_room_query_bindings(direct_watch_source)
+    expected_watch_observations = {
         "observeWatchedStationIds": (
             "SELECT stationId FROM watched_station "
-            "ORDER BY watchedAtEpochMillis DESC, stationId ASC"
+            "ORDER BY watchedAtEpochMillis DESC, stationId ASC",
+            "Flow<List<String>>",
         ),
         "observeWatchedStations": (
             "SELECT * FROM watched_station "
-            "ORDER BY watchedAtEpochMillis DESC, stationId ASC"
+            "ORDER BY watchedAtEpochMillis DESC, stationId ASC",
+            "Flow<List<WatchedStationEntity>>",
         ),
     }
     watch_queries_by_function = {
         name: [" ".join(query.split()) for bound_name, query in watch_bindings if bound_name == name]
-        for name in expected_watch_queries
+        for name in expected_watch_observations
     }
-    watch_function_counts = Counter(kotlin_function_names(sources["watch_dao"]))
+    watch_function_counts = Counter(kotlin_function_names(direct_watch_source))
+    direct_watch_executable = strip_kotlin_comments_and_literals(direct_watch_source)
+    signature_pattern = re.compile(
+        r"\bfun\s+(?P<name>observeWatchedStationIds|observeWatchedStations)\s*"
+        r"\((?P<parameters>[^()\n]*)\)\s*:\s*(?P<return_type>[^\n={]+)",
+    )
+    watch_signatures_by_function = {
+        name: [
+            (
+                re.sub(r"\s+", "", match.group("parameters")),
+                re.sub(r"\s+", "", match.group("return_type")),
+            )
+            for match in signature_pattern.finditer(direct_watch_executable)
+            if match.group("name") == name
+        ]
+        for name in expected_watch_observations
+    }
     if any(
-        watch_function_counts[name] != 1 or watch_queries_by_function[name] != [expected_query]
-        for name, expected_query in expected_watch_queries.items()
+        watch_function_counts[name] != 1
+        or watch_queries_by_function[name] != [expected_query]
+        or watch_signatures_by_function[name] != [("", expected_return_type)]
+        for name, (expected_query, expected_return_type) in expected_watch_observations.items()
     ):
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain deterministic watched ordering in both observations"))
 

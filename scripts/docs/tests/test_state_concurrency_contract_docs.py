@@ -456,6 +456,74 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
                     issues = source_issues(root)
                     self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
 
+    def test_named_observations_require_direct_zero_param_flow_signatures(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        cases = (
+            (
+                "observeWatchedStationIds",
+                "Flow<List<String>>",
+                "List<String>",
+                "Flow<Set<String>>",
+                "SELECT stationId FROM watched_station",
+            ),
+            (
+                "observeWatchedStations",
+                "Flow<List<WatchedStationEntity>>",
+                "List<WatchedStationEntity>",
+                "Flow<Set<WatchedStationEntity>>",
+                "SELECT * FROM watched_station",
+            ),
+        )
+        for function_name, return_type, synchronous_type, wrong_type, select_clause in cases:
+            query = f'@Query("{select_clause} ORDER BY watchedAtEpochMillis DESC, stationId ASC")'
+            declaration = f"    {query}\n    fun {function_name}(): {return_type}\n"
+            mutations = (
+                (
+                    "synchronous return",
+                    lambda text: text.replace(
+                        f"fun {function_name}(): {return_type}",
+                        f"fun {function_name}(): {synchronous_type}",
+                        1,
+                    ),
+                ),
+                (
+                    "nested owner",
+                    lambda text: text.replace(declaration, "", 1)[:-2]
+                    + "    interface NestedObservationDecoy {\n"
+                    + f"        {query}\n"
+                    + f"        fun {function_name}(): {return_type}\n"
+                    + "    }\n}\n",
+                ),
+                (
+                    "parameterized overload shape",
+                    lambda text: text.replace(
+                        f"fun {function_name}(): {return_type}",
+                        f"fun {function_name}(limit: Int): {return_type}",
+                        1,
+                    ),
+                ),
+                (
+                    "wrong flow element",
+                    lambda text: text.replace(
+                        f"fun {function_name}(): {return_type}",
+                        f"fun {function_name}(): {wrong_type}",
+                        1,
+                    ),
+                ),
+            )
+            for mutation_label, mutate in mutations:
+                with self.subTest(function=function_name, mutation=mutation_label):
+                    with tempfile.TemporaryDirectory(prefix="state-contract-query-signature-") as directory:
+                        root = self.copy_source_surface(Path(directory))
+                        target = root / SOURCE_PATHS[8]
+                        text = target.read_text(encoding="utf-8")
+                        self.assertIn(declaration, text)
+                        mutated = mutate(text)
+                        self.assertNotEqual(text, mutated)
+                        target.write_text(mutated, encoding="utf-8")
+                        issues = source_issues(root)
+                        self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (
