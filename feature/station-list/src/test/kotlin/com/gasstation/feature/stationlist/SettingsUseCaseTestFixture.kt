@@ -11,6 +11,8 @@ import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 
@@ -22,15 +24,23 @@ internal class SettingsUseCaseTestFixture(initialPreferences: UserPreferences? =
     var updateCallCount: Int = 0
         private set
 
+    var observationSubscriptionCount: Int = 0
+        private set
+
     init {
         initialPreferences?.let(state::tryEmit)
     }
 
     private val repository = object : SettingsRepository {
-        override fun observeUserPreferences(): Flow<UserPreferences> = merge(
-            state,
-            failure.map { throwable -> throw throwable },
-        )
+        override fun observeUserPreferences(): Flow<UserPreferences> = flow {
+            observationSubscriptionCount += 1
+            emitAll(
+                merge(
+                    state,
+                    failure.map { throwable -> throw throwable },
+                ),
+            )
+        }
 
         override suspend fun updateUserPreferences(transform: (UserPreferences) -> UserPreferences): UserPreferences {
             updateCallCount += 1

@@ -61,8 +61,8 @@ class StationListViewModel @Inject internal constructor(
 
     init {
         observePreferences()
-        triggerRefreshOnQueryChange()
-        bindUiState(searchUiProjection())
+        observeSearch()
+        bindUiState()
     }
 
     private fun observePreferences() {
@@ -77,7 +77,7 @@ class StationListViewModel @Inject internal constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun triggerRefreshOnQueryChange() {
+    private fun observeSearch() {
         var previousQuery: StationQuery? = null
         val queryFlow = combine(preferenceState, locationStateMachine.state) { state, location ->
             val preferences = (state as? PreferenceLoadState.Ready)?.preferences
@@ -106,13 +106,13 @@ class StationListViewModel @Inject internal constructor(
         .drop(1)
         .distinctUntilChanged()
 
-    private fun bindUiState(searchUiProjection: Flow<StationListSearchProjection>) {
+    private fun bindUiState() {
         val baseInputs = combine(
             preferenceState,
             preferenceMutationState,
             locationStateMachine.state,
             refreshCoordinator.state,
-            searchUiProjection,
+            searchUiProjection(),
         ) { preference, preferenceMutation, location, refresh, search ->
             StationListBaseStateInputs(
                 preference = preference,
@@ -144,13 +144,9 @@ class StationListViewModel @Inject internal constructor(
 
     fun onAction(action: StationListAction) {
         when (action) {
-            StationListAction.AutoRefreshRequested -> refresh(
-                showPermissionDeniedFeedback = false,
-            )
+            StationListAction.AutoRefreshRequested -> refresh(showPermissionDeniedFeedback = false)
 
-            StationListAction.RefreshRequested -> refresh(
-                showPermissionDeniedFeedback = true,
-            )
+            StationListAction.RefreshRequested -> refresh(showPermissionDeniedFeedback = true)
 
             StationListAction.RetryClicked -> {
                 if (preferenceState.value is PreferenceLoadState.Failed) {
@@ -178,23 +174,16 @@ class StationListViewModel @Inject internal constructor(
                 updateBrandFilter(action.brandFilter)
             }
 
-            is StationListAction.WatchToggled -> toggleWatchState(
-                stationId = action.stationId,
-                watched = action.watched,
-            )
+            is StationListAction.WatchToggled -> toggleWatchState(action.stationId, action.watched)
 
             is StationListAction.PermissionChanged -> {
                 locationStateMachine.onPermissionChanged(action.permissionState)
-                if (action.permissionState == LocationPermissionState.Denied) {
-                    refreshCoordinator.cancel()
-                }
+                if (action.permissionState == LocationPermissionState.Denied) refreshCoordinator.cancel()
             }
 
             is StationListAction.GpsAvailabilityChanged -> {
                 locationStateMachine.onGpsAvailabilityChanged(action.isEnabled)
-                if (!action.isEnabled) {
-                    refreshCoordinator.cancel()
-                }
+                if (!action.isEnabled) refreshCoordinator.cancel()
             }
 
             is StationListAction.CommandHandled -> commandQueue.acknowledge(action.commandId)
@@ -227,19 +216,14 @@ class StationListViewModel @Inject internal constructor(
     }
 
     suspend fun collectLocationAvailability(flowOverride: Flow<Boolean>? = null) {
-        (flowOverride ?: locationStateMachine.observeGpsAvailability())
-            .collect { isEnabled ->
-                onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
-            }
+        (flowOverride ?: locationStateMachine.observeGpsAvailability()).collect { isEnabled ->
+            onAction(StationListAction.GpsAvailabilityChanged(isEnabled))
+        }
     }
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
         if (readyPreferencesOrNull() == null) return
-        requestRefresh(
-            RefreshRequest.AcquireLocation(
-                showPermissionDeniedFeedback = showPermissionDeniedFeedback,
-            ),
-        )
+        requestRefresh(RefreshRequest.AcquireLocation(showPermissionDeniedFeedback = showPermissionDeniedFeedback))
     }
 
     private fun readyPreferencesOrNull(): UserPreferences? = (preferenceState.value as? PreferenceLoadState.Ready)?.preferences
@@ -250,14 +234,12 @@ class StationListViewModel @Inject internal constructor(
         return buildQuery(preferences, coordinates)
     }
 
-    private fun requestRefresh(request: RefreshRequest) {
-        refreshCoordinator.request(
-            scope = viewModelScope,
-            request = request,
-            latestEligibleQuery = ::latestEligibleQuery,
-            onResult = ::onRefreshResult,
-        )
-    }
+    private fun requestRefresh(request: RefreshRequest) = refreshCoordinator.request(
+        scope = viewModelScope,
+        request = request,
+        latestEligibleQuery = ::latestEligibleQuery,
+        onResult = ::onRefreshResult,
+    )
 
     private fun onRefreshResult(result: RefreshCoordinatorResult) {
         when (result) {
@@ -271,16 +253,9 @@ class StationListViewModel @Inject internal constructor(
                 }
             }
 
-            RefreshCoordinatorResult.GpsDisabled -> {
-                commandQueue.enqueue(StationListCommandPayload.OpenLocationSettings)
-            }
+            RefreshCoordinatorResult.GpsDisabled -> commandQueue.enqueue(StationListCommandPayload.OpenLocationSettings)
 
-            is RefreshCoordinatorResult.LocationAcquired -> {
-                searchOrchestrator.clearBlockingFailure()
-                viewModelScope.launch {
-                    locationStateMachine.resolveAddressLabel(result.coordinates)
-                }
-            }
+            is RefreshCoordinatorResult.LocationAcquired -> searchOrchestrator.clearBlockingFailure()
 
             is RefreshCoordinatorResult.LocationAcquisitionFailed -> handleLocationFailure(
                 result = result.result,
@@ -345,10 +320,8 @@ class StationListViewModel @Inject internal constructor(
         commandQueue.enqueue(StationListCommandPayload.ShowSnackbar(message))
     }
 
-    private fun logLocationFailure(result: LocationAcquisitionResult) {
-        result.failureEventType()?.let { resultType ->
-            stationEventLogger.logSafely(StationEvent.LocationFailed(resultType = resultType))
-        }
+    private fun logLocationFailure(result: LocationAcquisitionResult) = result.failureEventType()?.let { resultType ->
+        stationEventLogger.logSafely(StationEvent.LocationFailed(resultType = resultType))
     }
 
     private fun updatePreference(update: suspend () -> UserPreferences) {
@@ -405,21 +378,23 @@ private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates
 }
 
 private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
-    is LocationAcquisitionResult.Success -> null
-    LocationAcquisitionResult.Superseded -> null
+    is LocationAcquisitionResult.Success,
+    LocationAcquisitionResult.Superseded,
+    -> null
+
     LocationAcquisitionResult.PermissionDenied -> "PermissionDenied"
+
     LocationAcquisitionResult.TimedOut -> "TimedOut"
+
     LocationAcquisitionResult.Unavailable -> "Unavailable"
+
     is LocationAcquisitionResult.Error -> "Error"
 }
 
-private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = when (this) {
-    StationRefreshFailureReason.Timeout -> StringResource.fromId(R.string.station_list_refresh_timeout)
-
-    StationRefreshFailureReason.Network,
-    StationRefreshFailureReason.InvalidPayload,
-    is StationRefreshFailureReason.Http,
-    StationRefreshFailureReason.Unknown,
-    null,
-    -> StringResource.fromId(R.string.station_list_refresh_failed)
-}
+private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = StringResource.fromId(
+    if (this == StationRefreshFailureReason.Timeout) {
+        R.string.station_list_refresh_timeout
+    } else {
+        R.string.station_list_refresh_failed
+    },
+)

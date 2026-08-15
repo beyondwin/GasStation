@@ -70,6 +70,7 @@ class RefreshCoordinator @Inject constructor(
         val job = scope.launch(start = CoroutineStart.LAZY) {
             when (request) {
                 is RefreshRequest.AcquireLocation -> executeLocationRequest(
+                    scope = scope,
                     work = work,
                     request = request,
                     latestEligibleQuery = latestEligibleQuery,
@@ -118,6 +119,7 @@ class RefreshCoordinator @Inject constructor(
             )
 
     private suspend fun executeLocationRequest(
+        scope: CoroutineScope,
         work: ActiveRefreshWork,
         request: RefreshRequest.AcquireLocation,
         latestEligibleQuery: () -> StationQuery?,
@@ -162,6 +164,9 @@ class RefreshCoordinator @Inject constructor(
         }
 
         if (!deliver(work, RefreshCoordinatorResult.LocationAcquired(coordinates), onResult)) return
+        scope.launch {
+            locationStateMachine.resolveAddressLabel(coordinates)
+        }
         val query = latestEligibleQuery()?.takeIf { it.coordinates == coordinates } ?: return
         if (!publishActiveQuery(work, query)) return
         executeRefresh(work, query, latestEligibleQuery, onResult)

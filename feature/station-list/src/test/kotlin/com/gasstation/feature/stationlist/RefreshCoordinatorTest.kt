@@ -125,6 +125,104 @@ class RefreshCoordinatorTest {
     }
 
     @Test
+    fun `successful acquisition starts address resolution without delaying remote refresh`() = runTest(timeout = 10.seconds) {
+        val addressStarted = CompletableDeferred<Unit>()
+        val addressRelease = CompletableDeferred<Unit>()
+        val fixture = coordinatorFixture(
+            addressResult = {
+                addressStarted.complete(Unit)
+                addressRelease.await()
+                LocationAddressLookupResult.Success("서울 강남구 역삼동 1")
+            },
+        ).apply {
+            makeLocationUsable()
+            latestQuery = QUERY
+        }
+
+        fixture.requestAcquire(this, showFeedback = true)
+        runCurrent()
+
+        assertTrue(addressStarted.isCompleted)
+        assertEquals(listOf(QUERY), fixture.stationRepository.refreshedQueries)
+        assertEquals(
+            listOf(
+                RefreshCoordinatorResult.LocationAcquired(COORDINATES),
+                RefreshCoordinatorResult.RefreshStarting(QUERY),
+                RefreshCoordinatorResult.RefreshSucceeded(QUERY),
+            ),
+            fixture.results,
+        )
+        assertEquals(RefreshCoordinatorState(), fixture.coordinator.state.value)
+
+        addressRelease.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("서울 강남구 역삼동", fixture.locationStateMachine.state.value.currentAddressLabel)
+    }
+
+    @Test
+    fun `superseded acquisition never starts address resolution`() = runTest(timeout = 10.seconds) {
+        val locationResult = CompletableDeferred<LocationLookupResult>()
+        val fixture = coordinatorFixture(
+            locationResult = { locationResult.await() },
+            addressResult = { LocationAddressLookupResult.Success("서울 강남구 역삼동 1") },
+        ).apply { makeLocationUsable() }
+
+        fixture.requestAcquire(this, showFeedback = true)
+        runCurrent()
+        fixture.locationStateMachine.onPermissionChanged(LocationPermissionState.Denied)
+        fixture.locationStateMachine.onPermissionChanged(LocationPermissionState.PreciseGranted)
+        locationResult.complete(LocationLookupResult.Success(COORDINATES))
+        advanceUntilIdle()
+
+        assertEquals(0, fixture.locationRepository.addressCalls)
+        assertTrue(fixture.results.isEmpty())
+        assertTrue(fixture.stationRepository.refreshedQueries.isEmpty())
+    }
+
+    @Test
+    fun `new location generation rejects late old address completion`() = runTest(timeout = 10.seconds) {
+        val oldAddressStarted = CompletableDeferred<Unit>()
+        val oldAddressRelease = CompletableDeferred<Unit>()
+        var locationCall = 0
+        val newCoordinates = Coordinates(37.510000, 127.040000)
+        val newQuery = QUERY.copy(coordinates = newCoordinates)
+        val fixture = coordinatorFixture(
+            locationResult = {
+                locationCall += 1
+                LocationLookupResult.Success(if (locationCall == 1) COORDINATES else newCoordinates)
+            },
+            addressResult = { coordinates ->
+                if (coordinates == COORDINATES) {
+                    oldAddressStarted.complete(Unit)
+                    oldAddressRelease.await()
+                    LocationAddressLookupResult.Success("서울 강남구 오래된동 1")
+                } else {
+                    LocationAddressLookupResult.Unavailable
+                }
+            },
+        ).apply {
+            makeLocationUsable()
+            latestQuery = QUERY
+        }
+
+        fixture.requestAcquire(this, showFeedback = true)
+        runCurrent()
+        assertTrue(oldAddressStarted.isCompleted)
+
+        fixture.latestQuery = newQuery
+        fixture.requestAcquire(this, showFeedback = true)
+        runCurrent()
+        assertEquals(newCoordinates, fixture.locationStateMachine.state.value.currentCoordinates)
+
+        oldAddressRelease.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(null, fixture.locationStateMachine.state.value.currentAddressLabel)
+        assertEquals(listOf(QUERY, newQuery), fixture.stationRepository.refreshedQueries)
+    }
+
+    @Test
     fun `acquisition cancellation propagates no failure result and finalizes indicators`() = runTest(timeout = 10.seconds) {
         val locationResult = CompletableDeferred<LocationLookupResult>()
         val fixture = coordinatorFixture(locationResult = { locationResult.await() }).apply { makeLocationUsable() }
@@ -414,9 +512,15 @@ private fun coordinatorFixture(
     locationResult: suspend (LocationPermissionState) -> LocationLookupResult = {
         LocationLookupResult.Success(RefreshCoordinatorTest.COORDINATES)
     },
+    addressResult: suspend (Coordinates) -> LocationAddressLookupResult = {
+        LocationAddressLookupResult.Unavailable
+    },
     refresh: suspend (StationQuery) -> Unit = {},
 ): RefreshCoordinatorFixture {
-    val locationRepository = CoordinatorLocationRepository(locationResult)
+    val locationRepository = CoordinatorLocationRepository(
+        locationResult = locationResult,
+        addressResult = addressResult,
+    )
     val stationRepository = CoordinatorStationRepository(refresh)
     val locationStateMachine = LocationStateMachine(
         getCurrentLocation = GetCurrentLocationUseCase(locationRepository),
@@ -434,9 +538,12 @@ private fun coordinatorFixture(
     )
 }
 
-private class CoordinatorLocationRepository(private val locationResult: suspend (LocationPermissionState) -> LocationLookupResult) :
-    LocationRepository {
+private class CoordinatorLocationRepository(
+    private val locationResult: suspend (LocationPermissionState) -> LocationLookupResult,
+    private val addressResult: suspend (Coordinates) -> LocationAddressLookupResult,
+) : LocationRepository {
     var locationCalls: Int = 0
+    var addressCalls: Int = 0
 
     override fun observeAvailability(): Flow<Boolean> = flowOf(true)
 
@@ -445,7 +552,10 @@ private class CoordinatorLocationRepository(private val locationResult: suspend 
         return locationResult(permissionState)
     }
 
-    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = LocationAddressLookupResult.Unavailable
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult {
+        addressCalls += 1
+        return addressResult(coordinates)
+    }
 }
 
 private class CoordinatorStationRepository(private val refresh: suspend (StationQuery) -> Unit) : StationRepository {
