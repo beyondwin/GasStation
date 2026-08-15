@@ -25,6 +25,40 @@ fun BuildResult.assertOutputContainsExactlyOnce(sentinel: String) {
     }
 }
 
+fun BuildResult.assertOutputKeyValueExactlyOnce(
+    key: String,
+    expectedValue: String,
+): String {
+    require(STRUCTURED_OUTPUT_KEY.matches(key)) {
+        "Structured output key must contain only uppercase ASCII letters, digits, and underscores: $key"
+    }
+    require(expectedValue.isNotEmpty() && '\n' !in expectedValue && '\r' !in expectedValue) {
+        "Structured output value must be a non-empty single-line value"
+    }
+
+    val keyPrefix = "$key="
+    val keyLines =
+        output.lineSequence()
+            .filter { line -> line.trim().startsWith(keyPrefix) }
+            .toList()
+    if (keyLines.size != 1) {
+        throw AssertionError(
+            "Expected exactly one structured output line for $key but found ${keyLines.size}; " +
+                "outputTail=${output.boundedTail()}",
+        )
+    }
+
+    val expectedLine = keyPrefix + expectedValue
+    val actualLine = keyLines.single()
+    if (actualLine != expectedLine) {
+        throw AssertionError(
+            "Structured output mismatch for $key: expected=$expectedLine actual=$actualLine; " +
+                "outputTail=${output.boundedTail()}",
+        )
+    }
+    return actualLine.removePrefix(keyPrefix)
+}
+
 fun BuildResult.assertOutputDoesNotContain(sentinel: String) {
     require(sentinel.isNotBlank()) { "Output sentinel must not be blank" }
     val occurrences = output.countLiteralOccurrences(sentinel)
@@ -60,3 +94,4 @@ private fun String.boundedTail(): String =
 private const val MAX_DIAGNOSTIC_TASKS = 40
 private const val MAX_DIAGNOSTIC_LINES = 12
 private const val MAX_DIAGNOSTIC_CHARACTERS = 2_000
+private val STRUCTURED_OUTPUT_KEY = Regex("[A-Z][A-Z0-9_]*")

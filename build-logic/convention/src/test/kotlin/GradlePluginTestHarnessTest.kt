@@ -3,10 +3,12 @@ package com.gasstation.buildlogic
 import com.gasstation.buildlogic.testing.GradlePluginTestProject
 import com.gasstation.buildlogic.testing.assertOutputContainsExactlyOnce
 import com.gasstation.buildlogic.testing.assertOutputDoesNotContain
+import com.gasstation.buildlogic.testing.assertOutputKeyValueExactlyOnce
 import com.gasstation.buildlogic.testing.assertTaskOutcome
 import java.io.File
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
+import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.junit.Assert.assertArrayEquals
@@ -33,10 +35,20 @@ class GradlePluginTestHarnessTest {
 
         result.assertTaskOutcome(":spotlessCheck", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":harnessEnvironment", TaskOutcome.SUCCESS)
-        result.assertOutputContainsExactlyOnce("HARNESS_GRADLE_VERSION=9.6.1")
-        result.assertOutputContainsExactlyOnce(
-            "HARNESS_GRADLE_USER_HOME=${project.gradleUserHomeDir.canonicalPath}",
+        val reportedGradleVersion =
+            result.assertOutputKeyValueExactlyOnce("HARNESS_GRADLE_VERSION", "9.6.1")
+        val reportedGradleUserHome =
+            result.assertOutputKeyValueExactlyOnce(
+                "HARNESS_GRADLE_USER_HOME",
+                project.gradleUserHomeDir.canonicalPath,
+            )
+        val reportedGradleUserHomeFile = File(reportedGradleUserHome)
+        assertEquals(
+            "reported Gradle user home must already be canonical",
+            reportedGradleUserHome,
+            reportedGradleUserHomeFile.canonicalPath,
         )
+        assertEquals(project.gradleUserHomeDir.canonicalFile, reportedGradleUserHomeFile.canonicalFile)
         result.assertOutputContainsExactlyOnce("HARNESS_SUCCESS")
         result.assertOutputDoesNotContain("HARNESS_FABRICATED_FAILURE")
 
@@ -49,11 +61,11 @@ class GradlePluginTestHarnessTest {
         )
         assertNotEquals(
             File(System.getProperty("user.home"), ".gradle").canonicalFile,
-            project.gradleUserHomeDir.canonicalFile,
+            reportedGradleUserHomeFile.canonicalFile,
         )
-        println("HARNESS_VERIFIED_GRADLE_VERSION=9.6.1")
+        println("HARNESS_VERIFIED_GRADLE_VERSION=$reportedGradleVersion")
         println("HARNESS_VERIFIED_JAVA_VERSION=${javaVersionMatches.single().groupValues[1]}")
-        println("HARNESS_VERIFIED_GRADLE_USER_HOME=${project.gradleUserHomeDir.canonicalPath}")
+        println("HARNESS_VERIFIED_GRADLE_USER_HOME=$reportedGradleUserHome")
 
         val missingTaskError =
             assertThrows(AssertionError::class.java) {
@@ -69,6 +81,54 @@ class GradlePluginTestHarnessTest {
         assertTrue(wrongOutcomeError.message.orEmpty().contains(":harnessEnvironment"))
         assertTrue(wrongOutcomeError.message.orEmpty().contains("expected=FAILED"))
         assertTrue(wrongOutcomeError.message.orEmpty().contains("actual=SUCCESS"))
+    }
+
+    @Test
+    fun structuredEnvironmentAssertionRejectsVersionSuffix() {
+        val project =
+            newProject("wrong-version").writeSettings().writeBuildFile(
+                successBuildScript(gradleVersionSuffix = "-WRONG"),
+            )
+
+        val result = project.runner("harnessEnvironment").build()
+
+        assertThrows(AssertionError::class.java) {
+            result.assertOutputKeyValueExactlyOnce("HARNESS_GRADLE_VERSION", "9.6.1")
+        }
+    }
+
+    @Test
+    fun structuredEnvironmentAssertionRejectsActualNestedGradleHome() {
+        val project =
+            newProject("nested-home").writeSettings().writeBuildFile(successBuildScript())
+        val nestedHome = project.gradleUserHomeDir.resolve("nested").canonicalFile
+
+        val result =
+            adversarialRunner(project, nestedHome, "harnessEnvironment").build()
+
+        assertThrows(AssertionError::class.java) {
+            result.assertOutputKeyValueExactlyOnce(
+                "HARNESS_GRADLE_USER_HOME",
+                project.gradleUserHomeDir.canonicalPath,
+            )
+        }
+    }
+
+    @Test
+    fun structuredEnvironmentAssertionRejectsWhitespaceAndDuplicateKeyLines() {
+        val project =
+            newProject("malformed-environment").writeSettings().writeBuildFile(
+                malformedEnvironmentBuildScript(),
+            )
+
+        val result = project.runner("malformedEnvironment").build()
+
+        listOf("HARNESS_LEADING_SPACE", "HARNESS_TRAILING_SPACE", "HARNESS_DUPLICATE_KEY")
+            .forEach { key ->
+                assertThrows(AssertionError::class.java) {
+                    result.assertOutputKeyValueExactlyOnce(key, "value")
+                }
+            }
     }
 
     @Test
@@ -196,7 +256,10 @@ class GradlePluginTestHarnessTest {
     private fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(temporaryFolder.newFolder("$name-root"))
 
-    private fun successBuildScript(extraOutput: String = ""): String {
+    private fun successBuildScript(
+        extraOutput: String = "",
+        gradleVersionSuffix: String = "",
+    ): String {
         val extraOutputSuffix =
             extraOutput.takeIf(String::isNotBlank)?.lineSequence()?.joinToString(
                 prefix = "\n",
@@ -222,7 +285,7 @@ class GradlePluginTestHarnessTest {
 
         tasks.register("harnessEnvironment") {
             doLast {
-                println("HARNESS_GRADLE_VERSION=${'$'}{gradle.gradleVersion}")
+                println("HARNESS_GRADLE_VERSION=${'$'}{gradle.gradleVersion}$gradleVersionSuffix")
                 println("HARNESS_JAVA_VERSION=${'$'}{JavaVersion.current().majorVersion}")
                 println("HARNESS_GRADLE_USER_HOME=${'$'}{gradle.gradleUserHomeDir.canonicalPath}")
                 println("HARNESS_SUCCESS")$extraOutputSuffix
@@ -230,6 +293,42 @@ class GradlePluginTestHarnessTest {
         }
         """.trimIndent()
     }
+
+    private fun malformedEnvironmentBuildScript(): String =
+        """
+        plugins {
+            id("gasstation.spotless")
+        }
+
+        tasks.register("malformedEnvironment") {
+            doLast {
+                println(" HARNESS_LEADING_SPACE=value")
+                println("HARNESS_TRAILING_SPACE=value ")
+                println("HARNESS_DUPLICATE_KEY=value")
+                println("HARNESS_DUPLICATE_KEY=value")
+            }
+        }
+        """.trimIndent()
+
+    private fun adversarialRunner(
+        project: GradlePluginTestProject,
+        gradleUserHome: File,
+        vararg arguments: String,
+    ): GradleRunner =
+        GradleRunner.create()
+            .withProjectDir(project.projectDir)
+            .withTestKitDir(project.testKitDir)
+            .withPluginClasspath()
+            .withArguments(
+                arguments.toList() +
+                    listOf(
+                        "--no-configuration-cache",
+                        "--no-build-cache",
+                        "--warning-mode=fail",
+                        "--stacktrace",
+                        "--gradle-user-home=${gradleUserHome.absolutePath}",
+                    ),
+            )
 
     private fun failureBuildScript(): String =
         """
