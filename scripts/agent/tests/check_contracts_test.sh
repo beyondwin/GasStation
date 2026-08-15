@@ -288,8 +288,10 @@ state_sources = {
     ),
     "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt": (
         "@Insert(onConflict = OnConflictStrategy.IGNORE)\ninterface WatchedStationDao {\n"
-        "  // watchedAtEpochMillis DESC, stationId ASC\n"
-        "  // watchedAtEpochMillis DESC, stationId ASC\n}\n"
+        '  @Query("SELECT stationId FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
+        "  fun observeIds() = Unit\n"
+        '  @Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
+        "  fun observeRows() = Unit\n}\n"
     ),
 }
 for path, text in state_sources.items():

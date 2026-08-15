@@ -268,6 +268,73 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
             self.assertTrue(any("StationListEffect.kt must remain absent" in issue for issue in issues))
             self.assertTrue(any("StationListViewModelTest.kt must remain absent" in issue for issue in issues))
 
+    def test_source_surface_comment_and_string_decoys_are_rejected(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        mutations = (
+            (
+                "ack comment decoy",
+                SOURCE_PATHS[3],
+                "current.firstOrNull()?.id == commandId",
+                "current.any { it.id == commandId } // current.firstOrNull()?.id == commandId",
+                "exact-head acknowledgement",
+            ),
+            (
+                "assembler string decoy",
+                SOURCE_PATHS[6],
+                "StationListStateAssembler.assemble",
+                'assembleState /* StationListStateAssembler.assemble */',
+                "exactly one StationListStateAssembler.assemble call",
+            ),
+            (
+                "refresh completion comment decoy",
+                SOURCE_PATHS[2],
+                "job.invokeOnCompletion { finishIfActive(work) }",
+                "job.onCompletion { finishIfActive(work) } // invokeOnCompletion",
+                "state contract source token missing: invokeOnCompletion",
+            ),
+            (
+                "refresh address string decoy",
+                SOURCE_PATHS[2],
+                "locationStateMachine.resolveAddressLabel(coordinates)",
+                'locationStateMachine.resolveAddress(coordinates)\n'
+                '            val decoy = "resolveAddressLabel"',
+                "state contract source token missing: resolveAddressLabel",
+            ),
+            (
+                "ignore comment decoy",
+                SOURCE_PATHS[8],
+                "OnConflictStrategy.IGNORE",
+                "OnConflictStrategy.REPLACE // OnConflictStrategy.IGNORE",
+                "OnConflictStrategy.IGNORE",
+            ),
+            (
+                "first ordering arbitrary-string decoy",
+                SOURCE_PATHS[8],
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                'ORDER BY watchedAtEpochMillis DESC")\n'
+                '    val decoy = "watchedAtEpochMillis DESC, stationId ASC"',
+                "deterministic watched ordering",
+            ),
+            (
+                "second ordering block-comment decoy",
+                SOURCE_PATHS[8],
+                '@Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                '@Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC") '
+                '/* @Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC, stationId ASC") */',
+                "deterministic watched ordering",
+            ),
+        )
+        for label, relative, old, new, expected in mutations:
+            with self.subTest(label=label):
+                with tempfile.TemporaryDirectory(prefix="state-contract-decoy-") as directory:
+                    root = self.copy_source_surface(Path(directory))
+                    target = root / relative
+                    text = target.read_text(encoding="utf-8")
+                    self.assertIn(old, text)
+                    target.write_text(text.replace(old, new, 1), encoding="utf-8")
+                    issues = source_issues(root)
+                    self.assertTrue(any(expected in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (

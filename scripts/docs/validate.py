@@ -292,6 +292,89 @@ def strip_fenced_code_preserving_offsets(text: str) -> str:
     return "".join(output)
 
 
+def strip_kotlin_comments_and_literals(text: str, *, strip_literals: bool = True) -> str:
+    """Mask Kotlin comments and, optionally, literals while preserving offsets/newlines."""
+    output: list[str] = []
+    index = 0
+    length = len(text)
+
+    def append(character: str, *, masked: bool) -> None:
+        output.append("\n" if masked and character == "\n" else " " if masked else character)
+
+    def append_segment(segment: str, *, masked: bool) -> None:
+        for character in segment:
+            append(character, masked=masked)
+
+    while index < length:
+        if text.startswith("//", index):
+            while index < length and text[index] != "\n":
+                append(text[index], masked=True)
+                index += 1
+            continue
+
+        if text.startswith("/*", index):
+            depth = 1
+            append_segment("/*", masked=True)
+            index += 2
+            while index < length and depth:
+                if text.startswith("/*", index):
+                    depth += 1
+                    append_segment("/*", masked=True)
+                    index += 2
+                elif text.startswith("*/", index):
+                    depth -= 1
+                    append_segment("*/", masked=True)
+                    index += 2
+                else:
+                    append(text[index], masked=True)
+                    index += 1
+            continue
+
+        delimiter = ""
+        if text.startswith('"""', index):
+            delimiter = '"""'
+        elif text[index] == '"':
+            delimiter = '"'
+        elif text[index] == "'":
+            delimiter = "'"
+
+        if delimiter:
+            triple_quoted = delimiter == '"""'
+            append_segment(delimiter, masked=strip_literals)
+            index += len(delimiter)
+            escaped = False
+            while index < length:
+                if triple_quoted and text.startswith(delimiter, index):
+                    append_segment(delimiter, masked=strip_literals)
+                    index += len(delimiter)
+                    break
+                character = text[index]
+                append(character, masked=strip_literals)
+                index += 1
+                if triple_quoted:
+                    continue
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == delimiter:
+                    break
+            continue
+
+        output.append(text[index])
+        index += 1
+    return "".join(output)
+
+
+def kotlin_room_query_literals(text: str) -> list[str]:
+    comment_free = strip_kotlin_comments_and_literals(text, strip_literals=False)
+    pattern = re.compile(
+        r'@Query\s*\(\s*(?:"""(?P<triple>.*?)"""|"(?P<regular>(?:\\.|[^"\\])*)")\s*\)',
+        re.DOTALL,
+    )
+    return [match.group("triple") or match.group("regular") or "" for match in pattern.finditer(comment_free)]
+
+
 def strip_code(text: str) -> str:
     return INLINE_CODE.sub("", strip_fenced_code(text))
 
@@ -1078,6 +1161,10 @@ def station_list_state_source_surface_issues(root: Path) -> list[str]:
         except OSError as error:
             issues.append(location(relative, 1, f"state contract source unavailable: {error}"))
             sources[name] = ""
+    executable_sources = {
+        name: strip_kotlin_comments_and_literals(source)
+        for name, source in sources.items()
+    }
 
     required_tokens = {
         "location": (
@@ -1103,17 +1190,18 @@ def station_list_state_source_surface_issues(root: Path) -> list[str]:
     }
     for name, tokens in required_tokens.items():
         for token in tokens:
-            if token not in sources[name]:
+            if token not in executable_sources[name]:
                 issues.append(location(paths[name], 1, f"state contract source token missing: {token}"))
 
-    if "current.firstOrNull()?.id == commandId" not in sources["command"]:
+    if "current.firstOrNull()?.id == commandId" not in executable_sources["command"]:
         issues.append(location(paths["command"], 1, "command queue must retain exact-head acknowledgement"))
-    if "OnConflictStrategy.IGNORE" not in sources["watch_dao"]:
+    if "OnConflictStrategy.IGNORE" not in executable_sources["watch_dao"]:
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain OnConflictStrategy.IGNORE"))
-    if sources["watch_dao"].count("watchedAtEpochMillis DESC, stationId ASC") != 2:
+    watch_queries = kotlin_room_query_literals(sources["watch_dao"])
+    if sum("ORDER BY watchedAtEpochMillis DESC, stationId ASC" in query for query in watch_queries) != 2:
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain deterministic watched ordering in both observations"))
 
-    viewmodel = sources["viewmodel"]
+    viewmodel = executable_sources["viewmodel"]
     if viewmodel.count("StationListStateAssembler.assemble") != 1:
         issues.append(location(paths["viewmodel"], 1, "ViewModel must have exactly one StationListStateAssembler.assemble call"))
     forbidden_patterns = (
