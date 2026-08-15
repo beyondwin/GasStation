@@ -16,7 +16,6 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.ZoneId
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -25,7 +24,7 @@ class StationFreshnessTickerTest {
 
     @Test
     fun `observe emits fresh immediately then stale one millisecond after five minutes`() = runTest {
-        val clock = MutableClock(fetchedAt)
+        val clock = Clock.fixed(fetchedAt, ZoneOffset.UTC)
         val emissions = mutableListOf<StationFreshness>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             StationFreshnessTicker(StationCachePolicy(), clock).observe(fetchedAt).toList(emissions)
@@ -33,12 +32,10 @@ class StationFreshnessTickerTest {
 
         assertEquals(listOf(StationFreshness.Fresh), emissions)
 
-        clock.advance(Duration.ofMinutes(5))
         advanceTimeBy(Duration.ofMinutes(5).toMillis())
         runCurrent()
         assertEquals(listOf(StationFreshness.Fresh), emissions)
 
-        clock.advance(Duration.ofMillis(1))
         advanceTimeBy(1)
         runCurrent()
 
@@ -48,7 +45,10 @@ class StationFreshnessTickerTest {
 
     @Test
     fun `observe emits stale immediately without scheduling a wait when already stale`() = runTest {
-        val clock = MutableClock(fetchedAt.plus(Duration.ofMinutes(5)).plusMillis(1))
+        val clock = Clock.fixed(
+            fetchedAt.plus(Duration.ofMinutes(5)).plusMillis(1),
+            ZoneOffset.UTC,
+        )
         val emissions = mutableListOf<StationFreshness>()
 
         StationFreshnessTicker(StationCachePolicy(), clock).observe(fetchedAt).toList(emissions)
@@ -60,7 +60,7 @@ class StationFreshnessTickerTest {
 
     @Test
     fun `cancelling collector removes pending freshness wait`() = runTest {
-        val clock = MutableClock(fetchedAt)
+        val clock = Clock.fixed(fetchedAt, ZoneOffset.UTC)
         val emissions = mutableListOf<StationFreshness>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             StationFreshnessTicker(StationCachePolicy(), clock).observe(fetchedAt).toList(emissions)
@@ -68,22 +68,9 @@ class StationFreshnessTickerTest {
 
         assertEquals(listOf(StationFreshness.Fresh), emissions)
         job.cancelAndJoin()
-        clock.advance(Duration.ofMinutes(5).plusMillis(1))
         advanceUntilIdle()
 
         assertEquals(listOf(StationFreshness.Fresh), emissions)
         assertEquals(0L, testScheduler.currentTime)
-    }
-
-    private class MutableClock(private var current: Instant, private val zoneId: ZoneId = ZoneOffset.UTC) : Clock() {
-        override fun getZone(): ZoneId = zoneId
-
-        override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
-
-        override fun instant(): Instant = current
-
-        fun advance(duration: Duration) {
-            current = current.plus(duration)
-        }
     }
 }

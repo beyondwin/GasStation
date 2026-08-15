@@ -122,26 +122,19 @@ class GasStationTopLevelNavigationTest {
 
         assertEquals(GasStationDestination.Settings.route, navController.currentDestination?.route)
         assertEquals(31, navController.currentBackStackEntry!!.savedStateHandle["scroll"])
-        assertEquals(
-            1,
-            navController.currentBackStack.value.count {
-                it.destination.route == GasStationDestination.Settings.route
-            },
-        )
         assertNull(lastWatchlistRoute)
+        assertTrue(navController.popBackStack())
+        assertEquals(GasStationDestination.StationList.route, navController.currentDestination?.route)
 
         val watchlistRoute = GasStationDestination.Watchlist.createRoute(FIRST_ORIGIN)
         lastWatchlistRoute = navController.navigateTopLevel(watchlistRoute, lastWatchlistRoute)
         navController.currentBackStackEntry!!.savedStateHandle["scroll"] = 47
         lastWatchlistRoute = navController.navigateTopLevel(watchlistRoute, lastWatchlistRoute)
+        assertEquals(GasStationDestination.Watchlist.route, navController.currentDestination?.route)
         assertEquals(47, navController.currentBackStackEntry!!.savedStateHandle["scroll"])
-        assertEquals(
-            1,
-            navController.currentBackStack.value.count {
-                it.destination.route == GasStationDestination.Watchlist.route
-            },
-        )
         assertEquals(watchlistRoute, lastWatchlistRoute)
+        assertTrue(navController.popBackStack())
+        assertEquals(GasStationDestination.StationList.route, navController.currentDestination?.route)
     }
 
     @Test

@@ -592,16 +592,30 @@ class WatchlistRepositoryTest {
 
     @Test
     fun `repeated ON commits while preserving first timestamp metadata and order`() = runBlocking {
-        val mutableClock = MutableTestClock(now)
         val watchedStationDao = RecordingWatchedStationDao()
-        val repository = repository(watchedStationDao = watchedStationDao, clock = mutableClock)
         val first = station("station-1", "Original")
 
-        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(first, watched = true))
-        mutableClock.current = now.plusSeconds(5)
-        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(station("station-2", "Second"), watched = true))
-        mutableClock.current = now.plusSeconds(10)
-        assertEquals(WatchMutationResult.Committed, repository.updateWatchState(first.copy(name = "Replacement"), watched = true))
+        assertEquals(
+            WatchMutationResult.Committed,
+            repository(watchedStationDao = watchedStationDao, clock = Clock.fixed(now, ZoneOffset.UTC))
+                .updateWatchState(first, watched = true),
+        )
+        assertEquals(
+            WatchMutationResult.Committed,
+            repository(
+                watchedStationDao = watchedStationDao,
+                clock = Clock.fixed(now.plusSeconds(5), ZoneOffset.UTC),
+            )
+                .updateWatchState(station("station-2", "Second"), watched = true),
+        )
+        assertEquals(
+            WatchMutationResult.Committed,
+            repository(
+                watchedStationDao = watchedStationDao,
+                clock = Clock.fixed(now.plusSeconds(10), ZoneOffset.UTC),
+            )
+                .updateWatchState(first.copy(name = "Replacement"), watched = true),
+        )
 
         val rows = watchedStationDao.currentWatchedStations()
         assertEquals(listOf("station-2", "station-1"), rows.map { it.stationId })
@@ -720,12 +734,6 @@ class WatchlistRepositoryTest {
         distance = DistanceMeters(120),
         coordinates = Coordinates(37.498095, 127.027610),
     )
-
-    private class MutableTestClock(var current: Instant) : Clock() {
-        override fun getZone() = ZoneOffset.UTC
-        override fun withZone(zone: java.time.ZoneId): Clock = this
-        override fun instant(): Instant = current
-    }
 
     private class ControllableWatchedStationDao(
         initial: List<WatchedStationEntity> = emptyList(),

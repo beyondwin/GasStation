@@ -96,6 +96,7 @@ dependencies {
     kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.uiautomator)
     androidTestUtil(libs.androidx.test.orchestrator)
     kspAndroidTest(libs.hilt.android.compiler)

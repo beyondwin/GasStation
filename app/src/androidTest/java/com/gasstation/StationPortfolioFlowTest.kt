@@ -25,6 +25,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
 import com.gasstation.core.database.GasStationDatabase
 import com.gasstation.core.model.BrandFilter
 import com.gasstation.core.model.FuelType
@@ -59,9 +60,7 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TestRule
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Rect as ComposeRect
@@ -94,23 +93,10 @@ class StationPortfolioFlowTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
-    val locationPermissionRule = TestRule { base, _ ->
-        object : Statement() {
-            override fun evaluate() {
-                val instrumentation = InstrumentationRegistry.getInstrumentation()
-                val packageName = instrumentation.targetContext.packageName
-                instrumentation.uiAutomation.grantRuntimePermission(
-                    packageName,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                )
-                instrumentation.uiAutomation.grantRuntimePermission(
-                    packageName,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                )
-                base.evaluate()
-            }
-        }
-    }
+    val locationPermissionRule: GrantPermissionRule = GrantPermissionRule.grant(
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+    )
 
     @get:Rule(order = 2)
     val rule = createAndroidComposeRule<MainActivity>()

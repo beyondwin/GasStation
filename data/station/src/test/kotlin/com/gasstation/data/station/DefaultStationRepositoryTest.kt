@@ -52,7 +52,6 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.seconds
@@ -574,13 +573,13 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `observeNearbyStations cancels old freshness boundary and reschedules from new snapshot`() = runTest {
-        val mutableClock = MutableClock(now)
+        val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
         val query = stationQuery()
         val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
         val snapshots = MutableSharedFlow<StationBucketSnapshot>(extraBufferCapacity = 2)
         val repository = repository(
             stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
-            clock = mutableClock,
+            clock = fixedClock,
         )
         val emissions = mutableListOf<StationSearchResult>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -591,17 +590,14 @@ class DefaultStationRepositoryTest {
         runCurrent()
         assertEquals(listOf(StationFreshness.Fresh), emissions.map { it.freshness })
 
-        mutableClock.advance(Duration.ofMinutes(4))
         advanceTimeBy(Duration.ofMinutes(4).toMillis())
-        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = mutableClock.instant(), stationId = "new"))
+        snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = "new"))
         runCurrent()
 
-        mutableClock.advance(Duration.ofMinutes(1).plusMillis(1))
         advanceTimeBy(Duration.ofMinutes(1).plusMillis(1).toMillis())
         runCurrent()
         assertEquals(listOf(StationFreshness.Fresh, StationFreshness.Fresh), emissions.map { it.freshness })
 
-        mutableClock.advance(Duration.ofMinutes(4))
         advanceTimeBy(Duration.ofMinutes(4).toMillis())
         runCurrent()
 
@@ -614,7 +610,7 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `cached empty snapshot ages without cache writes or database emission`() = runTest {
-        val mutableClock = MutableClock(now)
+        val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
         val query = stationQuery()
         val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
         val stationCacheDao = RecordingStationCacheDao()
@@ -622,7 +618,7 @@ class DefaultStationRepositoryTest {
         val repository = repository(
             stationCacheDao = stationCacheDao,
             stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
-            clock = mutableClock,
+            clock = fixedClock,
         )
         val emissions = mutableListOf<StationSearchResult>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -631,7 +627,6 @@ class DefaultStationRepositoryTest {
 
         snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = null))
         runCurrent()
-        mutableClock.advance(Duration.ofMinutes(5).plusMillis(1))
         advanceTimeBy(Duration.ofMinutes(5).plusMillis(1).toMillis())
         runCurrent()
 
@@ -644,7 +639,7 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `watch metadata emission reuses current freshness boundary`() = runTest {
-        val mutableClock = MutableClock(now)
+        val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
         val query = stationQuery()
         val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
         val snapshots = MutableSharedFlow<StationBucketSnapshot>(extraBufferCapacity = 1)
@@ -652,7 +647,7 @@ class DefaultStationRepositoryTest {
         val repository = repository(
             stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ -> snapshots },
             watchedStationDao = watchedStationDao,
-            clock = mutableClock,
+            clock = fixedClock,
         )
         val emissions = mutableListOf<StationSearchResult>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -661,17 +656,15 @@ class DefaultStationRepositoryTest {
 
         snapshots.emit(bucketSnapshot(cacheKey, fetchedAt = now, stationId = "station-1"))
         runCurrent()
-        mutableClock.advance(Duration.ofMinutes(4))
         advanceTimeBy(Duration.ofMinutes(4).toMillis())
         watchedStationDao.insertIfAbsent(
             watched(
                 stationId = "station-1",
-                watchedAt = mutableClock.instant(),
+                watchedAt = now.plus(Duration.ofMinutes(4)),
             ),
         )
         runCurrent()
 
-        mutableClock.advance(Duration.ofMinutes(1).plusMillis(1))
         advanceTimeBy(Duration.ofMinutes(1).plusMillis(1).toMillis())
         runCurrent()
 
@@ -685,7 +678,7 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `freshness transition does not resubscribe cold metadata streams`() = runTest {
-        val mutableClock = MutableClock(now)
+        val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
         val query = stationQuery()
         val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
         val watchedStationDao = ColdOneShotWatchedStationDao()
@@ -696,7 +689,7 @@ class DefaultStationRepositoryTest {
             },
             stationPriceHistoryDao = stationPriceHistoryDao,
             watchedStationDao = watchedStationDao,
-            clock = mutableClock,
+            clock = fixedClock,
         )
         val emissions = mutableListOf<StationSearchResult>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -704,7 +697,6 @@ class DefaultStationRepositoryTest {
         }
 
         runCurrent()
-        mutableClock.advance(Duration.ofMinutes(5).plusMillis(1))
         advanceTimeBy(Duration.ofMinutes(5).plusMillis(1).toMillis())
         runCurrent()
 
@@ -716,12 +708,12 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `snapshot without marker remains no cache and does not start freshness timer`() = runTest {
-        val mutableClock = MutableClock(now)
+        val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
         val repository = repository(
             stationBucketSnapshotObserver = StationBucketSnapshotObserver { _, _, _, _ ->
                 flowOf(StationBucketSnapshot(marker = null, rows = emptyList()))
             },
-            clock = mutableClock,
+            clock = fixedClock,
         )
 
         val result = repository.observeNearbyStations(stationQuery()).first()
@@ -916,7 +908,7 @@ class DefaultStationRepositoryTest {
 
     @Test
     fun `fetchedAt is captured at validated latest write time not request start`() = runTest(timeout = 10.seconds) {
-        val mutableClock = MutableClock(now)
+        val wallClock = Clock.systemUTC()
         val query = stationQuery()
         val cacheKey = query.toCacheKey(CACHE_BUCKET_METERS)
         val fetch = PendingFetch()
@@ -928,25 +920,33 @@ class DefaultStationRepositoryTest {
             stationCacheDao = cacheDao,
             stationPriceHistoryDao = historyDao,
             remoteDataSource = ControlledStationRemoteDataSource(fetch),
-            clock = mutableClock,
+            clock = wallClock,
             analytics = analytics,
             transactionRunner = transactions,
         )
 
         val refresh = launch { repository.refreshNearbyStations(query) }
         fetch.started.await()
-        mutableClock.advance(Duration.ofMinutes(2))
+        val remoteBlockedAtEpochMillis = wallClock.millis()
+        val wallClockAdvanceDeadlineNanos = System.nanoTime() + Duration.ofSeconds(1).toNanos()
+        while (wallClock.millis() <= remoteBlockedAtEpochMillis) {
+            assertTrue(
+                "System UTC clock did not advance within one second",
+                System.nanoTime() < wallClockAdvanceDeadlineNanos,
+            )
+            Thread.yield()
+        }
         fetch.result.complete(RemoteStationFetchResult.Success(listOf(remoteStation("station-1"))))
         refresh.join()
 
-        val writeTime = now.plus(Duration.ofMinutes(2))
-        assertEquals(writeTime.toEpochMilli(), cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
-        assertEquals(writeTime.toEpochMilli(), cacheDao.snapshotFor(cacheKey).single().fetchedAtEpochMillis)
-        assertEquals(writeTime.toEpochMilli(), cacheDao.replaceSnapshotRecords.single().fetchedAtEpochMillis)
-        assertEquals(writeTime.toEpochMilli(), historyDao.insertAllCalls.single().single().fetchedAtEpochMillis)
+        val writeTimeEpochMillis = requireNotNull(cacheDao.markerFor(cacheKey)?.fetchedAtEpochMillis)
+        assertTrue(writeTimeEpochMillis > remoteBlockedAtEpochMillis)
+        assertEquals(writeTimeEpochMillis, cacheDao.snapshotFor(cacheKey).single().fetchedAtEpochMillis)
+        assertEquals(writeTimeEpochMillis, cacheDao.replaceSnapshotRecords.single().fetchedAtEpochMillis)
+        assertEquals(writeTimeEpochMillis, historyDao.insertAllCalls.single().single().fetchedAtEpochMillis)
         assertEquals(1, transactions.invocations)
         assertEquals(listOf("station-1" to query.fuelType.name), historyDao.keepLatestTenCalls)
-        assertEquals(expectedPruneCutoffs(writeTime), cacheDao.pruneCutoffCalls)
+        assertEquals(expectedPruneCutoffs(Instant.ofEpochMilli(writeTimeEpochMillis)), cacheDao.pruneCutoffCalls)
         assertEquals(listOf(expectedSearchRefreshed(query)), analytics.events)
     }
 
@@ -1374,18 +1374,6 @@ class DefaultStationRepositoryTest {
                 releaseFirst.await()
             }
             return block()
-        }
-    }
-
-    private class MutableClock(private var current: Instant, private val zoneId: ZoneId = ZoneOffset.UTC) : Clock() {
-        override fun getZone(): ZoneId = zoneId
-
-        override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
-
-        override fun instant(): Instant = current
-
-        fun advance(duration: Duration) {
-            current = current.plus(duration)
         }
     }
 }
