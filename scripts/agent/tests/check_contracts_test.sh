@@ -128,9 +128,53 @@ jobs:
       - run: scripts/agent/verify-room-schemas.sh
   static-analysis:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Production lint
+        run: |
+          ./gradlew \
+            spotlessCheck \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            verifyModuleBoundaries \
+            verifyNoDeprecatedComposeTestApis \
+            verifyCiRobolectricRuntime \
+            -Pgasstation.lintTestSources=false \
+            --warning-mode fail \
+            --continue
+      - name: Upload production lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-production-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
+  lint-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Test-source lint
+        run: |
+          ./gradlew \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            -Pgasstation.lintTestSources=true \
+            --warning-mode fail \
+            --continue
+      - name: Upload test-source lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-test-source-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
   release-publish:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
     permissions:
       contents: write
     steps:
@@ -320,6 +364,93 @@ from pathlib import Path
 import sys
 
 workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "  lint-tests:\n    runs-on: ubuntu-latest\n",
+        "  lint-tests:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-escape.out" 2>&1; then
+  fail "CI accepted a lint-tests continue-on-error escape"
+fi
+assert_contains "$(cat "$fixture/lint-escape.out")" "lint-tests must be blocking"
+assert_error_locations "$(cat "$fixture/lint-escape.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "-Pgasstation.lintTestSources=true",
+        "-Pgasstation.lintTestSources=false",
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-property.out" 2>&1; then
+  fail "CI accepted a lint-tests false property"
+fi
+assert_contains "$(cat "$fixture/lint-property.out")" "lint-tests command missing: test-source property"
+assert_error_locations "$(cat "$fixture/lint-property.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace("            :app:lintProdDebug \\\n", "", 1)
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-prod-task.out" 2>&1; then
+  fail "CI accepted production lint without the prod app task"
+fi
+assert_contains "$(cat "$fixture/lint-prod-task.out")" "static-analysis command missing: prod app lint task"
+assert_error_locations "$(cat "$fixture/lint-prod-task.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace("        if: always()\n", "", 1))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-artifact-always.out" 2>&1; then
+  fail "CI accepted a production lint artifact without if always"
+fi
+assert_contains "$(cat "$fixture/lint-artifact-always.out")" "static-analysis lint artifact upload missing: always condition"
+assert_error_locations "$(cat "$fixture/lint-artifact-always.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "needs: [agent-contracts, static-analysis, lint-tests,",
+        "needs: [agent-contracts, static-analysis,",
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-release-prerequisite.out" 2>&1; then
+  fail "CI accepted release publishing without lint-tests"
+fi
+assert_contains "$(cat "$fixture/lint-release-prerequisite.out")" "tag release publishing prerequisite missing: lint-tests"
+assert_error_locations "$(cat "$fixture/lint-release-prerequisite.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
 workflow.write_text(workflow.read_text().replace("      - run: scripts/agent/verify-room-schemas.sh\n", ""))
 PY
 if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/room-schema-workflow.out" 2>&1; then
@@ -390,9 +521,53 @@ jobs:
           GASSTATION_CI_BASE_REF: fixture-base
   static-analysis:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Production lint
+        run: |
+          ./gradlew \
+            spotlessCheck \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            verifyModuleBoundaries \
+            verifyNoDeprecatedComposeTestApis \
+            verifyCiRobolectricRuntime \
+            -Pgasstation.lintTestSources=false \
+            --warning-mode fail \
+            --continue
+      - name: Upload production lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-production-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
+  lint-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Test-source lint
+        run: |
+          ./gradlew \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            -Pgasstation.lintTestSources=true \
+            --warning-mode fail \
+            --continue
+      - name: Upload test-source lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-test-source-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
   release-publish:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
     permissions:
       contents: write
     steps:

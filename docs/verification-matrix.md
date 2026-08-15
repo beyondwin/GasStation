@@ -347,7 +347,7 @@ Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해
 
 ## Android Lint 분리 경로
 
-현재 report-only promotion 단계는 production과 test-source Android Lint를 서로 다른 CI job과 artifact로 관측합니다. 두 명령 모두 demo/prod app flavor와 root Android-library `lint`를 명시하고, `--continue`는 모든 실패를 수집할 뿐 실패 exit를 성공으로 바꾸지 않습니다. `--warning-mode fail`은 Gradle warning 정책이며 Android Lint warning 승격과 별개입니다.
+production과 test-source Android Lint는 서로 다른 blocking CI job과 artifact로 검증합니다. 두 명령 모두 demo/prod app flavor와 root Android-library `lint`를 명시하고, `--continue`는 모든 실패를 수집할 뿐 실패 exit를 성공으로 바꾸지 않습니다. `--warning-mode fail`은 Gradle warning 정책이며 Android Lint warning 승격은 convention의 `warningsAsErrors=true`가 담당합니다.
 
 ```bash
 # production source: CI static-analysis와 동일
@@ -373,7 +373,7 @@ Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해
   --continue
 ```
 
-각 job은 성공/실패와 무관하게 `**/build/reports/lint-results-*`를 올립니다. artifact 이름은 각각 `lint-production-reports`, `lint-test-source-reports`이고 XML/text/HTML/SARIF를 포함합니다. 이 commit에서는 `lint-tests`만 job-level `continue-on-error`인 report-only 상태이며, hosted CI 실행은 아직 검증하지 않았습니다. JVM-only `gasstation.jvm.library` 모듈과 `benchmark`는 이 Android Lint 경로가 커버한다고 주장하지 않습니다.
+각 job은 성공/실패와 무관하게 `**/build/reports/lint-results-*`를 올립니다. artifact 이름은 각각 `lint-production-reports`, `lint-test-source-reports`이고 XML/text/HTML/SARIF를 포함합니다. 두 job 모두 warning까지 blocking이며, hosted CI 실행은 아직 검증하지 않았습니다. JVM-only `gasstation.jvm.library` 모듈과 `benchmark`는 이 Android Lint 경로가 커버한다고 주장하지 않습니다.
 
 ## 기본 Fast Path와 Opt-in 확장
 
@@ -421,7 +421,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `agent-contracts` (agent contract tests + full checker), `static-analysis` (demo/prod production lint + root Android-library lint + contract guards), report-only `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 

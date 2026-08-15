@@ -12,7 +12,7 @@ internal fun Project.configureGasStationAndroidLint(
             .orElse(false)
 
     lint.apply {
-        warningsAsErrors = false
+        warningsAsErrors = true
         abortOnError = true
         this.checkDependencies = checkDependencies
         checkTestSources = lintTestSourcesEnabled.get()

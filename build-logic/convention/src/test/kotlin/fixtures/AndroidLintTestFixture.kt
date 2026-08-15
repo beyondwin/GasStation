@@ -41,6 +41,7 @@ fun GradlePluginTestProject.writeAndroidLintFixture(
         """.trimIndent(),
     )
     writeFile("src/main/AndroidManifest.xml", "<manifest />")
+    writeFile("lint.xml", FIXTURE_ENVIRONMENTAL_LINT_POLICY)
     writeFile("src/main/java/fixture/MainSource.java", mainSource)
     testSource?.let { writeFile("src/test/java/fixture/TestOnlyNewApi.java", it) }
     resources.forEach { (path, content) -> writeFile(path, content) }
@@ -137,4 +138,15 @@ private val ANDROID_LINT_VERSION_CATALOG =
     kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
     androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
     robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+    """.trimIndent()
+
+private val FIXTURE_ENVIRONMENTAL_LINT_POLICY =
+    """
+    <?xml version="1.0" encoding="utf-8"?>
+    <lint>
+        <!-- Match the repository's tool-version advisory policy without hiding source findings. -->
+        <issue id="OldTargetApi" severity="ignore" />
+        <issue id="GradleDependency" severity="ignore" />
+        <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    </lint>
     """.trimIndent()

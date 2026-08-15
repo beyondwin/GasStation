@@ -95,11 +95,44 @@ RELEASE_JOB_ANCHORS = {
 RELEASE_JOB_PREREQUISITES = {
     "agent-contracts",
     "static-analysis",
+    "lint-tests",
     "unit-tests",
     "screenshot-tests",
     "assemble",
     "release-assemble",
     "coverage",
+}
+WORKFLOW_JOB_TEMPLATE = (
+    r"(?ms)^  {job}:\s*\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)"
+)
+WORKFLOW_RUN_BLOCK = re.compile(
+    r"(?ms)^        run:\s*\|\s*\n(?P<body>(?:^          .*(?:\n|\Z))+?)"
+    r"(?=^        \S|^      - |^  [A-Za-z0-9_-]+:|\Z)"
+)
+WORKFLOW_STEP_BLOCK = re.compile(
+    r"(?ms)^      - (?P<body>.*?)(?=^      - |^  [A-Za-z0-9_-]+:|\Z)"
+)
+LINT_JOB_CONTRACTS = {
+    "static-analysis": {
+        "property": "-Pgasstation.lintTestSources=false",
+        "artifact": "lint-production-reports",
+        "commands": {
+            "Spotless": "spotlessCheck",
+            "demo app lint task": ":app:lintDemoDebug",
+            "prod app lint task": ":app:lintProdDebug",
+            "module boundary guard": "verifyModuleBoundaries",
+            "Compose test API guard": "verifyNoDeprecatedComposeTestApis",
+            "Robolectric runtime guard": "verifyCiRobolectricRuntime",
+        },
+    },
+    "lint-tests": {
+        "property": "-Pgasstation.lintTestSources=true",
+        "artifact": "lint-test-source-reports",
+        "commands": {
+            "demo app lint task": ":app:lintDemoDebug",
+            "prod app lint task": ":app:lintProdDebug",
+        },
+    },
 }
 
 
@@ -430,6 +463,94 @@ def command_named_targets(command: str) -> list[str]:
     return [target for word in words if (target := exact_hook_target(word))]
 
 
+def source_line(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def check_lint_workflow_contracts(workflow: str) -> list[str]:
+    issues: list[str] = []
+    workflow_path = ".github/workflows/android.yml"
+    for job_name, contract in LINT_JOB_CONTRACTS.items():
+        match = re.search(
+            WORKFLOW_JOB_TEMPLATE.format(job=re.escape(job_name)),
+            workflow,
+        )
+        if match is None:
+            issues.append(issue(workflow_path, 1, f"workflow job missing: {job_name}"))
+            continue
+
+        body = match.group("body")
+        job_line = source_line(workflow, match.start())
+        if not re.search(r"(?m)^    timeout-minutes:\s*30\s*$", body):
+            issues.append(
+                issue(workflow_path, job_line, f"{job_name} timeout must be 30 minutes")
+            )
+        if re.search(r"(?m)^\s+continue-on-error:\s*true\s*$", body):
+            issues.append(issue(workflow_path, job_line, f"{job_name} must be blocking"))
+
+        run_blocks = [run.group("body") for run in WORKFLOW_RUN_BLOCK.finditer(body)]
+        lint_run = next(
+            (
+                run
+                for run in run_blocks
+                if contract["property"] in run
+                or ":app:lintDemoDebug" in run
+                or ":app:lintProdDebug" in run
+            ),
+            "",
+        )
+        required_commands = {
+            **contract["commands"],
+            "test-source property": contract["property"],
+            "Gradle warning policy": "--warning-mode fail",
+            "complete failure collection": "--continue",
+        }
+        for name, anchor in required_commands.items():
+            if anchor not in lint_run:
+                issues.append(
+                    issue(workflow_path, job_line, f"{job_name} command missing: {name}")
+                )
+        if not re.search(r"(?m)^\s*lint\s*\\?\s*$", lint_run):
+            issues.append(
+                issue(workflow_path, job_line, f"{job_name} command missing: root lint task")
+            )
+
+        artifact_step = next(
+            (
+                step.group("body")
+                for step in WORKFLOW_STEP_BLOCK.finditer(body)
+                if "uses: actions/upload-artifact@" in step.group("body")
+                and f"name: {contract['artifact']}" in step.group("body")
+            ),
+            "",
+        )
+        artifact_anchors = {
+            "always condition": "if: always()",
+            "report glob": 'path: "**/build/reports/lint-results-*"',
+            "missing-report failure": "if-no-files-found: error",
+            "bounded retention": "retention-days: 7",
+        }
+        if not artifact_step:
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} lint artifact upload missing: {contract['artifact']}",
+                )
+            )
+            continue
+        for name, anchor in artifact_anchors.items():
+            if anchor not in artifact_step:
+                issues.append(
+                    issue(
+                        workflow_path,
+                        job_line,
+                        f"{job_name} lint artifact upload missing: {name}",
+                    )
+                )
+    return issues
+
+
 def check_ci_contracts(root: Path) -> list[str]:
     issues: list[str] = []
     for relative in CI_REQUIRED_FILES:
@@ -505,6 +626,7 @@ def check_ci_contracts(root: Path) -> list[str]:
     workflow_path = root / ".github" / "workflows" / "android.yml"
     if workflow_path.is_file():
         workflow = workflow_path.read_text(errors="replace")
+        issues += check_lint_workflow_contracts(workflow)
         release_job = RELEASE_JOB.search(workflow)
         if release_job is None:
             issues.append(
