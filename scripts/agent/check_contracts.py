@@ -109,6 +109,18 @@ LINT_JOB_CONTRACTS = {
     "static-analysis": {
         "property": "-Pgasstation.lintTestSources=false",
         "artifact": "lint-production-reports",
+        "arguments": [
+            "spotlessCheck",
+            ":app:lintDemoDebug",
+            ":app:lintProdDebug",
+            "lint",
+            "verifyModuleBoundaries",
+            "verifyNoDeprecatedComposeTestApis",
+            "verifyCiRobolectricRuntime",
+            "-Pgasstation.lintTestSources=false",
+            "--warning-mode=fail",
+            "--continue",
+        ],
         "commands": {
             "Spotless": "spotlessCheck",
             "demo app lint task": ":app:lintDemoDebug",
@@ -121,6 +133,14 @@ LINT_JOB_CONTRACTS = {
     "lint-tests": {
         "property": "-Pgasstation.lintTestSources=true",
         "artifact": "lint-test-source-reports",
+        "arguments": [
+            ":app:lintDemoDebug",
+            ":app:lintProdDebug",
+            "lint",
+            "-Pgasstation.lintTestSources=true",
+            "--warning-mode=fail",
+            "--continue",
+        ],
         "commands": {
             "demo app lint task": ":app:lintDemoDebug",
             "prod app lint task": ":app:lintProdDebug",
@@ -546,8 +566,8 @@ def workflow_steps(body: str) -> list[dict[str, object]]:
     return steps
 
 
-def shell_gradle_arguments(script: str) -> list[list[str]]:
-    """Return arguments bound to active ./gradlew invocations only."""
+def shell_gradle_arguments(script: str) -> tuple[list[list[str]], bool]:
+    """Return active Gradle arguments and whether the script is only that command."""
     logical_lines: list[str] = []
     pending = ""
     for raw_line in script.splitlines():
@@ -563,6 +583,7 @@ def shell_gradle_arguments(script: str) -> list[list[str]]:
         logical_lines.append(pending)
 
     invocations: list[list[str]] = []
+    standalone = len(logical_lines) == 1
     for command in logical_lines:
         try:
             lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
@@ -570,7 +591,12 @@ def shell_gradle_arguments(script: str) -> list[list[str]]:
             lexer.commenters = "#"
             words = list(lexer)
         except ValueError:
+            standalone = False
             continue
+        if not words or words[0] != "./gradlew" or any(
+            word in {";", "&", "&&", "|", "||"} for word in words
+        ):
+            standalone = False
         segment: list[str] = []
         for word in words + [";"]:
             if word in {";", "&", "&&", "|", "||"}:
@@ -579,7 +605,22 @@ def shell_gradle_arguments(script: str) -> list[list[str]]:
                 segment = []
             else:
                 segment.append(word)
-    return invocations
+    return invocations, standalone and len(invocations) == 1
+
+
+def normalize_gradle_arguments(arguments: list[str]) -> list[str]:
+    """Normalize the one supported two-token Gradle option spelling."""
+    normalized: list[str] = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--warning-mode" and index + 1 < len(arguments):
+            normalized.append(f"--warning-mode={arguments[index + 1]}")
+            index += 2
+            continue
+        normalized.append(argument)
+        index += 1
+    return normalized
 
 
 def check_lint_workflow_contracts(workflow: str) -> list[str]:
@@ -612,27 +653,66 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
             "Gradle warning policy": "--warning-mode=fail",
             "complete failure collection": "--continue",
         }
+        parsed_runs = [
+            shell_gradle_arguments(step["fields"].get("run", "")) for step in steps
+        ]
         gradle_invocations = [
-            arguments
-            for step in steps
-            for arguments in shell_gradle_arguments(step["fields"].get("run", ""))
+            (arguments, standalone)
+            for invocations, standalone in parsed_runs
+            for arguments in invocations
         ]
         lint_arguments = max(
             gradle_invocations,
-            key=lambda arguments: sum(
-                value in arguments for value in required_argument_values.values()
+            key=lambda invocation: sum(
+                value in normalize_gradle_arguments(invocation[0])
+                for value in required_argument_values.values()
             ),
-            default=[],
+            default=([], False),
         )
-        normalized_arguments = list(lint_arguments)
-        for index, argument in enumerate(lint_arguments[:-1]):
-            if argument == "--warning-mode":
-                normalized_arguments.append(f"--warning-mode={lint_arguments[index + 1]}")
+        normalized_arguments = normalize_gradle_arguments(lint_arguments[0])
         for name, argument in required_argument_values.items():
             if argument not in normalized_arguments:
                 issues.append(
                     issue(workflow_path, job_line, f"{job_name} command missing: {name}")
                 )
+        if any(argument in {"--dry-run", "-m"} for argument in normalized_arguments):
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} command must execute lint: dry-run option forbidden",
+                )
+            )
+        if any(
+            argument in {"-x", "--exclude-task"}
+            or argument.startswith("--exclude-task=")
+            for argument in normalized_arguments
+        ):
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} command must not exclude lint tasks",
+                )
+            )
+        if gradle_invocations and (
+            len(gradle_invocations) != 1 or not lint_arguments[1]
+        ):
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} command must be one standalone ./gradlew invocation",
+                )
+            )
+        if normalized_arguments and normalized_arguments != contract["arguments"]:
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} command arguments must exactly match the lint contract",
+                )
+            )
 
         artifact_step = next(
             (

@@ -419,6 +419,68 @@ import sys
 
 workflow = Path(sys.argv[1])
 workflow.write_text(
+    workflow.read_text().replace("            --continue\n", "            --continue || true\n", 1)
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-success-mask.out" 2>&1; then
+  fail "CI accepted a production lint command whose failure is masked"
+fi
+assert_contains "$(cat "$fixture/lint-success-mask.out")" "static-analysis command must be one standalone ./gradlew invocation"
+assert_error_locations "$(cat "$fixture/lint-success-mask.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+for dry_run_option in --dry-run -m; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$dry_run_option" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+option = sys.argv[2]
+workflow.write_text(
+    workflow.read_text().replace(
+        "            --continue\n",
+        f"            {option} \\\n            --continue\n",
+        1,
+    )
+)
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-dry-run.out" 2>&1; then
+    fail "CI accepted a non-executing production lint command with $dry_run_option"
+  fi
+  assert_contains "$(cat "$fixture/lint-dry-run.out")" "static-analysis command must execute lint: dry-run option forbidden"
+  assert_error_locations "$(cat "$fixture/lint-dry-run.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+for exclude_option in -x --exclude-task; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$exclude_option" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+option = sys.argv[2]
+workflow.write_text(
+    workflow.read_text().replace(
+        "            --continue\n",
+        f"            {option} :app:lintProdDebug \\\n            --continue\n",
+        1,
+    )
+)
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-task-exclusion.out" 2>&1; then
+    fail "CI accepted production lint with a required task excluded via $exclude_option"
+  fi
+  assert_contains "$(cat "$fixture/lint-task-exclusion.out")" "static-analysis command must not exclude lint tasks"
+  assert_error_locations "$(cat "$fixture/lint-task-exclusion.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
     workflow.read_text()
     .replace(
         "        run: |\n          ./gradlew \\\n",
