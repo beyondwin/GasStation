@@ -105,13 +105,6 @@ RELEASE_JOB_PREREQUISITES = {
 WORKFLOW_JOB_TEMPLATE = (
     r"(?ms)^  {job}:\s*\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)"
 )
-WORKFLOW_RUN_BLOCK = re.compile(
-    r"(?ms)^        run:\s*\|\s*\n(?P<body>(?:^          .*(?:\n|\Z))+?)"
-    r"(?=^        \S|^      - |^  [A-Za-z0-9_-]+:|\Z)"
-)
-WORKFLOW_STEP_BLOCK = re.compile(
-    r"(?ms)^      - (?P<body>.*?)(?=^      - |^  [A-Za-z0-9_-]+:|\Z)"
-)
 LINT_JOB_CONTRACTS = {
     "static-analysis": {
         "property": "-Pgasstation.lintTestSources=false",
@@ -467,6 +460,128 @@ def source_line(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def yaml_scalar(value: str) -> str:
+    """Return an active scalar value without treating comments as data."""
+    try:
+        words = shlex.split(value, comments=True, posix=True)
+    except ValueError:
+        return ""
+    return " ".join(words)
+
+
+def yaml_mapping_entry(line: str, indent: int) -> tuple[str, str] | None:
+    """Parse one exact-indentation YAML mapping entry used by CI contracts."""
+    if len(line) - len(line.lstrip(" ")) != indent:
+        return None
+    content = line[indent:]
+    if not content or content.startswith("#") or ":" not in content:
+        return None
+    key, value = content.split(":", 1)
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+        return None
+    return key, yaml_scalar(value.strip())
+
+
+def workflow_job_fields(body: str) -> dict[str, str]:
+    return {
+        key: value
+        for line in body.splitlines()
+        if (entry := yaml_mapping_entry(line, 4)) is not None
+        for key, value in [entry]
+    }
+
+
+def workflow_steps(body: str) -> list[dict[str, object]]:
+    """Parse the active fields needed from conventional GitHub Actions steps."""
+    steps: list[dict[str, object]] = []
+    lines = body.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if not line.startswith("      - ") or line[8:].startswith("#"):
+            index += 1
+            continue
+
+        fields: dict[str, str] = {}
+        nested: dict[str, dict[str, str]] = {}
+        first_entry = yaml_mapping_entry("        " + line[8:], 8)
+        if first_entry is not None:
+            fields[first_entry[0]] = first_entry[1]
+        index += 1
+
+        while index < len(lines) and not lines[index].startswith("      - "):
+            current = lines[index]
+            if current.startswith("  ") and not current.startswith("        "):
+                break
+            entry = yaml_mapping_entry(current, 8)
+            if entry is None:
+                index += 1
+                continue
+            key, value = entry
+            fields[key] = value
+            index += 1
+
+            if key == "run" and value in {"|", "|-", "|+", ">", ">-", ">+"}:
+                block_lines = []
+                while index < len(lines):
+                    block_line = lines[index]
+                    if block_line.strip() and not block_line.startswith("          "):
+                        break
+                    block_lines.append(block_line[10:] if block_line.startswith("          ") else "")
+                    index += 1
+                fields[key] = "\n".join(block_lines)
+                continue
+
+            if not value:
+                children: dict[str, str] = {}
+                while index < len(lines):
+                    child = yaml_mapping_entry(lines[index], 10)
+                    if child is None:
+                        break
+                    children[child[0]] = child[1]
+                    index += 1
+                nested[key] = children
+
+        steps.append({"fields": fields, "nested": nested})
+    return steps
+
+
+def shell_gradle_arguments(script: str) -> list[list[str]]:
+    """Return arguments bound to active ./gradlew invocations only."""
+    logical_lines: list[str] = []
+    pending = ""
+    for raw_line in script.splitlines():
+        stripped = raw_line.strip()
+        if not pending and (not stripped or stripped.startswith("#")):
+            continue
+        if stripped.endswith("\\"):
+            pending += stripped[:-1] + " "
+            continue
+        logical_lines.append(pending + stripped)
+        pending = ""
+    if pending:
+        logical_lines.append(pending)
+
+    invocations: list[list[str]] = []
+    for command in logical_lines:
+        try:
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            lexer.commenters = "#"
+            words = list(lexer)
+        except ValueError:
+            continue
+        segment: list[str] = []
+        for word in words + [";"]:
+            if word in {";", "&", "&&", "|", "||"}:
+                if segment and segment[0] == "./gradlew":
+                    invocations.append(segment[1:])
+                segment = []
+            else:
+                segment.append(word)
+    return invocations
+
+
 def check_lint_workflow_contracts(workflow: str) -> list[str]:
     issues: list[str] = []
     workflow_path = ".github/workflows/android.yml"
@@ -481,56 +596,54 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
 
         body = match.group("body")
         job_line = source_line(workflow, match.start())
-        if not re.search(r"(?m)^    timeout-minutes:\s*30\s*$", body):
+        job_fields = workflow_job_fields(body)
+        if job_fields.get("timeout-minutes") != "30":
             issues.append(
                 issue(workflow_path, job_line, f"{job_name} timeout must be 30 minutes")
             )
-        if re.search(r"(?m)^\s+continue-on-error:\s*true\s*$", body):
+        if job_fields.get("continue-on-error") == "true":
             issues.append(issue(workflow_path, job_line, f"{job_name} must be blocking"))
 
-        run_blocks = [run.group("body") for run in WORKFLOW_RUN_BLOCK.finditer(body)]
-        lint_run = next(
-            (
-                run
-                for run in run_blocks
-                if contract["property"] in run
-                or ":app:lintDemoDebug" in run
-                or ":app:lintProdDebug" in run
-            ),
-            "",
-        )
-        required_commands = {
-            **contract["commands"],
+        steps = workflow_steps(body)
+        required_argument_values = {
+            **{name: value for name, value in contract["commands"].items()},
+            "root lint task": "lint",
             "test-source property": contract["property"],
-            "Gradle warning policy": "--warning-mode fail",
+            "Gradle warning policy": "--warning-mode=fail",
             "complete failure collection": "--continue",
         }
-        for name, anchor in required_commands.items():
-            if anchor not in lint_run:
+        gradle_invocations = [
+            arguments
+            for step in steps
+            for arguments in shell_gradle_arguments(step["fields"].get("run", ""))
+        ]
+        lint_arguments = max(
+            gradle_invocations,
+            key=lambda arguments: sum(
+                value in arguments for value in required_argument_values.values()
+            ),
+            default=[],
+        )
+        normalized_arguments = list(lint_arguments)
+        for index, argument in enumerate(lint_arguments[:-1]):
+            if argument == "--warning-mode":
+                normalized_arguments.append(f"--warning-mode={lint_arguments[index + 1]}")
+        for name, argument in required_argument_values.items():
+            if argument not in normalized_arguments:
                 issues.append(
                     issue(workflow_path, job_line, f"{job_name} command missing: {name}")
                 )
-        if not re.search(r"(?m)^\s*lint\s*\\?\s*$", lint_run):
-            issues.append(
-                issue(workflow_path, job_line, f"{job_name} command missing: root lint task")
-            )
 
         artifact_step = next(
             (
-                step.group("body")
-                for step in WORKFLOW_STEP_BLOCK.finditer(body)
-                if "uses: actions/upload-artifact@" in step.group("body")
-                and f"name: {contract['artifact']}" in step.group("body")
+                step
+                for step in steps
+                if step["fields"].get("uses", "").startswith("actions/upload-artifact@")
+                and step["nested"].get("with", {}).get("name") == contract["artifact"]
             ),
-            "",
+            None,
         )
-        artifact_anchors = {
-            "always condition": "if: always()",
-            "report glob": 'path: "**/build/reports/lint-results-*"',
-            "missing-report failure": "if-no-files-found: error",
-            "bounded retention": "retention-days: 7",
-        }
-        if not artifact_step:
+        if artifact_step is None:
             issues.append(
                 issue(
                     workflow_path,
@@ -539,8 +652,16 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                 )
             )
             continue
-        for name, anchor in artifact_anchors.items():
-            if anchor not in artifact_step:
+        artifact_fields = artifact_step["fields"]
+        artifact_with = artifact_step["nested"].get("with", {})
+        artifact_requirements = {
+            "always condition": (artifact_fields, "if", "always()"),
+            "report glob": (artifact_with, "path", "**/build/reports/lint-results-*"),
+            "missing-report failure": (artifact_with, "if-no-files-found", "error"),
+            "bounded retention": (artifact_with, "retention-days", "7"),
+        }
+        for name, (mapping, key, expected) in artifact_requirements.items():
+            if mapping.get(key) != expected:
                 issues.append(
                     issue(
                         workflow_path,

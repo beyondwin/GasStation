@@ -418,6 +418,111 @@ from pathlib import Path
 import sys
 
 workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text()
+    .replace(
+        "        run: |\n          ./gradlew \\\n",
+        "        run: |\n          # :app:lintProdDebug\n          ./gradlew \\\n",
+        1,
+    )
+    .replace("            :app:lintProdDebug \\\n", "            help \\\n", 1)
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-comment-shadow.out" 2>&1; then
+  fail "CI accepted a production lint task present only in a shell comment"
+fi
+assert_contains "$(cat "$fixture/lint-comment-shadow.out")" "static-analysis command missing: prod app lint task"
+assert_error_locations "$(cat "$fixture/lint-comment-shadow.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text()
+    .replace(
+        "        run: |\n          ./gradlew \\\n",
+        "        run: |\n          echo :app:lintProdDebug\n          ./gradlew \\\n",
+        1,
+    )
+    .replace("            :app:lintProdDebug \\\n", "            help \\\n", 1)
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-echo-shadow.out" 2>&1; then
+  fail "CI accepted a production lint task present only as an echo argument"
+fi
+assert_contains "$(cat "$fixture/lint-echo-shadow.out")" "static-analysis command missing: prod app lint task"
+assert_error_locations "$(cat "$fixture/lint-echo-shadow.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "        uses: actions/upload-artifact@v7\n",
+        "        uses: actions/checkout@v7\n        # uses: actions/upload-artifact@v7\n",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-artifact-action-comment.out" 2>&1; then
+  fail "CI accepted an artifact upload action present only in a YAML comment"
+fi
+assert_contains "$(cat "$fixture/lint-artifact-action-comment.out")" "static-analysis lint artifact upload missing: lint-production-reports"
+assert_error_locations "$(cat "$fixture/lint-artifact-action-comment.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "        if: always()\n",
+        "        if: success()\n        # if: always()\n",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-artifact-condition-comment.out" 2>&1; then
+  fail "CI accepted if always present only in a YAML comment"
+fi
+assert_contains "$(cat "$fixture/lint-artifact-condition-comment.out")" "static-analysis lint artifact upload missing: always condition"
+assert_error_locations "$(cat "$fixture/lint-artifact-condition-comment.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        '          path: "**/build/reports/lint-results-*"\n',
+        '          path: "**/build/reports/not-lint-*"\n'
+        '          # path: "**/build/reports/lint-results-*"\n',
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-artifact-path-comment.out" 2>&1; then
+  fail "CI accepted a report glob present only in a nested YAML comment"
+fi
+assert_contains "$(cat "$fixture/lint-artifact-path-comment.out")" "static-analysis lint artifact upload missing: report glob"
+assert_error_locations "$(cat "$fixture/lint-artifact-path-comment.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
 workflow.write_text(workflow.read_text().replace("        if: always()\n", "", 1))
 PY
 if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/lint-artifact-always.out" 2>&1; then
