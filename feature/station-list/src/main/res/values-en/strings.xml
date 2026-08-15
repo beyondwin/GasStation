@@ -11,19 +11,11 @@
 
     <!-- Top bar actions -->
     <string name="station_list_title">Nearby stations</string>
-    <string name="station_list_action_bookmark">Bookmarks</string>
     <string name="station_list_action_refresh">Refresh</string>
-    <string name="station_list_action_settings">Settings</string>
 
     <!-- Sort toggle -->
     <string name="station_list_sort_distance">Distance</string>
     <string name="station_list_sort_price">Price</string>
-    <string name="station_list_sort_by_distance">By distance</string>
-    <string name="station_list_sort_by_price">By price</string>
-    <string name="station_list_sort_state_distance">Sorted by distance</string>
-    <string name="station_list_sort_state_price">Sorted by price</string>
-    <string name="station_list_sort_action_to_price">Sort by price</string>
-    <string name="station_list_sort_action_to_distance">Sort by distance</string>
 
     <!-- Filter menus -->
     <string name="station_list_filter_radius_title">Search radius</string>
@@ -33,18 +25,23 @@
     <string name="station_list_filter_collapse_menu">Collapse filter menu</string>
 
     <!-- Metric labels -->
-    <string name="station_list_label_price">Price</string>
-    <string name="station_list_label_distance">Distance</string>
-    <string name="station_list_price_unit">₩</string>
-    <string name="station_list_price_format">₩%1$s</string>
     <string name="station_list_brand_description">%1$s brand</string>
     <string name="station_list_price_history_unavailable">No price history</string>
     <string name="station_list_price_history_unchanged">No change</string>
-    <string name="station_list_price_history_increased">▲ %1$d won</string>
-    <string name="station_list_price_history_decreased">▼ %1$d won</string>
+    <plurals name="station_list_price_history_increased">
+        <item quantity="one">▲ %1$d won</item>
+        <item quantity="other">▲ %1$d won</item>
+    </plurals>
+    <plurals name="station_list_price_history_decreased">
+        <item quantity="one">▼ %1$d won</item>
+        <item quantity="other">▼ %1$d won</item>
+    </plurals>
 
     <!-- Decision summary -->
-    <string name="station_list_decision_count">%1$d stations</string>
+    <plurals name="station_list_decision_count">
+        <item quantity="one">%1$d station</item>
+        <item quantity="other">%1$d stations</item>
+    </plurals>
     <string name="station_list_decision_lowest">Lowest %1$s</string>
     <string name="station_list_decision_tied_lowest">Tied lowest %1$s</string>
     <string name="station_list_decision_average">Average %1$s</string>
@@ -68,7 +65,6 @@
 
     <!-- Loading state -->
     <string name="station_list_loading_title">Loading nearby stations…</string>
-    <string name="station_list_loading_body">Checking latest prices for your current criteria.</string>
 
     <!-- Failure states -->
     <string name="station_list_retry_action">Try again</string>

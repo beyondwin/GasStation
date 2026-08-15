@@ -345,16 +345,46 @@ Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해
   :app:assembleProdRelease
 ```
 
+## Android Lint 분리 경로
+
+현재 report-only promotion 단계는 production과 test-source Android Lint를 서로 다른 CI job과 artifact로 관측합니다. 두 명령 모두 demo/prod app flavor와 root Android-library `lint`를 명시하고, `--continue`는 모든 실패를 수집할 뿐 실패 exit를 성공으로 바꾸지 않습니다. `--warning-mode fail`은 Gradle warning 정책이며 Android Lint warning 승격과 별개입니다.
+
+```bash
+# production source: CI static-analysis와 동일
+./gradlew \
+  spotlessCheck \
+  :app:lintDemoDebug \
+  :app:lintProdDebug \
+  lint \
+  verifyModuleBoundaries \
+  verifyNoDeprecatedComposeTestApis \
+  verifyCiRobolectricRuntime \
+  -Pgasstation.lintTestSources=false \
+  --warning-mode fail \
+  --continue
+
+# unit/instrumented test source 포함: CI lint-tests와 동일
+./gradlew \
+  :app:lintDemoDebug \
+  :app:lintProdDebug \
+  lint \
+  -Pgasstation.lintTestSources=true \
+  --warning-mode fail \
+  --continue
+```
+
+각 job은 성공/실패와 무관하게 `**/build/reports/lint-results-*`를 올립니다. artifact 이름은 각각 `lint-production-reports`, `lint-test-source-reports`이고 XML/text/HTML/SARIF를 포함합니다. 이 commit에서는 `lint-tests`만 job-level `continue-on-error`인 report-only 상태이며, hosted CI 실행은 아직 검증하지 않았습니다. JVM-only `gasstation.jvm.library` 모듈과 `benchmark`는 이 Android Lint 경로가 커버한다고 주장하지 않습니다.
+
 ## 기본 Fast Path와 Opt-in 확장
 
-기본 lint 명령은 production source 중심으로 돌고, test source lint는 `-Pgasstation.lintTestSources=true`로 명시합니다.
+기본 lint 명령은 production source 중심으로 돌고, test source lint는 위 분리 경로처럼 `-Pgasstation.lintTestSources=true`로 명시합니다. 이 속성은 정확한 `true`/`false`만 허용합니다.
 
 기본 unit-test 명령은 Roborazzi screenshot class를 제외합니다. Screenshot 회귀는 `verifyRoborazziDebug`가 소유합니다.
 
 Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이 필요할 때만 명시적으로 켭니다.
 
 ```bash
-./gradlew lint -Pgasstation.lintTestSources=true --continue
+./gradlew :app:lintDemoDebug :app:lintProdDebug lint -Pgasstation.lintTestSources=true --warning-mode fail --continue
 ./gradlew :core:designsystem:testDebugUnitTest -Pgasstation.includeRoborazziInUnitTests=true
 ./gradlew :feature:station-list:compileDebugKotlin -Pgasstation.composeCompilerReports=true
 ```
@@ -391,7 +421,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `agent-contracts` (agent contract tests + full checker), `static-analysis` (spotlessCheck + lint + verifyModuleBoundaries + verifyNoDeprecatedComposeTestApis + verifyCiRobolectricRuntime), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), `static-analysis` (demo/prod production lint + root Android-library lint + contract guards), report-only `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 

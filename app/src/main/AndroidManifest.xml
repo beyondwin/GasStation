@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -11,6 +12,7 @@
         <package android:name="com.nhn.android.nmap" />
     </queries>
 
+    <!-- Backup is disabled, so backup/data-transfer rule resources are intentionally absent. -->
     <application
         android:name=".App"
         android:allowBackup="false"
@@ -19,7 +21,8 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.GasStation"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:ignore="DataExtractionRules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

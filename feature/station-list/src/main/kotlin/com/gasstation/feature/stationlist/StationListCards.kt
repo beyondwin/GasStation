@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -144,12 +145,12 @@ private fun StationListPriceHistoryUiModel.presentation(): PriceHistoryPresentat
     )
 
     is StationListPriceHistoryUiModel.Increased -> PriceHistoryPresentation(
-        stringResource(R.string.station_list_price_history_increased, amountWon),
+        pluralStringResource(R.plurals.station_list_price_history_increased, amountWon, amountWon),
         toTone(),
     )
 
     is StationListPriceHistoryUiModel.Decreased -> PriceHistoryPresentation(
-        stringResource(R.string.station_list_price_history_decreased, amountWon),
+        pluralStringResource(R.plurals.station_list_price_history_decreased, amountWon, amountWon),
         toTone(),
     )
 }

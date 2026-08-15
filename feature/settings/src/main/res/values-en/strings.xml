@@ -2,7 +2,6 @@
 <resources>
     <!-- Top bar -->
     <string name="settings_title">Settings</string>
-    <string name="settings_close">Close</string>
     <string name="settings_back">Back</string>
     <string name="settings_loading">Loading settings.</string>
     <string name="settings_load_failed_title">Could not load settings.</string>
@@ -66,6 +65,4 @@
     <!-- Selected meta label -->
     <string name="settings_selected_meta">Current</string>
 
-    <!-- Brand icon content description: "%1$s brand" -->
-    <string name="settings_brand_icon_content_description">%1$s brand</string>
 </resources>

@@ -40,6 +40,7 @@ jobs:
 
   static-analysis:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
@@ -48,8 +49,55 @@ jobs:
           java-version: ${{ env.CI_JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v6
       - name: Spotless + Lint + Contract Guards
-        # Default lint focuses on production sources. Test-source lint is an explicit local/full-path opt-in.
-        run: ./gradlew spotlessCheck lint verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime --warning-mode fail --continue
+        run: |
+          ./gradlew \
+            spotlessCheck \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            verifyModuleBoundaries \
+            verifyNoDeprecatedComposeTestApis \
+            verifyCiRobolectricRuntime \
+            -Pgasstation.lintTestSources=false \
+            --warning-mode fail \
+            --continue
+      - name: Upload production lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-production-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
+
+  lint-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.CI_JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Lint test sources
+        run: |
+          ./gradlew \
+            :app:lintDemoDebug \
+            :app:lintProdDebug \
+            lint \
+            -Pgasstation.lintTestSources=true \
+            --warning-mode fail \
+            --continue
+      - name: Upload test-source lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-test-source-reports
+          path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -193,7 +241,7 @@ jobs:
   release-publish:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-    needs: [agent-contracts, static-analysis, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
+    needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
     permissions:
       contents: write
     steps:

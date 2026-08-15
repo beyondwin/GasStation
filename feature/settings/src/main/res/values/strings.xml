@@ -2,7 +2,6 @@
 <resources>
     <!-- Top bar -->
     <string name="settings_title">설정</string>
-    <string name="settings_close">닫기</string>
     <string name="settings_back">뒤로가기</string>
     <string name="settings_loading">설정을 불러오는 중입니다.</string>
     <string name="settings_load_failed_title">설정을 불러오지 못했습니다.</string>
@@ -68,6 +67,4 @@
     <!-- Selected meta label -->
     <string name="settings_selected_meta">현재 선택</string>
 
-    <!-- Brand icon content description: "%1$s 브랜드" -->
-    <string name="settings_brand_icon_content_description">%1$s 브랜드</string>
 </resources>

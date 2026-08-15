@@ -17,6 +17,12 @@
 - agent contract test는 `v*` tag의 `release-publish`가 전체 CI job을 선행 조건으로 사용하고, job 범위의 `contents: write`, release note, 다운로드한 APK, `gh release create` 경로를 잃지 않도록 보호합니다.
 - Build velocity settings are valid only while the verification matrix stays green. If `parallel`, build cache, or configuration cache changes a task result, treat it as a build correctness issue and fix the build boundary before changing product behavior.
 
+## Android Lint 경로
+
+Android application/library convention은 production source와 test source를 같은 정책 owner로 구성합니다. `gasstation.lintTestSources`는 생략 또는 정확한 `false`일 때 test source를 제외하고, 정확한 `true`일 때 unit/instrumented test source를 포함합니다. 대소문자 변형, 공백, 오타, 빈 값은 설정 오류입니다. 현재 이 report-only 단계에서는 Android Lint error가 build를 중단하지만 warning은 보고서로 관측하며, `lint-tests` CI job만 `continue-on-error`입니다. 다음 독립 promotion commit이 zero-warning 증거를 확인한 뒤 warning과 test-source job을 blocking으로 바꿉니다.
+
+이 경로는 `gasstation.android.application.compose`, `gasstation.android.library`, 그리고 이를 상속하는 `gasstation.android.library.compose` Android 모듈을 다룹니다. `gasstation.jvm.library`를 사용하는 `core:model`, `core:network`, `core:observability`, `domain:*`, `tools:demo-seed`는 Android Lint 대상이 아니며 Spotless, Kotlin compiler diagnostic, dependency/ABI, unit coverage와 구성된 PIT가 별도 owner입니다. `benchmark`도 이 convention 경로를 상속하지 않습니다. 정확한 production/test-source 명령과 보고서 위치는 [검증 매트릭스](verification-matrix.md#android-lint-분리-경로)를 따릅니다.
+
 ## 계층별 목적
 
 | 계층 | 대표 테스트 파일 | 무엇을 증명하나 |

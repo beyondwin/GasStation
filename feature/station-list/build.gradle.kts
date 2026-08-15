@@ -26,4 +26,5 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     testImplementation(libs.app.cash.turbine)
+    testImplementation(libs.androidx.core.ktx)
 }

@@ -1,10 +1,10 @@
 package com.gasstation
 
-import android.annotation.TargetApi
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.filters.SdkSuppress
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26], application = android.app.Application::class)
 class AppIconResourceTest {
     @Test
-    @TargetApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     fun `launcher icon resolves to an adaptive icon on android 8 and above`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val drawable = context.getDrawable(R.mipmap.ic_launcher)

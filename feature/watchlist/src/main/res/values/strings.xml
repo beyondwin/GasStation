@@ -5,7 +5,10 @@
 
     <!-- Summary -->
     <string name="watchlist_fuel_context">%1$s 기준</string>
-    <string name="watchlist_summary_count">저장한 %1$d곳</string>
+    <plurals name="watchlist_summary_count">
+        <item quantity="one">저장한 %1$d곳</item>
+        <item quantity="other">저장한 %1$d곳</item>
+    </plurals>
     <string name="watchlist_summary_average">평균 %1$s</string>
     <string name="watchlist_summary_latest_seen">최근 확인 %1$s</string>
     <string name="watchlist_summary_no_seen">최근 확인 기록 없음</string>
@@ -13,26 +16,18 @@
     <!-- Row semantics and metadata -->
     <string name="watchlist_brand_description">%1$s 브랜드</string>
     <string name="watchlist_row_meta">%1$s · %2$s</string>
-    <string name="watchlist_price_delta_rise">상승 %1$d원</string>
-    <string name="watchlist_price_delta_fall">하락 %1$d원</string>
+    <plurals name="watchlist_price_delta_rise">
+        <item quantity="one">상승 %1$d원</item>
+        <item quantity="other">상승 %1$d원</item>
+    </plurals>
+    <plurals name="watchlist_price_delta_fall">
+        <item quantity="one">하락 %1$d원</item>
+        <item quantity="other">하락 %1$d원</item>
+    </plurals>
     <string name="watchlist_price_delta_neutral">변동 없음</string>
     <string name="watchlist_price_unavailable">선택 유종 가격 없음</string>
     <string name="watchlist_remove_description">관심 주유소에서 제거</string>
     <string name="watchlist_saved_state_description">저장됨</string>
-
-    <!-- Metric labels -->
-    <string name="watchlist_label_price">가격</string>
-    <string name="watchlist_label_distance">거리</string>
-    <string name="watchlist_label_change">변동</string>
-    <string name="watchlist_label_checked">확인</string>
-
-    <!-- Price unit -->
-    <string name="watchlist_price_unit">원</string>
-    <string name="watchlist_price_format">%1$s원</string>
-    <string name="watchlist_price_delta_format">%1$s원</string>
-
-    <!-- Last seen label -->
-    <string name="watchlist_no_last_seen">마지막 확인 기록 없음</string>
 
     <!-- Empty state -->
     <string name="watchlist_empty_title">저장한 주유소가 없습니다.</string>

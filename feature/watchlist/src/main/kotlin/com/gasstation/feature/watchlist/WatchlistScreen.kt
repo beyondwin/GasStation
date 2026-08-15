@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -155,7 +156,7 @@ private fun SummaryFuelContext(fuelTypeLabel: String) {
 @Composable
 private fun SummaryCount(summary: WatchlistSummaryUiModel) {
     Text(
-        text = stringResource(R.string.watchlist_summary_count, summary.count),
+        text = pluralStringResource(R.plurals.watchlist_summary_count, summary.count, summary.count),
         color = ColorSurface,
         style = GasStationTheme.typography.meta,
     )
@@ -286,13 +287,15 @@ private fun WatchlistRow(station: WatchlistItemUiModel, onRemove: () -> Unit, mo
 
 @Composable
 private fun WatchlistItemUiModel.semanticPriceDeltaLabel(): String = when (priceDeltaTone) {
-    WatchlistPriceDeltaTone.Rise -> stringResource(
-        R.string.watchlist_price_delta_rise,
+    WatchlistPriceDeltaTone.Rise -> pluralStringResource(
+        R.plurals.watchlist_price_delta_rise,
+        requireNotNull(priceDeltaWon),
         requireNotNull(priceDeltaWon),
     )
 
-    WatchlistPriceDeltaTone.Fall -> stringResource(
-        R.string.watchlist_price_delta_fall,
+    WatchlistPriceDeltaTone.Fall -> pluralStringResource(
+        R.plurals.watchlist_price_delta_fall,
+        requireNotNull(priceDeltaWon),
         requireNotNull(priceDeltaWon),
     )
 

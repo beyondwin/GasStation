@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.get
 import com.gasstation.core.designsystem.ColorBlack
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
@@ -331,7 +332,7 @@ class RoborazziStationListScreenTest {
         val sampleY = railBounds.center.y.toInt()
         val sampleEnd = railBounds.right.toInt()
         val blackPixelCount = (sampleEnd - clearancePx until sampleEnd).count { x ->
-            bitmap.getPixel(x, sampleY) == ColorBlack.toArgb()
+            bitmap[x, sampleY] == ColorBlack.toArgb()
         }
 
         assertEquals(
@@ -354,7 +355,7 @@ class RoborazziStationListScreenTest {
         val expectedVisualHeightPx = with(composeRule.density) { 40.dp.roundToPx() }
         val maxBlackHeightPx = (brandBounds.left.toInt() until brandBounds.right.toInt()).maxOf { x ->
             (railBounds.top.toInt() until railBounds.bottom.toInt()).count { y ->
-                bitmap.getPixel(x, y) == ColorBlack.toArgb()
+                bitmap[x, y] == ColorBlack.toArgb()
             }
         }
 
@@ -374,7 +375,7 @@ class RoborazziStationListScreenTest {
         val topBarBottom = bitmap.height * 8 / 100
         val titleYellowPixelCount = (0 until bitmap.width * 2 / 3).sumOf { x ->
             (0 until topBarBottom).count { y ->
-                val pixel = bitmap.getPixel(x, y)
+                val pixel = bitmap[x, y]
                 android.graphics.Color.alpha(pixel) > 200 &&
                     android.graphics.Color.red(pixel) > 200 &&
                     android.graphics.Color.green(pixel) > 170 &&
@@ -383,7 +384,7 @@ class RoborazziStationListScreenTest {
         }
         val actionYellowPixelCount = (bitmap.width * 2 / 3 until bitmap.width).sumOf { x ->
             (0 until topBarBottom).count { y ->
-                val pixel = bitmap.getPixel(x, y)
+                val pixel = bitmap[x, y]
                 android.graphics.Color.alpha(pixel) > 200 &&
                     android.graphics.Color.red(pixel) > 200 &&
                     android.graphics.Color.green(pixel) > 170 &&

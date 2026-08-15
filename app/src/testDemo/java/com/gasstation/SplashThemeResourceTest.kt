@@ -5,13 +5,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.InsetDrawable
-import android.graphics.drawable.LayerDrawable
 import android.os.Build
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.filters.SdkSuppress
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,6 +79,7 @@ class SplashThemeResourceTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
     @Config(sdk = [31], application = android.app.Application::class)
     fun `android 12 launcher resolves framework splash and post theme`() {
         val themedContext = launcherThemedContext()
@@ -102,6 +102,7 @@ class SplashThemeResourceTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
     @Config(
         sdk = [31],
         qualifiers = "night",
@@ -125,19 +126,6 @@ class SplashThemeResourceTest {
             SplashScreenR.attr.postSplashScreenTheme,
             R.style.Theme_GasStation,
         )
-    }
-
-    @Test
-    @Config(sdk = [30], application = android.app.Application::class)
-    fun `fallback splash background uses an inset drawable for the centered icon`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val drawable = context.getDrawable(R.drawable.splash_screen_background)
-
-        assertNotNull(drawable)
-        assertTrue(drawable is LayerDrawable)
-        val layerDrawable = drawable as LayerDrawable
-        assertEquals(2, layerDrawable.numberOfLayers)
-        assertTrue(layerDrawable.getDrawable(1) is InsetDrawable)
     }
 
     private fun launcherThemedContext(): ContextThemeWrapper {

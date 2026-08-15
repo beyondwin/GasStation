@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,7 +68,11 @@ internal fun StationListDecisionSummaryStrip(summary: StationListDecisionSummary
                     color = ColorYellow,
                 )
                 Text(
-                    text = stringResource(R.string.station_list_decision_count, summary.count),
+                    text = pluralStringResource(
+                        R.plurals.station_list_decision_count,
+                        summary.count,
+                        summary.count,
+                    ),
                     style = numericMetricStyle,
                     color = ColorSurface,
                     modifier = Modifier.testTag(STATION_LIST_DECISION_COUNT_TAG),

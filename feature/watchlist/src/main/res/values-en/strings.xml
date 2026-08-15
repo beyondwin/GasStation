@@ -5,7 +5,10 @@
 
     <!-- Summary -->
     <string name="watchlist_fuel_context">Based on %1$s</string>
-    <string name="watchlist_summary_count">%1$d saved</string>
+    <plurals name="watchlist_summary_count">
+        <item quantity="one">%1$d saved</item>
+        <item quantity="other">%1$d saved</item>
+    </plurals>
     <string name="watchlist_summary_average">Average %1$s</string>
     <string name="watchlist_summary_latest_seen">Last checked %1$s</string>
     <string name="watchlist_summary_no_seen">No check history</string>
@@ -13,26 +16,18 @@
     <!-- Row semantics and metadata -->
     <string name="watchlist_brand_description">%1$s brand</string>
     <string name="watchlist_row_meta">%1$s · %2$s</string>
-    <string name="watchlist_price_delta_rise">Up %1$d won</string>
-    <string name="watchlist_price_delta_fall">Down %1$d won</string>
+    <plurals name="watchlist_price_delta_rise">
+        <item quantity="one">Up %1$d won</item>
+        <item quantity="other">Up %1$d won</item>
+    </plurals>
+    <plurals name="watchlist_price_delta_fall">
+        <item quantity="one">Down %1$d won</item>
+        <item quantity="other">Down %1$d won</item>
+    </plurals>
     <string name="watchlist_price_delta_neutral">No change</string>
     <string name="watchlist_price_unavailable">Selected fuel price unavailable</string>
     <string name="watchlist_remove_description">Remove from saved stations</string>
     <string name="watchlist_saved_state_description">Saved</string>
-
-    <!-- Metric labels -->
-    <string name="watchlist_label_price">Price</string>
-    <string name="watchlist_label_distance">Distance</string>
-    <string name="watchlist_label_change">Change</string>
-    <string name="watchlist_label_checked">Checked</string>
-
-    <!-- Price unit -->
-    <string name="watchlist_price_unit">₩</string>
-    <string name="watchlist_price_format">₩%1$s</string>
-    <string name="watchlist_price_delta_format">%1$s ₩</string>
-
-    <!-- Last seen label -->
-    <string name="watchlist_no_last_seen">No check record</string>
 
     <!-- Empty state -->
     <string name="watchlist_empty_title">No saved stations yet.</string>

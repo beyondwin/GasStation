@@ -43,6 +43,7 @@ android {
 
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -93,6 +94,7 @@ dependencies {
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.ui.test.junit4)
     testImplementation(libs.androidx.navigation.testing)
+    testImplementation(libs.androidx.test.rules)
     kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
