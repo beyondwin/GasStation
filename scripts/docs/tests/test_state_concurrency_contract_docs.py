@@ -524,6 +524,43 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
                         issues = source_issues(root)
                         self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
 
+    def test_watched_station_dao_requires_direct_room_annotation(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        mutations = (
+            (
+                "removed annotation",
+                lambda text: text.replace("@Dao\ninterface WatchedStationDao", "interface WatchedStationDao", 1),
+            ),
+            (
+                "relocated annotation",
+                lambda text: text.replace(
+                    "@Dao\ninterface WatchedStationDao",
+                    "@Dao\ninterface UnrelatedDao {}\n\ninterface WatchedStationDao",
+                    1,
+                ),
+            ),
+            (
+                "nested annotation decoy",
+                lambda text: text.replace(
+                    "@Dao\ninterface WatchedStationDao {",
+                    "interface WatchedStationDao {\n    @Dao\n    interface NestedDao {}",
+                    1,
+                ),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(mutation=label):
+                with tempfile.TemporaryDirectory(prefix="state-contract-dao-owner-") as directory:
+                    root = self.copy_source_surface(Path(directory))
+                    target = root / SOURCE_PATHS[8]
+                    text = target.read_text(encoding="utf-8")
+                    self.assertIn("@Dao\ninterface WatchedStationDao", text)
+                    mutated = mutate(text)
+                    self.assertNotEqual(text, mutated)
+                    target.write_text(mutated, encoding="utf-8")
+                    issues = source_issues(root)
+                    self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (

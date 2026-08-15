@@ -233,8 +233,10 @@ class FixtureRepository:
                 "  fun removeWatchedStation() = WatchMutationResult.Superseded\n}\n"
             ),
             "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt": (
-                "@Insert(onConflict = OnConflictStrategy.IGNORE)\n"
+                "@Dao\n"
                 "interface WatchedStationDao {\n"
+                "  @Insert(onConflict = OnConflictStrategy.IGNORE)\n"
+                "  fun insertIfAbsent() = Unit\n"
                 '  @Query("SELECT stationId FROM watched_station '
                 'ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
                 "  fun observeWatchedStationIds(): Flow<List<String>> = TODO()\n"

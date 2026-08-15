@@ -450,6 +450,9 @@ def watched_station_dao_direct_source(text: str) -> str:
     ]
     if len(interfaces) != 1:
         return ""
+    dao_annotation = re.search(r"@Dao\s*$", executable[: interfaces[0].start()])
+    if dao_annotation is None or depths[dao_annotation.start()] != 0:
+        return ""
     opening_brace = executable.find("{", interfaces[0].end())
     if opening_brace < 0 or depths[opening_brace] != 0:
         return ""
