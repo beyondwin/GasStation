@@ -367,12 +367,49 @@ def strip_kotlin_comments_and_literals(text: str, *, strip_literals: bool = True
 
 
 def kotlin_room_query_literals(text: str) -> list[str]:
+    executable = strip_kotlin_comments_and_literals(text)
     comment_free = strip_kotlin_comments_and_literals(text, strip_literals=False)
-    pattern = re.compile(
-        r'@Query\s*\(\s*(?:"""(?P<triple>.*?)"""|"(?P<regular>(?:\\.|[^"\\])*)")\s*\)',
-        re.DOTALL,
-    )
-    return [match.group("triple") or match.group("regular") or "" for match in pattern.finditer(comment_free)]
+    queries: list[str] = []
+    for match in re.finditer(r"(?<![\w])@Query\b", executable):
+        cursor = match.end()
+        while cursor < len(comment_free) and comment_free[cursor].isspace():
+            cursor += 1
+        if cursor >= len(comment_free) or comment_free[cursor] != "(":
+            continue
+
+        cursor += 1
+        while cursor < len(comment_free) and comment_free[cursor].isspace():
+            cursor += 1
+        if comment_free.startswith('"""', cursor):
+            value_start = cursor + 3
+            value_end = comment_free.find('"""', value_start)
+            literal_end = value_end + 3
+        elif cursor < len(comment_free) and comment_free[cursor] == '"':
+            value_start = cursor + 1
+            value_end = value_start
+            escaped = False
+            while value_end < len(comment_free):
+                character = comment_free[value_end]
+                if not escaped and character == '"':
+                    break
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                value_end += 1
+            literal_end = value_end + 1
+        else:
+            continue
+
+        if value_end < value_start or literal_end > len(comment_free):
+            continue
+        cursor = literal_end
+        while cursor < len(comment_free) and comment_free[cursor].isspace():
+            cursor += 1
+        if cursor >= len(comment_free) or comment_free[cursor] != ")":
+            continue
+        queries.append(comment_free[value_start:value_end])
+    return queries
 
 
 def strip_code(text: str) -> str:

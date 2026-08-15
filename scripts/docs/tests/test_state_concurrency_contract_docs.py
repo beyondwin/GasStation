@@ -335,6 +335,43 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
                     issues = source_issues(root)
                     self.assertTrue(any(expected in issue for issue in issues), issues)
 
+    def test_room_query_annotation_shaped_raw_string_decoys_are_rejected(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        query_literals = self.require_callable("kotlin_room_query_literals")
+        cases = (
+            (
+                "station id observation",
+                '@Query("SELECT stationId FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                '@Query("SELECT stationId FROM watched_station ORDER BY watchedAtEpochMillis DESC")',
+                'private val stationIdOrderingDecoy = """@Query("SELECT stationId FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")"""',
+            ),
+            (
+                "station row observation",
+                '@Query("SELECT * FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                '@Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC")',
+                'private val stationRowOrderingDecoy = """@Query("SELECT * FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")"""',
+            ),
+        )
+        for label, real_query, weakened_query, raw_string_decoy in cases:
+            with self.subTest(label=label):
+                with tempfile.TemporaryDirectory(prefix="state-contract-query-decoy-") as directory:
+                    root = self.copy_source_surface(Path(directory))
+                    target = root / SOURCE_PATHS[8]
+                    text = target.read_text(encoding="utf-8")
+                    self.assertIn(real_query, text)
+                    mutated = text.replace(real_query, weakened_query, 1) + "\n" + raw_string_decoy + "\n"
+                    target.write_text(
+                        mutated,
+                        encoding="utf-8",
+                    )
+                    self.assertEqual(3, len(query_literals(mutated)))
+                    issues = source_issues(root)
+                    self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (
