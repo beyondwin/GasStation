@@ -377,24 +377,13 @@ private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates
     permissionState != LocationPermissionState.Denied && isAvailabilityKnown && isGpsEnabled
 }
 
-private fun LocationAcquisitionResult.failureEventType(): String? = when (this) {
-    is LocationAcquisitionResult.Success,
-    LocationAcquisitionResult.Superseded,
-    -> null
+private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = when (this) {
+    StationRefreshFailureReason.Timeout -> StringResource.fromId(R.string.station_list_refresh_timeout)
 
-    LocationAcquisitionResult.PermissionDenied -> "PermissionDenied"
-
-    LocationAcquisitionResult.TimedOut -> "TimedOut"
-
-    LocationAcquisitionResult.Unavailable -> "Unavailable"
-
-    is LocationAcquisitionResult.Error -> "Error"
+    StationRefreshFailureReason.Network,
+    StationRefreshFailureReason.InvalidPayload,
+    is StationRefreshFailureReason.Http,
+    StationRefreshFailureReason.Unknown,
+    null,
+    -> StringResource.fromId(R.string.station_list_refresh_failed)
 }
-
-private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = StringResource.fromId(
-    if (this == StationRefreshFailureReason.Timeout) {
-        R.string.station_list_refresh_timeout
-    } else {
-        R.string.station_list_refresh_failed
-    },
-)
