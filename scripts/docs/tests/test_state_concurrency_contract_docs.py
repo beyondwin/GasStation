@@ -372,6 +372,54 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
                     issues = source_issues(root)
                     self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
 
+    def test_room_query_ordering_is_bound_to_each_named_observation(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        observations = (
+            (
+                "station ids",
+                '@Query("SELECT stationId FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                '@Query("SELECT stationId FROM watched_station ORDER BY watchedAtEpochMillis DESC")',
+                "observeWatchedStationIds",
+                "Flow<List<String>>",
+                "SELECT stationId FROM watched_station",
+            ),
+            (
+                "station rows",
+                '@Query("SELECT * FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                '@Query("SELECT * FROM watched_station ORDER BY watchedAtEpochMillis DESC")',
+                "observeWatchedStations",
+                "Flow<List<WatchedStationEntity>>",
+                "SELECT * FROM watched_station",
+            ),
+        )
+        for label, real_query, weakened_query, function_name, return_type, select_clause in observations:
+            decoys = (
+                (
+                    "unrelated method",
+                    f'    @Query("{select_clause} ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
+                    f"    fun unrelated{function_name.removeprefix('observe')}(): {return_type}\n",
+                ),
+                (
+                    "named overload",
+                    f'    @Query("{select_clause} ORDER BY watchedAtEpochMillis DESC, stationId ASC LIMIT :limit")\n'
+                    f"    fun {function_name}(limit: Int): {return_type}\n",
+                ),
+            )
+            for decoy_label, decoy in decoys:
+                with self.subTest(observation=label, decoy=decoy_label):
+                    with tempfile.TemporaryDirectory(prefix="state-contract-query-binding-") as directory:
+                        root = self.copy_source_surface(Path(directory))
+                        target = root / SOURCE_PATHS[8]
+                        text = target.read_text(encoding="utf-8")
+                        self.assertIn(real_query, text)
+                        self.assertTrue(text.endswith("}\n"))
+                        mutated = text.replace(real_query, weakened_query, 1)[:-2] + decoy + "}\n"
+                        target.write_text(mutated, encoding="utf-8")
+                        issues = source_issues(root)
+                        self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (

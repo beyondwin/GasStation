@@ -237,10 +237,10 @@ class FixtureRepository:
                 "interface WatchedStationDao {\n"
                 '  @Query("SELECT stationId FROM watched_station '
                 'ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
-                "  fun observeIds() = Unit\n"
+                "  fun observeWatchedStationIds() = Unit\n"
                 '  @Query("SELECT * FROM watched_station '
                 'ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
-                "  fun observeRows() = Unit\n}\n"
+                "  fun observeWatchedStations() = Unit\n}\n"
             ),
         }
         for path, text in sources.items():

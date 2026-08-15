@@ -366,10 +366,17 @@ def strip_kotlin_comments_and_literals(text: str, *, strip_literals: bool = True
     return "".join(output)
 
 
-def kotlin_room_query_literals(text: str) -> list[str]:
+def kotlin_room_query_bindings(text: str) -> list[tuple[str, str]]:
     executable = strip_kotlin_comments_and_literals(text)
     comment_free = strip_kotlin_comments_and_literals(text, strip_literals=False)
-    queries: list[str] = []
+    bindings: list[tuple[str, str]] = []
+    function_pattern = re.compile(
+        r"\s*"
+        r"(?:@[A-Za-z_][\w.]*(?:\s*\([^)]*\))?\s*)*"
+        r"(?:(?:public|private|protected|internal|abstract|final|open|override|expect|actual|"
+        r"external|tailrec|operator|infix|inline|suspend)\s+)*"
+        r"fun\s+(?P<name>[A-Za-z_][\w]*|`[^`\n]+`)",
+    )
     for match in re.finditer(r"(?<![\w])@Query\b", executable):
         cursor = match.end()
         while cursor < len(comment_free) and comment_free[cursor].isspace():
@@ -408,8 +415,15 @@ def kotlin_room_query_literals(text: str) -> list[str]:
             cursor += 1
         if cursor >= len(comment_free) or comment_free[cursor] != ")":
             continue
-        queries.append(comment_free[value_start:value_end])
-    return queries
+        function_match = function_pattern.match(executable, cursor + 1)
+        if function_match is None:
+            continue
+        bindings.append((function_match.group("name").strip("`"), comment_free[value_start:value_end]))
+    return bindings
+
+
+def kotlin_room_query_literals(text: str) -> list[str]:
+    return [query for _, query in kotlin_room_query_bindings(text)]
 
 
 def strip_code(text: str) -> str:
@@ -1234,8 +1248,25 @@ def station_list_state_source_surface_issues(root: Path) -> list[str]:
         issues.append(location(paths["command"], 1, "command queue must retain exact-head acknowledgement"))
     if "OnConflictStrategy.IGNORE" not in executable_sources["watch_dao"]:
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain OnConflictStrategy.IGNORE"))
-    watch_queries = kotlin_room_query_literals(sources["watch_dao"])
-    if sum("ORDER BY watchedAtEpochMillis DESC, stationId ASC" in query for query in watch_queries) != 2:
+    watch_bindings = kotlin_room_query_bindings(sources["watch_dao"])
+    expected_watch_queries = {
+        "observeWatchedStationIds": (
+            "SELECT stationId FROM watched_station "
+            "ORDER BY watchedAtEpochMillis DESC, stationId ASC"
+        ),
+        "observeWatchedStations": (
+            "SELECT * FROM watched_station "
+            "ORDER BY watchedAtEpochMillis DESC, stationId ASC"
+        ),
+    }
+    watch_queries_by_function = {
+        name: [" ".join(query.split()) for bound_name, query in watch_bindings if bound_name == name]
+        for name in expected_watch_queries
+    }
+    if any(
+        watch_queries_by_function[name] != [expected_query]
+        for name, expected_query in expected_watch_queries.items()
+    ):
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain deterministic watched ordering in both observations"))
 
     viewmodel = executable_sources["viewmodel"]
