@@ -154,6 +154,8 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify.sh"
 chmod +x "$fixture/repo/scripts/agent/verify.sh"
 cp "$repo_root/docs/station-data-policy.json" "$fixture/repo/docs/station-data-policy.json"
 cp "$repo_root/docs/station-data-policy-consumers.json" "$fixture/repo/docs/station-data-policy-consumers.json"
+cp "$repo_root/docs/station-list-state-contract.json" "$fixture/repo/docs/station-list-state-contract.json"
+cp "$repo_root/docs/station-list-state-contract-consumers.json" "$fixture/repo/docs/station-list-state-contract-consumers.json"
 FIXTURE_REPO="$fixture/repo" python3 - <<'PY'
 import json
 import os
@@ -181,6 +183,9 @@ entries = [{
 offline = next(entry for entry in entries if entry["path"] == "docs/offline-strategy.md")
 offline["authoritativeSources"].insert(0, "docs/station-data-policy.json")
 offline["authoritativeSources"].insert(1, "docs/station-data-policy-consumers.json")
+state_model = next(entry for entry in entries if entry["path"] == "docs/state-model.md")
+state_model["authoritativeSources"].insert(0, "docs/station-list-state-contract.json")
+state_model["authoritativeSources"].insert(1, "docs/station-list-state-contract-consumers.json")
 (root / "docs/offline-strategy.md").write_text(
     "# Offline strategy\n\n## 기계 판독 정책 계약\n\n"
     "<!-- station-data-policy:start -->\n"
@@ -216,6 +221,81 @@ references = {
 for path, text in references.items():
     target = root / path
     target.write_text(target.read_text() + text)
+(root / "docs/state-model.md").write_text(
+    "# State model\n\n## Station-list 결정적 상태 계약\n\n"
+    "<!-- station-list-state-contract:start -->\n"
+    "```json\n"
+    + (root / "docs/station-list-state-contract.json").read_text().rstrip()
+    + "\n```\n"
+    "<!-- station-list-state-contract:end -->\n"
+)
+state_references = {
+    "README.md": "docs/state-model.md",
+    "docs/agent-workflow.md": "state-model.md",
+    "docs/architecture.md": "state-model.md",
+    "docs/module-contracts.md": "state-model.md",
+    "docs/onboarding/developer-onboarding-guide.md": "../state-model.md",
+    "docs/project-reading-guide.md": "state-model.md",
+    "docs/test-strategy.md": "state-model.md",
+    "docs/verification-matrix.md": "state-model.md",
+}
+for path, target_path in state_references.items():
+    target = root / path
+    target.write_text(
+        target.read_text()
+        + "<!-- station-list-state-contract-ref -->"
+        "[상태 모델의 구조화된 station-list 계약]"
+        f"({target_path}#station-list-결정적-상태-계약)\n"
+    )
+state_sources = {
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt": (
+        "class LocationStateMachine {\n"
+        "  var permissionGeneration = 0\n  var gpsGeneration = 0\n"
+        "  var locationRequestGeneration = 0\n  var addressRequestGeneration = 0\n"
+        "  suspend fun resolveAddressLabel() = Unit\n"
+        "  val result = LocationAcquisitionResult.Superseded\n}\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt": (
+        "class StationSearchOrchestrator {\n"
+        "  val observationFailed = false\n  fun retryObservation() = Unit\n"
+        "  data class ObservationSession(val generation: Int)\n}\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt": (
+        "class RefreshCoordinator {\n  data class ActiveRefreshWork(val id: Long)\n"
+        "  val onResult: suspend () -> Unit = {}\n"
+        "  fun refresh() { scope.launch { resolveAddressLabel() }.invokeOnCompletion {} }\n}\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt": (
+        "class StationListCommandQueue {\n"
+        "  val mutableCommands = MutableStateFlow<List<StationListUiCommand>>(emptyList())\n"
+        "  fun enqueue(command: StationListUiCommand) { mutableCommands.value = mutableCommands.value + command }\n"
+        "  fun acknowledge(commandId: Long) { if (current.firstOrNull()?.id == commandId) Unit }\n}\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt": (
+        "object StationListStateAssembler {\n"
+        "  fun assemble(inputs: StationListStateInputs): StationListUiState = TODO()\n}\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt": (
+        "data class StationListStateInputs(val value: Int)\nfun projectStationSearchResult() = Unit\n"
+    ),
+    "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt": (
+        "class StationListViewModel {\n  val state = StationListStateAssembler.assemble(inputs)\n}\n"
+    ),
+    "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt": (
+        "class DefaultStationRepository(private val latestWatchIntentGate: LatestWatchIntentGate) {\n"
+        "  fun updateWatchState() = WatchMutationResult.Committed\n"
+        "  fun removeWatchedStation() = WatchMutationResult.Superseded\n}\n"
+    ),
+    "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt": (
+        "@Insert(onConflict = OnConflictStrategy.IGNORE)\ninterface WatchedStationDao {\n"
+        "  // watchedAtEpochMillis DESC, stationId ASC\n"
+        "  // watchedAtEpochMillis DESC, stationId ASC\n}\n"
+    ),
+}
+for path, text in state_sources.items():
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
 (root / "docs/documentation-catalog.json").write_text(
     json.dumps({"schemaVersion": 1, "documents": entries}, indent=2) + "\n"
 )
@@ -249,7 +329,7 @@ printf 'bad whitespace   \n' >> "$fixture/repo/README.md"
 if "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" > "$fixture/unstaged-diff.out" 2>&1; then
   fail "unstaged whitespace was accepted"
 fi
-assert_contains "$(cat "$fixture/unstaged-diff.out")" "README.md:6: trailing whitespace"
+assert_contains "$(cat "$fixture/unstaged-diff.out")" "README.md:7: trailing whitespace"
 assert_error_locations "$(cat "$fixture/unstaged-diff.out")"
 git -C "$fixture/repo" restore README.md
 

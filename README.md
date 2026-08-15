@@ -43,7 +43,9 @@
 - `station_cache_snapshot`과 `StationSearchResult.hasCachedSnapshot`으로 "성공한 빈 결과"와 "캐시 자체가 없음"을 구분합니다.
 - 목록은 stale 결과와 실패 시 기존 스냅샷을 유지합니다. 성공한 refresh는 보관 정책에 따라 오래된 캐시를 정리하고, watchlist는 최신 캐시가 없어도 저장 항목과 가격 히스토리로 비교 화면을 복원합니다.
   <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)
-- `StationListViewModel`은 최종 UI state/effect 조합에 집중하고, 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, refresh retry는 `StationRetryPolicy`가 맡습니다.
+- 목록 상태는 `LocationStateMachine`, `StationSearchOrchestrator`, `RefreshCoordinator`, `StationListCommandQueue`가 각 동시성 경계를 맡고, `StationListStateAssembler`가 한 번에 잡은 입력을 최종 `StationListUiState`로 순수 투영합니다. `StationListViewModel`은 action routing, collaborator 수집, 결과 번역과 게시만 조정합니다.
+- watch 변경은 station ID별 최신 사용자 의도만 Room에 반영하며, 먼저 시작했지만 뒤늦게 끝난 변경은 사용자 피드백과 analytics를 남기지 않습니다.
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](docs/state-model.md#station-list-결정적-상태-계약)
 - `StationEventLogger`는 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과를 구조화된 이벤트로 남깁니다. `CrashReporter` 같은 비치명 예외 보고 계약은 `core:observability`가 소유하고, 앱이 flavor별 구현을 바인딩합니다.
 - 주변 주유소는 테두리 없는 price-first row로 보여주며, 가격을 32sp hero로 두고 거리·역명·유종·실제 브랜드 로고를 보조 정보로 배치합니다. 상단 요약은 최저가·검색 건수와 평균가·절약액을 두 줄로 압축하고, 반경·유종·브랜드 chip은 같은 anchored menu 패턴을 사용합니다. 가격 이력은 보조 `가격` label이나 `-` 대신 `가격 이력 없음`, `변동 없음`, `▲ N원`, `▼ N원`을 명시합니다.
 - `#FFFCF2` canvas, `#222222` black chrome, `#FFDC00` yellow signal을 공통 토큰으로 사용하고 icon-only `주변·관심·설정` bottom navigation을 유지합니다. 탭 이름, 선택/비활성 상태, 48dp touch target은 접근성 semantics로 보존하고 설정 상세에서는 bottom navigation을 숨깁니다.
@@ -190,7 +192,7 @@ live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용
 - [작업 절차](docs/agent-workflow.md): 변경 목적별 작업 순서, 테스트 선택, 문서 갱신 기준을 설명합니다.
 - [아키텍처](docs/architecture.md): 모듈 책임, 런타임 흐름, flavor 차이를 설명합니다.
 - [모듈 계약](docs/module-contracts.md): 각 모듈의 소유 범위와 변경 경계를 고정합니다.
-- [상태 모델](docs/state-model.md): 영속 상태, 세션 상태, 읽기 모델, UI effect를 구분해 설명합니다.
+- [상태 모델](docs/state-model.md): 영속 상태, 세션 상태, 읽기 모델, 승인형 UI command를 구분해 설명합니다.
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
@@ -220,10 +222,11 @@ live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용
 2. `app/src/main/java/com/gasstation/MainActivity.kt` — Compose host와 system bar 정책.
 3. `app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt` — destination 그래프.
 4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListRoute.kt` -> `StationListViewModel.kt` — 화면 진입과 ViewModel.
-5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt` + `StationSearchOrchestrator.kt` — 위치 상태와 쿼리/캐시/실패 책임 분리.
-6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `StationListQuerySummary.kt`, `StationListBodyState.kt` — 화면 scaffold, 카드, 상태 화면, query context 분리.
-7. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`, `StationSearchResultAssembler.kt`, `WatchlistSummaryAssembler.kt` — Room snapshot + remote fetch orchestration과 읽기 모델 조립.
-8. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `RefreshCoordinator.kt`, `StationListCommandQueue.kt` — 위치·관찰·새로고침·command 동시성 책임 분리.
+6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt`, `StationListStateAssembler.kt` — domain 결과의 identity-aware projection과 최종 상태 조립.
+7. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`, `StationListCards.kt`, `StationListStates.kt`, `StationListQuerySummary.kt`, `StationListBodyState.kt` — 화면 scaffold, 카드, 상태 화면, query context 분리.
+8. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`, `LatestWatchIntentGate.kt`, `StationSearchResultAssembler.kt`, `WatchlistSummaryAssembler.kt` — 최신 watch 의도 직렬화, Room snapshot + remote fetch orchestration과 읽기 모델 조립.
+9. `core/network/src/main/kotlin/com/gasstation/core/network/station/NetworkStationFetcher.kt` — Opinet API와 KATEC 좌표 변환.
 
 각 단계의 책임 분리 근거는 [`docs/architecture.md`](docs/architecture.md)에 있습니다.
 

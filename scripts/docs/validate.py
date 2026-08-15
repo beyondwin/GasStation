@@ -29,6 +29,17 @@ STATION_DATA_POLICY_INLINE_LINK = re.compile(
     r"^\[(?P<label>[^\]\r\n]+)\]\((?:<[^>\r\n]+>|[^\s\r\n]+)\)$"
 )
 STATION_DATA_POLICY_FIELDS = {"retry", "freshness", "schema", "superseded"}
+STATION_LIST_STATE_CONTRACT_PATH = "docs/station-list-state-contract.json"
+STATION_LIST_STATE_CONSUMERS_PATH = "docs/station-list-state-contract-consumers.json"
+STATION_LIST_STATE_OWNER = "docs/state-model.md"
+STATION_LIST_STATE_CONTRACT_START = "<!-- station-list-state-contract:start -->"
+STATION_LIST_STATE_CONTRACT_END = "<!-- station-list-state-contract:end -->"
+STATION_LIST_STATE_CONTRACT_REFERENCE = re.compile(
+    r"<!--\s*station-list-state-contract-ref\s*-->"
+)
+STATION_LIST_STATE_CONTRACT_INLINE_LINK = re.compile(
+    r"^\[(?P<label>[^\]\r\n]+)\]\((?:<[^>\r\n]+>|[^\s\r\n]+)\)$"
+)
 REQUIRED_FIELDS = (
     "path",
     "kind",
@@ -136,6 +147,103 @@ EXPECTED_STATION_DATA_POLICY = {
             "connectedDeviceExecuted": False,
             "unavailableReason": "no_connected_device",
         },
+    },
+}
+
+EXPECTED_STATION_LIST_STATE_CONTRACT = {
+    "schemaVersion": 1,
+    "contractId": "station-list-state-concurrency-v1",
+    "location": {
+        "owner": "LocationStateMachine",
+        "generations": ["permission", "gps", "locationRequest", "addressRequest"],
+        "providerBoundary": "suspend_outside_lock_then_active_check_and_atomic_commit",
+        "precisionDowngrade": "clear_coordinates_address_and_recovery",
+        "superseded": "normal_silent",
+    },
+    "observation": {
+        "owner": "StationSearchOrchestrator",
+        "failureBoundary": "inside_active_query_session",
+        "normalCompletion": "observation_failed",
+        "cancellation": "rethrow",
+        "sameQueryRetry": "resubscribe_without_remote_refresh",
+        "queryChange": "clear_old_unkeyed_result_and_failures",
+        "cacheEvidence": "hasCachedSnapshot",
+    },
+    "watch": {
+        "owner": "LatestWatchIntentGate",
+        "domainResult": "WatchMutationResult",
+        "key": "stationId",
+        "sharedOperations": ["updateWatchState", "removeWatchedStation"],
+        "onConflict": "insert_ignore_preserves_original_watchedAt",
+        "ordering": ["watchedAtEpochMillis DESC", "stationId ASC"],
+        "superseded": "normal_silent",
+    },
+    "command": {
+        "owner": "StationListCommandQueue",
+        "stateField": "StationListUiState.pendingCommands",
+        "delivery": "viewmodel_lifetime_fifo",
+        "acknowledgement": "exact_head_after_normal_handler_completion_and_active_check",
+        "handlerFailure": "retain_head_for_next_start_or_attachment",
+        "externalSideEffect": "at_least_once",
+        "processDeathPersistence": "not_promised",
+    },
+    "refresh": {
+        "owner": "RefreshCoordinator",
+        "work": "single_exact_identity_job",
+        "completion": "registered_before_start_and_identity_guarded",
+        "query": "revalidate_before_refresh_and_terminal_delivery",
+        "address": "caller_scope_nonblocking_after_successful_acquisition",
+        "resultDelivery": "inline_suspending_callback",
+        "superseded": "normal_silent",
+    },
+    "projection": {
+        "owner": "StationListStateAssembler",
+        "input": "StationListStateInputs",
+        "purity": ["no_io", "no_coroutines", "no_clock", "no_logging", "no_mutation"],
+        "cacheMarker": "hasCachedSnapshot",
+        "listIdentityOwner": "projectStationSearchResult",
+    },
+    "viewModel": {
+        "owner": "StationListViewModel",
+        "responsibilities": [
+            "viewmodel_lifetime_collection",
+            "preference_read_write_admission",
+            "action_routing",
+            "typed_result_translation",
+            "assembler_publication",
+            "foreground_gps_suspend_bridge",
+        ],
+        "forbiddenResponsibilities": [
+            "location_or_address_generation",
+            "refresh_job_or_work_identity",
+            "search_session_retry_or_cache_failure_policy",
+            "ui_field_projection_or_body_precedence",
+            "command_retention_or_acknowledgement_policy",
+            "watch_latest_intent_serialization",
+            "one_shot_effect_stream",
+        ],
+    },
+    "verification": {
+        "primary": "host_coroutine_room_robolectric_and_app_graph",
+        "connectedDeviceRequired": False,
+        "connectedDeviceEvidence": "not_claimed",
+    },
+}
+
+EXPECTED_STATION_LIST_STATE_CONSUMERS = {
+    "schemaVersion": 1,
+    "canonicalOwner": STATION_LIST_STATE_OWNER,
+    "canonicalAnchor": "station-list-결정적-상태-계약",
+    "statementMode": "reference_only",
+    "consumers": {
+        "README.md": 1,
+        "docs/agent-workflow.md": 1,
+        "docs/architecture.md": 1,
+        "docs/module-contracts.md": 1,
+        "docs/onboarding/developer-onboarding-guide.md": 1,
+        "docs/project-reading-guide.md": 1,
+        "docs/test-strategy.md": 1,
+        "docs/verification-matrix.md": 1,
     },
 }
 
@@ -760,6 +868,330 @@ def station_policy_claim_issues(texts: dict[str, str]) -> list[str]:
     return issues
 
 
+def validate_station_list_state_contract(contract: object) -> None:
+    actual = json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    expected = json.dumps(
+        EXPECTED_STATION_LIST_STATE_CONTRACT,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    if actual != expected:
+        raise AssertionError("station-list state fields differ from the approved contract")
+
+
+def station_list_state_contract_payload(text: str) -> str:
+    if text.count(STATION_LIST_STATE_CONTRACT_START) != 1 or text.count(STATION_LIST_STATE_CONTRACT_END) != 1:
+        raise AssertionError("station-list state contract block must occur exactly once")
+    start = text.index(STATION_LIST_STATE_CONTRACT_START) + len(STATION_LIST_STATE_CONTRACT_START)
+    end = text.index(STATION_LIST_STATE_CONTRACT_END, start)
+    block = text[start:end]
+    prefix = "\n```json\n"
+    suffix = "\n```\n"
+    if not block.startswith(prefix) or not block.endswith(suffix):
+        raise AssertionError("station-list state contract block must contain one exact JSON fence")
+    return block[len(prefix):-len(suffix)]
+
+
+def parse_station_list_state_contract_block(text: str) -> dict[str, object]:
+    payload = station_list_state_contract_payload(text)
+    try:
+        parsed = strict_json_loads(payload)
+    except (json.JSONDecodeError, ValueError) as error:
+        raise AssertionError(f"station-list state contract block is invalid JSON: {error}") from error
+    if not isinstance(parsed, dict):
+        raise AssertionError("station-list state contract block must be a JSON object")
+    return parsed
+
+
+def station_list_state_contract_issues(
+    root: Path,
+    entries: list[dict[str, object]],
+    texts: dict[str, str],
+) -> list[str]:
+    issues: list[str] = []
+    source_path = root / STATION_LIST_STATE_CONTRACT_PATH
+    source_payload: Optional[str] = None
+    source_contract: object = None
+    try:
+        source_text = source_path.read_text(encoding="utf-8")
+        source_payload = source_text.removesuffix("\n")
+        source_contract = strict_json_loads(source_text)
+        validate_station_list_state_contract(source_contract)
+    except OSError as error:
+        return [location(STATION_LIST_STATE_CONTRACT_PATH, 1, f"station-list state contract unavailable: {error}")]
+    except (json.JSONDecodeError, ValueError) as error:
+        line = error.lineno if isinstance(error, json.JSONDecodeError) else 1
+        return [location(STATION_LIST_STATE_CONTRACT_PATH, line, f"station-list state contract is invalid JSON: {error}")]
+    except AssertionError as error:
+        issues.append(location(STATION_LIST_STATE_CONTRACT_PATH, 1, str(error)))
+
+    owners = [
+        path
+        for path, text in texts.items()
+        if STATION_LIST_STATE_CONTRACT_START in text or STATION_LIST_STATE_CONTRACT_END in text
+    ]
+    if owners != [STATION_LIST_STATE_OWNER]:
+        issues.append(
+            location(
+                STATION_LIST_STATE_OWNER,
+                1,
+                f"station-list state contract block owner must be exactly {STATION_LIST_STATE_OWNER}: {owners}",
+            )
+        )
+    owner_text = texts.get(STATION_LIST_STATE_OWNER)
+    if owner_text is not None:
+        try:
+            rendered_payload = station_list_state_contract_payload(owner_text)
+            rendered_contract = parse_station_list_state_contract_block(owner_text)
+            validate_station_list_state_contract(rendered_contract)
+            if source_payload != rendered_payload:
+                raise AssertionError("station-list state block is not byte-identical to the structured source")
+            if source_contract != rendered_contract:
+                raise AssertionError("station-list state block does not equal the structured source")
+        except AssertionError as error:
+            issues.append(location(STATION_LIST_STATE_OWNER, 1, str(error)))
+
+    for structured_path in (STATION_LIST_STATE_CONTRACT_PATH, STATION_LIST_STATE_CONSUMERS_PATH):
+        catalog_owners = [
+            entry.get("path")
+            for entry in entries
+            if isinstance(entry.get("authoritativeSources"), list)
+            for source in entry["authoritativeSources"]
+            if source == structured_path
+        ]
+        if catalog_owners != [STATION_LIST_STATE_OWNER]:
+            issues.append(
+                location(
+                    CATALOG_PATH,
+                    1,
+                    f"{structured_path} catalog owner must be exactly {STATION_LIST_STATE_OWNER}: {catalog_owners}",
+                )
+            )
+    return issues
+
+
+def load_station_list_state_consumers(root: Path) -> tuple[dict[str, object], list[str]]:
+    path = root / STATION_LIST_STATE_CONSUMERS_PATH
+    try:
+        payload = strict_json_loads(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        return {}, [location(STATION_LIST_STATE_CONSUMERS_PATH, 1, f"consumer manifest unavailable: {error}")]
+    except (json.JSONDecodeError, ValueError) as error:
+        line = error.lineno if isinstance(error, json.JSONDecodeError) else 1
+        return {}, [location(STATION_LIST_STATE_CONSUMERS_PATH, line, f"invalid consumer manifest: {error}")]
+    if not isinstance(payload, dict):
+        return {}, [location(STATION_LIST_STATE_CONSUMERS_PATH, 1, "consumer manifest must be an object")]
+    actual = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    expected = json.dumps(
+        EXPECTED_STATION_LIST_STATE_CONSUMERS,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    issues = [] if actual == expected else [
+        location(STATION_LIST_STATE_CONSUMERS_PATH, 1, "station-list state consumer manifest differs from approved contract")
+    ]
+    return payload, issues
+
+
+def station_list_state_reference_issues(
+    root: Path,
+    entries: list[dict[str, object]],
+    texts: dict[str, str],
+) -> list[str]:
+    manifest, issues = load_station_list_state_consumers(root)
+    consumers = manifest.get("consumers") if isinstance(manifest, dict) else None
+    if not isinstance(consumers, dict):
+        return issues
+    live_paths = {entry.get("path") for entry in entries if isinstance(entry.get("path"), str)}
+    canonical_owner = manifest.get("canonicalOwner")
+    canonical_anchor = github_slug(str(manifest.get("canonicalAnchor", "")))
+    owner_text = texts.get(str(canonical_owner), "")
+    if canonical_anchor not in headings(owner_text):
+        issues.append(location(str(canonical_owner), 1, "station-list state canonical heading is missing"))
+
+    actual: Counter[str] = Counter()
+    for path, text in texts.items():
+        visible = strip_fenced_code_preserving_offsets(text)
+        matches = list(STATION_LIST_STATE_CONTRACT_REFERENCE.finditer(visible))
+        if matches:
+            actual[path] = len(matches)
+        for match in matches:
+            line_no = line_number(text, match.start())
+            line_start = text.rfind("\n", 0, match.start()) + 1
+            line_end = text.find("\n", match.end())
+            if line_end < 0:
+                line_end = len(text)
+            prefix = text[line_start:match.start()].strip()
+            suffix = text[match.end():line_end].strip()
+            links = list(markdown_link_destinations(suffix))
+            reference_only = (
+                not prefix
+                and len(links) == 1
+                and links[0][1] == 0
+                and links[0][2] == len(suffix)
+            )
+            if not reference_only:
+                issues.append(location(path, line_no, "station-list state marker must be a reference-only statement"))
+                continue
+            inline_link = STATION_LIST_STATE_CONTRACT_INLINE_LINK.fullmatch(suffix)
+            allowed_labels = {
+                "상태 모델의 구조화된 station-list 계약",
+                "structured station-list state contract",
+            }
+            if inline_link is None or inline_link.group("label") not in allowed_labels:
+                issues.append(location(path, line_no, "station-list state reference must use a generic label without a title"))
+                continue
+            resolved = resolve_policy_link(root, path, links[0][0])
+            if resolved != (canonical_owner, canonical_anchor):
+                issues.append(location(path, line_no, "station-list state link must resolve to the canonical owner and anchor"))
+
+    for path in sorted(set(actual) - set(consumers)):
+        issues.append(location(path, 1, "unregistered station-list state contract consumer"))
+    for path, expected_count in consumers.items():
+        if path not in live_paths or path not in texts or not path.endswith(".md"):
+            issues.append(location(STATION_LIST_STATE_CONSUMERS_PATH, 1, f"consumer is not cataloged live Markdown: {path}"))
+            continue
+        if actual.get(path, 0) != expected_count:
+            issues.append(location(path, 1, f"station-list state marker count differs: expected {expected_count}"))
+    return issues
+
+
+def station_list_state_source_surface_issues(root: Path) -> list[str]:
+    issues: list[str] = []
+    paths = {
+        "location": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt",
+        "observation": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt",
+        "refresh": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt",
+        "command": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt",
+        "assembler": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt",
+        "inputs": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt",
+        "viewmodel": "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt",
+        "repository": "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt",
+        "watch_dao": "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt",
+    }
+    sources: dict[str, str] = {}
+    for name, relative in paths.items():
+        try:
+            sources[name] = (root / relative).read_text(encoding="utf-8")
+        except OSError as error:
+            issues.append(location(relative, 1, f"state contract source unavailable: {error}"))
+            sources[name] = ""
+
+    required_tokens = {
+        "location": (
+            "LocationAcquisitionResult.Superseded",
+            "suspend fun resolveAddressLabel",
+            "permissionGeneration",
+            "gpsGeneration",
+            "locationRequestGeneration",
+            "addressRequestGeneration",
+        ),
+        "observation": ("observationFailed", "retryObservation", "ObservationSession"),
+        "refresh": ("ActiveRefreshWork", "invokeOnCompletion", "scope.launch", "resolveAddressLabel", "onResult: suspend"),
+        "command": ("MutableStateFlow<List<StationListUiCommand>>", "mutableCommands.value + command"),
+        "assembler": ("object StationListStateAssembler", "fun assemble(inputs: StationListStateInputs)"),
+        "inputs": ("data class StationListStateInputs", "fun projectStationSearchResult"),
+        "repository": (
+            "latestWatchIntentGate",
+            "WatchMutationResult.Committed",
+            "WatchMutationResult.Superseded",
+            "updateWatchState",
+            "removeWatchedStation",
+        ),
+    }
+    for name, tokens in required_tokens.items():
+        for token in tokens:
+            if token not in sources[name]:
+                issues.append(location(paths[name], 1, f"state contract source token missing: {token}"))
+
+    if "current.firstOrNull()?.id == commandId" not in sources["command"]:
+        issues.append(location(paths["command"], 1, "command queue must retain exact-head acknowledgement"))
+    if "OnConflictStrategy.IGNORE" not in sources["watch_dao"]:
+        issues.append(location(paths["watch_dao"], 1, "watch DAO must retain OnConflictStrategy.IGNORE"))
+    if sources["watch_dao"].count("watchedAtEpochMillis DESC, stationId ASC") != 2:
+        issues.append(location(paths["watch_dao"], 1, "watch DAO must retain deterministic watched ordering in both observations"))
+
+    viewmodel = sources["viewmodel"]
+    if viewmodel.count("StationListStateAssembler.assemble") != 1:
+        issues.append(location(paths["viewmodel"], 1, "ViewModel must have exactly one StationListStateAssembler.assemble call"))
+    forbidden_patterns = (
+        r"\bMutableSharedFlow\b",
+        r"\bSharedFlow\b",
+        r"\bStationListEffect\b",
+        r"\bmutableEffects\b",
+        r"\.effects\b",
+        r"\bactiveRefreshJob\b",
+        r"\brefreshWorkId\b",
+        r"\bRefreshOutcome\b",
+        r"\bRefreshNearbyStationsUseCase\b",
+        r"\bObserveNearbyStationsUseCase\b",
+        r"\bStationRepository\b",
+        r"\bresolveAddressLabel\b",
+    )
+    for pattern in forbidden_patterns:
+        if re.search(pattern, viewmodel):
+            issues.append(location(paths["viewmodel"], 1, f"forbidden ViewModel ownership token: {pattern}"))
+
+    removed_paths = (
+        "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt",
+        "feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt",
+    )
+    for relative in removed_paths:
+        if (root / relative).exists():
+            issues.append(location(relative, 1, f"{Path(relative).name} must remain absent"))
+    return issues
+
+
+def station_list_state_claim_issues(texts: dict[str, str]) -> list[str]:
+    issues: list[str] = []
+    stale_phrases = (
+        "최종 ui state/effect 조합",
+        "loading/effect/action dispatch와 최종 ui 조합",
+        "preferences, location state, search projection, loading flag",
+    )
+    for path, text in texts.items():
+        prose = strip_fenced_code(text)
+        for line_no, line in enumerate(prose.splitlines(), 1):
+            normalized = line.casefold()
+            if re.search(r"(?<!Command)\bStationListEffect\b", line):
+                issues.append(location(path, line_no, "deleted StationListEffect described as current"))
+            if re.search(r"\bMutableSharedFlow\b|\bSharedFlow\b", line):
+                issues.append(location(path, line_no, "deleted station-list effect flow described as current"))
+            station_context = any(
+                token in normalized
+                for token in ("station-list", "station list", "nearby", "목록", "snackbar", "외부 지도")
+            )
+            if station_context and any(token in normalized for token in ("effect stream", "effect 스트림", "one-shot effect")):
+                issues.append(location(path, line_no, "deleted station-list effect stream described as current"))
+            if any(phrase in normalized for phrase in stale_phrases):
+                issues.append(location(path, line_no, "obsolete StationListViewModel responsibility claim"))
+            if re.search(r"\bStationListViewModelTest\b", line):
+                issues.append(location(path, line_no, "deleted station-list test monolith described as current"))
+
+            connected = any(
+                token in normalized
+                for token in ("connected device", "connected-device", "device", "emulator", "기기", "디바이스", "에뮬레이터")
+            )
+            state_subject = any(
+                token in normalized
+                for token in ("phase 2", "phase2", "state-concurrency", "state concurrency", "station-list state", "상태 동시성")
+            )
+            positive = bool(re.search(r"\b(?:passed|executed|ran)\b|통과|실행\s*(?:완료|했|됨)", normalized))
+            conditional = any(
+                token in normalized
+                for token in ("if ", "when ", "available", "있을 때", "가능하면", "가능한 경우")
+            )
+            negative = any(
+                token in normalized
+                for token in ("not executed", "not claimed", "미실행", "실행하지 않", "아니", "주장하지 않")
+            )
+            if connected and state_subject and positive and not conditional and not negative:
+                issues.append(location(path, line_no, "connected-device state-concurrency execution overclaim"))
+    return issues
+
+
 def navigation_issues(live_paths: set[str], graph: dict[str, set[str]]) -> list[str]:
     distances = {HUB_PATH: 0}
     queue = deque([HUB_PATH])
@@ -858,9 +1290,13 @@ def check_gradle_tasks(root: Path, texts: dict[str, str]) -> list[str]:
     discovered: set[str] = set()
     for line in result.stdout.splitlines():
         match = re.match(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s+-\s", line)
+        if match is None:
+            match = re.match(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s*$", line)
         if match:
-            discovered.add(match.group(1))
-            discovered.add(match.group(1).lstrip(":"))
+            task_path = match.group(1)
+            discovered.add(task_path)
+            discovered.add(task_path.lstrip(":"))
+            discovered.add(task_path.rsplit(":", 1)[-1])
     return [location(CATALOG_PATH, 1, f"missing Gradle task: {task}") for task in sorted(expected) if task not in discovered and task.lstrip(":") not in discovered]
 
 
@@ -887,6 +1323,15 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
     issues.extend(station_data_policy_issues(root, entries, texts))
     issues.extend(station_policy_reference_issues(root, entries, texts))
     issues.extend(station_policy_claim_issues(texts))
+    issues.extend(station_list_state_contract_issues(root, entries, texts))
+    issues.extend(station_list_state_reference_issues(root, entries, texts))
+    state_manifest, _ = load_station_list_state_consumers(root)
+    state_consumers = state_manifest.get("consumers") if isinstance(state_manifest, dict) else None
+    state_claim_paths = {STATION_LIST_STATE_OWNER}
+    if isinstance(state_consumers, dict):
+        state_claim_paths.update(path for path in state_consumers if isinstance(path, str))
+    issues.extend(station_list_state_claim_issues({path: texts[path] for path in state_claim_paths if path in texts}))
+    issues.extend(station_list_state_source_surface_issues(root))
     if include_gradle_tasks:
         issues.extend(check_gradle_tasks(root, texts))
     return sorted(set(issues))

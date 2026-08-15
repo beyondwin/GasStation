@@ -4,7 +4,7 @@
 
 ## 기본 원칙
 
-- 가장 복잡한 조합 로직은 저장소와 ViewModel 테스트로 먼저 막습니다.
+- 가장 복잡한 조합 로직은 저장소, 상태 collaborator 집중 테스트와 얇은 ViewModel integration 테스트로 먼저 막습니다.
 - `demo`는 별도 예외 경로가 아니라 정식 제품 경로이므로 startup, seed, UI 플로우를 따로 검증합니다.
 - `prod`는 실제 API 키/네트워크를 요구하는 대신, 빌드/그래프/런타임 설정 경로가 깨지지 않는지를 unit/assemble 수준에서 확인합니다.
 - 이미 문서로 약속한 사용자 흐름은 가능한 한 테스트 파일 이름으로도 추적 가능해야 합니다.
@@ -29,8 +29,8 @@
 | `core:datastore` | `UserPreferencesSerializerTest`, `AndroidUserPreferencesDataSourceTest` | storage-local 설정 DTO 직렬화와 DataStore 업데이트 |
 | `core:designsystem` | `GasStationThemeDefaultsTest`, `GasStationThemeSurfaceTest`, `GasStationThemeTokensTest`, `ChromeContractsTest`, `BrandIconTest`, `BrandLabelsTest`, Roborazzi snapshot | Urban Signal `#FFFCF2`/`#222222`/`#FFDC00` token, typography/spacing, chrome와 shared primitive, 실제 `Brand` drawable 매핑 |
 | `data:settings` | `DefaultSettingsRepositoryTest` | storage-local 설정 DTO와 domain `UserPreferences` 매핑, legacy RTO/RTX/NHO 저장값의 ALTEUL migration, legacy `KAKAO_NAVI`의 `KAKAO_MAP` migration과 현재 이름 재저장, 알 수 없는 enum name fallback |
-| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `StationFreshnessTickerTest`, `LatestRefreshGateTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, timer boundary와 metadata 재projection, key별 latest-write/tombstone/ABA side-effect silence, 선택 유종 전용 watchlist cache/history와 가격 없음 identity fallback, retention/pruning·`SearchRefreshed`, typed retry-once 정책과 원격 오류 매핑 |
-| `feature:station-list` | `feature:station-list/LocationStateMachineTest`, `feature:station-list/StationSearchOrchestratorTest`, `StationListViewModelTest`, `StationListScreenTest`, `StationListRoutePolicyTest`, `StationListBannerModelTest`, `StationListItemUiModelTest`, `GpsAvailabilityMonitorTest`, Roborazzi states | 위치 상태 전이, denied가 retained coordinate/cache/refresh보다 먼저 이기는 gate, query/cache/failure orchestration, price-first row와 2줄 typed summary, 반경/유종/브랜드 menu interaction, 320dp popup containment와 마지막 항목 scroll, 네 가지 가격 이력 상태, 320dp·200% 글꼴의 summary/station metadata, stale/empty/permission/GPS/failure, route lifecycle 기반 availability 관찰과 권한/GPS recovery |
+| `data:station` | `DefaultStationRepositoryTest`, `StationCachePolicyTest`, `StationFreshnessTickerTest`, `LatestRefreshGateTest`, `LatestWatchIntentGateTest`, `data:station/StationRetryPolicyTest`, `StationRemoteDataSourceTest`, `WatchlistRepositoryTest` | 캐시/히스토리/watchlist 조합, timer boundary와 metadata re-projection, refresh/watch key별 latest-write와 tombstone/ABA silence, watch update/remove 공유 gate와 typed committed/superseded 결과, 선택 유종 전용 watchlist cache/history와 가격 없음 identity fallback, retention/pruning·`SearchRefreshed`, typed retry-once 정책과 원격 오류 매핑 |
+| `feature:station-list` | `LocationStateMachineTest`, `StationSearchOrchestratorTest`, `RefreshCoordinatorTest`, `StationListStateAssemblerTest`, `StationListCommandQueueTest`, `StationListCommandHandlerTest`, `StationListCommandEffectTest`; `StationListPreferencesTest`, `StationListCommandIntegrationTest`, `StationListWatchMutationTest`, `StationListLocationIntegrationTest`, `StationListRefreshIntegrationTest`; screen/model tests와 Roborazzi states | generation/관찰/refresh/FIFO/projection owner 정책, 얇은 ViewModel의 preferences·command·watch·location·refresh 조합, price-first UI와 typed summary, menu/accessibility, stale/empty/permission/GPS/failure, route lifecycle recovery |
 | `feature:settings` | `SettingsViewModelTest`, `SettingsScreenTest`, `SettingsSectionTest`, Roborazzi overview/detail | 설정 상태, update use case dispatch, flat row, 실제 브랜드 tile, route/summary 계약 |
 | `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistScreenTest`, `WatchlistItemUiModelTest`, Roborazzi snapshot | 선택 유종 readiness/query 전환, 가격 없음 저장 identity 유지와 명시적 unavailable UI, `CompareViewed` event, 실제 logo와 visible label 미반복, 108–116dp 5행, 200% font scale 확장과 clipping 방지 |
 | `app` | `AppStartupGraphTest`, `AppStartupRunnerTest`, `ExternalMapLauncherTest`, `GasStationBottomNavigationTest`, `SplashThemeResourceTest`, `SplashExitAnimatorTest`, `AppIconResourceTest`, `AppIconSourceContractTest`, `NetworkSecurityConfigResourceTest`, `BackupPolicyResourceTest`, `ProdSecretsStartupHookTest` | startup hook 바인딩, icon-only navigation의 접근성 이름/선택·비활성 semantics/ASCII tag/48dp touch target, prod key fail-fast, 앱 리소스, Opinet-only cleartext config, Android backup 비활성화, 외부 지도 provider package/URI와 route -> Play Store app URI -> HTTPS Store fallback·최종 실패 결과. `SplashThemeResourceTest`는 API 30/31, day/night, static foreground, post-theme resource contract를 보호하고, `SplashExitAnimatorTest`는 180ms exit와 animations-off 즉시 제거·one-shot cleanup을 보호합니다. 실제 clipping과 blank-frame 여부는 API 30/API 37 cold-launch evidence가 소유합니다. |
@@ -72,8 +72,22 @@
 - `StationBucketSnapshotObserver` / `StationFreshnessTicker` / `LatestRefreshGate`
   marker와 row의 torn emission, timer 소유권과 metadata 재투영, 과거 요청의 늦은 persistence, replacement entry ABA, superseded analytics/reporting을 각각 독립 테스트로 막습니다.
   <!-- station-data-policy-ref: freshness -->[구조화된 `freshness` 계약](offline-strategy.md#기계-판독-정책-계약)
-- `LocationStateMachine`, `StationSearchOrchestrator`, `StationListViewModel`
-  권한/GPS/주소 라벨은 location state machine, query/cache/blocking failure는 orchestrator, loading/effect/action dispatch와 최종 UI 조합은 ViewModel에서 갈립니다. denied permission은 demo override, 보존 좌표, cache/render, refresh보다 우선하며 GPS 설정 안내와 섞이지 않아야 합니다.
+- `LocationStateMachineTest` / `StationSearchOrchestratorTest`
+  permission·GPS·location·address generation의 equal-coordinate/away-back ABA, precise-to-approximate privacy reset, provider cancellation과 silent supersession은 전자가 막습니다. active session의 exception/normal completion, exact-session commit, query 교체의 old result 제거, snapshot을 보존하는 same-query observation-only retry는 후자가 막습니다.
+- `RefreshCoordinatorTest`
+  lazy work가 body 전에 취소되는 경로, exact-identity cleanup, stale terminal result, query revalidation, inline callback 순서와 느린 address lookup이 refresh/finalization을 막지 않는 경계를 검증합니다.
+- `StationListCommandQueueTest` / `StationListCommandHandlerTest` / `StationListCommandEffectTest`
+  immutable FIFO, exact-head acknowledgement, stale/tail/zero no-op, handler 실패·취소 시 보존, START별 한 번의 retry와 정상 ack 뒤 다음 head 진행을 분리해 검증합니다. `StationListCommandEffectTest`는 현재 Compose lifecycle handler 이름이며 삭제된 모델을 뜻하지 않습니다.
+- `StationListStateAssemblerTest`
+  field projection, permission -> GPS -> preference failure/loading -> no-snapshot failure/loading -> results 우선순위, explicit `hasCachedSnapshot`, cached-empty 결과와 station/command list identity 보존을 검증합니다.
+- `StationListPreferencesTest` / `StationListCommandIntegrationTest` / `StationListWatchMutationTest` / `StationListLocationIntegrationTest` / `StationListRefreshIntegrationTest`
+  얇은 ViewModel의 collaborator composition, preference mutation admission, observation retry 우선순위, command enqueue/외부 지도 logging, committed-only watch analytics, permission 취소와 coordinator result translation을 통합 경계에서 검증합니다.
+- `LatestWatchIntentGateTest` / `WatchlistRepositoryTest` / `WatchedStationDaoTest`
+  station별 update/remove ABA와 participant tombstone, superseded DAO/side-effect silence, `INSERT IGNORE`의 최초 watched time 보존, `watchedAt` 내림차순·station ID 오름차순의 안정적 결과를 검증합니다.
+
+이 상태 계약의 증거 범위는 host coroutine, Room/Robolectric, app graph와 screenshot/module-edge 회귀입니다. 연결된 target 실행을 이 범위의 증거로 주장하지 않으며, permission/geocoder/demo connected 검증은 아래의 조건부 별도 경로입니다. 정확한 조합은 [검증 매트릭스의 station-list 상태 동시성 집중 회귀](verification-matrix.md#station-list-상태-동시성-집중-회귀)가 단독 소유합니다.
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 - `AddressLabelNormalizer` / `AddressLabelFormatter`
   Android 지오코더는 `대한민국`, `KR`, 건물 동, 도로명 조각을 섞어 줄 수 있습니다. 순수 정규화는 `domain:location`, Android `Address` 후보 변환은 `core:location` 테스트로 나눠 목록 상단에 raw 주소가 그대로 노출되지 않게 막습니다.
 - `AndroidAddressResolverDeviceTest`
@@ -87,7 +101,7 @@
 - Compose semantics/test tag cleanup
   테스트용 식별자는 사용자 표시 문자열과 분리합니다. 스크린 리더에 필요한 한글 설명은 유지하되, 테스트는 `station-list-watch-toggle`, `bottom-nav-watchlist`, `watchlist-card` 같은 안정적인 ASCII tag를 선택합니다.
 - Station-list Main dispatcher test setup
-  `StationListViewModelTest`의 `Dispatchers.setMain/resetMain` 반복은 `MainDispatcherRule`로 묶어 scheduler 기대를 한 곳에서 관리합니다.
+  다섯 integration suite의 `Dispatchers.setMain/resetMain` setup은 `MainDispatcherRule`로 묶어 scheduler 기대를 한 곳에서 관리합니다.
 - `DemoSeedStartupHook`
   demo 시작 상태가 흔들리면 문서, 스크린샷, benchmark, UI 테스트가 함께 흔들립니다.
 - `ExternalMapLauncher`

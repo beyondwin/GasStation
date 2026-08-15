@@ -13,8 +13,8 @@
       "path": "README.md",
       "kind": "product",
       "owner": "제품 개요와 빠른 시작",
-      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/MainActivity.kt"],
-      "reviewTriggers": ["제품 지원 범위, flavor, 버전 또는 첫 실행 경로 변경", "사용자 흐름이나 공개 스크린샷 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/MainActivity.kt", "docs/state-model.md"],
+      "reviewTriggers": ["제품 지원 범위, flavor, 버전 또는 첫 실행 경로 변경", "사용자 흐름이나 공개 스크린샷 변경", "station-list 상태 owner 또는 command 모델 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; quick start와 모듈·버전 주장은 Gradle 설정과 대조"
     },
     {
@@ -61,48 +61,48 @@
       "path": "docs/onboarding/developer-onboarding-guide.md",
       "kind": "runbook",
       "owner": "새 Android 기여자의 제품·코드·변경 흐름 온보딩",
-      "authoritativeSources": ["settings.gradle.kts", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/agent-workflow.md"],
-      "reviewTriggers": ["활성 모듈·flavor·핵심 사용자 흐름 변경", "온보딩의 코드 읽기·첫 변경·검증 경로 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/agent-workflow.md", "docs/state-model.md"],
+      "reviewTriggers": ["활성 모듈·flavor·핵심 사용자 흐름 변경", "온보딩의 코드 읽기·첫 변경·검증 경로 변경", "station-list owner·command 모델·test reading path 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 연결된 live 계약과 온보딩에 지목된 코드·모듈 경로를 대조"
     },
     {
       "path": "docs/agent-workflow.md",
       "kind": "runbook",
       "owner": "기능·수정 작업의 표준 실행 순서",
-      "authoritativeSources": ["settings.gradle.kts", "docs/module-contracts.md", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
-      "reviewTriggers": ["모듈 책임 또는 상태·캐시 작업 경로 변경", "작업 시작·검증·handoff 절차 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "docs/module-contracts.md", "docs/state-model.md", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["모듈 책임 또는 상태·캐시 작업 경로 변경", "작업 시작·검증·handoff 절차 변경", "station-list owner·command 모델·state test 선택 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 링크된 계약·명령과 관련 테스트 경로를 대조"
     },
     {
       "path": "docs/project-reading-guide.md",
       "kind": "runbook",
       "owner": "질문·기능·변경 목적에서 코드와 계약으로 가는 읽기 경로",
-      "authoritativeSources": ["settings.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt", "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt"],
-      "reviewTriggers": ["주요 feature owner 또는 코드 진입점 이동", "현재 계약 문서의 경로·소유 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt", "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt", "docs/state-model.md"],
+      "reviewTriggers": ["주요 feature owner 또는 코드 진입점 이동", "현재 계약 문서의 경로·소유 변경", "station-list collaborator 또는 focused test reading path 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 표의 파일과 모듈 경로를 실제 저장소에서 확인"
     },
     {
       "path": "docs/architecture.md",
       "kind": "contract",
       "owner": "활성 모듈 그래프와 런타임 아키텍처",
-      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt"],
-      "reviewTriggers": ["Gradle include·모듈 의존·flavor 조립 변경", "앱 시작 또는 navigation 구조 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "app/build.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt", "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist", "data/station/src/main/kotlin/com/gasstation/data/station/LatestWatchIntentGate.kt"],
+      "reviewTriggers": ["Gradle include·모듈 의존·flavor 조립 변경", "앱 시작 또는 navigation 구조 변경", "station-list collaborator ownership 또는 watch mutation flow 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; module graph는 settings와 build files로 대조"
     },
     {
       "path": "docs/module-contracts.md",
       "kind": "contract",
       "owner": "모듈 책임과 금지 의존",
-      "authoritativeSources": ["settings.gradle.kts", "build-logic", "app/build.gradle.kts"],
-      "reviewTriggers": ["모듈 추가·삭제·의존 방향 변경", "계층 책임 또는 구현 위치 변경"],
+      "authoritativeSources": ["settings.gradle.kts", "build-logic", "app/build.gradle.kts", "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist", "domain/station/src/main/kotlin/com/gasstation/domain/station/model/WatchMutationResult.kt", "data/station/src/main/kotlin/com/gasstation/data/station/LatestWatchIntentGate.kt"],
+      "reviewTriggers": ["모듈 추가·삭제·의존 방향 변경", "계층 책임 또는 구현 위치 변경", "Gradle graph가 그대로여도 station-list 또는 watch mutation 책임이 이동함"],
       "verificationScope": "scripts/agent/verify.sh docs; verifyModuleBoundaries와 active include를 함께 확인"
     },
     {
       "path": "docs/state-model.md",
       "kind": "contract",
-      "owner": "화면 상태·액션·effect 모델",
-      "authoritativeSources": ["feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist", "feature/settings/src/main/kotlin/com/gasstation/feature/settings", "feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist"],
-      "reviewTriggers": ["UI state·action·effect 또는 navigation payload 변경", "권한·GPS·refresh·설정 상태 전이 변경"],
+      "owner": "화면 상태·액션·command/effect와 결정적 station-list 동시성 모델",
+      "authoritativeSources": ["feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist", "feature/settings/src/main/kotlin/com/gasstation/feature/settings", "feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist", "docs/station-list-state-contract.json", "docs/station-list-state-contract-consumers.json", "data/station/src/main/kotlin/com/gasstation/data/station/LatestWatchIntentGate.kt", "domain/station/src/main/kotlin/com/gasstation/domain/station/model/WatchMutationResult.kt", "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt"],
+      "reviewTriggers": ["UI state·action·effect 또는 navigation payload 변경", "권한·GPS·refresh·설정 상태 전이 변경", "station-list generation·observation·refresh·command·projection·watch result 또는 lifecycle 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; feature ViewModel·route 테스트와 상태 모델을 대조"
     },
     {
@@ -117,16 +117,16 @@
       "path": "docs/test-strategy.md",
       "kind": "contract",
       "owner": "테스트 계층과 회귀 보호 전략",
-      "authoritativeSources": ["scripts/agent/verify.sh", ".github/workflows/android.yml", "build-logic"],
-      "reviewTriggers": ["테스트 source set·screenshot·device·CI job 변경", "회귀 위험 분류 또는 test ownership 변경"],
+      "authoritativeSources": ["scripts/agent/verify.sh", ".github/workflows/android.yml", "build-logic", "feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist", "feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist", "data/station/src/test/kotlin/com/gasstation/data/station", "core/database/src/test/kotlin/com/gasstation/core/database/station"],
+      "reviewTriggers": ["테스트 source set·screenshot·device·CI job 변경", "회귀 위험 분류 또는 test ownership 변경", "station-list owner-test split/name 또는 state-concurrency proof boundary 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; Gradle task와 CI job을 실제 workflow·build logic과 대조"
     },
     {
       "path": "docs/verification-matrix.md",
       "kind": "runbook",
       "owner": "변경 유형에서 검증 명령을 선택하는 매트릭스",
-      "authoritativeSources": ["scripts/agent/verify.sh", "scripts/agent/test.sh", ".github/workflows/android.yml"],
-      "reviewTriggers": ["verify scope·Gradle task·CI gate 변경", "새 feature·data·release 위험 경로 추가"],
+      "authoritativeSources": ["scripts/agent/verify.sh", "scripts/agent/test.sh", ".github/workflows/android.yml", "feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist", "feature/watchlist/src/test/kotlin/com/gasstation/feature/watchlist", "data/station/src/test/kotlin/com/gasstation/data/station", "core/database/src/test/kotlin/com/gasstation/core/database/station"],
+      "reviewTriggers": ["verify scope·Gradle task·CI gate 변경", "새 feature·data·release 위험 경로 추가", "canonical station-list state-concurrency command 또는 proof boundary 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 명시된 명령과 CI job이 실제로 존재하는지 확인"
     },
     {

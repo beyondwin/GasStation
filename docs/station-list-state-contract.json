@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "contractId": "station-list-state-concurrency-v1",
+  "location": {
+    "owner": "LocationStateMachine",
+    "generations": ["permission", "gps", "locationRequest", "addressRequest"],
+    "providerBoundary": "suspend_outside_lock_then_active_check_and_atomic_commit",
+    "precisionDowngrade": "clear_coordinates_address_and_recovery",
+    "superseded": "normal_silent"
+  },
+  "observation": {
+    "owner": "StationSearchOrchestrator",
+    "failureBoundary": "inside_active_query_session",
+    "normalCompletion": "observation_failed",
+    "cancellation": "rethrow",
+    "sameQueryRetry": "resubscribe_without_remote_refresh",
+    "queryChange": "clear_old_unkeyed_result_and_failures",
+    "cacheEvidence": "hasCachedSnapshot"
+  },
+  "watch": {
+    "owner": "LatestWatchIntentGate",
+    "domainResult": "WatchMutationResult",
+    "key": "stationId",
+    "sharedOperations": ["updateWatchState", "removeWatchedStation"],
+    "onConflict": "insert_ignore_preserves_original_watchedAt",
+    "ordering": ["watchedAtEpochMillis DESC", "stationId ASC"],
+    "superseded": "normal_silent"
+  },
+  "command": {
+    "owner": "StationListCommandQueue",
+    "stateField": "StationListUiState.pendingCommands",
+    "delivery": "viewmodel_lifetime_fifo",
+    "acknowledgement": "exact_head_after_normal_handler_completion_and_active_check",
+    "handlerFailure": "retain_head_for_next_start_or_attachment",
+    "externalSideEffect": "at_least_once",
+    "processDeathPersistence": "not_promised"
+  },
+  "refresh": {
+    "owner": "RefreshCoordinator",
+    "work": "single_exact_identity_job",
+    "completion": "registered_before_start_and_identity_guarded",
+    "query": "revalidate_before_refresh_and_terminal_delivery",
+    "address": "caller_scope_nonblocking_after_successful_acquisition",
+    "resultDelivery": "inline_suspending_callback",
+    "superseded": "normal_silent"
+  },
+  "projection": {
+    "owner": "StationListStateAssembler",
+    "input": "StationListStateInputs",
+    "purity": ["no_io", "no_coroutines", "no_clock", "no_logging", "no_mutation"],
+    "cacheMarker": "hasCachedSnapshot",
+    "listIdentityOwner": "projectStationSearchResult"
+  },
+  "viewModel": {
+    "owner": "StationListViewModel",
+    "responsibilities": [
+      "viewmodel_lifetime_collection",
+      "preference_read_write_admission",
+      "action_routing",
+      "typed_result_translation",
+      "assembler_publication",
+      "foreground_gps_suspend_bridge"
+    ],
+    "forbiddenResponsibilities": [
+      "location_or_address_generation",
+      "refresh_job_or_work_identity",
+      "search_session_retry_or_cache_failure_policy",
+      "ui_field_projection_or_body_precedence",
+      "command_retention_or_acknowledgement_policy",
+      "watch_latest_intent_serialization",
+      "one_shot_effect_stream"
+    ]
+  },
+  "verification": {
+    "primary": "host_coroutine_room_robolectric_and_app_graph",
+    "connectedDeviceRequired": false,
+    "connectedDeviceEvidence": "not_claimed"
+  }
+}

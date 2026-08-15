@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "canonicalOwner": "docs/state-model.md",
+  "canonicalAnchor": "station-list-결정적-상태-계약",
+  "statementMode": "reference_only",
+  "consumers": {
+    "README.md": 1,
+    "docs/agent-workflow.md": 1,
+    "docs/architecture.md": 1,
+    "docs/module-contracts.md": 1,
+    "docs/onboarding/developer-onboarding-guide.md": 1,
+    "docs/project-reading-guide.md": 1,
+    "docs/test-strategy.md": 1,
+    "docs/verification-matrix.md": 1
+  }
+}

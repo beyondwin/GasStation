@@ -21,7 +21,7 @@
 | 앱 전체 구조는 어디서 보나 | 먼저 `settings.gradle.kts`, `README.md`, `docs/architecture.md`; 더 깊게는 `docs/module-contracts.md` |
 | 새 기능이나 수정 작업은 어떤 순서로 하나 | `AGENTS.md`, `docs/agent-workflow.md`, `docs/module-contracts.md` |
 | 앱이 어디서 시작되나 | `app/src/main/java/com/gasstation/App.kt`, `MainActivity.kt`, `navigation/GasStationNavHost.kt` |
-| 목록 화면 상태는 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `StationListUiState.kt`, `StationListBodyState.kt`, `domain/location/*` |
+| 목록 화면 상태와 동시성 정책은 어디서 만들어지나 | `feature/station-list/StationListRoute.kt`, `StationListViewModel.kt`, `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `RefreshCoordinator.kt`, `StationListCommandQueue.kt`, `StationListStateInputs.kt`, `StationListStateAssembler.kt`, 각 owner/integration test |
 | 설정 화면은 왜 main/detail route가 나뉘나 | `GasStationNavHost.kt`, `feature/settings/SettingsRoute.kt`, `SettingsDetailRoute.kt`, `SettingsViewModel.kt` |
 | watchlist는 어떻게 만들어지나 | `feature/watchlist/WatchlistViewModel.kt`, `domain/station/usecase/ObserveWatchlistUseCase.kt`, `data/station/DefaultStationRepository.kt`, `data/station/WatchlistSummaryAssembler.kt` |
 | 디자인 방향과 공통 UI primitive는 어디서 보나 | `.impeccable.md`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/*`, `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/*` |
@@ -57,21 +57,30 @@
 2. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 3. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 4. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
-5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
-6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
-7. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStates.kt`
-8. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListQuerySummary.kt`
-9. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
-10. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
-11. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
-12. `domain/location/src/main/kotlin/com/gasstation/domain/location/AddressLabelNormalizer.kt`
-13. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
-14. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
-15. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
-16. `data/station/src/main/kotlin/com/gasstation/data/station/StationSearchResultAssembler.kt`
-17. `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
+5. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt`
+6. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt`
+7. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt`
+8. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt`
+9. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
+10. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
+11. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStates.kt`
+12. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListQuerySummary.kt`
+13. `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
+14. `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/{LocationStateMachineTest,StationSearchOrchestratorTest,RefreshCoordinatorTest,StationListCommandQueueTest,StationListStateAssemblerTest}.kt`
+15. `feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationList{Preferences,CommandIntegration,WatchMutation,LocationIntegration,RefreshIntegration}Test.kt`
+16. `domain/location/src/main/kotlin/com/gasstation/domain/location/ObserveLocationAvailabilityUseCase.kt`
+17. `domain/location/src/main/kotlin/com/gasstation/domain/location/GetCurrentLocationUseCase.kt`
+18. `domain/location/src/main/kotlin/com/gasstation/domain/location/AddressLabelNormalizer.kt`
+19. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase.kt`
+20. `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase.kt`
+21. `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+22. `data/station/src/main/kotlin/com/gasstation/data/station/LatestWatchIntentGate.kt`
+23. `data/station/src/main/kotlin/com/gasstation/data/station/StationSearchResultAssembler.kt`
+24. `data/station/src/main/kotlin/com/gasstation/data/station/StationRetryPolicy.kt`
 
 목록 화면이 이 프로젝트의 중심입니다. 권한, GPS, 위치 조회, 캐시 유지, 가격 변화, watch toggle까지 대부분 여기서 이어집니다.
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 
 ### 3. 설정 플로우
 

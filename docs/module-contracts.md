@@ -16,20 +16,20 @@
 | 모듈 | 소유 범위 | 직접 의존 | 이 모듈에 두지 말 것 |
 | --- | --- | --- | --- |
 | `app` | Hilt 조립, startup hook, navigation, flavor 연결, 외부 앱 handoff, network endpoint 모드 선택(`AppConfigModule` via `BuildConfig.STATION_ENDPOINT_MODE`/`PROXY_BASE_URL`), `StationEventLogger` 구현 연결, flavor별 `CrashReporter` 구현/Hilt 바인딩 | `feature:*`, `data:*`, 필요한 `core:*`, `domain:*` | 캐시 정책, 비즈니스 규칙 |
-| `feature:station-list` | `LocationStateMachine` 위치 상태, `RefreshCoordinator` 단일 refresh work, `StationSearchOrchestrator` 검색 관찰/cache 판단, 정규화된 주소 표시, 승인형 FIFO UI command, 최종 목록 화면 상태 | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출, data retry/cache policy 복제 |
+| `feature:station-list` | `LocationStateMachine` 위치/address generation, `StationSearchOrchestrator` 관찰 session, `RefreshCoordinator` 단일 refresh work, `StationListCommandQueue` 승인형 FIFO, `StationListStateInputs`/`StationListStateAssembler` 순수 projection, 얇은 ViewModel의 action/lifecycle 조정 | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit 접근, `core:location` 직접 호출, data retry/cache policy 복제, ViewModel에 collaborator 동시성 또는 field projection 재집중 |
 | `feature:settings` | 설정 요약/상세 UI, 항목 선택 액션 | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 설정 |
 | `feature:watchlist` | watchlist(북마크) 비교 UI | `domain:station`, `domain:settings`, `core:model`, `core:designsystem` | 현재 위치 조회, refresh 세션 상태 |
 | `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability use case | `core:model` | Android 위치 API, Play services 타입 |
 | `domain:settings` | `SettingsRepository`, `UserPreferences`, 관련 use case | `core:model` as public API | DataStore 구현, Android 타입 |
-| `domain:station` | `StationRepository`, 검색/비교 use case, `StationEvent`/`StationEventLogger` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics/Crashlytics SDK 구현 |
+| `domain:station` | `StationRepository`, 검색/비교 use case, `WatchMutationResult` 변경 결과, `StationEvent`/`StationEventLogger` 계약, 도메인 모델 | `core:model` | Room entity, Retrofit DTO, Logcat/analytics/Crashlytics SDK 구현 |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
-| `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합, 검색 결과/watchlist 읽기 모델 조립, 일시적 refresh 실패 retry 정책 | `domain:station`, `core:observability`, `core:database`, `core:network`, `core:model` | 화면 전용 UI 모델, 위치 조회 구현, snackbar/전면 실패 판단 |
+| `data:station` | `StationRepository` 구현, 캐시/히스토리/watchlist 조합, 검색 결과/watchlist 읽기 모델 조립, 일시적 refresh 실패 retry 정책, update/remove가 공유하는 station ID별 latest-watch-intent 직렬화 | `domain:station`, `core:observability`, `core:database`, `core:network`, `core:model` | 화면 전용 UI state/command, 위치 조회 구현, snackbar/전면 실패 판단 |
 | `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체, `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary | 없음 | 앱 정책 |
 | `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 | 없음 | feature 화면 상태, 특정 domain 정책, Timber/Crashlytics SDK 구현 |
 | `core:designsystem` | 테마, 색상, 타이포, 카드/배너/탑바, metric/supporting-info/row/guidance 같은 공통 UI primitive, 브랜드 아이콘 리소스와 표시 label 매핑 | Compose/Material3, `core:model` | feature 전용 비즈니스 문구, 화면 상태 분기, 검색/저장 정책 |
 | `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback/pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 | `domain:location`, `core:observability`, `core:model` | 목록 카드 배치 정책, flavor별 demo override 바인딩, 위치 도메인 계약 |
 | `core:network` | direct Opinet/proxy endpoint 모드(`StationNetworkSource` 추상화), Opinet 서비스, 좌표 변환, fetcher | `core:model` | 캐시/Room 조합, endpoint 모드/base URL 선택(=`app` 소유) |
-| `core:database` | Room DB, DAO, migration | Room | 도메인 정책 |
+| `core:database` | Room DB, DAO, migration, watch ON `INSERT IGNORE`와 `watchedAt DESC, stationId ASC` 관찰 순서 같은 저장 primitive | Room | latest 사용자 의도나 analytics 같은 도메인/feature 정책 |
 | `core:datastore` | DataStore data source, serializer, storage-local settings DTO | Android DataStore | 화면 상태, 설정 정책, domain model |
 | `tools:demo-seed` | demo seed 재생성 CLI | `core:network`, `domain:station`, `core:model` | 앱 런타임 의존 |
 | `benchmark` | `demo` hero macrobenchmark, baseline profile journey, physical-device performance evidence | `app` | 기능 구현 |
@@ -48,6 +48,8 @@
   `feature/station-list/*`에서 `domain:location` 결과로 `StationQuery`를 만들고, `data:station`에는 위치 provider나 `core:location` 타입을 넣지 않음
 - 현재 주소 표시 변경:
   주소 라벨 정규화 규칙은 `domain/location/AddressLabelNormalizer.kt`, Android 지오코더 후보 변환은 `core/location/*`, 목록 상단 표시는 `feature/station-list/*`
+- station-list 상태 또는 command 변경:
+  generation은 `LocationStateMachine`, 관찰 복구는 `StationSearchOrchestrator`, refresh work는 `RefreshCoordinator`, 보존/acknowledgement는 `StationListCommandQueue`, field/body projection은 `StationListStateInputs`와 `StationListStateAssembler`, action/lifecycle 연결만 `StationListViewModel`
 - 브랜드 아이콘 또는 표시 label 변경:
   `core:model`의 `Brand`/`BrandFilter` enum, `core/designsystem/component/BrandIcon.kt`, `core/designsystem/BrandLabels.kt`를 먼저 확인하고, 목록/북마크별 label 노출 정책은 각 `feature:*` 화면에 둠
 - 캐시/stale 정책 변경:
@@ -60,8 +62,12 @@
   이벤트 종류와 payload는 `domain/station/model/StationEvent.kt`, 비치명 예외 보고 계약은 `core/observability/CrashReporter.kt`, 앱의 현재 구현은 `app/src/main/java/com/gasstation/analytics/LogcatStationEventLogger.kt`와 `app/src/{demo,prod}/kotlin/com/gasstation/analytics/*`
 - watchlist 비교 규칙 변경:
   `data/station/DefaultStationRepository.kt`, `data/station/WatchlistSummaryAssembler.kt`, `feature/watchlist/*`
+- watch mutation 순서 또는 결과 변경:
+  결과 계약은 `domain/station/model/WatchMutationResult.kt`, latest intent는 `data/station/LatestWatchIntentGate.kt`, `INSERT IGNORE`와 안정적 관찰 순서는 `core/database/station/WatchedStationDao.kt`, committed-only feedback은 각 `feature:*`
 - demo 재현 경로 변경:
   `tools/demo-seed/*`, `app/src/demo/assets/demo-station-seed.json`, `app/src/demo/kotlin/*`
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 
 ## 현재 프로젝트 전제
 

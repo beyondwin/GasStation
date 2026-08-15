@@ -52,7 +52,7 @@ GasStation은 `app / feature / domain / data / core / tools / benchmark`로 나�
 큰 방향은 아래와 같습니다.
 
 - `app`은 앱을 조립합니다. Hilt 그래프, startup hook, navigation, flavor 연결, 외부 지도 handoff를 맡습니다.
-- `feature:*`는 화면을 만듭니다. Route, ViewModel, UI state, action, effect, Compose screen이 여기에 있습니다.
+- `feature:*`는 화면을 만듭니다. Route, ViewModel, UI state, action, command/effect, Compose screen이 여기에 있습니다.
 - `domain:*`는 앱의 계약과 순수 모델을 둡니다. repository interface, use case, domain model이 여기에 있습니다.
 - `data:*`는 repository 구현을 둡니다. Room, remote source, cache, history, watchlist 조합이 여기에 있습니다.
 - `core:*`는 여러 모듈이 공유하는 값 객체, 플랫폼 구현, 디자인 primitive, 저장/네트워크/DB 인프라를 둡니다.
@@ -97,7 +97,7 @@ GasStation은 `app / feature / domain / data / core / tools / benchmark`로 나�
 | 레이어 | 쉽게 말하면 | 대표 모듈 | 여기에 두면 좋은 것 | 여기에 두면 안 되는 것 |
 | --- | --- | --- | --- | --- |
 | `app` | 최종 조립자 | `:app` | Hilt binding, flavor별 startup hook, navigation, 외부 지도 실행 | 캐시 정책, 정렬 규칙, 화면 전용 상태 |
-| `feature` | 화면과 사용자 interaction | `:feature:station-list`, `:feature:settings`, `:feature:watchlist` | UI state, action, effect, Compose screen, 화면별 표시 정책 | Room DAO, Retrofit service, DataStore 구현 직접 호출 |
+| `feature` | 화면과 사용자 interaction | `:feature:station-list`, `:feature:settings`, `:feature:watchlist` | UI state, action, command/effect, Compose screen, 화면별 표시 정책 | Room DAO, Retrofit service, DataStore 구현 직접 호출 |
 | `domain` | 계약과 순수 규칙 | `:domain:station`, `:domain:settings`, `:domain:location` | repository interface, use case, domain model, event contract | Android/Compose/Room/Retrofit/DataStore 타입 |
 | `data` | 계약의 실제 구현 | `:data:station`, `:data:settings` | repository 구현, DB/remote/cache/history 조합 | Compose UI state, 화면 문구 |
 | `core` | 공유 기반 | `:core:model`, `:core:network`, `:core:database`, `:core:location`, `:core:datastore`, `:core:designsystem`, `:core:observability` | 값 객체, Android provider 구현, Room DB, Retrofit fetcher, DataStore source, 디자인 primitive | feature 전용 비즈니스 정책 |
@@ -115,9 +115,9 @@ GasStation은 `app / feature / domain / data / core / tools / benchmark`로 나�
 | Kotlin | 앱, 도메인, 빌드 로직의 주 언어 | Android 공식 생태계와 coroutine/Flow 지원 | null-safety, data class, sealed type로 상태 표현이 좋음 | 언어 기능이 많아 과하게 추상화하기 쉬움 | `domain/station/src/main/kotlin/com/gasstation/domain/station/model/StationSearchResult.kt` |
 | Gradle Kotlin DSL + convention plugins | 모듈별 빌드 설정과 공통 Android/JVM 규칙 관리 | 멀티모듈에서 반복 설정을 줄이기 위해 | 플러그인 하나로 test/lint/Compose/Hilt 설정을 재사용 | build-logic 변경은 전체 빌드에 영향이 큼 | `build-logic/convention/src/main/kotlin/*`, `gradle/libs.versions.toml` |
 | 멀티모듈 Clean Architecture | 화면, 계약, 구현, 공유 인프라 분리 | 변경 범위와 의존 방향을 통제하기 위해 | 회귀 범위가 좁고 테스트 단위가 명확함 | 작은 기능도 여러 파일을 확인해야 함 | `settings.gradle.kts`, `docs/module-contracts.md` |
-| Jetpack Compose | station list, settings, watchlist UI 구현 | 상태 기반 UI와 테스트 가능한 화면 계약을 위해 | UI가 state의 함수처럼 읽힘 | state ownership과 effect 처리가 흐리면 복잡해짐 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt` |
+| Jetpack Compose | station list, settings, watchlist UI 구현 | 상태 기반 UI와 테스트 가능한 화면 계약을 위해 | UI가 state의 함수처럼 읽힘 | state와 command/effect의 lifecycle ownership이 흐리면 복잡해짐 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt` |
 | Material 3 + `core:designsystem` | 공통 색상, 타이포, metric/row/guidance primitive | yellow/black/white 정체성과 가격 우선 위계를 반복하기 위해 | 화면 간 정보 위계가 일관됨 | feature 전용 문구/정책을 designsystem에 넣으면 안 됨 | `core/designsystem/src/main/kotlin/com/gasstation/core/designsystem/component/*` |
-| AndroidX Lifecycle ViewModel | 화면 세션 상태와 action 처리 | configuration change와 lifecycle에 맞는 상태 보존 | UI state 조합 위치가 명확함 | ViewModel이 모든 정책을 흡수하면 비대해짐 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt` |
+| AndroidX Lifecycle ViewModel | 화면 세션 collection과 action 처리 | configuration change와 lifecycle에 맞는 상태 보존 | collaborator snapshot 게시 위치가 명확함 | ViewModel이 동시성·projection 정책을 흡수하면 비대해짐 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt` |
 | Coroutines + Flow | preferences, Room 관찰, 위치 availability, UI state stream | 비동기와 observable state를 자연스럽게 표현하기 위해 | combine/flatMapLatest로 state 조합이 명확함 | cancellation, lifecycle collection을 잘못 다루면 누수/중복 실행 위험 | `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt` |
 | Hilt | app/data/core 구현 조립 | 구현체 wiring을 app과 각 module에서 안정적으로 관리하기 위해 | 생성자 주입으로 테스트와 교체가 쉬움 | 잘못 쓰면 모듈 경계 위반을 숨길 수 있음 | `app/src/main/java/com/gasstation/di/*`, `data/station/src/main/kotlin/com/gasstation/data/station/StationDataModule.kt` |
 | Room | 주유소 캐시, 스냅샷, 가격 이력, watchlist 저장 | 오프라인 fallback과 observable DAO가 필요해서 | SQL/Flow/migration 테스트로 저장 계약을 보호 | schema 변경 시 migration 테스트가 필요함 | `core/database/src/main/kotlin/com/gasstation/core/database/station/*` |
@@ -156,7 +156,7 @@ Kotlin은 Android 공식 생태계에서 가장 자연스러운 선택이고, �
 
 Compose는 `StationListUiState`를 화면으로 투영하는 데 잘 맞습니다. 상태가 바뀌면 UI가 다시 그려지고, 테스트는 semantics/testTag/contentDescription을 통해 계약을 확인합니다.
 
-주의점은 side effect입니다. snackbar, 위치 설정 열기, 외부 지도 열기는 영속 상태가 아니라 한 번 소비할 `StationListEffect`입니다. 이런 effect를 UI state에 섞으면 화면 재구성 때 중복 실행될 수 있습니다.
+주의점은 외부 side effect의 lifecycle입니다. station list의 snackbar, 위치 설정 열기, 외부 지도 열기는 `StationListUiState.pendingCommands`의 ViewModel-lifetime FIFO에 보존됩니다. Compose handler가 head를 정상 처리하고 coroutine이 active일 때만 명시적으로 acknowledge하므로 collector gap이나 일시적인 route 분리에 유실되지 않습니다. 다만 외부 실행은 at-least-once이고 process death 복원은 약속하지 않습니다. Settings처럼 다른 feature의 effect 모델은 각 화면 계약을 따릅니다.
 
 ### Hilt
 
@@ -224,7 +224,7 @@ Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회�
 
 ## 8. 목록 화면 흐름
 
-목록 화면은 이 프로젝트의 중심입니다. 위치, 권한, GPS, 설정, 검색 query, 캐시, stale, refresh 실패, watch toggle, 외부 지도 effect가 모두 이 화면에서 만납니다.
+목록 화면은 이 프로젝트의 중심입니다. 위치, 권한, GPS, 설정, 검색 query, 캐시, stale, refresh 실패, watch toggle, 외부 지도 command가 모두 이 화면에서 만납니다.
 
 먼저 볼 파일:
 
@@ -232,35 +232,44 @@ Robolectric은 빠른 로컬 Android 테스트를, Roborazzi는 screenshot 회�
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListUiState.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommand.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListScreen.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCards.kt`
 
-책임은 네 덩어리로 나눠 봅니다.
+책임은 일곱 덩어리로 나눠 봅니다.
 
 | 구성요소 | 책임 |
 | --- | --- |
-| `StationListRoute` | Compose route, 권한 상태 전달, lifecycle-bound availability 수집, effect 소비 |
-| `LocationStateMachine` | 권한, GPS availability, 현재 좌표, 주소 라벨, denied/recovery 같은 세션 위치 상태 |
-| `StationSearchOrchestrator` | active query, cache snapshot state, observed search result, pending/blocking failure |
-| `StationListViewModel` | preferences, location state, search projection, loading flag, action dispatch, one-shot effect, 최종 `StationListUiState` 조합 |
+| `StationListRoute` | Compose route, 권한 상태 전달, lifecycle-bound availability 수집, pending command 처리와 acknowledgement 연결 |
+| `LocationStateMachine` | permission/GPS/location/address generation, 현재 좌표·주소와 recovery 상태, obsolete work의 atomic rejection |
+| `StationSearchOrchestrator` | exact observation session, active query, cache snapshot, observed result, 관찰 failure/retry와 pending/blocking failure |
+| `RefreshCoordinator` | exact active refresh work/job, loading/refreshing, query 재검증, 위치 획득·remote refresh·non-blocking address 시작 |
+| `StationListCommandQueue` | immutable ViewModel-lifetime FIFO, exact-head acknowledgement와 handler 실패/취소 시 head 보존 |
+| `StationListStateInputs` / `StationListStateAssembler` | domain-result identity projection과 한 시점의 immutable input을 최종 UI field/body로 순수 조합 |
+| `StationListViewModel` | preferences collection/write admission, action routing, typed result translation, collaborator collection과 assembler 출력 게시 |
 
-처음 읽을 때 `StationListViewModel`만 계속 보면 복잡해 보입니다. 의도는 반대입니다. ViewModel이 모든 정책을 직접 소유하지 않도록 위치 상태는 `LocationStateMachine`, query/cache/failure 판단은 `StationSearchOrchestrator`, 저장/원격/캐시 조합은 `data:station`으로 내려 보낸 구조입니다.
+처음 읽을 때 `StationListViewModel`만 계속 보면 흐름을 놓치기 쉽습니다. 위치·관찰·refresh·command 동시성은 각 collaborator가, field/body projection은 assembler가, 저장/원격/캐시와 latest watch intent는 `data:station`이 소유합니다. ViewModel은 이 결과를 action/lifecycle 경계에서 연결하는 얇은 coordinator입니다.
 
 흐름을 따라가면 아래와 같습니다.
 
 1. Route가 화면 foreground 동안 GPS availability를 수집하고 ViewModel action으로 넘깁니다.
 2. ViewModel은 `ObserveUserPreferencesUseCase`로 설정을 구독합니다.
-3. 위치가 준비되면 설정값과 좌표를 합쳐 `StationQuery`를 만듭니다.
-4. `StationSearchOrchestrator`가 해당 query로 `ObserveNearbyStationsUseCase`를 구독합니다.
-5. refresh가 필요하면 `RefreshNearbyStationsUseCase`를 호출합니다.
-6. 저장소에서 온 `StationSearchResult`는 UI projection으로 바뀌고, 최종 `StationListUiState`가 만들어집니다.
-7. 화면은 `StationListUiState`를 보고 목록, stale 배너, 권한/GPS/loading/empty/failure 상태를 렌더링합니다.
+3. `LocationStateMachine`은 네 generation으로 obsolete 위치/address 결과를 막고, precision downgrade 때 좌표와 주소를 제거합니다.
+4. `RefreshCoordinator`가 latest eligible query를 재검증하며 `RefreshNearbyStationsUseCase`를 호출하고, 성공 좌표의 address lookup은 refresh와 indicator 종료를 막지 않게 caller scope에서 이어집니다.
+5. `StationSearchOrchestrator`가 `ObserveNearbyStationsUseCase`를 active session으로 구독합니다. 예외나 정상 completion은 session failure가 되며, 같은 query retry는 기존 snapshot을 보존해 관찰만 다시 시작합니다.
+6. `projectStationSearchResult`와 `StationListStateAssembler`가 list identity와 `hasCachedSnapshot`을 보존해 최종 `StationListUiState`를 만듭니다.
+7. 화면은 body state를 렌더링하고 `pendingCommands`의 head를 처리합니다. handler가 정상 반환하고 coroutine이 active일 때 exact ID를 acknowledge하며, 실패/취소한 head는 다음 START나 route attachment에 다시 시도됩니다.
 
-`StationListEffect`는 한 번만 소비할 반응입니다. snackbar, 위치 설정 열기, 외부 지도 열기는 UI state에 넣어 오래 보존할 값이 아닙니다. 화면 재구성 때 중복 실행되지 않게 effect stream으로 분리합니다.
+이 command 모델은 collector 사이에 잠깐 사라지는 알림이 아니라 ViewModel lifetime의 durable session state입니다. 외부 지도 launch 같은 실제 side effect를 exactly-once로 만들지는 않으며, process death 뒤 복원도 보장하지 않습니다.
 
 상태 의미를 더 깊게 보려면 `docs/state-model.md`를 먼저 읽습니다.
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](../state-model.md#station-list-결정적-상태-계약)
 
 ## 9. 데이터 흐름: Opinet, proxy, 좌표 변환, Room snapshot
 
@@ -386,10 +395,12 @@ watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 �
 
 - `feature/watchlist/src/main/kotlin/com/gasstation/feature/watchlist/*`
 - `domain/station/src/main/kotlin/com/gasstation/domain/station/usecase/ObserveWatchlistUseCase.kt`
+- `domain/station/src/main/kotlin/com/gasstation/domain/station/model/WatchMutationResult.kt`
 - `data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt`
+- `data/station/src/main/kotlin/com/gasstation/data/station/LatestWatchIntentGate.kt`
 - `data/station/src/main/kotlin/com/gasstation/data/station/WatchlistSummaryAssembler.kt`
 
-목록 화면에서 사용자가 watch toggle을 누르면 `UpdateWatchStateUseCase`를 통해 저장 상태가 바뀝니다. watchlist 화면으로 이동할 때는 기준 좌표가 navigation argument로 넘어가고, `WatchlistViewModel`은 `SavedStateHandle`에서 이 좌표를 읽습니다. 첫 settings emission이 도착하면 현재 선택 유종과 기준 좌표를 `WatchlistQuery(origin, fuelType)`로 묶어 저장소를 관찰합니다.
+목록 화면에서 사용자가 watch toggle을 누르면 `UpdateWatchStateUseCase`를 통해 저장 상태가 바뀝니다. update와 remove는 station ID별 하나의 `LatestWatchIntentGate`를 공유하고 `WatchMutationResult.Committed`/`Superseded`를 반환합니다. 뒤늦게 끝난 이전 intent는 DAO나 analytics에 영향을 주지 않으며, watch ON의 `INSERT IGNORE`는 최초 저장 시각을 보존합니다. watchlist 화면으로 이동할 때는 기준 좌표가 navigation argument로 넘어가고, `WatchlistViewModel`은 `SavedStateHandle`에서 이 좌표를 읽습니다. 첫 settings emission이 도착하면 현재 선택 유종과 기준 좌표를 `WatchlistQuery(origin, fuelType)`로 묶어 저장소를 관찰합니다.
 
 watchlist는 별도 위치 조회나 refresh 세션 상태를 들고 있지 않습니다. 저장된 주유소를 비교할 기준 좌표, 선택 유종, 저장소에서 관찰한 `WatchedStationSummary`가 핵심입니다.
 
@@ -510,12 +521,13 @@ scripts/agent/verify.sh docs
 | 새 설정 추가 | `UserPreferences.kt`, `domain/settings/usecase/*`, `core/datastore/*`, `DefaultSettingsRepository.kt`, `feature/settings/*` | `domain:settings`, `core:datastore`, `data:settings`, `feature:settings` | `:domain:settings:test`, `:data:settings:testDebugUnitTest`, `:feature:settings:testDebugUnitTest` |
 | 캐시/stale 정책 변경 | `StationCachePolicy.kt`, `DefaultStationRepository.kt`, `StationSearchResultAssembler.kt`, `core/database/station/*` | `data:station`, `core:database`, 필요 시 `domain:station` | `:data:station:testDebugUnitTest`, `:core:database:testDebugUnitTest` |
 | refresh retry 변경 | `StationRetryPolicy.kt`, `DefaultStationRepository.kt`, `StationEvent.kt` | `data:station`, 필요 시 `domain:station` | `:data:station:testDebugUnitTest`, `:domain:station:test` |
-| 위치 동작 변경 | `domain/location/*`, `core/location/*`, `LocationStateMachine.kt` | `domain:location`, `core:location`, `feature:station-list` | `:domain:location:test`, `:core:location:testDebugUnitTest`, station-list tests |
-| 주소 라벨 표시 변경 | `AddressLabelNormalizer.kt`, `AddressLabelFormatter.kt`, `LocationStateMachine.kt` | `domain:location`, `core:location`, `feature:station-list` | location/domain/core tests |
+| 위치 동작 변경 | `domain/location/*`, `core/location/*`, `LocationStateMachine.kt`, `RefreshCoordinator.kt`, `StationListLocationIntegrationTest.kt` | `domain:location`, `core:location`, `feature:station-list` | `:domain:location:test`, `:core:location:testDebugUnitTest`, station-list tests |
+| 주소 라벨 표시 변경 | `AddressLabelNormalizer.kt`, `AddressLabelFormatter.kt`, `LocationStateMachine.kt`, `RefreshCoordinator.kt` | `domain:location`, `core:location`, `feature:station-list` | location/domain/core tests |
+| station-list 상태/command 변경 | `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `RefreshCoordinator.kt`, `StationListCommandQueue.kt`, `StationListStateInputs.kt`, `StationListStateAssembler.kt` | `feature:station-list`, 필요 시 domain/data owner | verification matrix의 station-list 상태 동시성 집중 회귀 |
 | network/proxy 변경 | `NetworkRuntimeConfig.kt`, `NetworkStationFetcher.kt`, `ProxyStationFetcher.kt`, `AppConfigModule.kt` | `core:network`, `app` | `:core:network:test`, `:app:testProdDebugUnitTest` |
 | watchlist 변경 | `WatchlistViewModel.kt`, `WatchlistScreen.kt`, `WatchlistSummaryAssembler.kt` | `feature:watchlist`, `data:station` | `:feature:watchlist:testDebugUnitTest`, `:data:station:testDebugUnitTest` |
 | demo seed 변경 | `tools/demo-seed/*`, `DemoSeedStartupHook.kt`, `app/src/demo/assets/demo-station-seed.json` | `tools:demo-seed`, `app` demo source set | `:tools:demo-seed:test`, `:app:testDemoDebugUnitTest`, 필요 시 connected demo |
-| 외부 지도 handoff 변경 | `ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`, `GasStationNavHost.kt` | `app`, `feature:station-list` | `:app:testDemoDebugUnitTest`, station-list tests |
+| 외부 지도 handoff 변경 | `ExternalMapLauncher.kt`, `StationListCommandPayload.OpenExternalMap`, `StationListCommandIntegrationTest.kt`, `GasStationNavHost.kt` | `app`, `feature:station-list` | `:app:testDemoDebugUnitTest`, station-list tests |
 | live 문서-only 변경 | 바꿀 문서와 실제 코드 앵커 | `docs/*`, 필요 시 `README.md` | `scripts/agent/verify.sh docs` |
 
 수정 위치가 애매하면 `docs/module-contracts.md`를 먼저 봅니다. 구조 설명이 필요하면 `docs/architecture.md`, 상태가 헷갈리면 `docs/state-model.md`, 캐시/failure가 헷갈리면 `docs/offline-strategy.md`를 봅니다.
@@ -537,12 +549,13 @@ scripts/agent/verify.sh docs
 ### Day 2: station list를 끝까지 추적하기
 
 1. `StationListRoute.kt`에서 화면 진입을 봅니다.
-2. `StationListViewModel.kt`에서 action, state, effect가 어떻게 나뉘는지 봅니다.
-3. `LocationStateMachine.kt`로 위치 상태를 봅니다.
-4. `StationSearchOrchestrator.kt`로 query/cache/failure 판단을 봅니다.
-5. `DefaultStationRepository.kt`로 observe/refresh/watchlist 조합을 봅니다.
-6. `StationSearchResultAssembler.kt`, `StationCachePolicy.kt`, `StationRetryPolicy.kt`를 읽습니다.
-7. `docs/state-model.md`와 `docs/offline-strategy.md`를 같이 읽습니다.
+2. `StationListViewModel.kt`에서 action routing과 collaborator collection/게시 경계를 봅니다.
+3. `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `RefreshCoordinator.kt`, `StationListCommandQueue.kt`로 네 동시성 owner를 봅니다.
+4. `StationListStateInputs.kt`, `StationListStateAssembler.kt`로 pure projection과 body priority를 봅니다.
+5. 각 owner test와 다섯 `StationList*IntegrationTest`/`StationListPreferencesTest`에서 책임 분리가 어떻게 보호되는지 봅니다.
+6. `DefaultStationRepository.kt`, `LatestWatchIntentGate.kt`로 observe/refresh/watch mutation 조합을 봅니다.
+7. `StationSearchResultAssembler.kt`, `StationCachePolicy.kt`, `StationRetryPolicy.kt`를 읽습니다.
+8. `docs/state-model.md`와 `docs/offline-strategy.md`를 같이 읽습니다.
 
 ### Day 3: 작은 변경 하나를 안전하게 해보기
 
@@ -580,7 +593,7 @@ scripts/agent/verify.sh docs
 첫 기능 추가는 화면에서 바로 시작하지 않습니다.
 
 ```text
-제품 흐름 확인 -> domain 계약 확인 -> data/core 필요성 판단 -> feature state/action/effect 작성 -> app navigation wiring -> demo/prod 영향 확인 -> 테스트와 문서 갱신
+제품 흐름 확인 -> domain 계약 확인 -> data/core 필요성 판단 -> feature state/action/command-or-effect 작성 -> app navigation wiring -> demo/prod 영향 확인 -> 테스트와 문서 갱신
 ```
 
 각 단계의 질문은 아래와 같습니다.
@@ -588,7 +601,7 @@ scripts/agent/verify.sh docs
 1. 제품 흐름 확인: 사용자가 왜 이 기능을 쓰는가? 가격 비교 속도를 늦추지 않는가?
 2. domain 계약 확인: 새 domain model, use case, repository method가 필요한가?
 3. data/core 필요성 판단: 저장, 네트워크, 위치, DataStore, Room schema가 바뀌는가?
-4. feature 작성: 어떤 UI state, action, effect가 필요한가?
+4. feature 작성: 어떤 UI state, action, command/effect가 필요한가? lifecycle gap에서 보존해야 하는 station-list 반응이면 command queue 계약을 따르는가?
 5. app wiring: 새 route, Hilt binding, flavor 연결이 필요한가?
 6. demo/prod 영향: demo seed나 prod key/network 경로가 영향을 받는가?
 7. 테스트와 문서: 어떤 계층 테스트와 어떤 단일 출처 문서가 바뀌어야 하는가?
@@ -609,7 +622,7 @@ scripts/agent/verify.sh docs
 
 답변 예시:
 
-> station list는 권한, GPS, loading, stale, failure, 목록, watch 상태가 자주 바뀌는 화면입니다. Compose는 `StationListUiState`를 화면으로 투영하기 좋아서 상태 기반 UI에 맞습니다. 대신 side effect를 UI state에 섞지 않도록 snackbar, 외부 지도 열기 같은 반응은 `StationListEffect`로 분리했습니다.
+> station list는 권한, GPS, loading, stale, failure, 목록, watch 상태가 자주 바뀌는 화면입니다. Compose는 순수 assembler가 만든 `StationListUiState`를 화면으로 투영하기 좋아서 상태 기반 UI에 맞습니다. snackbar나 외부 지도 열기는 `pendingCommands` FIFO에 보존하고 Compose handler가 정상 완료 뒤 exact head를 acknowledge합니다. collector gap에서는 유실되지 않지만 외부 실행은 at-least-once이며 process death 복원은 별도 보장이 아닙니다.
 
 ### 왜 Hilt를 썼나요?
 
@@ -663,7 +676,8 @@ scripts/agent/verify.sh docs
 
 - 파일시스템에 디렉터리가 있다고 활성 모듈로 판단합니다. 활성 모듈은 `settings.gradle.kts` 기준입니다.
 - `app`에 비즈니스 정책을 넣습니다. app은 조립, startup, navigation, handoff를 맡습니다.
-- feature에서 Room/Retrofit/DataStore를 직접 호출합니다. feature는 domain use case와 UI state/effect를 중심으로 유지합니다.
+- feature에서 Room/Retrofit/DataStore를 직접 호출합니다. feature는 domain use case와 UI state, action, command/effect를 중심으로 유지합니다.
+- station-list command를 transient stream으로 보내 collector가 없을 때 유실시킵니다. ViewModel-lifetime FIFO와 명시적 exact-head acknowledgement를 유지합니다.
 - `demo`를 fake path로 취급합니다. demo는 문서, 테스트, benchmark가 기대는 정식 재현 경로입니다.
 - 캐시 존재 여부를 `fetchedAt != null`로 판단합니다. 우선 기준은 `StationSearchResult.hasCachedSnapshot`입니다.
 - 성공한 빈 결과와 캐시 없음 상태를 같은 empty로 처리합니다. 두 상태는 UI 실패 의미가 다릅니다.

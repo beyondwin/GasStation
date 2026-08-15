@@ -30,6 +30,11 @@ def load_validator():
 
 VALIDATOR = load_validator()
 POLICY_TEXT = json.dumps(VALIDATOR.EXPECTED_STATION_DATA_POLICY, indent=2) + "\n"
+STATE_CONTRACT_TEXT = json.dumps(
+    VALIDATOR.EXPECTED_STATION_LIST_STATE_CONTRACT,
+    ensure_ascii=False,
+    indent=2,
+) + "\n"
 
 LIVE_PATHS = [
     "AGENTS.md",
@@ -81,6 +86,11 @@ class FixtureRepository:
         offline = next(entry for entry in self.documents if entry["path"] == VALIDATOR.STATION_DATA_POLICY_OWNER)
         offline["authoritativeSources"].insert(0, VALIDATOR.STATION_DATA_POLICY_PATH)
         offline["authoritativeSources"].insert(1, VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH)
+        state_model = next(
+            entry for entry in self.documents if entry["path"] == VALIDATOR.STATION_LIST_STATE_OWNER
+        )
+        state_model["authoritativeSources"].insert(0, VALIDATOR.STATION_LIST_STATE_CONTRACT_PATH)
+        state_model["authoritativeSources"].insert(1, VALIDATOR.STATION_LIST_STATE_CONSUMERS_PATH)
         self.write(VALIDATOR.STATION_DATA_POLICY_PATH, POLICY_TEXT)
         self.write(
             VALIDATOR.STATION_DATA_POLICY_CONSUMERS_PATH,
@@ -136,8 +146,101 @@ class FixtureRepository:
         }
         for path, references in reference_lines.items():
             self.append(path, references)
+        self.write_station_list_state_contract()
+        self.write_station_list_state_source_surface()
         self.write_hub_direct_links()
         self.write_catalog()
+
+    def write_station_list_state_contract(self) -> None:
+        self.write(VALIDATOR.STATION_LIST_STATE_CONTRACT_PATH, STATE_CONTRACT_TEXT)
+        self.write(
+            VALIDATOR.STATION_LIST_STATE_CONSUMERS_PATH,
+            json.dumps(
+                VALIDATOR.EXPECTED_STATION_LIST_STATE_CONSUMERS,
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
+        self.write(
+            VALIDATOR.STATION_LIST_STATE_OWNER,
+            "# state-model\n\n## Station-list 결정적 상태 계약\n\n"
+            + VALIDATOR.STATION_LIST_STATE_CONTRACT_START
+            + "\n```json\n"
+            + STATE_CONTRACT_TEXT.rstrip("\n")
+            + "\n```\n"
+            + VALIDATOR.STATION_LIST_STATE_CONTRACT_END
+            + "\n",
+        )
+        references = {
+            "README.md": "docs/state-model.md",
+            "docs/agent-workflow.md": "state-model.md",
+            "docs/architecture.md": "state-model.md",
+            "docs/module-contracts.md": "state-model.md",
+            "docs/onboarding/developer-onboarding-guide.md": "../state-model.md",
+            "docs/project-reading-guide.md": "state-model.md",
+            "docs/test-strategy.md": "state-model.md",
+            "docs/verification-matrix.md": "state-model.md",
+        }
+        for path, target in references.items():
+            self.append(
+                path,
+                "<!-- station-list-state-contract-ref -->"
+                "[상태 모델의 구조화된 station-list 계약]"
+                f"({target}#station-list-결정적-상태-계약)\n",
+            )
+
+    def write_station_list_state_source_surface(self) -> None:
+        sources = {
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt": (
+                "class LocationStateMachine {\n"
+                "  var permissionGeneration = 0\n  var gpsGeneration = 0\n"
+                "  var locationRequestGeneration = 0\n  var addressRequestGeneration = 0\n"
+                "  suspend fun resolveAddressLabel() = Unit\n"
+                "  val result = LocationAcquisitionResult.Superseded\n}\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt": (
+                "class StationSearchOrchestrator {\n"
+                "  val observationFailed = false\n  fun retryObservation() = Unit\n"
+                "  data class ObservationSession(val generation: Int)\n}\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt": (
+                "class RefreshCoordinator {\n  data class ActiveRefreshWork(val id: Long)\n"
+                "  val onResult: suspend () -> Unit = {}\n"
+                "  fun refresh() { scope.launch { resolveAddressLabel() }.invokeOnCompletion {} }\n}\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt": (
+                "class StationListCommandQueue {\n"
+                "  val mutableCommands = MutableStateFlow<List<StationListUiCommand>>(emptyList())\n"
+                "  fun enqueue(command: StationListUiCommand) { mutableCommands.value = mutableCommands.value + command }\n"
+                "  fun acknowledge(commandId: Long) { if (current.firstOrNull()?.id == commandId) Unit }\n}\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt": (
+                "object StationListStateAssembler {\n"
+                "  fun assemble(inputs: StationListStateInputs): StationListUiState = TODO()\n}\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt": (
+                "data class StationListStateInputs(val value: Int)\n"
+                "fun projectStationSearchResult() = Unit\n"
+            ),
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt": (
+                "class StationListViewModel {\n"
+                "  val state = StationListStateAssembler.assemble(inputs)\n}\n"
+            ),
+            "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt": (
+                "class DefaultStationRepository(private val latestWatchIntentGate: LatestWatchIntentGate) {\n"
+                "  fun updateWatchState() = WatchMutationResult.Committed\n"
+                "  fun removeWatchedStation() = WatchMutationResult.Superseded\n}\n"
+            ),
+            "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt": (
+                "@Insert(onConflict = OnConflictStrategy.IGNORE)\n"
+                "interface WatchedStationDao {\n"
+                "  // watchedAtEpochMillis DESC, stationId ASC\n"
+                "  // watchedAtEpochMillis DESC, stationId ASC\n}\n"
+            ),
+        }
+        for path, text in sources.items():
+            self.write(path, text)
 
     def write(self, path: str, text: str) -> None:
         target = self.root / path
@@ -541,6 +644,62 @@ class ValidatorTest(unittest.TestCase):
         self.repo.append("README.md", "![broken](docs/missing.png)\n")
         self.assert_rejected("missing link target")
 
+    def test_full_validator_rejects_station_state_source_drift(self) -> None:
+        contract_path = self.repo.root / VALIDATOR.STATION_LIST_STATE_CONTRACT_PATH
+        contract = json.loads(contract_path.read_text())
+        contract["command"]["acknowledgement"] = "finally"
+        contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n")
+        self.assert_rejected("approved contract")
+
+    def test_full_validator_rejects_station_state_rendered_block_drift(self) -> None:
+        owner = self.repo.root / VALIDATOR.STATION_LIST_STATE_OWNER
+        text = owner.read_text()
+        owner.write_text(text.replace("viewmodel_lifetime_fifo", "collector_lifetime_fifo", 1))
+        self.assert_rejected("approved contract")
+
+    def test_full_validator_rejects_missing_station_state_reference(self) -> None:
+        target = self.repo.root / "README.md"
+        lines = [line for line in target.read_text().splitlines() if "station-list-state-contract-ref" not in line]
+        target.write_text("\n".join(lines) + "\n")
+        self.assert_rejected("station-list state marker count differs")
+
+    def test_full_validator_rejects_stale_station_state_claim(self) -> None:
+        self.repo.append("README.md", "StationListEffect.OpenExternalMap is current.\n")
+        self.assert_rejected("deleted StationListEffect described as current")
+
+    def test_full_validator_rejects_station_viewmodel_assembler_relapse(self) -> None:
+        target = self.repo.root / (
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt"
+        )
+        target.write_text(target.read_text().replace("StationListStateAssembler.assemble", "assembleState", 1))
+        self.assert_rejected("exactly one StationListStateAssembler.assemble call")
+
+    def test_full_validator_rejects_watch_storage_contract_relapse(self) -> None:
+        target = self.repo.root / (
+            "core/database/src/main/kotlin/com/gasstation/core/database/station/WatchedStationDao.kt"
+        )
+        text = target.read_text().replace("OnConflictStrategy.IGNORE", "OnConflictStrategy.REPLACE", 1)
+        target.write_text(text.replace("watchedAtEpochMillis DESC, stationId ASC", "watchedAtEpochMillis DESC", 1))
+        self.assert_rejected("watch DAO must retain OnConflictStrategy.IGNORE")
+
+    def test_full_validator_rejects_revived_station_effect_and_test_monolith(self) -> None:
+        self.repo.write(
+            "feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListEffect.kt",
+            "sealed interface StationListEffect\n",
+        )
+        self.repo.write(
+            "feature/station-list/src/test/kotlin/com/gasstation/feature/stationlist/StationListViewModelTest.kt",
+            "class StationListViewModelTest\n",
+        )
+        self.assert_rejected("StationListEffect.kt must remain absent")
+
+    def test_full_validator_rejects_station_state_manifest_drift(self) -> None:
+        manifest_path = self.repo.root / VALIDATOR.STATION_LIST_STATE_CONSUMERS_PATH
+        manifest = json.loads(manifest_path.read_text())
+        manifest["consumers"]["docs/security-trade-offs.md"] = 1
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+        self.assert_rejected("consumer manifest differs from approved contract")
+
     def test_accepts_decoded_heading_anchor(self) -> None:
         self.repo.write("docs/target.md", f"# {CASE_DATA['validAnchor']}\n")
         self.repo.append("README.md", "[target](docs/target.md#price-%26-distance)\n")
@@ -619,7 +778,14 @@ class ValidatorTest(unittest.TestCase):
             if path in {"docs/README.md", "docs/project-reading-guide.md"}:
                 continue
             links.append(f"[{path}]({os.path.relpath(path, 'docs')})")
-        self.repo.write("docs/project-reading-guide.md", "# Guide\n\n" + "\n".join(links))
+        self.repo.write(
+            "docs/project-reading-guide.md",
+            "# Guide\n\n"
+            "<!-- station-list-state-contract-ref -->"
+            "[상태 모델의 구조화된 station-list 계약]"
+            "(state-model.md#station-list-결정적-상태-계약)\n"
+            + "\n".join(links),
+        )
         result = self.run_validator()
         self.assertEqual(0, result.returncode, result.stderr)
 
@@ -687,6 +853,22 @@ class ValidatorTest(unittest.TestCase):
             "gradlew",
             "#!/usr/bin/env bash\n"
             "printf '%s\\n' ':app:first - First' ':app:second - Second' ':app:third - Third'\n",
+        )
+        (self.repo.root / "gradlew").chmod(0o755)
+        result = self.run_validator("--check-gradle-tasks")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_gradle_check_accepts_tasks_without_descriptions(self) -> None:
+        self.repo.append(
+            "docs/verification-matrix.md",
+            "<!-- command-owner: verification.bare -->\n"
+            "```bash\n./gradlew :app:compileDemoDebugAndroidTestKotlin spotlessCheck lint verifyRoborazziDebug\n```\n",
+        )
+        self.repo.write(
+            "gradlew",
+            "#!/usr/bin/env bash\n"
+            "printf '%s\\n' 'app:compileDemoDebugAndroidTestKotlin' 'core:model:spotlessCheck' "
+            "'app:lint' 'feature:station-list:verifyRoborazziDebug'\n",
         )
         (self.repo.root / "gradlew").chmod(0o755)
         result = self.run_validator("--check-gradle-tasks")

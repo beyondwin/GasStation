@@ -145,6 +145,30 @@ git diff --check
 
 이 변경이 branch final HEAD라면 위 결과 뒤 `scripts/agent/verify.sh auto`를 실행합니다. known 2GiB parallel benchmark OOM이 재현될 때만 문서화된 process-level resource control로 재시도하며 repository memory policy는 이 문서 변경만으로 바꾸지 않습니다.
 
+## Station-list 상태 동시성 집중 회귀
+
+<!-- command-owner: station-state-concurrency -->
+
+location generation, observation recovery, latest watch intent, acknowledged FIFO command, refresh work identity, 순수 projection 또는 얇은 ViewModel 조합을 변경했을 때의 canonical regression입니다.
+
+```bash
+./gradlew \
+  :domain:station:test \
+  :core:database:testDebugUnitTest \
+  :data:station:testDebugUnitTest \
+  :feature:station-list:testDebugUnitTest \
+  :feature:watchlist:testDebugUnitTest \
+  :app:testDemoDebugUnitTest \
+  :app:testProdDebugUnitTest \
+  verifyRoborazziDebug \
+  verifyModuleBoundaries \
+  --warning-mode fail
+```
+
+이 명령의 증거 범위는 host coroutine 상태/동시성, Room/Robolectric, demo/prod app graph, screenshot, module-edge 회귀입니다. 연결된 기기나 에뮬레이터 실행을 증명하지 않습니다. opt-in connected 검증은 기존 전용 owner section에서 별도로 선택합니다.
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
+
 ## 경로별 신뢰 확인
 
 `demo`, `prod`, demo seed 도구까지 같이 확인해야 할 때 권장합니다.

@@ -13,7 +13,7 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 3. 어떤 모듈이 정책을 소유하는지 결정한다.
 4. domain 계약이나 모델 변경이 필요한지 확인한다.
 5. data/core 구현 변경이 필요한지 확인한다.
-6. feature의 UI state, action, effect, screen을 조정한다.
+6. feature의 UI state, action, command/effect, UI model, screen을 조정한다.
 7. demo/prod 경로와 테스트 범위를 확인한다.
 8. 문서가 약속한 동작과 달라졌다면 문서를 갱신한다.
 
@@ -61,7 +61,7 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 1. 사용자 흐름이 기존 route 안에 들어가는지, 새 route가 필요한지 결정한다.
 2. 새 도메인 개념이 있으면 `domain:*` 모델과 use case부터 정의한다.
 3. 저장, 원격 조회, 캐시 조합이 필요하면 `data:*` 또는 `core:*` 구현 위치를 정한다.
-4. feature에는 action, state, effect, UI model을 만든다.
+4. feature에는 action, state, command/effect, UI model을 만든다.
 5. navigation 연결은 마지막에 `app`에서 조립한다.
 6. demo 경로가 필요한 기능이면 seed, startup hook, UI test 영향을 확인한다.
 7. 테스트는 domain/data/core 단위 계약부터 막고 feature test로 사용자 흐름을 확인한다.
@@ -80,7 +80,7 @@ GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. �
 - refresh retry: `data:station/StationRetryPolicy.kt`, `data:station/DefaultStationRepository.kt`
 - watchlist 비교: `data:station/DefaultStationRepository.kt`, `feature:watchlist`
 - station event/관찰 계약: `domain:station/model/StationEvent.kt`, `domain:station/StationEventLogger.kt`, `core:observability/CrashReporter.kt`, 앱의 flavor별 analytics/observability 바인딩
-- 외부 지도: `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt`, `StationListEffect.OpenExternalMap`
+- 외부 지도: `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt`, `StationListCommandPayload.OpenExternalMap`
 
 소유자가 둘 이상이면 "정책은 domain/data, 표시와 interaction은 feature" 기준으로 나눈다.
 
@@ -162,10 +162,17 @@ feature가 `SettingsRepository`를 직접 호출하지 않게 유지한다. 설�
 - `data/station/StationRetryPolicy.kt`
 - `core/database/src/main/kotlin/com/gasstation/core/database/station/*`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt`
+- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt`
 - `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
 
-테스트는 repository, cache policy, retry policy, orchestrator, ViewModel을 함께 본다.
+테스트는 repository, cache/retry policy와 각 state owner의 집중 테스트, 다섯 개 ViewModel integration suite를 함께 본다. station-list의 generation, observation, refresh, command, projection, watch 동시성 변경은 [검증 매트릭스의 집중 회귀](verification-matrix.md#station-list-상태-동시성-집중-회귀)를 따른다.
+
+<!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 
 ## Watchlist Changes
 
