@@ -70,6 +70,34 @@ fun BuildResult.assertOutputDoesNotContain(sentinel: String) {
     }
 }
 
+fun BuildResult.assertConfigurationCacheStored() {
+    assertExactOutputLine(CONFIGURATION_CACHE_STORED)
+}
+
+fun BuildResult.assertConfigurationCacheReused() {
+    assertExactOutputLine(CONFIGURATION_CACHE_REUSED)
+    val forbiddenLines =
+        output.lineSequence().filter { line ->
+            line == CONFIGURATION_CACHE_STORED || line.startsWith("Calculating task graph")
+        }.toList()
+    if (forbiddenLines.isNotEmpty()) {
+        throw AssertionError(
+            "Expected configuration-cache reuse without graph calculation/storage, " +
+                "but found $forbiddenLines; outputTail=${output.boundedTail()}",
+        )
+    }
+}
+
+private fun BuildResult.assertExactOutputLine(expectedLine: String) {
+    val occurrences = output.lineSequence().count { line -> line == expectedLine }
+    if (occurrences != 1) {
+        throw AssertionError(
+            "Expected exact output line once but found $occurrences: $expectedLine; " +
+                "outputTail=${output.boundedTail()}",
+        )
+    }
+}
+
 private fun BuildResult.availableTaskOutcomes(): String =
     tasks.sortedBy { it.path }.joinToString(
         prefix = "[",
@@ -88,10 +116,22 @@ private fun String.countLiteralOccurrences(sentinel: String): Int {
     return count
 }
 
-private fun String.boundedTail(): String =
-    lines().takeLast(MAX_DIAGNOSTIC_LINES).joinToString("\\n").takeLast(MAX_DIAGNOSTIC_CHARACTERS)
+private fun String.boundedTail(): String {
+    val outputLines = lines()
+    val diagnosticLines =
+        if (outputLines.size <= MAX_DIAGNOSTIC_LINES * 2) {
+            outputLines
+        } else {
+            outputLines.take(MAX_DIAGNOSTIC_LINES) +
+                listOf("... output truncated ...") +
+                outputLines.takeLast(MAX_DIAGNOSTIC_LINES)
+        }
+    return diagnosticLines.joinToString("\\n").takeLast(MAX_DIAGNOSTIC_CHARACTERS)
+}
 
 private const val MAX_DIAGNOSTIC_TASKS = 40
 private const val MAX_DIAGNOSTIC_LINES = 12
 private const val MAX_DIAGNOSTIC_CHARACTERS = 2_000
+private const val CONFIGURATION_CACHE_STORED = "Configuration cache entry stored."
+private const val CONFIGURATION_CACHE_REUSED = "Reusing configuration cache."
 private val STRUCTURED_OUTPUT_KEY = Regex("[A-Z][A-Z0-9_]*")

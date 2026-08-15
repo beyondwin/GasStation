@@ -23,6 +23,12 @@ Android application/library convention은 production source와 test source를 �
 
 이 경로는 `gasstation.android.application.compose`, `gasstation.android.library`, 그리고 이를 상속하는 `gasstation.android.library.compose` Android 모듈을 다룹니다. `gasstation.jvm.library`를 사용하는 `core:model`, `core:network`, `core:observability`, `domain:*`, `tools:demo-seed`는 Android Lint 대상이 아니며 Spotless, Kotlin compiler diagnostic, dependency/ABI, unit coverage와 구성된 PIT가 별도 owner입니다. `benchmark`도 이 convention 경로를 상속하지 않습니다. 정확한 production/test-source 명령과 보고서 위치는 [검증 매트릭스](verification-matrix.md#android-lint-분리-경로)를 따릅니다.
 
+## Kotlin 및 테스트 convention 경로
+
+Android Lint는 application/library Android source를 맡고, Kotlin compiler warning gate는 현재 활성 `domain:*` 세 모듈과 `core:model`, `core:observability`의 다섯 JVM contract 모듈을 blocking으로 맡습니다. 그 밖의 convention-owned 모듈은 report-only이며 명시적 opt-in으로만 strict로 승격합니다. application, Android library, JVM library convention이 소유하는 모든 `Test` task는 15분 task timeout을 사용하고 retry는 적용하지 않습니다.
+
+Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니다. 정확한 Roborazzi lifecycle task를 해당 프로젝트에 요청하거나 명시적인 exact-true property를 준 경우에만 포함합니다. 정확한 속성 표와 실행 명령은 [검증 매트릭스](verification-matrix.md#kotlin-및-convention-정책)를 따릅니다.
+
 ## 계층별 목적
 
 | 계층 | 대표 테스트 파일 | 무엇을 증명하나 |

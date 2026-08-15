@@ -147,6 +147,10 @@ LINT_JOB_CONTRACTS = {
         },
     },
 }
+CONVENTION_TEST_ARGUMENTS = [
+    ":build-logic:convention:test",
+    "--warning-mode=fail",
+]
 
 
 def issue(path, line: int, message: str) -> str:
@@ -661,6 +665,11 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
             for invocations, standalone in parsed_runs
             for arguments in invocations
         ]
+        convention_test_invocations = [
+            (arguments, standalone)
+            for arguments, standalone in gradle_invocations
+            if normalize_gradle_arguments(arguments) == CONVENTION_TEST_ARGUMENTS
+        ]
         lint_arguments = max(
             gradle_invocations,
             key=lambda invocation: sum(
@@ -695,14 +704,25 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                     f"{job_name} command must not exclude lint tasks",
                 )
             )
+        expected_invocation_count = 2 if job_name == "static-analysis" else 1
         if gradle_invocations and (
-            len(gradle_invocations) != 1 or not lint_arguments[1]
+            len(gradle_invocations) != expected_invocation_count or not lint_arguments[1]
         ):
             issues.append(
                 issue(
                     workflow_path,
                     job_line,
                     f"{job_name} command must be one standalone ./gradlew invocation",
+                )
+            )
+        if job_name == "static-analysis" and not any(
+            standalone for _, standalone in convention_test_invocations
+        ):
+            issues.append(
+                issue(
+                    workflow_path,
+                    job_line,
+                    "static-analysis command missing: convention plugin tests",
                 )
             )
         if normalized_arguments and normalized_arguments != contract["arguments"]:

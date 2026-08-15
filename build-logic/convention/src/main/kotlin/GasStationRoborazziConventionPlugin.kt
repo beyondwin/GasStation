@@ -15,13 +15,12 @@ class GasStationRoborazziConventionPlugin : Plugin<Project> {
             pluginManager.apply("io.github.takahirom.roborazzi")
 
             val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
-            val includeInUnitTests = providers
-                .gradleProperty("gasstation.includeRoborazziInUnitTests")
-                .map(String::toBoolean)
-                .orElse(false)
-            val roborazziTaskRequested = gradle.startParameter.taskNames.any {
-                it.contains("Roborazzi", ignoreCase = true)
-            }
+            val includeInUnitTests =
+                providers.strictBooleanGradleProperty(
+                    name = "gasstation.includeRoborazziInUnitTests",
+                    defaultValue = false,
+                )
+            val roborazziTaskRequested = providers.provider { isRoborazziLifecycleTaskRequested() }
 
             dependencies {
                 add("testImplementation", libs.findLibrary("roborazzi-core").get())
@@ -31,14 +30,14 @@ class GasStationRoborazziConventionPlugin : Plugin<Project> {
             }
 
             tasks.withType<Test>().configureEach {
-                if (!roborazziTaskRequested && !includeInUnitTests.get()) {
+                if (!roborazziTaskRequested.get() && !includeInUnitTests.get()) {
                     exclude("**/Roborazzi*Test.class")
                 }
             }
 
             val snapshotsDirectory = projectDir.resolve("src/test/snapshots")
             tasks.matching {
-                it.name == "recordRoborazziDebug" || it.name == "verifyRoborazziDebug"
+                isRoborazziLifecycleTaskName(it.name)
             }.configureEach {
                 doLast {
                     verifyNoRoborazziStagingFrames(snapshotsDirectory)
@@ -46,7 +45,34 @@ class GasStationRoborazziConventionPlugin : Plugin<Project> {
             }
         }
     }
+
+    private fun Project.isRoborazziLifecycleTaskRequested(): Boolean {
+        val registeredTasks = tasks.names
+        return gradle.startParameter.taskNames.any { requestedTask ->
+            val leafTask = requestedTask.substringAfterLast(':')
+            if (
+                !isRoborazziLifecycleTaskName(leafTask) ||
+                leafTask !in registeredTasks
+            ) {
+                return@any false
+            }
+            when {
+                ':' !in requestedTask -> true
+                requestedTask.startsWith(":") ->
+                    requestedTask.removeSuffix(":$leafTask").ifEmpty { ":" } == path
+                else -> false
+            }
+        }
+    }
 }
+
+private fun isRoborazziLifecycleTaskName(taskName: String): Boolean =
+    ROBORAZZI_LIFECYCLE_TASK_PREFIXES.any { prefix ->
+        taskName == prefix ||
+            taskName.removePrefix(prefix).let { suffix ->
+                taskName.startsWith(prefix) && suffix.firstOrNull()?.isUpperCase() == true
+            }
+    }
 
 internal fun verifyNoRoborazziStagingFrames(snapshotsDirectory: File) {
     val pngFiles = snapshotsDirectory.listFiles { file ->
@@ -79,3 +105,10 @@ internal fun verifyNoRoborazziStagingFrames(snapshotsDirectory: File) {
 }
 
 private const val ROBORAZZI_STAGING_FRAME_ARGB = -65281
+private val ROBORAZZI_LIFECYCLE_TASK_PREFIXES =
+    listOf(
+        "recordRoborazzi",
+        "verifyRoborazzi",
+        "compareRoborazzi",
+        "verifyAndRecordRoborazzi",
+    )

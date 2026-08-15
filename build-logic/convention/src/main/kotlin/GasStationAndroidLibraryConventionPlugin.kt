@@ -6,14 +6,12 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.withType
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("gasstation.spotless")
         pluginManager.apply("com.android.library")
+        configureGasStationKotlinAndTestConventions()
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
@@ -49,10 +47,6 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
             lint {
                 configureGasStationAndroidLint(this, checkDependencies = false)
             }
-        }
-
-        tasks.withType<KotlinCompile>().configureEach {
-            compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
         }
 
         dependencies {

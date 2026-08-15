@@ -143,6 +143,8 @@ jobs:
             -Pgasstation.lintTestSources=false \
             --warning-mode fail \
             --continue
+      - name: Convention plugin tests
+        run: ./gradlew :build-logic:convention:test --warning-mode fail
       - name: Upload production lint reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -358,6 +360,47 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        ":build-logic:convention:test",
+        ":build-logic:convention:tests",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/convention-test-task.out" 2>&1; then
+  fail "CI accepted a misspelled static-analysis convention test task"
+fi
+assert_contains "$(cat "$fixture/convention-test-task.out")" "static-analysis command missing: convention plugin tests"
+assert_error_locations "$(cat "$fixture/convention-test-task.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "        run: ./gradlew :build-logic:convention:test --warning-mode fail",
+        "        run: ./gradlew help --warning-mode fail\n"
+        "        # ./gradlew :build-logic:convention:test --warning-mode fail",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/convention-test-comment.out" 2>&1; then
+  fail "CI accepted a static-analysis convention test task present only in a comment"
+fi
+assert_contains "$(cat "$fixture/convention-test-comment.out")" "static-analysis command missing: convention plugin tests"
+assert_error_locations "$(cat "$fixture/convention-test-comment.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
 from pathlib import Path

@@ -145,6 +145,37 @@ git diff --check
 
 이 변경이 branch final HEAD라면 위 결과 뒤 `scripts/agent/verify.sh auto`를 실행합니다. known 2GiB parallel benchmark OOM이 재현될 때만 문서화된 process-level resource control로 재시도하며 repository memory policy는 이 문서 변경만으로 바꾸지 않습니다.
 
+## Kotlin 및 convention 정책
+
+compiler/Test/Roborazzi convention 자체의 TestKit gate와 현재 strict module compile gate는 다음 명령이 소유합니다.
+
+```bash
+./gradlew :build-logic:convention:test --warning-mode fail
+./gradlew \
+  :domain:station:compileKotlin \
+  :domain:location:compileKotlin \
+  :domain:settings:compileKotlin \
+  :core:model:compileKotlin \
+  :core:observability:compileKotlin \
+  --warning-mode fail
+```
+
+`gasstation.kotlinWarningsAsErrors`의 유효값과 effective policy는 다음과 같습니다.
+
+| convention-owned module | 속성 생략 | `false` | `true` |
+| --- | --- | --- | --- |
+| `domain:*`, `core:model`, `core:observability` | warning blocking | warning blocking | warning blocking |
+| 그 밖의 모듈 | report-only | report-only | warning blocking |
+
+`gasstation.includeRoborazziInUnitTests`와 task selection은 다음 정책을 사용합니다.
+
+| 실행 경로 | 속성 생략 / `false` | `true` |
+| --- | --- | --- |
+| 일반 unit-test task | `Roborazzi*Test` 제외 | `Roborazzi*Test` 포함 |
+| 해당 프로젝트의 정확한 `recordRoborazzi*`, `verifyRoborazzi*`, `compareRoborazzi*`, `verifyAndRecordRoborazzi*` lifecycle | `Roborazzi*Test` 포함 | `Roborazzi*Test` 포함 |
+
+두 속성 모두 정확한 소문자 `true`/`false`만 허용하며 다른 대소문자, 앞뒤 공백, 오타, 빈 할당은 configuration failure입니다. Kotlin compile target은 JVM 17이고 application/library/JVM convention-owned `Test` task timeout은 15분이며 retry는 없습니다.
+
 ## Station-list 상태 동시성 집중 회귀
 
 <!-- command-owner: station-state-concurrency -->
@@ -421,7 +452,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
 | `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 

@@ -61,6 +61,8 @@ jobs:
             -Pgasstation.lintTestSources=false \
             --warning-mode fail \
             --continue
+      - name: Convention plugin tests
+        run: ./gradlew :build-logic:convention:test --warning-mode fail
       - name: Upload production lint reports
         if: always()
         uses: actions/upload-artifact@v7

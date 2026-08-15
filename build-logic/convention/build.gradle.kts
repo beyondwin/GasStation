@@ -1,4 +1,6 @@
+import java.time.Duration
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     `kotlin-dsl`
@@ -24,6 +26,11 @@ dependencies {
     implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
     testImplementation(gradleTestKit())
     testImplementation(libs.findLibrary("junit").get())
+}
+
+tasks.withType<Test>().configureEach {
+    timeout.set(Duration.ofMinutes(15))
+    maxParallelForks = 2
 }
 
 gradlePlugin {

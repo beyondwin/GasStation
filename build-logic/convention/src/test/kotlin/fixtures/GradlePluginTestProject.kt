@@ -8,9 +8,8 @@ import org.gradle.testkit.runner.GradleRunner
 class GradlePluginTestProject private constructor(
     val projectDir: File,
     val testKitDir: File,
+    val gradleUserHomeDir: File,
 ) {
-    val gradleUserHomeDir: File = projectDir.parentFile.resolve(GRADLE_USER_HOME_DIRECTORY)
-
     fun writeSettings(content: String = DEFAULT_SETTINGS): GradlePluginTestProject =
         writeFile("settings.gradle.kts", content)
 
@@ -46,6 +45,27 @@ class GradlePluginTestProject private constructor(
                 "--stacktrace",
                 "--gradle-user-home=${gradleUserHomeDir.absolutePath}",
             )
+        return createRunner(arguments, deterministicArguments)
+    }
+
+    fun configurationCacheRunner(vararg arguments: String): GradleRunner {
+        arguments.forEach(::requireNonConflictingArgument)
+        val deterministicArguments =
+            listOf(
+                "--configuration-cache",
+                "--configuration-cache-problems=fail",
+                "--no-build-cache",
+                "--warning-mode=fail",
+                "--stacktrace",
+                "--gradle-user-home=${gradleUserHomeDir.absolutePath}",
+            )
+        return createRunner(arguments, deterministicArguments)
+    }
+
+    private fun createRunner(
+        arguments: Array<out String>,
+        deterministicArguments: List<String>,
+    ): GradleRunner {
         return GradleRunner.create()
             .withProjectDir(projectDir)
             .withTestKitDir(testKitDir)
@@ -63,6 +83,8 @@ class GradlePluginTestProject private constructor(
                 argument.startsWith("--configuration-cache=") ||
                 argument == "--no-configuration-cache" ||
                 argument.startsWith("--no-configuration-cache=") ||
+                argument == "--configuration-cache-problems" ||
+                argument.startsWith("--configuration-cache-problems=") ||
                 argument == "--build-cache" ||
                 argument.startsWith("--build-cache=") ||
                 argument == "--no-build-cache" ||
@@ -73,19 +95,31 @@ class GradlePluginTestProject private constructor(
     }
 
     companion object {
-        fun create(root: File): GradlePluginTestProject {
+        fun create(
+            root: File,
+            sharedGradleUserHomeDir: File? = null,
+        ): GradlePluginTestProject {
             val canonicalRoot = root.canonicalFile
             require(canonicalRoot.isDirectory) { "Fixture root must be an existing directory: $root" }
 
             val projectDir = canonicalRoot.resolve(PROJECT_DIRECTORY)
             val testKitDir = canonicalRoot.resolve(TEST_KIT_DIRECTORY)
-            val gradleUserHomeDir = canonicalRoot.resolve(GRADLE_USER_HOME_DIRECTORY)
-            listOf(projectDir, testKitDir, gradleUserHomeDir).forEach { directory ->
+            listOf(projectDir, testKitDir).forEach { directory ->
                 require(directory.mkdir()) {
                     "Fixture directory must be newly created and empty: $directory"
                 }
             }
-            return GradlePluginTestProject(projectDir, testKitDir)
+            val gradleUserHomeDir =
+                sharedGradleUserHomeDir?.canonicalFile
+                    ?: canonicalRoot.resolve(GRADLE_USER_HOME_DIRECTORY).also { directory ->
+                        require(directory.mkdir()) {
+                            "Fixture directory must be newly created and empty: $directory"
+                        }
+                    }
+            require(gradleUserHomeDir.isDirectory) {
+                "Shared Gradle user home must be an existing directory: $gradleUserHomeDir"
+            }
+            return GradlePluginTestProject(projectDir, testKitDir, gradleUserHomeDir)
         }
 
         private const val PROJECT_DIRECTORY = "project"
