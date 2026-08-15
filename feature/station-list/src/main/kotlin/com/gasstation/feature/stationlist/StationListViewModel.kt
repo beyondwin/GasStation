@@ -12,7 +12,6 @@ import com.gasstation.domain.settings.usecase.UpdateBrandFilterUseCase
 import com.gasstation.domain.settings.usecase.UpdateFuelTypeUseCase
 import com.gasstation.domain.settings.usecase.UpdateSearchRadiusUseCase
 import com.gasstation.domain.station.StationEventLogger
-import com.gasstation.domain.station.StationRefreshFailureReason
 import com.gasstation.domain.station.logSafely
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationQuery
@@ -272,7 +271,7 @@ class StationListViewModel @Inject internal constructor(
                 }
                 searchOrchestrator.onRefreshFailure(query = result.query, reason = result.reason)
                 commandQueue.enqueue(
-                    StationListCommandPayload.ShowSnackbar(result.reason.refreshFailureResource()),
+                    StationListCommandPayload.ShowSnackbar(result.reason.toStationListRefreshFailureCopy()),
                 )
             }
         }
@@ -375,15 +374,4 @@ class StationListViewModel @Inject internal constructor(
 
 private fun LocationState.usableCoordinates(): Coordinates? = currentCoordinates?.takeIf {
     permissionState != LocationPermissionState.Denied && isAvailabilityKnown && isGpsEnabled
-}
-
-private fun StationRefreshFailureReason?.refreshFailureResource(): StringResource = when (this) {
-    StationRefreshFailureReason.Timeout -> StringResource.fromId(R.string.station_list_refresh_timeout)
-
-    StationRefreshFailureReason.Network,
-    StationRefreshFailureReason.InvalidPayload,
-    is StationRefreshFailureReason.Http,
-    StationRefreshFailureReason.Unknown,
-    null,
-    -> StringResource.fromId(R.string.station_list_refresh_failed)
 }
