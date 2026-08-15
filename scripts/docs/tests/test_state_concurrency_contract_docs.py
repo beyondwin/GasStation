@@ -420,6 +420,42 @@ class StateConcurrencyContractDocsTest(unittest.TestCase):
                         issues = source_issues(root)
                         self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
 
+    def test_room_query_named_observation_requires_one_function_declaration(self) -> None:
+        source_issues = self.require_callable("station_list_state_source_surface_issues")
+        cases = (
+            (
+                '@Query("SELECT stationId FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                "observeWatchedStationIds",
+                "Flow<List<String>>",
+                "SELECT stationId FROM watched_station",
+            ),
+            (
+                '@Query("SELECT * FROM watched_station '
+                'ORDER BY watchedAtEpochMillis DESC, stationId ASC")',
+                "observeWatchedStations",
+                "Flow<List<WatchedStationEntity>>",
+                "SELECT * FROM watched_station",
+            ),
+        )
+        for real_query, function_name, return_type, select_clause in cases:
+            with self.subTest(function=function_name):
+                with tempfile.TemporaryDirectory(prefix="state-contract-query-overload-") as directory:
+                    root = self.copy_source_surface(Path(directory))
+                    target = root / SOURCE_PATHS[8]
+                    text = target.read_text(encoding="utf-8")
+                    self.assertIn(real_query, text)
+                    self.assertTrue(text.endswith("}\n"))
+                    overload = (
+                        f'    @Query("{select_clause} '
+                        'ORDER BY watchedAtEpochMillis DESC, stationId ASC")\n'
+                        f"    fun {function_name}(limit: Int): {return_type}\n"
+                    )
+                    mutated = text.replace(real_query, "", 1)[:-2] + overload + "}\n"
+                    target.write_text(mutated, encoding="utf-8")
+                    issues = source_issues(root)
+                    self.assertTrue(any("deterministic watched ordering" in issue for issue in issues), issues)
+
     def test_stale_claim_detection_rejects_deleted_models_and_device_overclaim(self) -> None:
         claim_issues = self.require_callable("station_list_state_claim_issues")
         invalid = (

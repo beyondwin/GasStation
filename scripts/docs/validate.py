@@ -426,6 +426,12 @@ def kotlin_room_query_literals(text: str) -> list[str]:
     return [query for _, query in kotlin_room_query_bindings(text)]
 
 
+def kotlin_function_names(text: str) -> list[str]:
+    executable = strip_kotlin_comments_and_literals(text)
+    pattern = re.compile(r"\bfun\s+(?:<[^>\n]+>\s*)?(?P<name>[A-Za-z_][\w]*|`[^`\n]+`)")
+    return [match.group("name").strip("`") for match in pattern.finditer(executable)]
+
+
 def strip_code(text: str) -> str:
     return INLINE_CODE.sub("", strip_fenced_code(text))
 
@@ -1263,8 +1269,9 @@ def station_list_state_source_surface_issues(root: Path) -> list[str]:
         name: [" ".join(query.split()) for bound_name, query in watch_bindings if bound_name == name]
         for name in expected_watch_queries
     }
+    watch_function_counts = Counter(kotlin_function_names(sources["watch_dao"]))
     if any(
-        watch_queries_by_function[name] != [expected_query]
+        watch_function_counts[name] != 1 or watch_queries_by_function[name] != [expected_query]
         for name, expected_query in expected_watch_queries.items()
     ):
         issues.append(location(paths["watch_dao"], 1, "watch DAO must retain deterministic watched ordering in both observations"))
