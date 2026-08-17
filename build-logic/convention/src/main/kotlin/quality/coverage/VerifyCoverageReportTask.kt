@@ -7,6 +7,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -21,6 +22,7 @@ abstract class VerifyCoverageReportTask : DefaultTask() {
     @get:InputFile @get:PathSensitive(PathSensitivity.RELATIVE) abstract val verifier: RegularFileProperty
     @get:Input abstract val sourceCommit: Property<String>
     @get:Input abstract val event: Property<String>
+    @get:Input @get:Optional abstract val baseRef: Property<String>
     @get:OutputFile abstract val summary: RegularFileProperty
 
     @get:Inject abstract val execOperations: ExecOperations
@@ -33,7 +35,7 @@ abstract class VerifyCoverageReportTask : DefaultTask() {
     fun verify() {
         val result = execOperations.exec {
             executable("python3")
-            args(
+            val arguments = mutableListOf(
                 verifier.get().asFile.absolutePath,
                 "verify",
                 "--manifest", manifest.get().asFile.absolutePath,
@@ -43,6 +45,10 @@ abstract class VerifyCoverageReportTask : DefaultTask() {
                 "--source-commit", sourceCommit.get(),
                 "--event", event.get(),
             )
+            baseRef.orNull?.takeIf(String::isNotBlank)?.let { value ->
+                arguments += listOf("--base-ref", value)
+            }
+            args(arguments)
             isIgnoreExitValue = true
         }
         result.assertNormalExitValue()

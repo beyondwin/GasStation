@@ -291,6 +291,59 @@ class GitSourceAndDiffTest(unittest.TestCase):
 
 
 class ClassificationAndSummaryTest(unittest.TestCase):
+    def test_historical_test_inventory_may_differ_when_report_topology_identity_is_stable(self):
+        current_unit = {
+            "id": ":sample|rendering",
+            "line": {"covered": 0, "missed": 1, "total": 1},
+            "branch": {"covered": 0, "missed": 0, "total": 0},
+            "authoredSourceCount": 1,
+            "executableLineCount": 1,
+            "branchCount": 0,
+            "classCount": 1,
+        }
+        measurement = {
+            "schemaVersion": 1,
+            "policySha256": "1" * 64,
+            "reports": [{
+                "reportId": ":sample|main",
+                "inputIdentitySha256": "2" * 64,
+                "measuredTestInputIdentitySha256": "new",
+                "measuredTestSources": [{"path": "NewTest.kt", "sha256": "3" * 64}],
+            }],
+            "units": [current_unit],
+        }
+        baseline = {
+            "schemaVersion": 1,
+            "policySha256": "1" * 64,
+            "reports": [{
+                "reportId": ":sample|main",
+                "inputIdentitySha256": "2" * 64,
+                "measuredTestInputIdentitySha256": "old",
+                "measuredTestSources": [{"path": "OldTest.kt", "sha256": "4" * 64}],
+            }],
+            "units": [current_unit],
+        }
+        policy = {
+            "enforcementMode": "blocking",
+            "maximumBaselineDropBasisPoints": 50,
+            "units": [{"id": ":sample|rendering", "family": "rendering"}],
+        }
+        self.assertEqual([], coverage._verify_current(measurement, policy, baseline))
+
+    def test_event_base_semantics_fail_closed_for_pull_request_and_skip_tag(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(coverage.CoverageError, "pull-request"):
+                coverage._changed_violations(
+                    Path("manifest.json"), {"changedThresholds": {}}, {}, root, "pull-request", None,
+                )
+            self.assertEqual(
+                [],
+                coverage._changed_violations(
+                    Path("manifest.json"), {"changedThresholds": {}}, {}, root, "tag", None,
+                ),
+            )
+
     def test_capture_keeps_rendering_units_report_only_without_inventing_floors(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

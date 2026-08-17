@@ -853,8 +853,14 @@ def _verify_current(measurement: dict[str, Any], policy: dict[str, Any], baselin
         raise CoverageError("verify requires blocking policy")
     if baseline.get("schemaVersion") != 1 or baseline.get("policySha256") != measurement["policySha256"]:
         raise CoverageError("baseline policy hash mismatch")
-    if baseline.get("reports") != measurement["reports"]:
-        raise CoverageError("baseline report topology or test identity differs from current evidence")
+    baseline_report_ids = {
+        item["reportId"]: item["inputIdentitySha256"] for item in baseline.get("reports", [])
+    }
+    current_report_ids = {
+        item["reportId"]: item["inputIdentitySha256"] for item in measurement["reports"]
+    }
+    if baseline_report_ids != current_report_ids:
+        raise CoverageError("baseline report topology identity differs from current evidence")
     current_units = {item["id"]: item for item in measurement["units"]}
     baseline_units = {item["id"]: item for item in baseline.get("units", [])}
     policy_units = {item["id"]: item for item in policy["units"]}
@@ -889,6 +895,100 @@ def _verify_current(measurement: dict[str, Any], policy: dict[str, Any], baselin
     return violations
 
 
+def _hardened_diff(root: Path, merge_base: str) -> dict[str, ChangedFile]:
+    with tempfile.TemporaryDirectory(prefix="gasstation-coverage-diff-") as directory:
+        attributes = Path(directory, "attributes")
+        attributes.write_bytes(b"")
+        configuration = [
+            "-c", "core.quotePath=true",
+            "-c", f"core.attributesFile={attributes}",
+            "-c", "diff.noPrefix=false",
+            "-c", "diff.mnemonicPrefix=false",
+            "-c", "diff.srcPrefix=a/",
+            "-c", "diff.dstPrefix=b/",
+            "-c", "diff.indentHeuristic=false",
+            "-c", "diff.interHunkContext=0",
+            "-c", "diff.relative=false",
+            "-c", "diff.renameLimit=0",
+        ]
+        common = [
+            "--src-prefix=a/", "--dst-prefix=b/", "--no-relative", "--no-indent-heuristic",
+            "--inter-hunk-context=0", "--text", "--no-ext-diff", "--no-textconv",
+            "--diff-algorithm=myers", "--find-renames=50%", "-l0", "--diff-filter=ACMR",
+            f"{merge_base}...HEAD", "--",
+        ]
+        environment = os.environ.copy()
+        environment["GIT_ATTR_NOSYSTEM"] = "1"
+        patch = subprocess.run(
+            ["git", *configuration, "diff", "--unified=0", "--no-color", *common],
+            cwd=root, env=environment, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ).stdout
+        status = subprocess.run(
+            ["git", *configuration, "diff", "--name-status", "-z", *common],
+            cwd=root, env=environment, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ).stdout
+    preliminary = parse_zero_context_diff(status, patch)
+    required = {path for path, change in preliminary.items() if change.status in {"A", "M"}}
+    return parse_zero_context_diff(status, patch, changed_blob_paths=required)
+
+
+def _changed_violations(
+    manifest_path: Path,
+    policy: dict[str, Any],
+    entries: dict[str, Any],
+    root: Path,
+    event: str,
+    base_ref: str | None,
+) -> list[str]:
+    if not base_ref:
+        if event == "pull-request":
+            raise CoverageError("pull-request coverage requires an explicit base ref")
+        return []
+    if not re.fullmatch(r"[0-9a-f]{40}", base_ref) or base_ref == "0" * 40:
+        if event == "main":
+            return []
+        raise CoverageError("coverage base ref must be one non-zero 40-hex commit")
+    try:
+        _git(root, "cat-file", "-e", f"{base_ref}^{{commit}}")
+        merge_base = _git(root, "merge-base", base_ref, "HEAD").decode().strip()
+    except CoverageError:
+        if event == "main":
+            return []
+        raise
+    changes = _hardened_diff(root, merge_base)
+    authored_paths = {
+        record["path"] for entry in entries.values() for record in entry["sources"]
+    }
+    changed_authored = {path: change for path, change in changes.items() if path in authored_paths}
+    violations: list[str] = []
+    line_floor = policy["changedThresholds"]["lineBasisPoints"]
+    branch_floor = policy["changedThresholds"]["branchBasisPoints"]
+    for report_id, entry in sorted(entries.items()):
+        selected_paths = sorted(set(_entry_sources(entry)).intersection(changed_authored))
+        if not selected_paths:
+            continue
+        parsed = parse_jacoco_xml((root / entry["xmlReport"]).read_bytes(), report_id)
+        line_covered = line_missed = branch_covered = branch_missed = 0
+        for path in selected_paths:
+            record = _entry_sources(entry)[path]
+            identity = (record["package"].replace(".", "/"), record["filename"])
+            if identity not in parsed.sources:
+                raise CoverageError(f"changed authored source missing from XML: {report_id} {path}")
+            counters = changed_counters(parsed.sources[identity], changed_authored[path].new_lines)
+            line_covered += counters["line"]["covered"]
+            line_missed += counters["line"]["missed"]
+            if counters["branch"] is not None:
+                branch_covered += counters["branch"]["covered"]
+                branch_missed += counters["branch"]["missed"]
+        line_total = line_covered + line_missed
+        branch_total = branch_covered + branch_missed
+        if line_total and ratio_below_basis_points(line_covered, line_total, line_floor):
+            violations.append(f"{report_id} changed line coverage is below {line_floor}bp")
+        if branch_total and ratio_below_basis_points(branch_covered, branch_total, branch_floor):
+            violations.append(f"{report_id} changed branch coverage is below {branch_floor}bp")
+    return violations
+
+
 def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -918,6 +1018,8 @@ def _main() -> int:
             return 0
         baseline = read_json(args.baseline)
         violations.extend(_verify_current(measurement, policy, baseline))
+        _, _, entries, root = _load_run(args.manifest, args.policy, args.source_commit)
+        violations.extend(_changed_violations(args.manifest, policy, entries, root, args.event, args.base_ref))
     except CoverageError as error:
         violations.append(str(error))
     write_summary(

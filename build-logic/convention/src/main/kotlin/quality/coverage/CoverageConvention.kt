@@ -64,6 +64,7 @@ internal fun configureCoverage(root: Project) {
         verifier.set(root.layout.projectDirectory.file("scripts/quality/verify_coverage.py"))
         this.sourceCommit.set(sourceCommit)
         event.set(root.providers.gradleProperty("gasstation.coverageEvent").orElse("local"))
+        baseRef.set(root.providers.gradleProperty("gasstation.coverageBaseRef"))
         summary.set(root.layout.buildDirectory.file("reports/coverage/verification-summary.json"))
     }
 
