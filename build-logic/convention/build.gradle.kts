@@ -67,5 +67,10 @@ gradlePlugin {
             id = "gasstation.roborazzi"
             implementationClass = "GasStationRoborazziConventionPlugin"
         }
+        register("gasStationRootQuality") {
+            id = "gasstation.root.quality"
+            implementationClass =
+                "com.gasstation.buildlogic.quality.GasStationRootQualityConventionPlugin"
+        }
     }
 }

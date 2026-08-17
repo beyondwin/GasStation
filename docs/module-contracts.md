@@ -9,7 +9,10 @@
 - `domain:*`는 계약과 모델을 소유하지만 Android/UI 타입을 노출하지 않습니다.
 - `data:*`는 저장과 조합을 담당하지만 화면 상태나 Compose 타입을 만들지 않습니다.
 - `core:*`는 여러 모듈이 공유하는 인프라와 값 객체만 둡니다.
-- 위 경계는 `./gradlew verifyModuleBoundaries`(CI `static-analysis` 포함)로 강제합니다. 의도된 예외는 `core:location → domain:location` 하나이며, 가드 규칙에서 제외돼 있습니다.
+- 위 경계는 `gasstation.root.quality`가 등록하는 `verifyModuleBoundaries`(CI `static-analysis` 포함)로 강제합니다.
+  현재 강제 범위는 정확한 `api`/`implementation` configuration에 선언된 직접 project dependency이며, 외부·전이·variant·다른 configuration 의존성까지 검사한다는 의미는 아닙니다.
+  의도된 예외는 `core:location → domain:location` 하나이며 가드 규칙에서 제외돼 있습니다.
+  세 root quality guard의 Gradle task model과 configuration-cache 호환성은 Gradle TestKit이 보호하며, 정확한 실행 명령은 [검증 매트릭스](verification-matrix.md#kotlin-및-convention-정책)를 따릅니다.
 
 ## 모듈 인벤토리
 
