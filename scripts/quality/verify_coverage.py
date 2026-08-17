@@ -821,8 +821,8 @@ def _capture(measurement: dict[str, Any], policy: dict[str, Any], root: Path) ->
     units: list[dict[str, Any]] = []
     for policy_unit in policy["units"]:
         current = dict(measured[policy_unit["id"]])
-        validate_unit_floor_schema(policy_unit, "blocking", current["branch"]["total"])
         if policy_unit["family"] not in {"rendering", "tool", "assembly"}:
+            validate_unit_floor_schema(policy_unit, "blocking", current["branch"]["total"])
             if current["line"]["total"] and ratio_below_basis_points(
                 current["line"]["covered"], current["line"]["total"], policy_unit["lineFloorBasisPoints"],
             ):

@@ -291,6 +291,49 @@ class GitSourceAndDiffTest(unittest.TestCase):
 
 
 class ClassificationAndSummaryTest(unittest.TestCase):
+    def test_capture_keeps_rendering_units_report_only_without_inventing_floors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_git(root, "init", "-q")
+            run_git(root, "config", "user.name", "Coverage Test")
+            run_git(root, "config", "user.email", "coverage@example.invalid")
+            (root / "marker").write_text("fixture")
+            run_git(root, "add", "marker")
+            run_git(root, "commit", "-qm", "fixture")
+            commit = run_git(root, "rev-parse", "HEAD").strip()
+            measurement = {
+                "schemaVersion": 1,
+                "sourceCommit": commit,
+                "policySha256": "1" * 64,
+                "manifestSchemaVersion": 1,
+                "reports": [],
+                "units": [
+                    {
+                        "id": f":sample|{family}",
+                        "line": {"covered": 0, "missed": 1, "total": 1},
+                        "branch": {"covered": 0, "missed": 0, "total": 0},
+                        "authoredSourceCount": 1,
+                        "executableLineCount": 1,
+                        "branchCount": 0,
+                        "classCount": 1,
+                    }
+                    for family in ("assembly", "rendering", "tool", "state")
+                ],
+            }
+            policy = {
+                "enforcementMode": "blocking",
+                "units": [
+                    {"id": f":sample|{family}", "family": family}
+                    for family in ("assembly", "rendering", "tool", "state")
+                ],
+            }
+            with self.assertRaisesRegex(coverage.CoverageError, "line floor"):
+                coverage._capture(measurement, policy, root)
+            policy["units"][-1]["lineFloorBasisPoints"] = 0
+            captured = coverage._capture(measurement, policy, root)
+            for unit in captured["units"][:3]:
+                self.assertNotIn("lineFloorBasisPointsAtCapture", unit)
+
     def test_feature_classification_is_exhaustive_non_overlapping_and_has_no_rendering_floor(self):
         sources = {"feature/src/main/State.kt", "feature/src/main/Screen.kt"}
         units = [
