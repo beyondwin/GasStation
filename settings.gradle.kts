@@ -20,7 +20,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "GasStation"
 
-include(
+val activeModulePaths: List<String> = listOf(
     ":app",
     ":core:model",
     ":core:observability",
@@ -39,4 +39,9 @@ include(
     ":feature:watchlist",
     ":tools:demo-seed",
     ":benchmark",
+)
+include(*activeModulePaths.toTypedArray())
+gradle.extensions.extraProperties.set(
+    "gasstation.activeModulePaths",
+    activeModulePaths.toList(),
 )

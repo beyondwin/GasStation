@@ -1,5 +1,6 @@
 package com.gasstation.buildlogic.quality
 
+import com.gasstation.buildlogic.quality.coverage.configureCoverage
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -14,6 +15,8 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
         if (target != target.rootProject) {
             throw GradleException("gasstation.root.quality must be applied to the root project only")
         }
+
+        configureCoverage(target)
 
         val inspectedModulePaths = target.subprojects.map(Project::getPath).sorted()
         val capturedModuleEdges = target.objects.setProperty(String::class.java)
