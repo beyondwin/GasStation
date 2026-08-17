@@ -272,5 +272,6 @@ private val COVERAGE_STUB_VERIFIER =
     count = int(marker.read_text() if marker.exists() else "0") + 1
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(str(count))
+    summary.with_name("stub-arguments.txt").write_text(" ".join(args))
     summary.write_text(json.dumps({"schemaVersion": 1, "status": "pass", "invocation": count}, sort_keys=True) + "\n")
     """.trimIndent()

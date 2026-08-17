@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -289,6 +290,25 @@ class GitSourceAndDiffTest(unittest.TestCase):
         with self.assertRaisesRegex(coverage.CoverageError, "no hunk"):
             coverage.parse_zero_context_diff(status, patch, changed_blob_paths={"module/src/main/kotlin/owner/Subject.kt"})
 
+    def test_hardened_diff_overrides_hostile_repository_configuration(self):
+        base = self.commit
+        self.write("module/src/main/kotlin/owner/Subject.kt", "package owner\nclass Subject { val value = 2 }\n")
+        run_git(self.root, "add", ".")
+        run_git(self.root, "commit", "-qm", "change")
+        for key, value in (
+            ("diff.noPrefix", "true"),
+            ("diff.mnemonicPrefix", "true"),
+            ("diff.srcPrefix", "hostile-old/"),
+            ("diff.dstPrefix", "hostile-new/"),
+            ("diff.indentHeuristic", "true"),
+            ("diff.relative", "true"),
+            ("diff.renameLimit", "1"),
+            ("diff.interHunkContext", "99"),
+        ):
+            run_git(self.root, "config", key, value)
+        changes = coverage._hardened_diff(self.root, base)
+        self.assertEqual({2}, changes["module/src/main/kotlin/owner/Subject.kt"].new_lines)
+
 
 class ClassificationAndSummaryTest(unittest.TestCase):
     def test_historical_test_inventory_may_differ_when_report_topology_identity_is_stable(self):
@@ -329,6 +349,33 @@ class ClassificationAndSummaryTest(unittest.TestCase):
             "units": [{"id": ":sample|rendering", "family": "rendering"}],
         }
         self.assertEqual([], coverage._verify_current(measurement, policy, baseline))
+        measurement["reports"][0]["inputIdentitySha256"] = "9" * 64
+        with self.assertRaisesRegex(coverage.CoverageError, "topology identity"):
+            coverage._verify_current(measurement, policy, baseline)
+
+    def test_app_shared_changed_lines_are_checked_independently_in_demo_and_prod(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shared = "app/src/main/kotlin/owner/Shared.kt"
+            entries = {}
+            for variant, covered in (("demoDebug", 1), ("prodDebug", 0)):
+                report_id = f":app|{variant}"
+                xml = root / f"{variant}.xml"
+                xml.write_bytes(jacoco_xml([("owner", "Shared.kt", 1, 1 - covered, covered, 0, 0)]))
+                entries[report_id] = {
+                    "xmlReport": xml.name,
+                    "sources": [{"path": shared, "package": "owner", "filename": "Shared.kt"}],
+                }
+            changed = {
+                shared: coverage.ChangedFile("M", shared, shared, {1}, hunk_count=1),
+            }
+            policy = {"changedThresholds": {"lineBasisPoints": 8000, "branchBasisPoints": 7000}}
+            with mock.patch.object(coverage, "_git", side_effect=[b"", b"1" * 40 + b"\n"]), \
+                    mock.patch.object(coverage, "_hardened_diff", return_value=changed):
+                violations = coverage._changed_violations(
+                    Path("manifest.json"), policy, entries, root, "local", "1" * 40,
+                )
+            self.assertEqual([":app|prodDebug changed line coverage is below 8000bp"], violations)
 
     def test_event_base_semantics_fail_closed_for_pull_request_and_skip_tag(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -76,6 +76,7 @@ class CoverageConventionTest {
                 "verifyCoverageReport",
                 "-Pgasstation.coverageSourceCommit=$sourceCommit",
                 "-Pgasstation.coverageEvent=local",
+                "-Pgasstation.coverageBaseRef=${"2".repeat(40)}",
                 "--parallel",
             )
 
@@ -97,6 +98,7 @@ class CoverageConventionTest {
             },
         )
         assertEquals("2", project.stubInvocationMarker().readText())
+        assertTrue(project.stubArgumentsMarker().readText().contains("--base-ref ${"2".repeat(40)}"))
         assertEquals(firstIdentities, project.semanticIdentities())
 
         val rerunArguments = arguments + "--rerun-tasks"
@@ -151,4 +153,7 @@ class CoverageConventionTest {
 
     private fun GradlePluginTestProject.stubInvocationMarker(): File =
         projectDir.resolve("build/reports/coverage/stub-invocations.txt")
+
+    private fun GradlePluginTestProject.stubArgumentsMarker(): File =
+        projectDir.resolve("build/reports/coverage/stub-arguments.txt")
 }
