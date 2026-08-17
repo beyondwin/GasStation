@@ -383,7 +383,12 @@ git -C "$fixture/repo" restore .github/workflows/android.yml
 
 for blocking_field in \
   'continue-on-error: true' \
-  'continue-on-error: ${{ true }}'; do
+  'continue-on-error: ${{ true }}' \
+  'continue-on-error: no' \
+  'continue-on-error: off' \
+  'continue-on-error: ${{ github.event_name == '\''pull_request'\'' }}' \
+  'continue-on-error: "${{ github.event_name == '\''pull_request'\'' }}"' \
+  'continue-on-error: '\''${{ github.event_name == '\'''\''pull_request'\'''\'' }}'\'''; do
   python3 - "$fixture/repo/.github/workflows/android.yml" "$blocking_field" <<'PY'
 from pathlib import Path
 import sys
@@ -409,7 +414,13 @@ done
 
 for disabling_field in \
   'if: false' \
-  'if: ${{ false }}'; do
+  'if: ${{ false }}' \
+  'if: ${{ github.event_name == '\''push'\'' }}' \
+  'if: "${{ github.event_name == '\''push'\'' }}"' \
+  'if: '\''${{ github.event_name == '\'''\''push'\'''\'' }}'\''' \
+  'if: true' \
+  'if: ${{ true }}' \
+  'if: always()'; do
   python3 - "$fixture/repo/.github/workflows/android.yml" "$disabling_field" <<'PY'
 from pathlib import Path
 import sys
@@ -442,8 +453,27 @@ workflow.write_text(
     workflow.read_text().replace(
         "      - name: Convention plugin tests\n",
         "      - name: Convention plugin tests\n"
-        "        continue-on-error: false\n"
-        "        if: true\n",
+        "        continue-on-error: false\n",
+        1,
+    )
+)
+PY
+GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Convention plugin tests\n",
+        "      - name: Conditional unrelated step\n"
+        "        continue-on-error: ${{ github.event_name == 'pull_request' }}\n"
+        "        if: ${{ github.event_name == 'push' }}\n"
+        "        run: echo decoy\n"
+        "      - name: Convention plugin tests\n",
         1,
     )
 )

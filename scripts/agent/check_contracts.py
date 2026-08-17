@@ -633,9 +633,9 @@ def static_workflow_boolean(value: str) -> bool | None:
     expression = re.fullmatch(r"\$\{\{\s*(true|false)\s*\}\}", normalized)
     if expression is not None:
         normalized = expression.group(1)
-    if normalized in {"true", "yes", "on"}:
+    if normalized == "true":
         return True
-    if normalized in {"false", "no", "off"}:
+    if normalized == "false":
         return False
     return None
 
@@ -745,9 +745,13 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                 )
             else:
                 convention_fields = convention_test_steps[0]["fields"]
-                if static_workflow_boolean(
-                    convention_fields.get("continue-on-error", "")
-                ) is True:
+                if (
+                    "continue-on-error" in convention_fields
+                    and static_workflow_boolean(
+                        convention_fields["continue-on-error"]
+                    )
+                    is not False
+                ):
                     issues.append(
                         issue(
                             workflow_path,
@@ -755,7 +759,7 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                             "static-analysis convention plugin tests step must be blocking",
                         )
                     )
-                if static_workflow_boolean(convention_fields.get("if", "")) is False:
+                if "if" in convention_fields:
                     issues.append(
                         issue(
                             workflow_path,
