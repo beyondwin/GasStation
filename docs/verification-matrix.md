@@ -372,7 +372,9 @@ Screenshot 골든을 의도적으로 갱신할 때는 영향 모듈을 명시해
   :feature:watchlist:testDebugUnitTest \
   :feature:settings:testDebugUnitTest \
   verifyRoborazziDebug \
-  coverageXmlReport \
+  coverageXmlReport verifyCoverageReport \
+  -Pgasstation.coverageSourceCommit="$(git rev-parse HEAD)" \
+  -Pgasstation.coverageEvent=local \
   :app:assembleProdRelease
 ```
 
@@ -444,7 +446,16 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew verifyCiRobolectricRuntime
 ```
 
-> `coverageXmlReport`는 JaCoCo 0.8.15로 전체 unit-test matrix를 실행하고 app, core Android, data, feature, JVM 모듈의 authored class를 `build/reports/coverage/report.xml`에 집계합니다. 현재 coverage는 신호 수집용이며, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking threshold로 승격하지 않습니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
+> `coverageXmlReport`는 JaCoCo 0.8.15로 settings의 18개 명시 모듈 중 reviewed `benchmark` 제외를 적용하고 JVM/Android/app demo·prod 보고서 18개와 provenance manifest를 생성합니다. `verifyCoverageReport`는 authored source, exact production/test Git blob, class/exec/XML identity, 20개 coverage unit floor와 changed 8000/7000bp를 검증하고 항상 다시 실행됩니다. 현재 관측 단계에서는 report 생성은 blocking이고 verifier step만 report-only입니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
+
+```bash
+./gradlew coverageXmlReport verifyCoverageReport \
+  -Pgasstation.coverageSourceCommit="$(git rev-parse HEAD)" \
+  -Pgasstation.coverageEvent=local \
+  --warning-mode fail
+```
+
+PR과 local changed 판정에는 `-Pgasstation.coverageBaseRef=<40-hex-base>`를 추가합니다. PR은 base가 없거나 유효하지 않으면 실패하고, main의 unavailable/zero before와 tag/local의 생략 base는 changed coverage를 `N/A`로 두되 provenance·floor·baseline ratchet은 계속 판정합니다. Evidence 위치는 root index/summary와 `**/build/reports/coverage/*/{manifest-entry.json,report.xml}`입니다.
 
 ## CI 연결
 
@@ -452,11 +463,11 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark) |
-| `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`) + `coverage` (`coverageXmlReport`, unit-tests 완료 후 실행) |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark), 독립 `coverage` (report blocking + ratchet 관측) |
+| `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`); coverage는 full-history에서 main before 기준 evidence 생성 |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 
-`prodRelease` assemble과 coverage는 기본 PR matrix에 포함하지 않습니다. R8/minify 회귀나 coverage report가 PR마다 필요하다고 판단하면, 이 문서와 `.github/workflows/android.yml`을 같은 변경에서 갱신합니다.
+`prodRelease` assemble은 기본 PR matrix에 포함하지 않습니다. Coverage는 PR/main/tag 모두에서 독립 실행되어 unit-tests와 병렬로 증거를 만들며, 현재 관측 결과를 검토한 뒤 verifier의 success masking을 별도 커밋에서 제거합니다.
 `assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
 저장소 기본 workflow 권한은 read-only이며 `contents: write`는 tag-only `release-publish`에만 둡니다. `scripts/agent/check-contracts.sh --ci`는 release job이 모든 검증 job을 `needs`로 두고 release note, 다운로드 artifact, GitHub CLI 인증과 APK 게시 경로를 유지하는지 확인합니다.
 

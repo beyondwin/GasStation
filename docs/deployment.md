@@ -5,7 +5,7 @@
 ## 현재 배포 경계
 
 - 공식 실행 경로는 `demo`와 `prod`입니다. 둘 다 release 전에 빌드 가능해야 합니다.
-- GitHub Actions는 PR에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble을 실행하고, `main`/`v*` tag push에서 `release-assemble`과 coverage를 추가 실행합니다.
+- GitHub Actions는 PR, `main`, `v*` tag에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble, coverage를 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage ratchet은 현재 관측 단계라 report 생성만 blocking이고 판정 결과는 evidence artifact로 남깁니다.
 - `v*` tag에서는 위 job이 모두 성공한 뒤에만 `release-publish`가 GitHub Release를 만들거나 갱신하고 demo debug APK, unsigned prod release APK, `SHA256SUMS.txt`를 게시합니다.
 - 저장소의 기본 workflow token 권한은 read-only입니다. GitHub Release에 필요한 `contents: write`는 tag-only `release-publish` job에만 부여합니다.
 - 저장소에는 Play Store 자동 배포, signing keystore, 배포 credential을 두지 않습니다.
@@ -53,7 +53,7 @@ gh release view vX.Y.Z --json url,assets
 
 `gh`를 사용할 수 없는 환경에서는 GitHub Actions 웹 화면에서 `main`의 정확한 commit SHA와 모든 job 성공을 확인합니다. 실패하거나 아직 실행 중이면 태그를 만들지 않습니다.
 
-`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`와 `coverageXmlReport`를 다시 실행합니다. `release-publish`는 모든 선행 job 성공 후 `docs/release-notes/*-vX.Y.Z.md`를 body로 사용해 GitHub Release를 게시합니다. tag와 `versionName`이 다르거나 release note가 정확히 하나가 아니거나 APK가 두 개가 아니면 발행 전에 실패합니다.
+`v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`를 실행하고, coverage report와 ratchet evidence도 tagged SHA에서 다시 생성합니다. `release-publish`는 모든 선행 blocking job 성공 후 `docs/release-notes/*-vX.Y.Z.md`를 body로 사용해 GitHub Release를 게시합니다. tag와 `versionName`이 다르거나 release note가 정확히 하나가 아니거나 APK가 두 개가 아니면 발행 전에 실패합니다.
 
 Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있으면 note를 갱신하고 자산을 `--clobber`로 다시 올리며, tag 자체를 이동하거나 다시 만들지 않습니다. 자동화 도입 전에 만들어진 기존 tag를 보강할 때는 그 tag의 CI 성공과 release note를 확인한 뒤 `gh release create <tag> --verify-tag --notes-file <note>`로 Release record만 추가합니다.
 

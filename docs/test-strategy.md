@@ -125,18 +125,24 @@ Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니�
 
 ## 코드 커버리지
 
-`coverageXmlReport`는 JaCoCo 0.8.15로 JVM 모듈과 Android debug unit-test 실행 데이터를 한 번에 수집합니다. app은 `demoDebug` authored class 전체와 prod 전용 class를 함께 분석하고, 나머지 Android 모듈은 debug authored class를 분석합니다. Hilt factory/module, Compose singleton, preview 생성 코드는 분모에서 제외합니다.
+`coverageXmlReport`는 JaCoCo 0.8.15와 공개 Gradle/AGP provider API로 JVM `main`, Android `debug`, app `demoDebug`/`prodDebug` unit-test 보고서 18개를 생성합니다. 활성 모듈은 `settings.gradle.kts`의 명시 include 목록이 단일 기준이며 `benchmark`만 device 성능 증거 owner로 제외합니다. Hilt factory/module과 generated Compose singleton만 class 준비 단계에서 제외하고, authored preview라는 이유만으로 넓게 제외하지 않습니다.
 
-통합 XML은 `build/reports/coverage/report.xml`에 생성되며 main/tag push의 Codecov 업로드가 이 파일을 사용합니다. 현재 커버리지는 신호 수집용이고, 의미 있는 모듈별 floor가 별도로 설계되기 전까지 blocking coverage threshold는 두지 않습니다.
+각 보고서는 `**/build/reports/coverage/*/report.xml`과 같은 디렉터리의 `manifest-entry.json`을 남깁니다. Root `build/reports/coverage/report-manifest.json`은 23개 Gradle project node, 18개 build module, 18개 entry를 연결합니다. Entry는 production/test source SHA-256, exact test task, prepared class와 JaCoCo class ID, execution/XML raw·semantic identity를 기록합니다. app shared source의 baseline owner는 demo이고 prod 전용 source는 prod가 소유하지만, shared changed line은 두 variant에서 각각 판정합니다.
 
-재현 가능한 관측 기준은 `config/quality/quality-baseline.json`입니다. 현재 checked-in baseline의 historical `sourceCommit`은 실행 시작 커밋 `7b8c149c9f792aaf43cc00a94ba671929008979e`이며, 이후 재생성은 아래처럼 새로 생성한 보고서와 현재 HEAD를 함께 기록합니다.
+`verifyCoverageReport`는 current HEAD와 명시 source commit, Git production/test blob inventory, policy/baseline hash, source classification, denominator, 모듈 floor, baseline 대비 최대 50bp 하락, changed line 8000bp/branch 7000bp를 정수 연산으로 검증합니다. Feature는 exact `state`와 `rendering` source unit으로 나뉘며 rendering/design-system/tool/app assembly에는 raw floor를 만들지 않습니다. 현재 CI 관측 단계에서는 report 생성은 blocking이고 이 ratchet 판정 step만 `continue-on-error`입니다.
+
+의존성 verification metadata는 Task 9의 단독 소유입니다. Coverage 작업과 명령은 기존 Gradle verification metadata를 읽을 수 있지만 그 파일을 생성·갱신하지 않습니다.
+
+Coverage ratchet 기준은 `config/quality/coverage-policy.json`과 `config/quality/coverage-baseline.json`입니다. PIT를 함께 담는 `quality-baseline.json`은 별도 mutation evidence이며 coverage baseline을 대체하지 않습니다. Coverage 실행에는 symbolic ref나 축약 SHA가 아닌 현재 40-hex HEAD를 명시합니다.
 
 ```bash
-./gradlew coverageXmlReport :domain:station:pitest :domain:location:pitest :domain:settings:pitest --warning-mode fail --rerun-tasks
-python3 scripts/quality/capture_baseline.py --commit "$(git rev-parse HEAD)" --coverage build/reports/coverage/report.xml --pitest domain/station/build/reports/pitest/mutations.xml --pitest domain/location/build/reports/pitest/mutations.xml --pitest domain/settings/build/reports/pitest/mutations.xml --output config/quality/quality-baseline.json
+./gradlew coverageXmlReport verifyCoverageReport \
+  -Pgasstation.coverageSourceCommit="$(git rev-parse HEAD)" \
+  -Pgasstation.coverageEvent=local \
+  --warning-mode fail
 ```
 
-JaCoCo/PIT XML은 Git SHA를 포함하지 않으므로 `--commit`은 필수 명시값입니다. 보고서 생성기가 입력별 provenance를 제공할 때는 `--input-commit PATH=SHA`를 각 입력에 붙여 하나라도 다른 SHA인 캡처를 거부할 수 있습니다. JSON은 키 순서를 고정하고, 비교 대상 수치에는 wall-clock capture time을 넣지 않습니다.
+실행 결과는 `build/reports/coverage/verification-summary.json`에서 확인합니다. JSON은 NFC UTF-8, 정렬된 key/record와 정수 counter를 사용하며 wall-clock, 절대 경로, session ID를 baseline identity에 넣지 않습니다.
 
 ## Mutation testing (변이 테스트)
 
