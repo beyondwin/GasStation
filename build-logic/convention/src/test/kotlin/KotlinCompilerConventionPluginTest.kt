@@ -9,6 +9,7 @@ import com.gasstation.buildlogic.testing.assertTaskOutcome
 import com.gasstation.buildlogic.testing.compiledClassFile
 import com.gasstation.buildlogic.testing.readJvmClassMajorVersion
 import com.gasstation.buildlogic.testing.writeKotlinConventionFixture
+import com.gasstation.buildlogic.testing.writeJvmKotlinConventionMultiProjectFixture
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert.assertFalse
@@ -60,33 +61,33 @@ class KotlinCompilerConventionPluginTest {
 
     @Test
     fun everyDomainAndOnlyTheTwoApprovedCoreModulesAreStrictByDefault() {
-        listOf(":domain:sample", ":core:model", ":core:observability").forEach { projectPath ->
-            listOf(emptyArray(), arrayOf("-Pgasstation.kotlinWarningsAsErrors=false"))
-                .forEach { propertyArguments ->
-                    val project = newProject(projectPath.toFixtureName(propertyArguments))
-                        .writeKotlinConventionFixture(
-                            kind = KotlinConventionFixtureKind.JVM,
-                            projectPath = projectPath,
-                        )
-                    val compileTask = "$projectPath:compileKotlin"
-
-                    val result =
-                        project.runner(compileTask, "--rerun-tasks", *propertyArguments).buildAndFail()
-
-                    result.assertTaskOutcome(compileTask, TaskOutcome.FAILED)
-                    assertUncheckedCastWarning(result, "strict module $projectPath")
-                }
-        }
-
-        val network = newProject("core-network-report-only")
-            .writeKotlinConventionFixture(
-                kind = KotlinConventionFixtureKind.JVM,
-                projectPath = ":core:network",
+        val strictProjectPaths = listOf(":domain:sample", ":core:model", ":core:observability")
+        val networkProjectPath = ":core:network"
+        val project = newProject("strict-module-matrix")
+            .writeJvmKotlinConventionMultiProjectFixture(
+                strictProjectPaths + networkProjectPath,
             )
-        val networkResult =
-            network.runner(":core:network:compileKotlin", "--rerun-tasks").build()
-        networkResult.assertTaskOutcome(":core:network:compileKotlin", TaskOutcome.SUCCESS)
-        assertUncheckedCastWarning(networkResult, "unapproved core module")
+        val compileTasks =
+            (strictProjectPaths + networkProjectPath).map { projectPath ->
+                "$projectPath:compileKotlin"
+            }
+
+        listOf(emptyArray(), arrayOf("-Pgasstation.kotlinWarningsAsErrors=false"))
+            .forEach { propertyArguments ->
+                val result =
+                    project.runner(
+                        *compileTasks.toTypedArray(),
+                        "--rerun-tasks",
+                        "--continue",
+                        *propertyArguments,
+                    ).buildAndFail()
+
+                strictProjectPaths.forEach { projectPath ->
+                    result.assertTaskOutcome("$projectPath:compileKotlin", TaskOutcome.FAILED)
+                }
+                result.assertTaskOutcome("$networkProjectPath:compileKotlin", TaskOutcome.SUCCESS)
+                assertUncheckedCastWarning(result, "strict module matrix")
+            }
     }
 
     @Test
@@ -322,6 +323,4 @@ class KotlinCompilerConventionPluginTest {
         )
     }
 
-    private fun String.toFixtureName(arguments: Array<String>): String =
-        removePrefix(":").replace(':', '-') + if (arguments.isEmpty()) "-default" else "-false"
 }

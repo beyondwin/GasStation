@@ -140,13 +140,20 @@ class RoborazziConventionPluginTest {
                 "compareRoborazzi",
                 "verifyAndRecordRoborazzi",
             )
+        val project = newProject("aggregate-families").writeRoborazziFixture()
+        writePng(project.snapshotDirectory().resolve("staging.png"), MAGENTA_ARGB)
 
         families.forEach { taskName ->
-            val project = newProject("aggregate-${taskName.lowercase()}").writeRoborazziFixture()
-            writePng(project.snapshotDirectory().resolve("staging.png"), MAGENTA_ARGB)
+            val testResults = project.projectDir.resolve("build/test-results/testDebugUnitTest")
+            if (testResults.exists()) {
+                require(testResults.deleteRecursively()) {
+                    "Unable to remove stale JUnit evidence: $testResults"
+                }
+            }
 
-            val result = project.runner(taskName, "--rerun-tasks").buildAndFail()
+            val result = project.runner(taskName).buildAndFail()
 
+            result.assertTaskOutcome(":testDebugUnitTest", TaskOutcome.SUCCESS)
             result.assertTaskOutcome(":${taskName}Debug", TaskOutcome.FAILED)
             assertTrue(result.output.contains("exact staging magenta pixel(s)"))
             assertTestClasses(project, includeScreenshot = true)

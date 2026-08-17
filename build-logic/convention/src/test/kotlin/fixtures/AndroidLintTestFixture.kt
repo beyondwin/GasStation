@@ -49,6 +49,60 @@ fun GradlePluginTestProject.writeAndroidLintFixture(
     return this
 }
 
+fun GradlePluginTestProject.writeAndroidLintMultiProjectFixture(
+    mainSource: String,
+    testSource: String? = null,
+): GradlePluginTestProject {
+    writeSettings(
+        """
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+
+        dependencyResolutionManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+
+        rootProject.name = "gasstation-android-lint-multi-project-fixture"
+        include(":application", ":library")
+        """.trimIndent(),
+    )
+    writeFile("local.properties", "sdk.dir=${androidSdkDirectory().toPropertiesValue()}")
+    writeFile("gradle/libs.versions.toml", ANDROID_LINT_VERSION_CATALOG)
+    writeBuildFile("")
+    AndroidLintFixtureKind.entries.forEach { kind ->
+        val module = kind.name.lowercase()
+        writeFile(
+            "$module/build.gradle.kts",
+            """
+            plugins {
+                id("${kind.pluginId}")
+            }
+
+            android {
+                namespace = "fixture.$module"
+                ${if (kind == AndroidLintFixtureKind.APPLICATION) "defaultConfig { applicationId = \"fixture.application\" }" else ""}
+            }
+            """.trimIndent(),
+        )
+        writeFile("$module/src/main/AndroidManifest.xml", "<manifest />")
+        writeFile("$module/lint.xml", FIXTURE_ENVIRONMENTAL_LINT_POLICY)
+        writeFile("$module/src/main/java/fixture/MainSource.java", mainSource)
+        testSource?.let {
+            writeFile("$module/src/test/java/fixture/TestOnlyNewApi.java", it)
+        }
+    }
+    return this
+}
+
 private fun androidSdkDirectory(): String {
     val environmentSdk =
         sequenceOf("ANDROID_HOME", "ANDROID_SDK_ROOT")

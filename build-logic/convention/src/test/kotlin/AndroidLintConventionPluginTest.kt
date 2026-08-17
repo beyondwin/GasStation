@@ -6,6 +6,7 @@ import com.gasstation.buildlogic.testing.LintIssue
 import com.gasstation.buildlogic.testing.assertTaskOutcome
 import com.gasstation.buildlogic.testing.readLintIssues
 import com.gasstation.buildlogic.testing.writeAndroidLintFixture
+import com.gasstation.buildlogic.testing.writeAndroidLintMultiProjectFixture
 import java.io.File
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert.assertEquals
@@ -20,50 +21,87 @@ class AndroidLintConventionPluginTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 
+    private val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("android-lint-gradle-user-home")
+    }
+
     @Test
     fun testSourcePropertyIsStrictAndParitySafeForApplicationAndLibrary() {
+        val project = newLintMultiProject("property")
+        val lintTasks = AndroidLintFixtureKind.entries.map { it.lintTask() }
+
+        val defaultResult = project.runner(*lintTasks.toTypedArray(), "--parallel").build()
         AndroidLintFixtureKind.entries.forEach { kind ->
-            val project = newLintProject("property-${kind.name.lowercase()}", kind)
+            defaultResult.assertTaskOutcome(kind.lintTask(), TaskOutcome.SUCCESS)
+            assertTestOnlyNewApiAbsent(project, kind)
+        }
 
-            val defaultResult = project.runner("lintDebug").build()
-            defaultResult.assertTaskOutcome(":lintDebug", TaskOutcome.SUCCESS)
-            assertTestOnlyNewApiAbsent(project)
-
-            val explicitFalse =
-                project.runner("lintDebug", "-Pgasstation.lintTestSources=false").build()
+        val explicitFalse =
+            project.runner(
+                *lintTasks.toTypedArray(),
+                "--parallel",
+                "-Pgasstation.lintTestSources=false",
+            ).build()
+        AndroidLintFixtureKind.entries.forEach { kind ->
             assertTrue(
-                explicitFalse.task(":lintDebug")?.outcome in setOf(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE),
+                explicitFalse.task(kind.lintTask())?.outcome in
+                    setOf(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE),
             )
-            assertTestOnlyNewApiAbsent(project)
-
+            assertTestOnlyNewApiAbsent(project, kind)
         }
     }
 
     @Test
     fun propertyToggleRegeneratesReportsWithoutStaleTestFindingsForApplicationAndLibrary() {
+        val isolationSentinel = newTestProject("stale-isolation-sentinel")
+        val project = newLintMultiProject("stale")
+        assertEquals(
+            isolationSentinel.gradleUserHomeDir.canonicalFile,
+            project.gradleUserHomeDir.canonicalFile,
+        )
+        assertFalse(isolationSentinel.projectDir.canonicalFile == project.projectDir.canonicalFile)
+        assertFalse(isolationSentinel.testKitDir.canonicalFile == project.testKitDir.canonicalFile)
+        AndroidLintFixtureKind.entries.forEach { kind -> assertFalse(project.lintXml(kind).exists()) }
+        val lintTasks = AndroidLintFixtureKind.entries.map { it.lintTask() }
+
+        val productionOnly =
+            project.runner(
+                *lintTasks.toTypedArray(),
+                "--parallel",
+                "-Pgasstation.lintTestSources=false",
+            ).build()
         AndroidLintFixtureKind.entries.forEach { kind ->
-            val project = newLintProject("stale-${kind.name.lowercase()}", kind)
+            productionOnly.assertTaskOutcome(kind.lintTask(), TaskOutcome.SUCCESS)
+            assertTestOnlyNewApiAbsent(project, kind)
+        }
 
-            val productionOnly =
-                project.runner("lintDebug", "-Pgasstation.lintTestSources=false").build()
-            productionOnly.assertTaskOutcome(":lintDebug", TaskOutcome.SUCCESS)
-            assertTestOnlyNewApiAbsent(project)
+        val testSources =
+            project.runner(
+                *lintTasks.toTypedArray(),
+                "--continue",
+                "--parallel",
+                "-Pgasstation.lintTestSources=true",
+            ).buildAndFail()
+        AndroidLintFixtureKind.entries.forEach { kind ->
+            testSources.assertTaskOutcome(kind.lintTask(), TaskOutcome.FAILED)
+            assertTestOnlyNewApiPresent(project, kind)
+            assertReportSurface(project, kind)
+        }
 
-            val testSources =
-                project.runner("lintDebug", "-Pgasstation.lintTestSources=true").buildAndFail()
-            testSources.assertTaskOutcome(":lintDebug", TaskOutcome.FAILED)
-            assertTestOnlyNewApiPresent(project)
-            assertReportSurface(project)
-
-            val productionOnlyAgain =
-                project.runner("lintDebug", "-Pgasstation.lintTestSources=false").build()
-            productionOnlyAgain.assertTaskOutcome(":lintDebug", TaskOutcome.SUCCESS)
+        val productionOnlyAgain =
+            project.runner(
+                *lintTasks.toTypedArray(),
+                "--parallel",
+                "-Pgasstation.lintTestSources=false",
+            ).build()
+        AndroidLintFixtureKind.entries.forEach { kind ->
+            productionOnlyAgain.assertTaskOutcome(kind.lintTask(), TaskOutcome.SUCCESS)
             assertFalse(
-                productionOnlyAgain.task(":lintDebug")?.outcome in
+                productionOnlyAgain.task(kind.lintTask())?.outcome in
                     setOf(TaskOutcome.UP_TO_DATE, TaskOutcome.FROM_CACHE, TaskOutcome.SKIPPED),
             )
-            assertTestOnlyNewApiAbsent(project)
-            assertReportSurface(project)
+            assertTestOnlyNewApiAbsent(project, kind)
+            assertReportSurface(project, kind)
         }
     }
 
@@ -93,33 +131,31 @@ class AndroidLintConventionPluginTest {
 
     @Test
     fun warningPromotionFailsForApplicationAndLibrary() {
+        val project =
+            newTestProject("warning-matrix").writeAndroidLintMultiProjectFixture(
+                mainSource = MAIN_WARNING,
+            )
+        val lintTasks = AndroidLintFixtureKind.entries.map { it.lintTask() }
+        val result =
+            project.runner(*lintTasks.toTypedArray(), "--continue", "--parallel").buildAndFail()
+
         AndroidLintFixtureKind.entries.forEach { kind ->
-            val project =
-                GradlePluginTestProject.create(
-                    temporaryFolder.newFolder("warning-${kind.name.lowercase()}-root"),
-                ).writeAndroidLintFixture(
-                    kind = kind,
-                    mainSource = MAIN_WARNING,
-                )
-
-            val result = project.runner("lintDebug").buildAndFail()
-
-            result.assertTaskOutcome(":lintDebug", TaskOutcome.FAILED)
-            val issues = project.lintXml().readLintIssues()
+            result.assertTaskOutcome(kind.lintTask(), TaskOutcome.FAILED)
+            val issues = project.lintXml(kind).readLintIssues()
             assertEquals(setOf("SetTextI18n"), issues.map(LintIssue::id).toSet())
             val issue = issues.single { it.id == "SetTextI18n" }
             assertEquals("SetTextI18n", issue.id)
             assertEquals("Error", issue.severity)
             assertTrue(issue.file.endsWith("src/main/java/fixture/MainSource.java"))
             assertEquals(7, issue.line)
-            assertReportSurface(project)
+            assertReportSurface(project, kind)
         }
     }
 
     @Test
     fun reviewedBaselineSuppressesOnlyItsExactWarningLocation() {
         val project =
-            GradlePluginTestProject.create(temporaryFolder.newFolder("baseline-isolation-root"))
+            newTestProject("baseline-isolation")
                 .writeAndroidLintFixture(
                     kind = AndroidLintFixtureKind.LIBRARY,
                     mainSource = MAIN_WARNING,
@@ -144,7 +180,7 @@ class AndroidLintConventionPluginTest {
     @Test
     fun reviewedWarningBaselineDoesNotHideANewError() {
         val project =
-            GradlePluginTestProject.create(temporaryFolder.newFolder("baseline-error-root"))
+            newTestProject("baseline-error")
                 .writeAndroidLintFixture(
                     kind = AndroidLintFixtureKind.APPLICATION,
                     mainSource = MAIN_WARNING,
@@ -167,27 +203,48 @@ class AndroidLintConventionPluginTest {
         name: String,
         kind: AndroidLintFixtureKind,
     ): GradlePluginTestProject =
-        GradlePluginTestProject.create(temporaryFolder.newFolder("$name-root"))
+        newTestProject(name)
             .writeAndroidLintFixture(
                 kind = kind,
                 mainSource = MAIN_SOURCE,
                 testSource = TEST_ONLY_NEW_API,
             )
 
-    private fun assertTestOnlyNewApiPresent(project: GradlePluginTestProject) {
-        val issue = project.lintXml().readLintIssues().single { it.id == "NewApi" }
+    private fun newLintMultiProject(name: String): GradlePluginTestProject =
+        newTestProject(name).writeAndroidLintMultiProjectFixture(
+            mainSource = MAIN_SOURCE,
+            testSource = TEST_ONLY_NEW_API,
+        )
+
+    private fun newTestProject(name: String): GradlePluginTestProject =
+        GradlePluginTestProject.create(
+            temporaryFolder.newFolder("$name-root"),
+            sharedGradleUserHome,
+        )
+
+    private fun assertTestOnlyNewApiPresent(
+        project: GradlePluginTestProject,
+        kind: AndroidLintFixtureKind? = null,
+    ) {
+        val issue = project.lintXml(kind).readLintIssues().single { it.id == "NewApi" }
         assertEquals("Error", issue.severity)
         assertTrue(issue.file.endsWith("src/test/java/fixture/TestOnlyNewApi.java"))
         assertEquals(7, issue.line)
     }
 
-    private fun assertTestOnlyNewApiAbsent(project: GradlePluginTestProject) {
-        assertFalse(project.lintXml().readLintIssues().any { it.id == "NewApi" })
+    private fun assertTestOnlyNewApiAbsent(
+        project: GradlePluginTestProject,
+        kind: AndroidLintFixtureKind? = null,
+    ) {
+        assertFalse(project.lintXml(kind).readLintIssues().any { it.id == "NewApi" })
     }
 
-    private fun assertReportSurface(project: GradlePluginTestProject) {
+    private fun assertReportSurface(
+        project: GradlePluginTestProject,
+        kind: AndroidLintFixtureKind? = null,
+    ) {
         listOf("xml", "txt", "html", "sarif").forEach { extension ->
-            assertTrue("missing lint $extension report", project.lintReport(extension).isFile)
+            assertTrue("missing lint $extension report", project.lintReport(extension, kind).isFile)
         }
     }
 
@@ -200,10 +257,20 @@ class AndroidLintConventionPluginTest {
         return issues.filterNot { it.id == "LintBaseline" }
     }
 
-    private fun GradlePluginTestProject.lintXml(): File = lintReport("xml")
+    private fun AndroidLintFixtureKind.lintTask(): String = ":${name.lowercase()}:lintDebug"
 
-    private fun GradlePluginTestProject.lintReport(extension: String): File =
-        projectDir.resolve("build/reports/lint-results-debug.$extension")
+    private fun GradlePluginTestProject.lintXml(
+        kind: AndroidLintFixtureKind? = null,
+    ): File = lintReport("xml", kind)
+
+    private fun GradlePluginTestProject.lintReport(
+        extension: String,
+        kind: AndroidLintFixtureKind? = null,
+    ): File =
+        projectDir.resolve(
+            (kind?.name?.lowercase()?.plus("/") ?: "") +
+                "build/reports/lint-results-debug.$extension",
+        )
 
     companion object {
         private val MAIN_SOURCE =

@@ -56,6 +56,45 @@ fun GradlePluginTestProject.writeKotlinConventionFixture(
     return this
 }
 
+fun GradlePluginTestProject.writeJvmKotlinConventionMultiProjectFixture(
+    projectPaths: List<String>,
+): GradlePluginTestProject {
+    require(projectPaths.isNotEmpty()) { "At least one JVM convention project is required" }
+    require(projectPaths.toSet().size == projectPaths.size) {
+        "JVM convention project paths must be unique"
+    }
+    projectPaths.forEach { projectPath ->
+        require(projectPath.matches(Regex("(?::[a-z][a-z0-9-]*)+"))) {
+            "JVM convention project path must be lowercase and absolute: $projectPath"
+        }
+    }
+
+    writeSettings(
+        buildString {
+            append(DEFAULT_KOTLIN_FIXTURE_SETTINGS)
+            projectPaths.forEach { projectPath -> append("\n\ninclude(\"$projectPath\")") }
+        },
+    )
+    writeFile("gradle/libs.versions.toml", JVM_VERSION_CATALOG)
+    writeBuildFile("")
+    projectPaths.forEach { projectPath ->
+        val projectDirectory = projectPath.toProjectDirectory()
+        writeFile(
+            projectDirectory.resolveRelative("build.gradle.kts"),
+            kotlinConventionBuildScript(KotlinConventionFixtureKind.JVM),
+        )
+        writeFile(
+            projectDirectory.resolveRelative("src/main/kotlin/fixture/WarningSource.kt"),
+            WARNED_KOTLIN_SOURCE,
+        )
+        writeFile(
+            projectDirectory.resolveRelative("src/test/kotlin/fixture/TestMarker.kt"),
+            TEST_MARKER_SOURCE,
+        )
+    }
+    return this
+}
+
 fun GradlePluginTestProject.compiledClassFile(
     kind: KotlinConventionFixtureKind,
     projectPath: String = ":",

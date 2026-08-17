@@ -30,7 +30,7 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(15))
-    maxParallelForks = 2
+    maxParallelForks = 3
 }
 
 gradlePlugin {
