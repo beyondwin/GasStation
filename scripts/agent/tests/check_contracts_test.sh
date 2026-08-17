@@ -381,6 +381,76 @@ assert_contains "$(cat "$fixture/convention-test-task.out")" "static-analysis co
 assert_error_locations "$(cat "$fixture/convention-test-task.out")"
 git -C "$fixture/repo" restore .github/workflows/android.yml
 
+for blocking_field in \
+  'continue-on-error: true' \
+  'continue-on-error: ${{ true }}'; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$blocking_field" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+blocking_field = sys.argv[2]
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Convention plugin tests\n",
+        "      - name: Convention plugin tests\n"
+        f"        {blocking_field}\n",
+        1,
+    )
+)
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/convention-test-nonblocking.out" 2>&1; then
+    fail "CI accepted a non-blocking convention test step with $blocking_field"
+  fi
+  assert_contains "$(cat "$fixture/convention-test-nonblocking.out")" "static-analysis convention plugin tests step must be blocking"
+  assert_error_locations "$(cat "$fixture/convention-test-nonblocking.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+for disabling_field in \
+  'if: false' \
+  'if: ${{ false }}'; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$disabling_field" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+disabling_field = sys.argv[2]
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Convention plugin tests\n",
+        "      - name: Convention plugin tests\n"
+        f"        {disabling_field}\n",
+        1,
+    )
+)
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/convention-test-disabled.out" 2>&1; then
+    fail "CI accepted a disabled convention test step with $disabling_field"
+  fi
+  assert_contains "$(cat "$fixture/convention-test-disabled.out")" "static-analysis convention plugin tests step must not be disabled"
+  assert_error_locations "$(cat "$fixture/convention-test-disabled.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Convention plugin tests\n",
+        "      - name: Convention plugin tests\n"
+        "        continue-on-error: false\n"
+        "        if: true\n",
+        1,
+    )
+)
+PY
+GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
 from pathlib import Path
 import sys

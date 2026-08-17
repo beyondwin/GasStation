@@ -178,23 +178,36 @@ class RoborazziConventionPluginTest {
     fun roborazziSelectionsStoreAndReuseAcrossPolicyChanges() {
         val project = newProject("configuration-cache").writeRoborazziFixture()
 
-        assertCachePair(project, arrayOf("testDebugUnitTest", "--rerun-tasks")) {
+        assertCachePair(
+            project = project,
+            arguments = arrayOf("testDebugUnitTest", "--rerun-tasks"),
+            expectedTaskPaths = setOf(":testDebugUnitTest"),
+        ) {
             assertTestClasses(project, includeScreenshot = false)
         }
         assertCachePair(
-            project,
-            arrayOf(
+            project = project,
+            arguments = arrayOf(
                 "testDebugUnitTest",
                 "--rerun-tasks",
                 "-Pgasstation.includeRoborazziInUnitTests=true",
             ),
+            expectedTaskPaths = setOf(":testDebugUnitTest"),
         ) {
             assertTestClasses(project, includeScreenshot = true)
         }
-        assertCachePair(project, arrayOf("verifyRoborazziDebug", "--rerun-tasks")) {
+        assertCachePair(
+            project = project,
+            arguments = arrayOf("verifyRoborazziDebug", "--rerun-tasks"),
+            expectedTaskPaths = setOf(":verifyRoborazziDebug", ":testDebugUnitTest"),
+        ) {
             assertTestClasses(project, includeScreenshot = true)
         }
-        assertCachePair(project, arrayOf(":verifyRoborazziDebug", "--rerun-tasks")) {
+        assertCachePair(
+            project = project,
+            arguments = arrayOf(":verifyRoborazziDebug", "--rerun-tasks"),
+            expectedTaskPaths = setOf(":verifyRoborazziDebug", ":testDebugUnitTest"),
+        ) {
             assertTestClasses(project, includeScreenshot = true)
         }
     }
@@ -202,16 +215,66 @@ class RoborazziConventionPluginTest {
     private fun assertCachePair(
         project: GradlePluginTestProject,
         arguments: Array<String>,
+        expectedTaskPaths: Set<String>,
         assertEvidence: (BuildResult) -> Unit,
     ) {
+        require(arguments.isNotEmpty()) { "Cache-pair arguments must request a task" }
+        val requestedTaskPath = arguments.first().toAbsoluteTaskPath()
+        val requiredTaskPaths =
+            buildSet {
+                add(requestedTaskPath)
+                add(requestedTaskPath.owningUnitTestTaskPath())
+            }
+        require(expectedTaskPaths == requiredTaskPaths) {
+            "Cache-pair task evidence must exactly match the requested lifecycle: " +
+                "expected=$requiredTaskPaths actual=$expectedTaskPaths"
+        }
+
+        clearTestResults(project, expectedTaskPaths)
         val first = project.configurationCacheRunner(*arguments).build()
         first.assertConfigurationCacheStored()
+        expectedTaskPaths.forEach { taskPath ->
+            first.assertTaskOutcome(taskPath, TaskOutcome.SUCCESS)
+        }
         assertEvidence(first)
 
+        clearTestResults(project, expectedTaskPaths)
         val second = project.configurationCacheRunner(*arguments).build()
         second.assertConfigurationCacheReused()
+        expectedTaskPaths.forEach { taskPath ->
+            second.assertTaskOutcome(taskPath, TaskOutcome.SUCCESS)
+        }
         assertEvidence(second)
     }
+
+    private fun clearTestResults(
+        project: GradlePluginTestProject,
+        expectedTaskPaths: Set<String>,
+    ) {
+        expectedTaskPaths
+            .filter { taskPath -> taskPath.endsWith(":testDebugUnitTest") }
+            .forEach { taskPath ->
+                val projectPath = taskPath.removeSuffix(":testDebugUnitTest")
+                val projectDirectory =
+                    if (projectPath.isEmpty()) {
+                        project.projectDir
+                    } else {
+                        project.projectDir.resolve(projectPath.removePrefix(":").replace(':', '/'))
+                    }
+                val testResults = projectDirectory.resolve("build/test-results/testDebugUnitTest")
+                if (testResults.exists()) {
+                    require(testResults.deleteRecursively()) {
+                        "Unable to remove stale JUnit evidence: $testResults"
+                    }
+                }
+            }
+    }
+
+    private fun String.toAbsoluteTaskPath(): String =
+        if (startsWith(':')) this else ":$this"
+
+    private fun String.owningUnitTestTaskPath(): String =
+        substringBeforeLast(':') + ":testDebugUnitTest"
 
     private fun assertTestClasses(
         project: GradlePluginTestProject,

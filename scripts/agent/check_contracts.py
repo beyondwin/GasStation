@@ -627,6 +627,19 @@ def normalize_gradle_arguments(arguments: list[str]) -> list[str]:
     return normalized
 
 
+def static_workflow_boolean(value: str) -> bool | None:
+    """Resolve only literal booleans and literal GitHub expression booleans."""
+    normalized = value.strip().lower()
+    expression = re.fullmatch(r"\$\{\{\s*(true|false)\s*\}\}", normalized)
+    if expression is not None:
+        normalized = expression.group(1)
+    if normalized in {"true", "yes", "on"}:
+        return True
+    if normalized in {"false", "no", "off"}:
+        return False
+    return None
+
+
 def check_lint_workflow_contracts(workflow: str) -> list[str]:
     issues: list[str] = []
     workflow_path = ".github/workflows/android.yml"
@@ -666,8 +679,9 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
             for arguments in invocations
         ]
         convention_test_invocations = [
-            (arguments, standalone)
-            for arguments, standalone in gradle_invocations
+            (step, arguments, standalone)
+            for step, (invocations, standalone) in zip(steps, parsed_runs)
+            for arguments in invocations
             if normalize_gradle_arguments(arguments) == CONVENTION_TEST_ARGUMENTS
         ]
         lint_arguments = max(
@@ -715,16 +729,40 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                     f"{job_name} command must be one standalone ./gradlew invocation",
                 )
             )
-        if job_name == "static-analysis" and not any(
-            standalone for _, standalone in convention_test_invocations
-        ):
-            issues.append(
-                issue(
-                    workflow_path,
-                    job_line,
-                    "static-analysis command missing: convention plugin tests",
+        if job_name == "static-analysis":
+            convention_test_steps = [
+                step
+                for step, _, standalone in convention_test_invocations
+                if standalone
+            ]
+            if not convention_test_steps:
+                issues.append(
+                    issue(
+                        workflow_path,
+                        job_line,
+                        "static-analysis command missing: convention plugin tests",
+                    )
                 )
-            )
+            else:
+                convention_fields = convention_test_steps[0]["fields"]
+                if static_workflow_boolean(
+                    convention_fields.get("continue-on-error", "")
+                ) is True:
+                    issues.append(
+                        issue(
+                            workflow_path,
+                            job_line,
+                            "static-analysis convention plugin tests step must be blocking",
+                        )
+                    )
+                if static_workflow_boolean(convention_fields.get("if", "")) is False:
+                    issues.append(
+                        issue(
+                            workflow_path,
+                            job_line,
+                            "static-analysis convention plugin tests step must not be disabled",
+                        )
+                    )
         if normalized_arguments and normalized_arguments != contract["arguments"]:
             issues.append(
                 issue(
