@@ -33,8 +33,8 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import org.junit.After
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
