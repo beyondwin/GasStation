@@ -1,5 +1,7 @@
 package com.gasstation.core.location
 
+import android.app.Application
+import android.location.Address
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.location.LocationAddressLookupResult
 import kotlinx.coroutines.runBlocking
@@ -7,8 +9,37 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.util.Locale
 
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class)
 class AndroidAddressResolverCrashReporterTest {
+    @Test
+    fun `resolved address returns a display label without reporting`() = runBlocking {
+        val crashReporter = FakeCrashReporter()
+        val address = Address(Locale.KOREA).apply {
+            setAddressLine(0, "서울특별시 강남구 역삼동")
+        }
+
+        val result = resolveAddressWithReporting(crashReporter) { address }
+
+        assertTrue(result is LocationAddressLookupResult.Success)
+        assertEquals(0, crashReporter.records.size)
+    }
+
+    @Test
+    fun `address without a display label returns unavailable without reporting`() = runBlocking {
+        val crashReporter = FakeCrashReporter()
+
+        val result = resolveAddressWithReporting(crashReporter) { Address(Locale.KOREA) }
+
+        assertEquals(LocationAddressLookupResult.Unavailable, result)
+        assertEquals(0, crashReporter.records.size)
+    }
+
     @Test
     fun `non-IO exception is recorded via crashReporter and returned as Error`() = runBlocking {
         val crashReporter = FakeCrashReporter()

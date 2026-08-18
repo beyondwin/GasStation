@@ -33,6 +33,7 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.MoneyWon
 import org.junit.After
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -124,6 +125,26 @@ class WatchlistScreenTest {
         composeRule.onNodeWithText("상승 14원 · 7월 17일 11:00").assertExists()
         composeRule.onNodeWithText("하락 27원 · 7월 17일 11:00").assertExists()
         composeRule.onNodeWithText("변동 없음 · 7월 17일 11:00").assertExists()
+    }
+
+    @Test
+    fun `directional price change requires its numeric delta`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            composeRule.setContent {
+                GasStationTheme {
+                    WatchlistScreen(
+                        uiState = WatchlistUiState(
+                            isLoading = false,
+                            fuelType = FuelType.GASOLINE,
+                            stations = listOf(testItem("invalid-rise", null, WatchlistPriceDeltaTone.Rise)),
+                        ),
+                        onAction = {},
+                        onNavigateNearby = {},
+                    )
+                }
+            }
+            composeRule.waitForIdle()
+        }
     }
 
     @Test

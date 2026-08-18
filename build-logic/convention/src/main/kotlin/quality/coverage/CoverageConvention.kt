@@ -183,6 +183,12 @@ private fun <VariantT : Variant> registerAndroidCoverage(
             if (concrete.name != expectedTaskName || concrete.path != "${module.path}:$expectedTaskName") {
                 throw GradleException("AGP unit-test task identity mismatch for ${module.path}|$reportName: ${concrete.path}")
             }
+            concrete.extensions.getByType<JacocoTaskExtension>().apply {
+                // Robolectric executes transformed Android classes without source locations. Keep
+                // those probes, otherwise valid Android unit coverage is silently reported as zero.
+                isIncludeNoLocationClasses = true
+                excludes = listOf("jdk.internal.*")
+            }
             registered.executionData.from(concrete.extensions.getByType<JacocoTaskExtension>().destinationFile)
         }
     }

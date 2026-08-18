@@ -5,6 +5,7 @@ import java.util.Properties
 
 data class CoverageFixture(
     val includeUnownedEmptyModule: Boolean = false,
+    val assertNoLocationClassCollection: Boolean = false,
 )
 
 fun GradlePluginTestProject.writeCoverageFixture(
@@ -96,10 +97,21 @@ fun GradlePluginTestProject.writeCoverageFixture(
 
     writeFile(
         "android/build.gradle.kts",
-        """
-        plugins { id("gasstation.android.library") }
-        android { namespace = "fixture.android" }
-        """.trimIndent(),
+        buildString {
+            if (fixture.assertNoLocationClassCollection) {
+                appendLine("import org.gradle.testing.jacoco.plugins.JacocoTaskExtension")
+                appendLine()
+            }
+            appendLine("plugins { id(\"gasstation.android.library\") }")
+            appendLine("android { namespace = \"fixture.android\" }")
+            if (fixture.assertNoLocationClassCollection) {
+                appendLine()
+                appendLine("gradle.projectsEvaluated {")
+                appendLine("    check(tasks.named(\"testDebugUnitTest\").get().extensions")
+                appendLine("        .getByType(JacocoTaskExtension::class.java).isIncludeNoLocationClasses)")
+                appendLine("}")
+            }
+        },
     )
     writeFile("android/src/main/AndroidManifest.xml", "<manifest />")
     writeFile(

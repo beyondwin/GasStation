@@ -115,7 +115,7 @@ class DemoSeedGenerator(private val fetcher: DemoSeedStationFetcher) {
     }
 }
 
-private class SharedNetworkSeedStationFetcher(private val fetcher: NetworkStationFetcher) : DemoSeedStationFetcher {
+internal class SharedNetworkSeedStationFetcher(private val fetcher: NetworkStationFetcher) : DemoSeedStationFetcher {
     override suspend fun fetchStations(origin: Coordinates, radius: SearchRadius, fuelType: FuelType): List<DemoSeedRemoteStation> =
         when (val result = fetcher.fetchStations(origin, radius, fuelType)) {
             is NetworkStationFetchResult.Success -> result.stations.map { station ->

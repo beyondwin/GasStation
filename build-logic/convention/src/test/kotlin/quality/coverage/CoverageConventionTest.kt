@@ -132,6 +132,23 @@ class CoverageConventionTest {
         assertFalse(result.output.contains(":sample must have a coverage owner"))
     }
 
+    @Test
+    fun androidCoverageKeepsRobolectricNoLocationClassesInJacocoExecutionData() {
+        val project =
+            newProject("android-no-location-classes")
+                .writeCoverageFixture(CoverageFixture(assertNoLocationClassCollection = true))
+
+        val result =
+            project.runner(
+                ":android:coverageDebugXmlReport",
+                "-Pgasstation.coverageSourceCommit=${"1".repeat(40)}",
+                "--rerun-tasks",
+            ).build()
+
+        result.assertTaskOutcome(":android:testDebugUnitTest", TaskOutcome.SUCCESS)
+        result.assertTaskOutcome(":android:coverageDebugXmlReport", TaskOutcome.SUCCESS)
+    }
+
     private fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),

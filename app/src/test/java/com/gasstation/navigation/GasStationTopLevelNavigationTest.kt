@@ -73,6 +73,34 @@ class GasStationTopLevelNavigationTest {
     }
 
     @Test
+    fun `external map command reports an unavailable launcher as unhandled`() {
+        val launcher = object : ExternalMapLauncher {
+            override fun open(
+                provider: MapProvider,
+                stationName: String,
+                originLatitude: Double?,
+                originLongitude: Double?,
+                latitude: Double,
+                longitude: Double,
+            ): ExternalMapLaunchResult = ExternalMapLaunchResult.Failed
+        }
+
+        val handled = openExternalMapCommand(
+            launcher,
+            StationListCommandPayload.OpenExternalMap(
+                provider = MapProvider.KAKAO_MAP,
+                stationName = "테스트 주유소",
+                originLatitude = null,
+                originLongitude = null,
+                latitude = 37.5123,
+                longitude = 127.0456,
+            ),
+        )
+
+        assertFalse(handled)
+    }
+
+    @Test
     fun `bottom bar is visible only on top level routes`() {
         assertTrue(shouldShowBottomBar(GasStationDestination.StationList.route))
         assertTrue(shouldShowBottomBar(GasStationDestination.Settings.route))

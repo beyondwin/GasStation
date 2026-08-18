@@ -4,13 +4,45 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.network.service.OpinetService
+import com.gasstation.core.network.station.NetworkStationFetcher
 import kotlinx.coroutines.test.runTest
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class DemoSeedGeneratorTest {
+    @Test
+    fun `shared network fetch failure retains its query context`() = runTest {
+        val fetcher = NetworkStationFetcher(
+            opinetService = object : OpinetService {
+                override suspend fun findStations(
+                    code: String,
+                    x: Double,
+                    y: Double,
+                    radius: Int,
+                    sort: String,
+                    fuelType: String,
+                    out: String,
+                ) = throw java.io.IOException("offline")
+            },
+            opinetApiKey = "test-key",
+        )
+
+        val error = assertFailsWith<IllegalStateException> {
+            SharedNetworkSeedStationFetcher(fetcher).fetchStations(
+                origin = Coordinates(latitude = 37.497927, longitude = 127.027583),
+                radius = SearchRadius.KM_3,
+                fuelType = FuelType.GASOLINE,
+            )
+        }
+
+        assertEquals("Shared network fetcher failed for KM_3/GASOLINE: Network.", error.message)
+        assertTrue(error.cause is java.io.IOException)
+    }
+
     @Test
     fun `query matrix covers every approved radius and fuel type combination`() {
         val matrix = DemoSeedQueryMatrix.all()

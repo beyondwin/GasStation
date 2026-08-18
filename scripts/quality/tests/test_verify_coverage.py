@@ -377,6 +377,49 @@ class ClassificationAndSummaryTest(unittest.TestCase):
                 )
             self.assertEqual([":app|prodDebug changed line coverage is below 8000bp"], violations)
 
+    def test_changed_coverage_details_record_exact_counters_and_source_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = "module/src/main/kotlin/owner/Subject.kt"
+            xml = root / "report.xml"
+            xml.write_bytes(
+                b'<report name="sample"><package name="owner"><sourcefile name="Subject.kt">'
+                b'<line nr="3" mi="0" ci="1" mb="1" cb="1"/>'
+                b'<line nr="4" mi="1" ci="0" mb="0" cb="0"/>'
+                b'</sourcefile></package></report>',
+            )
+            entries = {
+                ":sample|main": {
+                    "xmlReport": xml.name,
+                    "sources": [{"path": source, "package": "owner", "filename": "Subject.kt"}],
+                },
+            }
+            changes = {source: coverage.ChangedFile("M", source, source, {2, 3, 4}, hunk_count=1)}
+            policy = {"changedThresholds": {"lineBasisPoints": 8000, "branchBasisPoints": 7000}}
+            with mock.patch.object(coverage, "_git", side_effect=[b"", b"1" * 40 + b"\n"]), \
+                    mock.patch.object(coverage, "_hardened_diff", return_value=changes):
+                violations, details, merge_base = coverage._changed_coverage(
+                    Path("manifest.json"), policy, entries, root, "local", "1" * 40,
+                )
+
+            self.assertEqual("1" * 40, merge_base)
+            self.assertEqual(
+                [
+                    ":sample|main changed line coverage is below 8000bp",
+                    ":sample|main changed branch coverage is below 7000bp",
+                ],
+                violations,
+            )
+            self.assertEqual(
+                [{
+                    "reportId": ":sample|main",
+                    "line": {"covered": 1, "missed": 1, "total": 2},
+                    "branch": {"covered": 1, "missed": 1, "total": 2},
+                    "sourceLines": [f"{source}:3", f"{source}:4"],
+                }],
+                details,
+            )
+
     def test_event_base_semantics_fail_closed_for_pull_request_and_skip_tag(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
