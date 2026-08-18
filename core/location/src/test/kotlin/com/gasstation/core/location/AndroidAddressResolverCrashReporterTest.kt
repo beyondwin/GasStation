@@ -4,6 +4,7 @@ import android.app.Application
 import android.location.Address
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.location.LocationAddressLookupResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -37,6 +38,19 @@ class AndroidAddressResolverCrashReporterTest {
         val result = resolveAddressWithReporting(crashReporter) { Address(Locale.KOREA) }
 
         assertEquals(LocationAddressLookupResult.Unavailable, result)
+        assertEquals(0, crashReporter.records.size)
+    }
+
+    @Test
+    fun `lookup cancellation is rethrown without crash reporting`() = runBlocking {
+        val crashReporter = FakeCrashReporter()
+        val cancellation = CancellationException("cancelled")
+
+        val thrown = runCatching {
+            resolveAddressWithReporting(crashReporter) { throw cancellation }
+        }.exceptionOrNull()
+
+        assertSame(cancellation, thrown)
         assertEquals(0, crashReporter.records.size)
     }
 
