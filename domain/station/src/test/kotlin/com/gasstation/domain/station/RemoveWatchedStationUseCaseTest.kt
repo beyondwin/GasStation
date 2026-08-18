@@ -24,9 +24,7 @@ class RemoveWatchedStationUseCaseTest {
         assertEquals(listOf("station-42"), repository.removedStationIds)
     }
 
-    private class RecordingStationRepository(
-        private val removeResult: WatchMutationResult,
-    ) : StationRepository {
+    private class RecordingStationRepository(private val removeResult: WatchMutationResult) : StationRepository {
         val removedStationIds = mutableListOf<String>()
 
         override fun observeNearbyStations(query: StationQuery): Flow<StationSearchResult> = emptyFlow()
