@@ -38,6 +38,11 @@ assert_not_contains "$ordinary_workflow" "scopes: app release"
 release=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file docs/deployment.md)
 assert_contains "$release" "scopes: docs release"
 assert_contains "$release" ":app:assembleProdRelease"
+assert_contains "$release" "coverageXmlReport verifyCoverageReport"
+assert_contains "$release" "-Pgasstation.coverageSourceCommit=$(git -C "$repo_root" rev-parse HEAD)"
+assert_contains "$release" "-Pgasstation.coverageEvent=local"
+assert_contains "$release" "-Pgasstation.coverageBaseRef="
+assert_not_contains "$release" "--dry-run"
 
 unknown=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file tools/new-path/file.kt)
 assert_contains "$unknown" "scopes: fast"
@@ -74,6 +79,11 @@ assert_contains "$local_main" "scopes: app"
 make_verify_repo "$fixture/no-base"
 git -C "$fixture/no-base" switch -qc agent-setup
 git -C "$fixture/no-base" branch -D main >/dev/null
+release_without_base=$("$fixture/no-base/scripts/agent/verify.sh" release --dry-run)
+assert_contains "$release_without_base" "coverageXmlReport verifyCoverageReport"
+assert_contains "$release_without_base" "-Pgasstation.coverageSourceCommit=$(git -C "$fixture/no-base" rev-parse HEAD)"
+assert_contains "$release_without_base" "-Pgasstation.coverageEvent=local"
+assert_not_contains "$release_without_base" "-Pgasstation.coverageBaseRef="
 if no_base_output=$("$fixture/no-base/scripts/agent/verify.sh" auto --dry-run 2>&1); then
   fail "auto accepted a repository without a usable main base"
 else

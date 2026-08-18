@@ -151,6 +151,22 @@ CONVENTION_TEST_ARGUMENTS = [
     ":build-logic:convention:test",
     "--warning-mode=fail",
 ]
+COVERAGE_GRADLE_ARGUMENTS = [
+    "coverageXmlReport",
+    "verifyCoverageReport",
+    "-Pgasstation.coverageSourceCommit=$GITHUB_SHA",
+    "-Pgasstation.coverageEvent=$GASSTATION_COVERAGE_EVENT",
+    "-Pgasstation.coverageBaseRef=$GASSTATION_COVERAGE_BASE_REF",
+    "--warning-mode=fail",
+]
+COVERAGE_EVENT_EXPRESSION = (
+    "${{ github.event_name == 'pull_request' && 'pull-request' || "
+    "startsWith(github.ref, 'refs/tags/v') && 'tag' || 'main' }}"
+)
+COVERAGE_BASE_EXPRESSION = (
+    "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha "
+    "|| (github.ref == 'refs/heads/main' && github.event.before) || '' }}"
+)
 
 
 def issue(path, line: int, message: str) -> str:
@@ -562,8 +578,20 @@ def workflow_steps(body: str) -> list[dict[str, object]]:
                     child = yaml_mapping_entry(lines[index], 10)
                     if child is None:
                         break
-                    children[child[0]] = child[1]
+                    child_key, child_value = child
+                    children[child_key] = child_value
                     index += 1
+                    if child_value in {"|", "|-", "|+", ">", ">-", ">+"}:
+                        block_lines = []
+                        while index < len(lines):
+                            block_line = lines[index]
+                            if block_line.strip() and not block_line.startswith("            "):
+                                break
+                            block_lines.append(
+                                block_line[12:] if block_line.startswith("            ") else ""
+                            )
+                            index += 1
+                        children[child_key] = "\n".join(block_lines)
                 nested[key] = children
 
         steps.append({"fields": fields, "nested": nested})
@@ -814,6 +842,159 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
     return issues
 
 
+def check_coverage_workflow_contract(workflow: str) -> list[str]:
+    """Require the one blocking, evidence-producing coverage invocation."""
+    issues: list[str] = []
+    workflow_path = ".github/workflows/android.yml"
+    if not re.search(
+        r'(?m)^on:\n  pull_request:\n  push:\n    branches:\n      - main\n    tags:\n      - "v\*"$',
+        workflow,
+    ):
+        issues.append(
+            issue(
+                workflow_path,
+                1,
+                "coverage workflow must run for pull requests, main pushes, and v tags",
+            )
+        )
+    match = re.search(WORKFLOW_JOB_TEMPLATE.format(job="coverage"), workflow)
+    if match is None:
+        return [issue(workflow_path, 1, "workflow job missing: coverage")]
+
+    body = match.group("body")
+    job_line = source_line(workflow, match.start())
+    job_fields = workflow_job_fields(body)
+    if job_fields.get("runs-on") != "ubuntu-latest":
+        issues.append(issue(workflow_path, job_line, "coverage runner must be ubuntu-latest"))
+    if job_fields.get("timeout-minutes") != "45":
+        issues.append(issue(workflow_path, job_line, "coverage timeout must be 45 minutes"))
+    if "if" in job_fields:
+        issues.append(issue(workflow_path, job_line, "coverage job must not be disabled"))
+    if (
+        "continue-on-error" in job_fields
+        and static_workflow_boolean(job_fields["continue-on-error"]) is not False
+    ):
+        issues.append(issue(workflow_path, job_line, "coverage job must be blocking"))
+
+    if not re.search(
+        rf"(?m)^      GASSTATION_COVERAGE_EVENT: {re.escape(COVERAGE_EVENT_EXPRESSION)}$",
+        body,
+    ):
+        issues.append(issue(workflow_path, job_line, "coverage event routing must use the immutable contract"))
+    if not re.search(
+        rf"(?m)^      GASSTATION_COVERAGE_BASE_REF: {re.escape(COVERAGE_BASE_EXPRESSION)}$",
+        body,
+    ):
+        issues.append(issue(workflow_path, job_line, "coverage base routing must use the immutable contract"))
+
+    steps = workflow_steps(body)
+    checkout_steps = [
+        step
+        for step in steps
+        if str(step["fields"].get("uses", "")).startswith("actions/checkout@")
+        and step["nested"].get("with", {}).get("fetch-depth") == "0"
+    ]
+    if len(checkout_steps) != 1:
+        issues.append(issue(workflow_path, job_line, "coverage checkout must use fetch-depth: 0"))
+
+    attempt_steps = [
+        step for step in steps
+        if step["fields"].get("name") == "Create coverage attempt envelope"
+    ]
+    if len(attempt_steps) != 1:
+        issues.append(issue(workflow_path, job_line, "coverage attempt envelope step missing"))
+    else:
+        attempt = attempt_steps[0]
+        attempt_run = str(attempt["fields"].get("run", ""))
+        attempt_env = attempt["nested"].get("env", {})
+        attempt_anchors = (
+            "mkdir -p build/reports/coverage",
+            "coverage-attempt.json",
+            "coverageXmlReport",
+            "verifyCoverageReport",
+            "config/quality/coverage-policy.json",
+            "config/quality/coverage-baseline.json",
+            '"schemaVersion": 1',
+        )
+        if attempt_env.get("COVERAGE_SOURCE_SHA") != "${{ github.sha }}" or any(
+            anchor not in attempt_run for anchor in attempt_anchors
+        ):
+            issues.append(issue(workflow_path, job_line, "coverage attempt envelope must be deterministic and complete"))
+
+    parsed_runs = [shell_gradle_arguments(str(step["fields"].get("run", ""))) for step in steps]
+    gradle_invocations = [
+        (step, arguments, standalone)
+        for step, (invocations, standalone) in zip(steps, parsed_runs)
+        for arguments in invocations
+    ]
+    valid_invocations = [
+        (step, standalone)
+        for step, arguments, standalone in gradle_invocations
+        if normalize_gradle_arguments(arguments) == COVERAGE_GRADLE_ARGUMENTS
+    ]
+    if len(gradle_invocations) != 1 or len(valid_invocations) != 1:
+        issues.append(issue(workflow_path, job_line, "coverage command arguments must exactly match the blocking contract"))
+    elif not valid_invocations[0][1]:
+        issues.append(issue(workflow_path, job_line, "coverage command must be one standalone ./gradlew invocation"))
+    else:
+        verification_step = valid_invocations[0][0]
+        verification_fields = verification_step["fields"]
+        if "if" in verification_fields:
+            issues.append(issue(workflow_path, job_line, "coverage verification step must not be disabled"))
+        if (
+            "continue-on-error" in verification_fields
+            and static_workflow_boolean(verification_fields["continue-on-error"]) is not False
+        ):
+            issues.append(issue(workflow_path, job_line, "coverage verification step must be blocking"))
+
+    evidence_steps = [
+        step
+        for step in steps
+        if str(step["fields"].get("uses", "")).startswith("actions/upload-artifact@")
+        and step["nested"].get("with", {}).get("name") == "coverage-evidence"
+    ]
+    required_evidence_paths = (
+        "build/reports/coverage/coverage-attempt.json",
+        "build/reports/coverage/report-manifest.json",
+        "build/reports/coverage/verification-summary.json",
+        "**/build/reports/coverage/*/manifest-entry.json",
+        "**/build/reports/coverage/*/report.xml",
+    )
+    if len(evidence_steps) != 1:
+        issues.append(issue(workflow_path, job_line, "coverage evidence upload missing"))
+    else:
+        evidence = evidence_steps[0]
+        evidence_with = evidence["nested"].get("with", {})
+        if (
+            evidence["fields"].get("if") != "always()"
+            or evidence_with.get("if-no-files-found") != "error"
+            or evidence_with.get("retention-days") != "7"
+            or any(
+                not re.search(rf"(?m)^            {re.escape(path)}$", body)
+                for path in required_evidence_paths
+            )
+        ):
+            issues.append(issue(workflow_path, job_line, "coverage evidence upload must retain every produced artifact"))
+
+    codecov_steps = [
+        step
+        for step in steps
+        if str(step["fields"].get("uses", "")).startswith("codecov/codecov-action@")
+    ]
+    if len(codecov_steps) != 1:
+        issues.append(issue(workflow_path, job_line, "optional Codecov upload missing"))
+    else:
+        codecov = codecov_steps[0]
+        if (
+            not re.search(r"(?m)^        if: \$\{\{ env\.CODECOV_TOKEN != '' \}\}$", body)
+            or static_workflow_boolean(codecov["fields"].get("continue-on-error", "")) is not True
+            or codecov["nested"].get("with", {}).get("files")
+            != "**/build/reports/coverage/*/report.xml"
+        ):
+            issues.append(issue(workflow_path, job_line, "Codecov must remain optional and nonblocking"))
+    return issues
+
+
 def check_ci_contracts(root: Path) -> list[str]:
     issues: list[str] = []
     for relative in CI_REQUIRED_FILES:
@@ -890,6 +1071,7 @@ def check_ci_contracts(root: Path) -> list[str]:
     if workflow_path.is_file():
         workflow = workflow_path.read_text(errors="replace")
         issues += check_lint_workflow_contracts(workflow)
+        issues += check_coverage_workflow_contract(workflow)
         release_job = RELEASE_JOB.search(workflow)
         if release_job is None:
             issues.append(

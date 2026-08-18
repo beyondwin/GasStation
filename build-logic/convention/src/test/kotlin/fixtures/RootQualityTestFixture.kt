@@ -62,7 +62,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
     writeSettings(
         buildString {
             appendLine("rootProject.name = \"gasstation-root-quality-fixture\"")
-            modules.forEach { module -> appendLine("include(\"$module\")") }
+            appendLine("val activeModulePaths: List<String> = listOf(${modules.joinToString { "\"$it\"" }})")
+            appendLine("include(*activeModulePaths.toTypedArray())")
+            appendLine("gradle.extensions.extraProperties.set(\"gasstation.activeModulePaths\", activeModulePaths.toList())")
         },
     )
     writeBuildFile(

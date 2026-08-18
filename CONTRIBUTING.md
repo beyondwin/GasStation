@@ -41,8 +41,8 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
   :app:assembleProdRelease
 ```
 
-Coverage는 현재 CI에서 report 생성은 blocking, ratchet 판정은 관측 단계입니다. `verifyCoverageReport`는 로컬에서
-항상 판정을 실행하며, `build/reports/coverage/verification-summary.json`을 확인합니다.
+Coverage는 CI와 로컬에서 report와 ratchet을 함께 차단형으로 판정합니다. `verifyCoverageReport`는 항상
+판정을 실행하며, `build/reports/coverage/verification-summary.json`을 확인합니다.
 
 명령 변경/확장 시 `docs/verification-matrix.md`를 먼저 갱신한 뒤 위 블록을 같이 동기화합니다.
 

@@ -257,17 +257,9 @@ jobs:
               encoding="utf-8",
           )
           PY
-      - name: Generate trustworthy coverage reports
+      - name: Verify trustworthy coverage
         run: |
-          ./gradlew coverageXmlReport \
-            -Pgasstation.coverageSourceCommit="$GITHUB_SHA" \
-            -Pgasstation.coverageEvent="$GASSTATION_COVERAGE_EVENT" \
-            -Pgasstation.coverageBaseRef="$GASSTATION_COVERAGE_BASE_REF" \
-            --warning-mode fail
-      - name: Observe coverage ratchets
-        continue-on-error: true
-        run: |
-          ./gradlew verifyCoverageReport \
+          ./gradlew coverageXmlReport verifyCoverageReport \
             -Pgasstation.coverageSourceCommit="$GITHUB_SHA" \
             -Pgasstation.coverageEvent="$GASSTATION_COVERAGE_EVENT" \
             -Pgasstation.coverageBaseRef="$GASSTATION_COVERAGE_BASE_REF" \

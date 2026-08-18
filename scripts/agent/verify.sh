@@ -134,7 +134,7 @@ for selected in "${scopes[@]}"; do
       for task in :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime; do add_task "$task"; done
       ;;
     release)
-      for task in spotlessCheck lint :core:model:test :core:network:test :domain:location:test :core:observability:test :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest verifyRoborazziDebug coverageXmlReport :app:assembleProdRelease; do add_task "$task"; done
+      for task in spotlessCheck lint :core:model:test :core:network:test :domain:location:test :core:observability:test :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest verifyRoborazziDebug coverageXmlReport verifyCoverageReport :app:assembleProdRelease; do add_task "$task"; done
       ;;
   esac
 done
@@ -150,8 +150,34 @@ if ((${#gradle_tasks[@]} == 0)); then
   exit 0
 fi
 
+gradle_properties=()
+if [[ " ${gradle_tasks[*]} " == *" coverageXmlReport "* ]]; then
+  coverage_source_commit=$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}')
+  [[ "$coverage_source_commit" =~ ^[0-9a-f]{40}$ ]] || {
+    echo "verify: coverage source commit is not an exact 40-hex SHA" >&2
+    exit 65
+  }
+  gradle_properties+=(
+    "-Pgasstation.coverageSourceCommit=$coverage_source_commit"
+    "-Pgasstation.coverageEvent=local"
+  )
+  coverage_base_commit=
+  for candidate in refs/remotes/origin/main refs/heads/main; do
+    if git -C "$repo_root" show-ref --verify --quiet "$candidate"; then
+      if candidate_base=$(git -C "$repo_root" merge-base "$candidate" HEAD 2>/dev/null); then
+        coverage_base_commit=$candidate_base
+        break
+      fi
+    fi
+  done
+  if [[ -n "$coverage_base_commit" && "$coverage_base_commit" != "$coverage_source_commit" ]]; then
+    gradle_properties+=("-Pgasstation.coverageBaseRef=$coverage_base_commit")
+  fi
+fi
+
 printf 'command: ./gradlew'
 printf ' %q' "${gradle_tasks[@]}"
+printf ' %q' "${gradle_properties[@]}"
 printf ' --warning-mode fail\n'
 if $dry_run; then
   exit 0
@@ -159,4 +185,4 @@ fi
 "$repo_root/scripts/agent/check-contracts.sh"
 "$repo_root/scripts/agent/preflight.sh" --require-build --hook
 cd "$repo_root"
-./gradlew "${gradle_tasks[@]}" --warning-mode fail
+./gradlew "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail

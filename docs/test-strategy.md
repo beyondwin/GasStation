@@ -129,7 +129,7 @@ Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니�
 
 각 보고서는 `**/build/reports/coverage/*/report.xml`과 같은 디렉터리의 `manifest-entry.json`을 남깁니다. Root `build/reports/coverage/report-manifest.json`은 23개 Gradle project node, 18개 build module, 18개 entry를 연결합니다. Entry는 production/test source SHA-256, exact test task, prepared class와 JaCoCo class ID, execution/XML raw·semantic identity를 기록합니다. app shared source의 baseline owner는 demo이고 prod 전용 source는 prod가 소유하지만, shared changed line은 두 variant에서 각각 판정합니다.
 
-`verifyCoverageReport`는 current HEAD와 명시 source commit, Git production/test blob inventory, policy/baseline hash, source classification, denominator, 모듈 floor, baseline 대비 최대 50bp 하락, changed line 8000bp/branch 7000bp를 정수 연산으로 검증합니다. Feature는 exact `state`와 `rendering` source unit으로 나뉘며 rendering/design-system/tool/app assembly에는 raw floor를 만들지 않습니다. 현재 CI 관측 단계에서는 report 생성은 blocking이고 이 ratchet 판정 step만 `continue-on-error`입니다.
+`verifyCoverageReport`는 current HEAD와 명시 source commit, Git production/test blob inventory, policy/baseline hash, source classification, denominator, 모듈 floor, baseline 대비 최대 50bp 하락, changed line 8000bp/branch 7000bp를 정수 연산으로 검증합니다. Feature는 exact `state`와 `rendering` source unit으로 나뉘며 rendering/design-system/tool/app assembly에는 raw floor를 만들지 않습니다. CI는 report 생성과 이 ratchet 판정을 하나의 차단형 Gradle 호출로 실행합니다.
 
 의존성 verification metadata는 Task 9의 단독 소유입니다. Coverage 작업과 명령은 기존 Gradle verification metadata를 읽을 수 있지만 그 파일을 생성·갱신하지 않습니다.
 

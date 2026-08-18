@@ -5,7 +5,7 @@
 ## 현재 배포 경계
 
 - 공식 실행 경로는 `demo`와 `prod`입니다. 둘 다 release 전에 빌드 가능해야 합니다.
-- GitHub Actions는 PR, `main`, `v*` tag에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble, coverage를 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage ratchet은 현재 관측 단계라 report 생성만 blocking이고 판정 결과는 evidence artifact로 남깁니다.
+- GitHub Actions는 PR, `main`, `v*` tag에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble, coverage를 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage report와 ratchet은 모두 차단형이며, 판정 evidence도 artifact로 남깁니다.
 - `v*` tag에서는 위 job이 모두 성공한 뒤에만 `release-publish`가 GitHub Release를 만들거나 갱신하고 demo debug APK, unsigned prod release APK, `SHA256SUMS.txt`를 게시합니다.
 - 저장소의 기본 workflow token 권한은 read-only입니다. GitHub Release에 필요한 `contents: write`는 tag-only `release-publish` job에만 부여합니다.
 - 저장소에는 Play Store 자동 배포, signing keystore, 배포 credential을 두지 않습니다.

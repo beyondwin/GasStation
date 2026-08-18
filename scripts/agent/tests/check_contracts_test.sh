@@ -115,6 +115,13 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify-roo
 chmod +x "$fixture/repo/scripts/agent/verify-room-schemas.sh"
 cat > "$fixture/repo/.github/workflows/android.yml" <<'EOF'
 name: Android CI
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
 jobs:
   agent-contracts:
     runs-on: ubuntu-latest
@@ -174,6 +181,68 @@ jobs:
           path: "**/build/reports/lint-results-*"
           if-no-files-found: error
           retention-days: 7
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      GASSTATION_COVERAGE_EVENT: ${{ github.event_name == 'pull_request' && 'pull-request' || startsWith(github.ref, 'refs/tags/v') && 'tag' || 'main' }}
+      GASSTATION_COVERAGE_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.ref == 'refs/heads/main' && github.event.before) || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Create coverage attempt envelope
+        env:
+          COVERAGE_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p build/reports/coverage
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          Path("build/reports/coverage/coverage-attempt.json").write_text(
+              json.dumps(
+                  {
+                      "baseRef": "",
+                      "baseline": "config/quality/coverage-baseline.json",
+                      "event": "local",
+                      "expectedTasks": ["coverageXmlReport", "verifyCoverageReport"],
+                      "policy": "config/quality/coverage-policy.json",
+                      "schemaVersion": 1,
+                      "sourceCommit": "fixture",
+                  },
+                  sort_keys=True,
+              ) + "\\n"
+          )
+          PY
+      - name: Verify trustworthy coverage
+        run: |
+          ./gradlew coverageXmlReport verifyCoverageReport \
+            -Pgasstation.coverageSourceCommit="$GITHUB_SHA" \
+            -Pgasstation.coverageEvent="$GASSTATION_COVERAGE_EVENT" \
+            -Pgasstation.coverageBaseRef="$GASSTATION_COVERAGE_BASE_REF" \
+            --warning-mode fail
+      - name: Upload coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-evidence
+          path: |
+            build/reports/coverage/coverage-attempt.json
+            build/reports/coverage/report-manifest.json
+            build/reports/coverage/verification-summary.json
+            **/build/reports/coverage/*/manifest-entry.json
+            **/build/reports/coverage/*/report.xml
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload to Codecov
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        continue-on-error: true
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: "**/build/reports/coverage/*/report.xml"
   release-publish:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage]
@@ -360,6 +429,41 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace("  pull_request:\n", "", 1))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/coverage-pr-trigger.out" 2>&1; then
+  fail "CI accepted a coverage workflow without pull-request coverage"
+fi
+assert_contains "$(cat "$fixture/coverage-pr-trigger.out")" "coverage workflow must run for pull requests, main pushes, and v tags"
+assert_error_locations "$(cat "$fixture/coverage-pr-trigger.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Verify trustworthy coverage\n",
+        "      - name: Verify trustworthy coverage\n"
+        "        continue-on-error: true\n",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/coverage-report-only.out" 2>&1; then
+  fail "CI accepted a report-only coverage verifier"
+fi
+assert_contains "$(cat "$fixture/coverage-report-only.out")" "coverage verification step must be blocking"
+assert_error_locations "$(cat "$fixture/coverage-report-only.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
 from pathlib import Path
