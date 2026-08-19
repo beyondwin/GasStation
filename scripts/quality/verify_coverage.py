@@ -696,9 +696,12 @@ def validate_predecessor_floor_transitions(old: dict[str, Any], new: dict[str, A
             if previous[metric]["total"] > 0:
                 if current[metric]["total"] == 0:
                     raise CoverageError(f"{unit_id} {metric} became N/A across baseline replacement")
-                if floor_key not in previous or floor_key not in current:
+                previous_has_floor = floor_key in previous
+                current_has_floor = floor_key in current
+                if previous_has_floor != current_has_floor:
                     raise CoverageError(f"{unit_id} {metric} captured floor disappeared")
-                validate_floor_transition(previous[floor_key], current[floor_key], maximum_raise)
+                if previous_has_floor:
+                    validate_floor_transition(previous[floor_key], current[floor_key], maximum_raise)
 
 
 def _git(root: Path, *arguments: str, input_bytes: bytes | None = None) -> bytes:
@@ -1734,6 +1737,10 @@ def _main() -> int:
         violations.extend(changed_violations)
     except CoverageError as error:
         violations.append(str(error))
+    if args.command == "capture":
+        for violation in violations:
+            print(f"coverage violation: {violation}")
+        return 1
     write_summary(
         args.output,
         source_commit=args.source_commit,

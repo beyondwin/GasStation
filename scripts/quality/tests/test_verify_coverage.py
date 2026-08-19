@@ -17,6 +17,26 @@ import verify_coverage as coverage
 
 
 class CanonicalAndSchemaTest(unittest.TestCase):
+    def test_failed_capture_does_not_replace_existing_baseline_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory, "baseline.json")
+            output.write_bytes(b"trusted-baseline\n")
+            arguments = [
+                "verify_coverage.py", "capture",
+                "--manifest", "missing-manifest.json",
+                "--policy", "missing-policy.json",
+                "--source-commit", "1" * 40,
+                "--output", str(output),
+            ]
+            with mock.patch.object(sys, "argv", arguments), mock.patch.object(
+                coverage,
+                "_measure",
+                side_effect=coverage.CoverageError("synthetic capture failure"),
+            ):
+                self.assertEqual(1, coverage._main())
+
+            self.assertEqual(b"trusted-baseline\n", output.read_bytes())
+
     def test_canonical_json_uses_nfc_utf8_sorted_keys_and_hex_control_escapes(self):
         value = {"z": "line\n", "e\u0301": [True, None, 7], "a": "한글"}
         self.assertEqual(
@@ -498,6 +518,21 @@ class BaselineLineageTest(unittest.TestCase):
         replacement["units"][0]["lineFloorBasisPointsAtCapture"] = 6999
         with self.assertRaisesRegex(coverage.CoverageError, "decrease"):
             coverage.validate_predecessor_floor_transitions(historical, replacement, 200)
+
+    def test_replacement_preserves_intentionally_unfloored_measured_unit(self):
+        unit = {
+            "id": ":sample|assembly",
+            "line": {"covered": 8, "missed": 2, "total": 10},
+            "branch": {"covered": 1, "missed": 1, "total": 2},
+            "authoredSourceCount": 1,
+            "executableLineCount": 10,
+            "branchCount": 2,
+            "classCount": 1,
+        }
+        historical = {"units": [unit]}
+        replacement = {"units": [{**unit, "line": {"covered": 9, "missed": 1, "total": 10}}]}
+
+        coverage.validate_predecessor_floor_transitions(historical, replacement, 200)
 
 class ClassificationAndSummaryTest(unittest.TestCase):
     def test_historical_test_inventory_may_differ_when_report_topology_identity_is_stable(self):
