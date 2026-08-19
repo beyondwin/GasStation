@@ -27,10 +27,10 @@ class ProductionDependencyBoundaryTest {
 
         result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
         assertTrue(result.output, result.output.contains("tested-target relation mismatch"))
-        assertTrue(result.output, result.output.contains("targets=:app,:core:model"))
-        assertTrue(result.output, result.output.contains("targets=:app,:app"))
+        assertTrue(result.output, result.output.contains("tested-target-observation|:benchmark-invalid"))
+        assertTrue(result.output, result.output.contains("targets=:app,:app,:core:model,:other-app"))
         assertTrue(result.output, result.output.contains("targets=-"))
-        assertTrue(result.output, result.output.contains("tested-target|:benchmark-changed|benchmark,debug|:other-app"))
+        assertTrue(result.output, result.output.contains("expected=tested-target|:benchmark-invalid|benchmark,debug|:app"))
     }
 
     @Test

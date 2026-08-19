@@ -28,9 +28,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
     val benchmarkMutations =
         if (mutation == TestedTargetMutation.ALL_INVALID) {
             linkedMapOf(
-                ":benchmark-changed" to TestedTargetMutation.CHANGED,
-                ":benchmark-duplicate" to TestedTargetMutation.DUPLICATE,
-                ":benchmark-extra" to TestedTargetMutation.EXTRA,
+                ":benchmark-invalid" to TestedTargetMutation.ALL_INVALID,
                 ":benchmark-missing" to TestedTargetMutation.MISSING,
             )
         } else {
@@ -109,7 +107,12 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
 
     benchmarkMutations.forEach { (benchmarkModule, benchmarkMutation) ->
         val directory = benchmarkModule.removePrefix(":")
-        val actualTarget = if (benchmarkMutation == TestedTargetMutation.CHANGED) ":other-app" else ":app"
+        val actualTarget =
+            if (benchmarkMutation in setOf(TestedTargetMutation.CHANGED, TestedTargetMutation.ALL_INVALID)) {
+                ":other-app"
+            } else {
+                ":app"
+            }
         val selfInstrumenting = benchmarkMutation != TestedTargetMutation.VALID_FALSE
         val dependencyMutation =
             when (benchmarkMutation) {
@@ -118,6 +121,11 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                 TestedTargetMutation.DUPLICATE ->
                     "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\", \"configuration\" to \"default\")))"
                 TestedTargetMutation.MISSING -> "dependencies.clear()"
+                TestedTargetMutation.ALL_INVALID ->
+                    "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\"))); " +
+                        "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\", " +
+                        "\"configuration\" to \"default\"))); " +
+                        "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":core:model\")))"
                 else -> ""
             }
         writeFile(
@@ -196,7 +204,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             }
             scopes.sorted().forEach(::appendLine)
             val expectedConsumer =
-                if (mutation == TestedTargetMutation.ALL_INVALID) ":benchmark-missing" else ":benchmark"
+                if (mutation == TestedTargetMutation.ALL_INVALID) ":benchmark-invalid" else ":benchmark"
             val expectedSelfInstrumenting = mutation != TestedTargetMutation.VALID_FALSE
             appendLine(
                 "tested-target|$expectedConsumer|benchmark,debug|:app|" +
