@@ -30,6 +30,8 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             linkedMapOf(
                 ":benchmark-invalid" to TestedTargetMutation.ALL_INVALID,
                 ":benchmark-missing" to TestedTargetMutation.MISSING,
+                ":benchmark-valid-true" to TestedTargetMutation.VALID_TRUE,
+                ":benchmark-valid-false" to TestedTargetMutation.VALID_FALSE,
             )
         } else {
             linkedMapOf(":benchmark" to mutation)
@@ -133,7 +135,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             """
             plugins { id("com.android.test") }
             android {
-                namespace = "fixture.${directory.replace('-', '.')}"
+                namespace = "fixture.${directory.replace('-', '_')}"
                 compileSdk = 37
                 targetProjectPath = "$actualTarget"
                 experimentalProperties["android.experimental.self-instrumenting"] = $selfInstrumenting
@@ -171,7 +173,10 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                     dependencies.forEach { appendLine("    api(project(\"$it\"))") }
                     appendLine("}")
                 }
-                if (mutation == TestedTargetMutation.UNRESOLVED && module == ":domain:station") {
+                if (
+                    mutation in setOf(TestedTargetMutation.UNRESOLVED, TestedTargetMutation.ALL_INVALID) &&
+                    module == ":domain:station"
+                ) {
                     appendLine("dependencies { implementation(\"invalid.example:never-resolve:1.0\") }")
                 }
             },
@@ -195,6 +200,10 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             if (mutation == TestedTargetMutation.VALID_FALSE) {
                 scopes +=
                     "scope|:benchmark|project|:app|compileOnly|" +
+                        "compile=benchmark,debug|runtime=-"
+            } else if (mutation == TestedTargetMutation.ALL_INVALID) {
+                scopes +=
+                    "scope|:benchmark-valid-false|project|:app|compileOnly|" +
                         "compile=benchmark,debug|runtime=-"
             }
             contractDependencies.toSortedMap().forEach { (consumer, targets) ->
