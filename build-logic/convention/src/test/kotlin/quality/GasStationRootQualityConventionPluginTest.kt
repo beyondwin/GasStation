@@ -15,7 +15,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -165,40 +164,69 @@ class GasStationRootQualityConventionPluginTest {
 
     @Test
     fun moduleGuardCapturesApiImplementationNestedProjectsAndSortedUniqueViolations() {
-        val result = sharedFailureEvidence.first
-
-        result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
+        val actual =
+            aggregateProductionScopes(
+                listOf(
+                    ":feature:sample|main|compile|project|:data:sample|implementation",
+                    ":feature:sample|main|runtime|project|:data:sample|implementation",
+                    ":feature:sample|main|compile|project|:data:sample|implementation",
+                    ":feature:nested:sample|main|compile|project|:core:database|implementation",
+                    ":feature:nested:sample|main|runtime|project|:core:database|implementation",
+                    ":domain:sample|main|compile|project|:core:network|api",
+                    ":domain:sample|main|runtime|project|:core:network|api",
+                ),
+            )
+        val policy =
+            ProductionDependencyPolicy(
+                enforcement = ProductionDependencyEnforcement.BLOCKING,
+                modules = actual.flatMap { listOf(it.consumer, it.target) }.distinct().sorted(),
+                scopes = emptyList(),
+                testedTarget = null,
+            )
         val expected =
             listOf(
                 "unallowlisted direct production declaration: scope|:domain:sample|project|:core:network|api|compile=main|runtime=main",
                 "unallowlisted direct production declaration: scope|:feature:nested:sample|project|:core:database|implementation|compile=main|runtime=main",
                 "unallowlisted direct production declaration: scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main",
             )
-        expected.forEach { assertTrue(result.output.contains(it)) }
-        val positions = expected.map(result.output::indexOf)
-        assertTrue("violations not sorted: $positions", positions.zipWithNext().all { it.first < it.second })
-        assertTrue(result.output.contains("production dependency policy violations 3"))
+        assertEquals(expected, policy.compareDirectDeclarations(actual))
     }
 
     @Test
     fun failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence() {
+        val dependencies =
+            listOf(
+                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
+                RootQualityProjectDependency(":feature:nested:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":core:database"),
+                RootQualityProjectDependency(":domain:sample", RootQualityDependencyBucket.API, ":core:network"),
+                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
+            )
+        val project =
+            newProject("cache-failure")
+                .writeRootQualityFixture(
+                    RootQualityFixture(
+                        modules = dependencies.flatMap { listOf(it.consumer, it.target) }.distinct(),
+                        projectDependencies = dependencies,
+                        blockingDependencyPolicy = true,
+                    ),
+                )
+        val arguments = arrayOf("verifyModuleBoundaries", "--rerun-tasks")
         val expected =
             "unallowlisted direct production declaration: " +
                 "scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main"
 
-        val first = sharedFailureEvidence.first
+        val first = project.configurationCacheRunner(*arguments).buildAndFail()
         first.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
         first.assertConfigurationCacheStored()
         assertTrue(first.output.contains(expected))
+        assertTrue(first.output.contains("production dependency policy violations 3"))
+        val firstReport = project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes()
 
-        val second = sharedFailureEvidence.second
+        val second = project.configurationCacheRunner(*arguments).buildAndFail()
         second.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
         second.assertConfigurationCacheReused()
         assertTrue(second.output.contains(expected))
-        assertArrayEquals(sharedFailureEvidence.firstReport, sharedFailureEvidence.secondReport)
-        second.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
-        assertTrue(second.output.contains("unexpected or ambiguous ABI dump: unexpected.api"))
-        assertFalse(second.tasks.any { it.path.endsWith(":updateKotlinAbi") })
+        assertArrayEquals(firstReport, project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes())
     }
 
     @Test
@@ -391,6 +419,16 @@ class GasStationRootQualityConventionPluginTest {
         assertSuccessSentinels(second, expectedModuleCount = 7)
         assertArrayEquals(firstReport, report.readBytes())
 
+        project.writeFile(
+            "core/model/api/unexpected.api",
+            "public final class com/gasstation/core/model/Unexpected {\n\tpublic fun <init> ()V\n}\n",
+        )
+        val extraDump = project.configurationCacheRunner(*arguments).buildAndFail()
+        extraDump.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
+        extraDump.assertConfigurationCacheReused()
+        assertTrue(extraDump.output.contains("unexpected or ambiguous ABI dump: unexpected.api"))
+        assertFalse(extraDump.tasks.any { it.path.endsWith(":updateKotlinAbi") })
+
     }
 
     @Test
@@ -479,70 +517,6 @@ class GasStationRootQualityConventionPluginTest {
         """.trimIndent()
 
     companion object {
-        @ClassRule
-        @JvmField
-        val failureTemporaryFolder = TemporaryFolder()
-
-        private data class FailureEvidence(
-            val first: BuildResult,
-            val second: BuildResult,
-            val firstReport: ByteArray,
-            val secondReport: ByteArray,
-        )
-
-        private val sharedFailureEvidence: FailureEvidence by lazy {
-            val dependencies =
-                listOf(
-                    RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
-                    RootQualityProjectDependency(":feature:nested:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":core:database"),
-                    RootQualityProjectDependency(":domain:sample", RootQualityDependencyBucket.API, ":core:network"),
-                    RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
-                )
-            val project =
-                GradlePluginTestProject.create(
-                    failureTemporaryFolder.newFolder("failure-matrix-root"),
-                    failureTemporaryFolder.newFolder("failure-gradle-user-home"),
-                ).writeRootQualityFixture(
-                    RootQualityFixture(
-                        modules =
-                            (
-                                dependencies.flatMap { listOf(it.consumer, it.target) } +
-                                    listOf(
-                                        ":core:model",
-                                        ":core:observability",
-                                        ":domain:location",
-                                        ":domain:settings",
-                                        ":domain:station",
-                                    )
-                            ).distinct(),
-                        projectDependencies = dependencies,
-                        blockingDependencyPolicy = true,
-                        contractApiFixture = true,
-                    ),
-                )
-            val arguments =
-                arrayOf(
-                    "verifyModuleBoundaries",
-                    ":core:model:checkKotlinAbi",
-                    ":core:observability:checkKotlinAbi",
-                    ":domain:location:checkKotlinAbi",
-                    ":domain:settings:checkKotlinAbi",
-                    ":domain:station:checkKotlinAbi",
-                    "verifyPublicApiBoundaries",
-                    "--continue",
-                    "--rerun-tasks",
-                )
-            val report = project.projectDir.resolve("build/reports/quality/module-boundaries.json")
-            val first = project.configurationCacheRunner(*arguments).buildAndFail()
-            val firstReport = report.readBytes()
-            project.writeFile(
-                "core/model/api/unexpected.api",
-                "public final class com/gasstation/core/model/Unexpected {\n\tpublic fun <init> ()V\n}\n",
-            )
-            val second = project.configurationCacheRunner(*arguments).buildAndFail()
-            FailureEvidence(first, second, firstReport, report.readBytes())
-        }
-
         private const val COMPOSE_SUCCESS =
             "Compose test API guard OK: deprecated v1 test-environment imports not found."
 

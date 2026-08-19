@@ -82,8 +82,8 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         },
     )
     if (fixture.contractApiFixture) {
-        require(modules.containsAll(CONTRACT_API_MODULES.map(ContractApiFixture::module))) {
-            "Contract API fixture requires all five ABI modules"
+        require(modules == CONTRACT_API_MODULES.map(ContractApiFixture::module).sorted()) {
+            "Contract API fixture requires the exact five ABI modules"
         }
         writeFile(
             "gradle/libs.versions.toml",
@@ -107,7 +107,7 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                 appendLine("plugins {")
                 if (module in fixture.componentlessModules) {
                     // Deliberately empty: the production topology gate must reject it.
-                } else if (fixture.contractApiFixture && module in CONTRACT_API_MODULES.map(ContractApiFixture::module)) {
+                } else if (fixture.contractApiFixture) {
                     appendLine("    id(\"gasstation.jvm.library\")")
                 } else {
                     appendLine("    `java-library`")
