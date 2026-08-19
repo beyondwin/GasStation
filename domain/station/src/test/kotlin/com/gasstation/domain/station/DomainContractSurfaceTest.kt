@@ -4,7 +4,10 @@ import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
 import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.FuelType
+import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.MoneyWon
+import com.gasstation.core.model.SearchRadius
+import com.gasstation.core.model.SortOrder
 import com.gasstation.domain.station.model.Station
 import com.gasstation.domain.station.model.StationEvent
 import com.gasstation.domain.station.model.StationListEntry
@@ -13,8 +16,10 @@ import com.gasstation.domain.station.model.StationSearchResult
 import com.gasstation.domain.station.model.WatchedStationSummary
 import com.gasstation.domain.station.model.WatchlistQuery
 import kotlinx.coroutines.flow.Flow
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DomainContractSurfaceTest {
@@ -60,6 +65,20 @@ class DomainContractSurfaceTest {
                 "RetryAttempted",
             ),
             StationEvent::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+        )
+        val events =
+            listOf(
+                StationEvent.SearchRefreshed(SearchRadius.KM_3, FuelType.GASOLINE, SortOrder.PRICE, stale = false),
+                StationEvent.WatchToggled("station-1", watched = true),
+                StationEvent.CompareViewed(count = 2),
+                StationEvent.ExternalMapOpened("station-1", MapProvider.KAKAO_MAP),
+                StationEvent.RefreshFailed(StationRefreshFailureReason.Timeout),
+                StationEvent.LocationFailed(resultType = "permission-denied"),
+                StationEvent.RetryAttempted(StationRefreshFailureReason.Network, succeeded = true),
+            )
+        assertEquals(
+            StationEvent::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+            events.map { it::class.java.simpleName }.toSet(),
         )
 
         val observeWatchlist = StationRepository::class.java.getDeclaredMethod(
@@ -119,10 +138,41 @@ class DomainContractSurfaceTest {
             StationRefreshFailureReason::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
         )
         assertEquals(429, StationRefreshFailureReason.Http(429).statusCode)
+        val cause = IllegalStateException("transport unavailable")
+        val exception = StationRefreshException(StationRefreshFailureReason.Network, cause)
+        assertEquals(StationRefreshFailureReason.Network, exception.reason)
+        assertEquals(cause, exception.cause)
         assertTrue(
             StationRefreshFailureReason::class.java.permittedSubclasses.none { subclass ->
                 subclass.declaredFields.any { field -> field.type.name.startsWith("retrofit2.") }
             },
         )
+    }
+
+    @Test
+    fun `station list entry retains the comparison snapshot`() {
+        val station =
+            Station(
+                id = "station-1",
+                name = "서울 주유소",
+                brand = Brand.GSC,
+                price = MoneyWon(1_675),
+                distance = DistanceMeters(850),
+                coordinates = Coordinates(37.498095, 127.027610),
+            )
+        val lastSeenAt = Instant.parse("2026-08-20T00:00:00Z")
+
+        val entry =
+            StationListEntry(
+                station = station,
+                priceDelta = StationPriceDelta.Decreased(25),
+                isWatched = false,
+                lastSeenAt = lastSeenAt,
+            )
+
+        assertEquals(station, entry.station)
+        assertEquals(StationPriceDelta.Decreased(25), entry.priceDelta)
+        assertFalse(entry.isWatched)
+        assertEquals(lastSeenAt, entry.lastSeenAt)
     }
 }

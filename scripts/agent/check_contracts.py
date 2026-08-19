@@ -49,6 +49,8 @@ CI_REQUIRED_FILES = (
         "core/database/AGENTS.md",
         "benchmark/AGENTS.md",
         "scripts/agent/verify-room-schemas.sh",
+        "config/quality/production-dependency-policy.txt",
+        "build-logic/convention/src/main/kotlin/GasStationContractApiConvention.kt",
     ]
 )
 CI_REQUIRED_ANCHORS = {
@@ -117,6 +119,21 @@ QUALITY_REPORT_PATHS = [
     "build/reports/quality/module-boundaries.json",
     "build/reports/quality/production-dependency-graph.json",
     "build/reports/quality/public-api-boundaries.json",
+]
+ABI_DUMP_MAPPINGS = [
+    (":core:model", "core/model/api/model.api"),
+    (":core:observability", "core/observability/api/observability.api"),
+    (":domain:location", "domain/location/api/location.api"),
+    (":domain:settings", "domain/settings/api/settings.api"),
+    (":domain:station", "domain/station/api/station.api"),
+]
+FORBIDDEN_PUBLIC_API_FAMILIES = [
+    "android.*",
+    "androidx.*",
+    "com.google.android.gms.*",
+    "retrofit2.*",
+    "okhttp3.*",
+    "com.google.gson.*",
 ]
 LINT_JOB_CONTRACTS = {
     "static-analysis": {
@@ -992,6 +1009,72 @@ def check_forbidden_abi_automation(root: Path, workflow: str) -> list[str]:
     return issues
 
 
+def check_dependency_and_abi_repository_contracts(root: Path) -> list[str]:
+    issues: list[str] = []
+    policy_path = root / "config" / "quality" / "production-dependency-policy.txt"
+    if policy_path.is_file():
+        policy = policy_path.read_text(errors="replace")
+        if "\nenforcement=blocking\n" not in f"\n{policy}":
+            issues.append(
+                issue(
+                    "config/quality/production-dependency-policy.txt",
+                    1,
+                    "production dependency policy must be blocking",
+                )
+            )
+    helper_path = (
+        root
+        / "build-logic"
+        / "convention"
+        / "src"
+        / "main"
+        / "kotlin"
+        / "GasStationContractApiConvention.kt"
+    )
+    if helper_path.is_file():
+        helper = helper_path.read_text(errors="replace")
+        if "explicitApi()" not in helper or "explicitApiWarning()" in helper:
+            issues.append(
+                issue(
+                    helper_path.relative_to(root),
+                    1,
+                    "contract API convention must use strict explicitApi",
+                )
+            )
+    module_doc_path = root / "docs" / "module-contracts.md"
+    module_doc = module_doc_path.read_text(errors="replace") if module_doc_path.is_file() else ""
+    for module, dump in ABI_DUMP_MAPPINGS:
+        if module not in module_doc or dump not in module_doc:
+            issues.append(
+                issue(
+                    "docs/module-contracts.md",
+                    1,
+                    f"exact ABI mapping missing: {module} -> {dump}",
+                )
+            )
+    for family in FORBIDDEN_PUBLIC_API_FAMILIES:
+        if family not in module_doc:
+            issues.append(
+                issue(
+                    "docs/module-contracts.md",
+                    1,
+                    f"forbidden public API family missing: {family}",
+                )
+            )
+    verification_path = root / "docs" / "verification-matrix.md"
+    verification = verification_path.read_text(errors="replace") if verification_path.is_file() else ""
+    for report in QUALITY_REPORT_PATHS:
+        if report not in verification:
+            issues.append(
+                issue(
+                    "docs/verification-matrix.md",
+                    1,
+                    f"quality report path missing: {report}",
+                )
+            )
+    return issues
+
+
 def check_coverage_workflow_contract(workflow: str) -> list[str]:
     """Require the one blocking, evidence-producing coverage invocation."""
     issues: list[str] = []
@@ -1201,6 +1284,8 @@ def check_ci_contracts(root: Path) -> list[str]:
     for target in sorted(configured_targets):
         if not (root / target).is_file():
             issues.append(issue(target, 1, "configured hook target missing"))
+
+    issues += check_dependency_and_abi_repository_contracts(root)
 
     workflow_path = root / ".github" / "workflows" / "android.yml"
     if workflow_path.is_file():

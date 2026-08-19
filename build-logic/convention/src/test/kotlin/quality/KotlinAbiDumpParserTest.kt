@@ -59,4 +59,28 @@ class KotlinAbiDumpParserTest {
         assertTrue(!JvmAbiTypeScanner.isForbiddenType("com.example.Myandroid.Widget"))
         assertTrue(!JvmAbiTypeScanner.isForbiddenType("java.time.Instant"))
     }
+
+    @Test
+    fun signatureScannerFindsDirectArrayNestedGenericBoundSuspendAndFunctionPositions() {
+        val signatures =
+            listOf(
+                "Landroid/location/Location;" to true,
+                "[Landroid/location/Location;" to true,
+                "Ljava/util/List<Landroid/location/Location;>;" to true,
+                "<T:Landroid/location/Location;>Ljava/lang/Object;" to false,
+                "(Landroid/location/Location;)Lretrofit2/Response;" to false,
+                "(Lkotlin/coroutines/Continuation<-Lokhttp3/ResponseBody;>;)Ljava/lang/Object;" to false,
+            )
+
+        val scanned = signatures.flatMap { (signature, typeSignature) ->
+            JvmAbiTypeScanner.typesFromSignature(signature, typeSignature)
+        }.toSet()
+
+        assertTrue("android.location.Location" in scanned)
+        assertTrue("retrofit2.Response" in scanned)
+        assertTrue("okhttp3.ResponseBody" in scanned)
+        assertThrows(KotlinAbiFormatException::class.java) {
+            JvmAbiTypeScanner.typesFromSignature("Ljava/util/List<Landroid/location/Location;>", true)
+        }
+    }
 }

@@ -71,12 +71,14 @@ class KotlinCompilerConventionPluginTest {
             (strictProjectPaths + networkProjectPath).map { projectPath ->
                 "$projectPath:compileKotlin"
             }
+        val explicitApiProbes = strictProjectPaths.map { "$it:explicitApiProbe" }
 
         listOf(emptyArray(), arrayOf("-Pgasstation.kotlinWarningsAsErrors=false"))
             .forEach { propertyArguments ->
                 val result =
                     project.runner(
                         *compileTasks.toTypedArray(),
+                        *explicitApiProbes.toTypedArray(),
                         "--rerun-tasks",
                         "--continue",
                         *propertyArguments,
@@ -87,6 +89,7 @@ class KotlinCompilerConventionPluginTest {
                 }
                 result.assertTaskOutcome("$networkProjectPath:compileKotlin", TaskOutcome.SUCCESS)
                 assertUncheckedCastWarning(result, "strict module matrix")
+                assertTrue(result.output.contains("EXPLICIT_API_ARGUMENTS=[-Xexplicit-api=strict]"))
             }
     }
 

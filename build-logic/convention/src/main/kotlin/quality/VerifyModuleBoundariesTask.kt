@@ -15,12 +15,6 @@ import org.gradle.work.DisableCachingByDefault
 @DisableCachingByDefault(because = "Verification-only task with no outputs")
 abstract class VerifyModuleBoundariesTask : DefaultTask() {
     @get:Input
-    abstract val forbiddenEdges: ListProperty<String>
-
-    @get:Input
-    abstract val moduleEdges: ListProperty<String>
-
-    @get:Input
     abstract val modulePaths: ListProperty<String>
 
     @get:Input
@@ -57,24 +51,6 @@ abstract class VerifyModuleBoundariesTask : DefaultTask() {
     }
 
     private fun verifyCheckedPolicy() {
-        val rules = forbiddenEdges.get().map(::decodeRule)
-        val legacyViolations =
-            moduleEdges.get()
-                .map(::decodeEdge)
-                .flatMap { edge ->
-                    rules.mapNotNull { rule ->
-                        if (
-                            edge.consumerPath.startsWith(rule.consumerPrefix) &&
-                            edge.targetPath.startsWith(rule.targetPrefix)
-                        ) {
-                            "${edge.consumerPath} -> ${edge.targetPath}  (${rule.reason})"
-                        } else {
-                            null
-                        }
-                    }
-                }
-                .toSortedSet()
-
         val policy = ProductionDependencyPolicy.parse(productionPolicyFile.get().asFile.readBytes())
         policy.requireExactActiveModules(activeModulePaths.get())
         val actualScopes = aggregateProductionScopes(productionDeclarationEvidence.get())
@@ -96,14 +72,6 @@ abstract class VerifyModuleBoundariesTask : DefaultTask() {
             }
         writeUtf8Lf(reportFile.get().asFile, report)
 
-        if (legacyViolations.isNotEmpty()) {
-            throw GradleException(
-                buildString {
-                    appendLine("모듈 경계 위반 ${legacyViolations.size}건 (docs/module-contracts.md 참조):")
-                    legacyViolations.forEach { appendLine("  - $it") }
-                },
-            )
-        }
         if (policy.enforcement == ProductionDependencyEnforcement.BLOCKING && diagnostics.isNotEmpty()) {
             throw GradleException(
                 buildString {
@@ -134,73 +102,43 @@ abstract class VerifyModuleBoundariesTask : DefaultTask() {
         )
     }
 
-    private fun aggregateProductionScopes(records: List<String>): List<ProductionDependencyScope> {
-        data class Key(val consumer: String, val kind: ProductionDependencyKind, val target: String, val configuration: String)
-        data class Membership(val compile: MutableSet<String> = sortedSetOf(), val runtime: MutableSet<String> = sortedSetOf())
-        val grouped = linkedMapOf<Key, Membership>()
-        records.sorted().forEach { encoded ->
-            val fields = encoded.split('|')
-            if (fields.size != 6) throw GradleException("invalid production dependency evidence: $encoded")
-            val kind = ProductionDependencyKind.entries.singleOrNull { it.value == fields[3] }
-                ?: throw GradleException("invalid production dependency kind: $encoded")
-            val key = Key(fields[0], kind, fields[4], fields[5])
-            val membership = grouped.getOrPut(key, ::Membership)
-            when (fields[2]) {
-                "compile" -> membership.compile += fields[1]
-                "runtime" -> membership.runtime += fields[1]
-                else -> throw GradleException("invalid production classpath kind: $encoded")
-            }
-        }
-        return grouped.map { (key, membership) ->
-            ProductionDependencyScope(
-                consumer = key.consumer,
-                kind = key.kind,
-                target = key.target,
-                declarationConfiguration = key.configuration,
-                compileComponents = membership.compile.toList(),
-                runtimeComponents = membership.runtime.toList(),
-            )
-        }.sorted()
-    }
+}
 
-    private fun compareTestedTarget(expected: TestedTargetRelation?, evidence: List<String>): List<String> {
-        val observed = evidence.filter(String::isNotBlank).sorted()
-        return when {
-            expected == null && observed.isEmpty() -> emptyList()
-            expected == null -> listOf("unexpected tested-target relation: $observed")
-            observed == listOf(expected.encoded) -> emptyList()
-            else -> listOf("tested-target relation mismatch: expected=${expected.encoded} actual=$observed")
+internal fun aggregateProductionScopes(records: List<String>): List<ProductionDependencyScope> {
+    data class Key(val consumer: String, val kind: ProductionDependencyKind, val target: String, val configuration: String)
+    data class Membership(val compile: MutableSet<String> = sortedSetOf(), val runtime: MutableSet<String> = sortedSetOf())
+    val grouped = linkedMapOf<Key, Membership>()
+    records.sorted().forEach { encoded ->
+        val fields = encoded.split('|')
+        if (fields.size != 6) throw GradleException("invalid production dependency evidence: $encoded")
+        val kind = ProductionDependencyKind.entries.singleOrNull { it.value == fields[3] }
+            ?: throw GradleException("invalid production dependency kind: $encoded")
+        val key = Key(fields[0], kind, fields[4], fields[5])
+        val membership = grouped.getOrPut(key, ::Membership)
+        when (fields[2]) {
+            "compile" -> membership.compile += fields[1]
+            "runtime" -> membership.runtime += fields[1]
+            else -> throw GradleException("invalid production classpath kind: $encoded")
         }
     }
-
-    private fun decodeRule(encoded: String): ForbiddenModuleEdge {
-        val parts = encoded.split('|', limit = 3)
-        if (parts.size != 3 || parts.any(String::isBlank)) {
-            throw GradleException("Invalid module boundary rule: $encoded")
-        }
-        return ForbiddenModuleEdge(
-            consumerPrefix = parts[0],
-            targetPrefix = parts[1],
-            reason = parts[2],
+    return grouped.map { (key, membership) ->
+        ProductionDependencyScope(
+            consumer = key.consumer,
+            kind = key.kind,
+            target = key.target,
+            declarationConfiguration = key.configuration,
+            compileComponents = membership.compile.toList(),
+            runtimeComponents = membership.runtime.toList(),
         )
+    }.sorted()
+}
+
+internal fun compareTestedTarget(expected: TestedTargetRelation?, evidence: List<String>): List<String> {
+    val observed = evidence.filter(String::isNotBlank).sorted()
+    return when {
+        expected == null && observed.isEmpty() -> emptyList()
+        expected == null -> listOf("unexpected tested-target relation: $observed")
+        observed == listOf(expected.encoded) -> emptyList()
+        else -> listOf("tested-target relation mismatch: expected=${expected.encoded} actual=$observed")
     }
-
-    private fun decodeEdge(encoded: String): ModuleEdge {
-        val parts = encoded.split('|', limit = 2)
-        if (parts.size != 2 || parts.any(String::isBlank)) {
-            throw GradleException("Invalid module dependency edge: $encoded")
-        }
-        return ModuleEdge(consumerPath = parts[0], targetPath = parts[1])
-    }
-
-    private data class ForbiddenModuleEdge(
-        val consumerPrefix: String,
-        val targetPrefix: String,
-        val reason: String,
-    )
-
-    private data class ModuleEdge(
-        val consumerPath: String,
-        val targetPath: String,
-    )
 }

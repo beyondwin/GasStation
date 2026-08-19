@@ -134,6 +134,7 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
     """
     import org.gradle.api.DefaultTask
     import org.gradle.api.provider.Property
+    import org.gradle.api.provider.ListProperty
     import org.gradle.api.tasks.Input
     import org.gradle.api.tasks.TaskAction
     import org.gradle.api.tasks.testing.Test
@@ -157,6 +158,16 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
         }
     }
 
+    abstract class ExplicitApiProbe : DefaultTask() {
+        @get:Input
+        abstract val compilerArguments: ListProperty<String>
+
+        @TaskAction
+        fun probe() {
+            println("EXPLICIT_API_ARGUMENTS=" + compilerArguments.get().filter { it.startsWith("-Xexplicit-api=") })
+        }
+    }
+
     plugins {
         id("${kind.pluginId}")
     }
@@ -172,6 +183,7 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
     }
 
     val conventionProbe = tasks.register<ConventionProbe>("conventionProbe")
+    val explicitApiProbe = tasks.register<ExplicitApiProbe>("explicitApiProbe")
     afterEvaluate {
         val conventionCompile = tasks.named<KotlinCompile>("${kind.compileTask}")
         val conventionTest = tasks.named<Test>("${kind.testTask}")
@@ -180,6 +192,9 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
             jvmTarget.set(conventionCompile.flatMap { it.compilerOptions.jvmTarget }.map { it.target })
             warningsAsErrors.set(conventionCompile.flatMap { it.compilerOptions.allWarningsAsErrors })
             testTimeoutMinutes.set(conventionTest.flatMap { it.timeout }.map { it.toMinutes() })
+        }
+        explicitApiProbe.configure {
+            compilerArguments.set(conventionCompile.flatMap { it.compilerOptions.freeCompilerArgs })
         }
     }
     """.trimIndent()

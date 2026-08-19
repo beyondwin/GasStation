@@ -13,8 +13,6 @@ data class RootQualityProjectDependency(
 )
 
 enum class RootQualityFixedInputMutation {
-    CLEAR_FORBIDDEN_EDGES,
-    REPLACE_MODULE_EDGES,
     REPLACE_MODULE_PATHS,
     REDIRECT_WORKFLOW,
     REDIRECT_ROBOLECTRIC_CONFIG,
@@ -172,13 +170,29 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         "config/quality/production-dependency-policy.txt",
         buildString {
             appendLine("schema-version=1")
-            appendLine("enforcement=report-only")
+            appendLine(
+                "enforcement=" + if (fixture.contractApiFixture) "blocking" else "report-only",
+            )
             modules.forEach { appendLine("module|$it") }
             if (fixture.contractApiFixture) {
+                appendLine(
+                    "scope|:core:model|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
+                        "compile=main|runtime=main",
+                )
                 appendLine(
                     "scope|:core:model|external|org.jetbrains.kotlin:kotlin-stdlib|compileOnly|" +
                         "compile=main|runtime=-",
                 )
+                appendLine(
+                    "scope|:core:observability|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
+                        "compile=main|runtime=main",
+                )
+                listOf(":domain:location", ":domain:settings", ":domain:station").forEach { module ->
+                    appendLine(
+                        "scope|$module|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
+                            "compile=main|runtime=main",
+                    )
+                }
             }
         },
     )
@@ -195,18 +209,6 @@ private fun rootQualityBuildScript(mutation: RootQualityFixedInputMutation?): St
         appendLine("    id(\"gasstation.root.quality\")")
         appendLine("}")
         when (mutation) {
-            RootQualityFixedInputMutation.CLEAR_FORBIDDEN_EDGES -> {
-                appendLine()
-                appendLine("tasks.named<VerifyModuleBoundariesTask>(\"verifyModuleBoundaries\") {")
-                appendLine("    forbiddenEdges.set(emptyList())")
-                appendLine("}")
-            }
-            RootQualityFixedInputMutation.REPLACE_MODULE_EDGES -> {
-                appendLine()
-                appendLine("tasks.named<VerifyModuleBoundariesTask>(\"verifyModuleBoundaries\") {")
-                appendLine("    moduleEdges.set(emptyList())")
-                appendLine("}")
-            }
             RootQualityFixedInputMutation.REPLACE_MODULE_PATHS -> {
                 appendLine()
                 appendLine("tasks.named<VerifyModuleBoundariesTask>(\"verifyModuleBoundaries\") {")

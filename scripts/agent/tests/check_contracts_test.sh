@@ -31,6 +31,8 @@ mkdir -p \
   "$fixture/repo/.github/workflows" \
   "$fixture/repo/core/database" \
   "$fixture/repo/benchmark" \
+  "$fixture/repo/build-logic/convention/src/main/kotlin" \
+  "$fixture/repo/config/quality" \
   "$fixture/repo/scripts/agent"
 cat > "$fixture/repo/app/build.gradle.kts" <<'EOF'
 android {
@@ -72,6 +74,25 @@ cat > "$fixture/repo/docs/module-contracts.md" <<'EOF'
 # Module contracts
 
 The active module is `app`.
+:core:model core/model/api/model.api
+:core:observability core/observability/api/observability.api
+:domain:location domain/location/api/location.api
+:domain:settings domain/settings/api/settings.api
+:domain:station domain/station/api/station.api
+android.* androidx.* com.google.android.gms.* retrofit2.* okhttp3.* com.google.gson.*
+EOF
+cat >> "$fixture/repo/docs/verification-matrix.md" <<'EOF'
+build/reports/quality/module-boundaries.json
+build/reports/quality/production-dependency-graph.json
+build/reports/quality/public-api-boundaries.json
+EOF
+cat > "$fixture/repo/config/quality/production-dependency-policy.txt" <<'EOF'
+schema-version=1
+enforcement=blocking
+module|:app
+EOF
+cat > "$fixture/repo/build-logic/convention/src/main/kotlin/GasStationContractApiConvention.kt" <<'EOF'
+fun strictContractApi() = explicitApi()
 EOF
 cat > "$fixture/repo/docs/AGENTS.md" <<'EOF'
 # Documentation contract
@@ -447,6 +468,22 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 -c 'from pathlib import Path; p=Path(__import__("sys").argv[1]); p.write_text(p.read_text().replace("enforcement=blocking", "enforcement=report-only"))' "$fixture/repo/config/quality/production-dependency-policy.txt"
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/dependency-report-only.out" 2>&1; then
+  fail "CI accepted a report-only production dependency policy"
+fi
+assert_contains "$(cat "$fixture/dependency-report-only.out")" "production dependency policy must be blocking"
+assert_error_locations "$(cat "$fixture/dependency-report-only.out")"
+git -C "$fixture/repo" restore config/quality/production-dependency-policy.txt
+
+python3 -c 'from pathlib import Path; p=Path(__import__("sys").argv[1]); p.write_text(p.read_text().replace("explicitApi()", "explicitApiWarning()"))' "$fixture/repo/build-logic/convention/src/main/kotlin/GasStationContractApiConvention.kt"
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/explicit-api-warning.out" 2>&1; then
+  fail "CI accepted warning-mode explicit API after promotion"
+fi
+assert_contains "$(cat "$fixture/explicit-api-warning.out")" "contract API convention must use strict explicitApi"
+assert_error_locations "$(cat "$fixture/explicit-api-warning.out")"
+git -C "$fixture/repo" restore build-logic/convention/src/main/kotlin/GasStationContractApiConvention.kt
 
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
 from pathlib import Path

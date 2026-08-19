@@ -48,7 +48,7 @@ class GasStationRootQualityConventionPluginTest {
         assertTaskLine(
             tasks,
             "verifyModuleBoundaries",
-            "docs/module-contracts.md 의 의도된 모듈 경계를 검증한다 (의도된 core:location→domain:location 예외 제외).",
+            "docs/module-contracts.md 의 exact production dependency scope를 검증한다.",
         )
         assertTaskLine(
             tasks,
@@ -99,8 +99,6 @@ class GasStationRootQualityConventionPluginTest {
 
             val taskName =
                 when (mutation) {
-                    RootQualityFixedInputMutation.CLEAR_FORBIDDEN_EDGES,
-                    RootQualityFixedInputMutation.REPLACE_MODULE_EDGES,
                     RootQualityFixedInputMutation.REPLACE_MODULE_PATHS,
                     -> "verifyModuleBoundaries"
                     RootQualityFixedInputMutation.REDIRECT_WORKFLOW,
@@ -118,51 +116,6 @@ class GasStationRootQualityConventionPluginTest {
             )
             assertFalse(result.tasks.any { it.path.startsWith(":verify") && it.outcome == TaskOutcome.SUCCESS })
         }
-    }
-
-    @Test
-    fun moduleGuardCapturesApiImplementationNestedProjectsAndSortedUniqueViolations() {
-        val dependencies =
-            listOf(
-                RootQualityProjectDependency(
-                    ":feature:sample",
-                    RootQualityDependencyBucket.IMPLEMENTATION,
-                    ":data:sample",
-                ),
-                RootQualityProjectDependency(
-                    ":feature:nested:sample",
-                    RootQualityDependencyBucket.IMPLEMENTATION,
-                    ":core:database",
-                ),
-                RootQualityProjectDependency(
-                    ":domain:sample",
-                    RootQualityDependencyBucket.API,
-                    ":core:network",
-                ),
-                RootQualityProjectDependency(
-                    ":feature:sample",
-                    RootQualityDependencyBucket.IMPLEMENTATION,
-                    ":data:sample",
-                ),
-            )
-        val project = newProject("module-violations")
-            .writeRootQualityFixture(
-                RootQualityFixture(
-                    modules = dependencies.flatMap { listOf(it.consumer, it.target) }.distinct(),
-                    projectDependencies = dependencies,
-                ),
-            )
-
-        val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
-
-        result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-        val expected =
-            listOf(
-                ":domain:sample -> :core:network  (domain은 네트워크 구현을 모른다)",
-                ":feature:nested:sample -> :core:database  (feature는 Room을 직접 다루지 않는다)",
-                ":feature:sample -> :data:sample  (feature는 저장소 구현이 아니라 domain 계약에만 의존한다)",
-            )
-        assertSortedUniqueEvidence(result, expected)
     }
 
     @Test
@@ -401,75 +354,18 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
-    fun failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence() {
-        val project = newProject("cache-failure")
-            .writeRootQualityFixture(
-                RootQualityFixture(
-                    modules = listOf(":feature:sample", ":data:sample"),
-                    projectDependencies =
-                        listOf(
-                            RootQualityProjectDependency(
-                                ":feature:sample",
-                                RootQualityDependencyBucket.IMPLEMENTATION,
-                                ":data:sample",
-                            ),
-                        ),
-                ),
-            )
-        val arguments = arrayOf("verifyModuleBoundaries", "--rerun-tasks")
-        val expected =
-            ":feature:sample -> :data:sample  (feature는 저장소 구현이 아니라 domain 계약에만 의존한다)"
-
-        val first = project.configurationCacheRunner(*arguments).buildAndFail()
-        first.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-        first.assertConfigurationCacheStored()
-        assertTrue(first.output.contains(expected))
-        assertTrue(first.output.contains("모듈 경계 위반 1건"))
-
-        val second = project.configurationCacheRunner(*arguments).buildAndFail()
-        second.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-        second.assertConfigurationCacheReused()
-        assertTrue(second.output.contains(expected))
-        assertTrue(second.output.contains("모듈 경계 위반 1건"))
-    }
-
-    @Test
     fun equivalentFixturesRelocateWithoutAbsoluteSuccessOrFailureEvidence() {
-        val results =
-            listOf("relocation-a", "relocation-b").map { name ->
-                val success = newProject("$name-success")
-                    .writeRootQualityFixture(RootQualityFixture(modules = listOf(":sample")))
-                val successResult =
-                    success.runner(
-                        "verifyModuleBoundaries",
-                        "verifyNoDeprecatedComposeTestApis",
-                        "verifyCiRobolectricRuntime",
-                        "--rerun-tasks",
-                    ).build()
-                assertFalse(successResult.output.contains(success.projectDir.absolutePath))
-
-                val failure = newProject("$name-failure")
-                    .writeRootQualityFixture(
-                        RootQualityFixture(
-                            modules = listOf(":feature:sample", ":data:sample"),
-                            projectDependencies =
-                                listOf(
-                                    RootQualityProjectDependency(
-                                        ":feature:sample",
-                                        RootQualityDependencyBucket.IMPLEMENTATION,
-                                        ":data:sample",
-                                    ),
-                                ),
-                        ),
-                    )
-                val failureResult =
-                    failure.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
-                failureResult.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-                assertFalse(failureResult.output.contains(failure.projectDir.absolutePath))
-                normalizedViolationEvidence(failureResult)
-            }
-
-        assertEquals(results[0], results[1])
+        listOf("relocation-a", "relocation-b").forEach { name ->
+            val project = newProject(name)
+                .writeRootQualityFixture(RootQualityFixture(modules = listOf(":sample")))
+            val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").build()
+            result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.SUCCESS)
+            assertFalse(result.output.contains(project.projectDir.absolutePath))
+            assertFalse(
+                project.projectDir.resolve("build/reports/quality/module-boundaries.json")
+                    .readText().contains(project.projectDir.absolutePath),
+            )
+        }
     }
 
     private fun newProject(name: String): GradlePluginTestProject =
@@ -483,13 +379,6 @@ class GasStationRootQualityConventionPluginTest {
             "missing exact task surface for $task: ${result.output}",
             result.output.lineSequence().any { it == "$task - $description" },
         )
-    }
-
-    private fun assertSortedUniqueEvidence(result: BuildResult, expected: List<String>) {
-        expected.forEach { evidence -> assertTrue(result.output.contains(evidence)) }
-        val positions = expected.map(result.output::indexOf)
-        assertTrue("violations not sorted: $positions", positions.zipWithNext().all { it.first < it.second })
-        assertTrue(result.output.contains("모듈 경계 위반 ${expected.size}건"))
     }
 
     private fun assertThreeSuccessOutcomes(result: BuildResult) {
@@ -517,12 +406,6 @@ class GasStationRootQualityConventionPluginTest {
         assertTrue(result.output.contains(COMPOSE_SUCCESS))
         assertTrue(result.output.contains("CI/Robolectric runtime OK"))
     }
-
-    private fun normalizedViolationEvidence(result: BuildResult): List<String> =
-        result.output.lineSequence()
-            .map(String::trim)
-            .filter { it.startsWith("- :") && " -> " in it }
-            .toList()
 
     private fun validWorkflow(javaVersion: String): String = workflow(javaVersion)
 

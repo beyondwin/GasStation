@@ -23,8 +23,6 @@ import org.objectweb.asm.FieldVisitor
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.signature.SignatureReader
-import org.objectweb.asm.signature.SignatureVisitor
 
 @DisableCachingByDefault(because = "Public ABI verification writes explicit diagnostic evidence")
 abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
@@ -290,22 +288,9 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         typeSignature: Boolean = false,
     ) {
         try {
-            val visitor = object : SignatureVisitor(Opcodes.ASM9) {
-                private var currentClass: String? = null
-
-                override fun visitClassType(name: String) {
-                    currentClass = name
-                    result += ScannedType(location, name.replace('/', '.'), line, entry)
-                }
-
-                override fun visitInnerClassType(name: String) {
-                    val inner = requireNotNull(currentClass) { "inner signature type without owner" } + "$" + name
-                    currentClass = inner
-                    result += ScannedType(location, inner.replace('/', '.'), line, entry)
-                }
+            JvmAbiTypeScanner.typesFromSignature(signature, typeSignature).forEach { type ->
+                result += ScannedType(location, type, line, entry)
             }
-            val reader = SignatureReader(signature)
-            if (typeSignature) reader.acceptType(visitor) else reader.accept(visitor)
         } catch (failure: Exception) {
             throw GradleException("malformed $location for $entry", failure)
         }

@@ -55,7 +55,7 @@ internal fun requireContractApiModules(activeModulePaths: List<String>): List<Co
 internal fun Project.configureGasStationContractApiConvention() {
     if (!(path.startsWith(":domain:") || path == ":core:model" || path == ":core:observability")) return
     extensions.configure<KotlinJvmProjectExtension> {
-        explicitApiWarning()
+        explicitApi()
         abiValidation()
     }
 }

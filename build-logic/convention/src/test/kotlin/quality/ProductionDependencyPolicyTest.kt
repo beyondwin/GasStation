@@ -79,4 +79,140 @@ class ProductionDependencyPolicyTest {
         assertTrue(policy.compareDirectDeclarations(listOf(wrongConfiguration)).isNotEmpty())
         assertTrue(policy.compareDirectDeclarations(listOf(wrongMembership)).isNotEmpty())
     }
+
+    @Test
+    fun evidenceAggregationKeepsExactDeclarationBucketAndCompileRuntimeComponents() {
+        val actual =
+            aggregateProductionScopes(
+                listOf(
+                    ":sample|demo|compile|external|example.group:artifact|api",
+                    ":sample|demo|runtime|external|example.group:artifact|api",
+                    ":sample|release|compile|external|example.group:artifact|api",
+                    ":sample|release|runtime|external|example.group:artifact|api",
+                    ":sample|release|compile|external|example.group:runtime|implementation",
+                ),
+            )
+
+        assertEquals(
+            listOf(
+                ProductionDependencyScope(
+                    consumer = ":sample",
+                    kind = ProductionDependencyKind.EXTERNAL,
+                    target = "example.group:artifact",
+                    declarationConfiguration = "api",
+                    compileComponents = listOf("demo", "release"),
+                    runtimeComponents = listOf("demo", "release"),
+                ),
+                ProductionDependencyScope(
+                    consumer = ":sample",
+                    kind = ProductionDependencyKind.EXTERNAL,
+                    target = "example.group:runtime",
+                    declarationConfiguration = "implementation",
+                    compileComponents = listOf("release"),
+                    runtimeComponents = emptyList(),
+                ),
+            ),
+            actual,
+        )
+    }
+
+    @Test
+    fun externalCoordinatesAreExactAndSameGroupSiblingIsUnallowlisted() {
+        val allowed =
+            ProductionDependencyScope(
+                consumer = ":sample",
+                kind = ProductionDependencyKind.EXTERNAL,
+                target = "androidx.compose.ui:ui-tooling",
+                declarationConfiguration = "debugImplementation",
+                compileComponents = listOf("debug"),
+                runtimeComponents = listOf("debug"),
+            )
+        val sibling = allowed.copy(target = "androidx.compose.ui:ui-tooling-preview")
+        val policy =
+            ProductionDependencyPolicy(
+                enforcement = ProductionDependencyEnforcement.BLOCKING,
+                modules = listOf(":sample"),
+                scopes = listOf(allowed),
+                testedTarget = null,
+            )
+
+        assertTrue(policy.compareDirectDeclarations(listOf(allowed)).isEmpty())
+        val diagnostics = policy.compareDirectDeclarations(listOf(sibling))
+        assertEquals(2, diagnostics.size)
+        assertTrue(diagnostics.any { it.startsWith("missing direct production declaration") })
+        assertTrue(diagnostics.any { it.startsWith("unallowlisted direct production declaration") })
+    }
+
+    @Test
+    fun testedTargetRelationRejectsTargetAndSelfInstrumentingMembershipMutations() {
+        val expected =
+            TestedTargetRelation(
+                consumer = ":benchmark",
+                components = listOf("benchmark", "debug"),
+                target = ":app",
+                selfInstrumenting = true,
+                compileOnlyMembership = "absent",
+            )
+
+        assertTrue(compareTestedTarget(expected, listOf(expected.encoded)).isEmpty())
+        val wrongTarget = expected.copy(target = ":feature:station-list")
+        val wrongSelfInstrumenting = expected.copy(selfInstrumenting = false, compileOnlyMembership = "present")
+        assertTrue(compareTestedTarget(expected, listOf(wrongTarget.encoded)).single().contains("mismatch"))
+        assertTrue(compareTestedTarget(expected, listOf(wrongSelfInstrumenting.encoded)).single().contains("mismatch"))
+    }
+
+    @Test
+    fun exactProjectAllowlistKillsEveryRetiredRuleAndKeepsTheOneIntentionalException() {
+        val mutations =
+            listOf(
+                ":feature:probe" to ":core:location",
+                ":feature:probe" to ":core:network",
+                ":feature:probe" to ":core:database",
+                ":feature:probe" to ":core:datastore",
+                ":feature:probe" to ":data:station",
+                ":data:probe" to ":core:location",
+                ":data:probe" to ":feature:settings",
+                ":domain:probe" to ":data:station",
+                ":domain:probe" to ":feature:settings",
+                ":domain:probe" to ":core:location",
+                ":domain:probe" to ":core:network",
+                ":domain:probe" to ":core:database",
+                ":domain:probe" to ":core:datastore",
+                ":domain:probe" to ":core:designsystem",
+                ":core:model" to ":domain:station",
+                ":core:model" to ":data:station",
+                ":core:network" to ":domain:station",
+                ":core:observability" to ":domain:station",
+            )
+        val allowedException = projectScope(":core:location", ":domain:location")
+        val policy =
+            ProductionDependencyPolicy(
+                enforcement = ProductionDependencyEnforcement.BLOCKING,
+                modules = mutations.flatMap { listOf(it.first, it.second) }.plus(
+                    listOf(":core:location", ":domain:location"),
+                ).distinct().sorted(),
+                scopes = listOf(allowedException),
+                testedTarget = null,
+            )
+
+        assertTrue(policy.compareDirectDeclarations(listOf(allowedException)).isEmpty())
+        mutations.forEach { (consumer, target) ->
+            val diagnostics =
+                policy.compareDirectDeclarations(
+                    listOf(allowedException, projectScope(consumer, target)),
+                )
+            assertEquals("$consumer -> $target", 1, diagnostics.size)
+            assertTrue(diagnostics.single().contains("unallowlisted direct production declaration"))
+        }
+    }
+
+    private fun projectScope(consumer: String, target: String): ProductionDependencyScope =
+        ProductionDependencyScope(
+            consumer = consumer,
+            kind = ProductionDependencyKind.PROJECT,
+            target = target,
+            declarationConfiguration = "implementation",
+            compileComponents = listOf("main"),
+            runtimeComponents = listOf("main"),
+        )
 }

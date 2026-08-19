@@ -25,7 +25,7 @@ Android application/library convention은 production source와 test source를 �
 
 ## Kotlin 및 테스트 convention 경로
 
-Android Lint는 application/library Android source를 맡고, Kotlin compiler warning gate는 현재 활성 `domain:*` 세 모듈과 `core:model`, `core:observability`의 다섯 JVM contract 모듈을 blocking으로 맡습니다. 그 밖의 convention-owned 모듈은 report-only이며 명시적 opt-in으로만 strict로 승격합니다. application, Android library, JVM library convention이 소유하는 모든 `Test` task는 15분 task timeout을 사용하고 retry는 적용하지 않습니다.
+Android Lint는 application/library Android source를 맡고, Kotlin compiler strict explicit-API gate는 현재 활성 `domain:*` 세 모듈과 `core:model`, `core:observability`의 다섯 JVM contract 모듈을 blocking으로 맡습니다. 그 밖의 convention-owned 모듈은 report-only이며 명시적 opt-in으로만 compiler warning을 승격합니다. application, Android library, JVM library convention이 소유하는 모든 `Test` task는 15분 task timeout을 사용하고 retry는 적용하지 않습니다.
 
 다섯 JVM contract 모듈은 Kotlin 2.4.10 built-in ABI validation의 전체 `api/` baseline을 사용합니다. `checkKotlinAbi`가 source와 baseline 일치를 먼저 증명한 뒤 `verifyPublicApiBoundaries`가 실제 writer dump의 class/field/fun grammar를 fail-closed로 파싱하고, dump가 선택한 owner/name/descriptor만 ASM 9.9.1로 스캔합니다. descriptor뿐 아니라 generic signature, bound, suspend `Continuation`, Kotlin `FunctionN`, exception, annotation과 class-valued annotation 위치까지 검사하므로 generic erasure 뒤의 Android/Compose/Room/Retrofit/DataStore/SDK 타입 누수도 차단합니다. `Flow`, Kotlin/JDK collection, `Instant`, `Throwable`, GasStation model 타입은 정상 계약 타입입니다.
 

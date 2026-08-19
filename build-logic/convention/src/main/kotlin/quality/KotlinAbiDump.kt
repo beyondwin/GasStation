@@ -1,6 +1,9 @@
 package com.gasstation.buildlogic.quality
 
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
+import org.objectweb.asm.signature.SignatureReader
+import org.objectweb.asm.signature.SignatureVisitor
 
 internal data class KotlinAbiDump(val classes: List<KotlinAbiClass>)
 
@@ -161,6 +164,33 @@ internal object JvmAbiTypeScanner {
     }
 
     fun isForbiddenType(className: String): Boolean = forbiddenPrefixes.any(className::startsWith)
+
+    fun typesFromSignature(signature: String, typeSignature: Boolean): List<String> {
+        val types = mutableListOf<String>()
+        try {
+            val visitor =
+                object : SignatureVisitor(Opcodes.ASM9) {
+                    private var currentClass: String? = null
+
+                    override fun visitClassType(name: String) {
+                        currentClass = name
+                        types += name.replace('/', '.')
+                    }
+
+                    override fun visitInnerClassType(name: String) {
+                        val owner = requireNotNull(currentClass) { "inner signature type without owner" }
+                        val inner = "$owner\$$name"
+                        currentClass = inner
+                        types += inner.replace('/', '.')
+                    }
+                }
+            val reader = SignatureReader(signature)
+            if (typeSignature) reader.acceptType(visitor) else reader.accept(visitor)
+        } catch (failure: Exception) {
+            throw KotlinAbiFormatException("malformed JVM signature $signature", failure)
+        }
+        return types
+    }
 
     private fun collect(type: Type, result: MutableSet<String>) {
         when (type.sort) {
