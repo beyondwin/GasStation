@@ -248,28 +248,6 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
-    fun publicApiTaskFailsClosedWhenSelectedTopologyIsNotExactlyFiveModules() {
-        val project =
-            newProject("public-api-topology-mismatch")
-                .writeRootQualityFixture(
-                    RootQualityFixture(
-                        modules =
-                            listOf(
-                                ":core:model",
-                                ":core:observability",
-                                ":domain:location",
-                                ":domain:settings",
-                            ),
-                    ),
-                )
-
-        val result = project.runner("verifyPublicApiBoundaries", "--rerun-tasks").buildAndFail()
-
-        result.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
-        assertTrue(result.output.contains("public API topology mismatch"))
-    }
-
-    @Test
     fun composeGuardAllowsV2NormalCommentsAndExcludedTrees() {
         val project = newProject("compose-safe")
             .writeRootQualityFixture(

@@ -19,32 +19,18 @@ class ProductionDependencyBoundaryTest {
     }
 
     @Test
-    fun realAgpTestedApksRejectsExtraTarget() {
-        val project = newProject("tested-target-extra")
-            .writeProductionDependencyAndroidFixture(TestedTargetMutation.EXTRA)
+    fun realAgpTestedApksRejectsMissingDuplicateExtraAndChangedTargetsTogether() {
+        val project = newProject("tested-target-all-invalid")
+            .writeProductionDependencyAndroidFixture(TestedTargetMutation.ALL_INVALID)
 
         val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
 
         result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
         assertTrue(result.output, result.output.contains("tested-target relation mismatch"))
-        assertTrue(result.output, result.output.contains(":app,:core:model"))
-    }
-
-    @Test
-    fun realAgpTestedApksRejectsMissingDuplicateAndChangedTargets() {
-        listOf(
-            TestedTargetMutation.MISSING,
-            TestedTargetMutation.DUPLICATE,
-            TestedTargetMutation.CHANGED,
-        ).forEach { mutation ->
-            val project = newProject("tested-target-${mutation.name.lowercase()}")
-                .writeProductionDependencyAndroidFixture(mutation)
-
-            val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
-
-            result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-            assertTrue("$mutation did not report actual relation", result.output.contains("tested-target relation mismatch"))
-        }
+        assertTrue(result.output, result.output.contains("targets=:app,:core:model"))
+        assertTrue(result.output, result.output.contains("targets=:app,:app"))
+        assertTrue(result.output, result.output.contains("targets=-"))
+        assertTrue(result.output, result.output.contains("tested-target|:benchmark-changed|benchmark,debug|:other-app"))
     }
 
     @Test

@@ -11,6 +11,7 @@ enum class TestedTargetMutation {
     MISSING,
     CHANGED,
     UNRESOLVED,
+    ALL_INVALID,
 }
 
 fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
@@ -24,10 +25,22 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             ":domain:settings",
             ":domain:station",
         )
+    val benchmarkMutations =
+        if (mutation == TestedTargetMutation.ALL_INVALID) {
+            linkedMapOf(
+                ":benchmark-changed" to TestedTargetMutation.CHANGED,
+                ":benchmark-duplicate" to TestedTargetMutation.DUPLICATE,
+                ":benchmark-extra" to TestedTargetMutation.EXTRA,
+                ":benchmark-missing" to TestedTargetMutation.MISSING,
+            )
+        } else {
+            linkedMapOf(":benchmark" to mutation)
+        }
     val androidModules =
         buildList {
-            addAll(listOf(":app", ":benchmark", ":library"))
-            if (mutation == TestedTargetMutation.CHANGED) add(":other-app")
+            addAll(listOf(":app", ":library"))
+            addAll(benchmarkMutations.keys)
+            if (mutation in setOf(TestedTargetMutation.CHANGED, TestedTargetMutation.ALL_INVALID)) add(":other-app")
         }
     val modules = (androidModules + contractModules).sorted()
     writeSettings(
@@ -94,39 +107,42 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
     )
     writeFile("library/src/main/AndroidManifest.xml", "<manifest />")
 
-    val actualTarget = if (mutation == TestedTargetMutation.CHANGED) ":other-app" else ":app"
-    val selfInstrumenting = mutation != TestedTargetMutation.VALID_FALSE
-    val dependencyMutation =
-        when (mutation) {
-            TestedTargetMutation.EXTRA ->
-                "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":core:model\")))"
-            TestedTargetMutation.DUPLICATE ->
-                "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\", \"configuration\" to \"default\")))"
-            TestedTargetMutation.MISSING -> "dependencies.clear()"
-            else -> ""
-        }
-    writeFile(
-        "benchmark/build.gradle.kts",
-        """
-        plugins { id("com.android.test") }
-        android {
-            namespace = "fixture.benchmark"
-            compileSdk = 37
-            targetProjectPath = "$actualTarget"
-            experimentalProperties["android.experimental.self-instrumenting"] = $selfInstrumenting
-            defaultConfig { minSdk = 24 }
-            buildTypes { create("benchmark") { initWith(getByName("debug")) } }
-        }
-        ${
-            if (dependencyMutation.isBlank()) {
-                ""
-            } else {
-                "afterEvaluate { configurations.getByName(\"testedApks\").run { $dependencyMutation } }"
+    benchmarkMutations.forEach { (benchmarkModule, benchmarkMutation) ->
+        val directory = benchmarkModule.removePrefix(":")
+        val actualTarget = if (benchmarkMutation == TestedTargetMutation.CHANGED) ":other-app" else ":app"
+        val selfInstrumenting = benchmarkMutation != TestedTargetMutation.VALID_FALSE
+        val dependencyMutation =
+            when (benchmarkMutation) {
+                TestedTargetMutation.EXTRA ->
+                    "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":core:model\")))"
+                TestedTargetMutation.DUPLICATE ->
+                    "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\", \"configuration\" to \"default\")))"
+                TestedTargetMutation.MISSING -> "dependencies.clear()"
+                else -> ""
             }
-        }
-        """.trimIndent(),
-    )
-    writeFile("benchmark/src/main/AndroidManifest.xml", "<manifest />")
+        writeFile(
+            "$directory/build.gradle.kts",
+            """
+            plugins { id("com.android.test") }
+            android {
+                namespace = "fixture.${directory.replace('-', '.')}"
+                compileSdk = 37
+                targetProjectPath = "$actualTarget"
+                experimentalProperties["android.experimental.self-instrumenting"] = $selfInstrumenting
+                defaultConfig { minSdk = 24 }
+                buildTypes { create("benchmark") { initWith(getByName("debug")) } }
+            }
+            ${
+                if (dependencyMutation.isBlank()) {
+                    ""
+                } else {
+                    "afterEvaluate { configurations.getByName(\"testedApks\").run { $dependencyMutation } }"
+                }
+            }
+            """.trimIndent(),
+        )
+        writeFile("$directory/src/main/AndroidManifest.xml", "<manifest />")
+    }
 
     val contractDependencies =
         mapOf(
@@ -160,15 +176,15 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             appendLine("enforcement=blocking")
             modules.forEach { appendLine("module|$it") }
             val scopes = mutableListOf<String>()
-            listOf(":app", ":benchmark", ":library").forEach { consumer ->
+            (listOf(":app", ":library") + benchmarkMutations.keys).sorted().forEach { consumer ->
                 if (consumer in modules) {
-                    val components = if (consumer == ":benchmark") "benchmark,debug" else "debug,release"
+                    val components = if (consumer.startsWith(":benchmark")) "benchmark,debug" else "debug,release"
                     scopes +=
                         "scope|$consumer|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
                             "compile=$components|runtime=$components"
                 }
             }
-            if (!selfInstrumenting) {
+            if (mutation == TestedTargetMutation.VALID_FALSE) {
                 scopes +=
                     "scope|:benchmark|project|:app|compileOnly|" +
                         "compile=benchmark,debug|runtime=-"
@@ -179,9 +195,13 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                 }
             }
             scopes.sorted().forEach(::appendLine)
+            val expectedConsumer =
+                if (mutation == TestedTargetMutation.ALL_INVALID) ":benchmark-missing" else ":benchmark"
+            val expectedSelfInstrumenting = mutation != TestedTargetMutation.VALID_FALSE
             appendLine(
-                "tested-target|:benchmark|benchmark,debug|:app|self-instrumenting=$selfInstrumenting|" +
-                    "compile-only-membership=${if (selfInstrumenting) "absent" else "present"}",
+                "tested-target|$expectedConsumer|benchmark,debug|:app|" +
+                    "self-instrumenting=$expectedSelfInstrumenting|" +
+                    "compile-only-membership=${if (expectedSelfInstrumenting) "absent" else "present"}",
             )
         },
     )

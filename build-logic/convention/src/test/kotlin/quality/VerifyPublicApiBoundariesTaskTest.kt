@@ -20,6 +20,33 @@ class VerifyPublicApiBoundariesTaskTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
+    fun selectedTopologyMustExactlyMatchAllFiveMappingsAndTypedRoots() {
+        val project = ProjectBuilder.builder().withProjectDir(temporaryFolder.root).build()
+        val task = project.tasks.create("verifyTopology", VerifyPublicApiBoundariesTask::class.java)
+        task.moduleMappings.set(
+            listOf(
+                ":core:model|core/model/api/model.api|fixture.model",
+                ":core:observability|core/observability/api/observability.api|fixture.observability",
+                ":domain:location|domain/location/api/location.api|fixture.location",
+                ":domain:settings|domain/settings/api/settings.api|fixture.settings",
+                ":domain:station|domain/station/api/station.api|fixture.station",
+            ),
+        )
+        task.selectedActiveModules.set(
+            listOf(":core:model", ":core:observability", ":domain:location", ":domain:settings"),
+        )
+        task.classRootMappings.set(emptyList())
+        task.repositoryRoot.set(project.layout.projectDirectory)
+        task.forbiddenFamilies.set(emptyList())
+        task.scannerSchema.set("test")
+        task.reportFile.set(project.layout.buildDirectory.file("reports/topology.json"))
+
+        val failure = assertThrows(GradleException::class.java, task::verify)
+
+        assertTrue(failure.message.orEmpty().contains("public API topology mismatch"))
+    }
+
+    @Test
     fun compiledClassesBindTypedRootsResolveInheritedOwnerAndScanDefaultsAndSignatures() {
         val root = temporaryFolder.root
         val modules =
