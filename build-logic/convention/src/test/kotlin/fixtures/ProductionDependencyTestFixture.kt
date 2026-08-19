@@ -130,10 +130,11 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
 
     val contractDependencies =
         mapOf(
+            ":core:model" to listOf(":domain:station"),
             ":core:observability" to listOf(":core:model"),
             ":domain:location" to listOf(":core:observability"),
             ":domain:settings" to listOf(":core:observability"),
-            ":domain:station" to listOf(":domain:location", ":domain:settings"),
+            ":domain:station" to listOf(":core:observability", ":domain:location", ":domain:settings"),
         )
     contractModules.forEach { module ->
         val dependencies = contractDependencies[module].orEmpty()

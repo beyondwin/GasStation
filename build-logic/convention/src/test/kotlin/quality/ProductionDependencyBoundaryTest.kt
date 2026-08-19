@@ -72,8 +72,12 @@ class ProductionDependencyBoundaryTest {
                 assertTrue(inventory.contains("parent=project::domain:location"))
                 assertTrue(inventory.contains("parent=project::domain:settings"))
                 assertTrue(inventory.contains("|requested="))
+                assertTrue(inventory.contains("path=project::domain:station>project::core:observability"))
                 assertTrue(inventory.contains("path=project::domain:station>project::domain:location"))
                 assertTrue(inventory.contains("path=project::domain:station>project::domain:settings"))
+                assertTrue(inventory.contains("path=project::domain:station>project::domain:location>project::core:observability"))
+                assertTrue(inventory.contains("path=project::domain:station>project::domain:settings>project::core:observability"))
+                assertTrue(inventory.contains("path=project::domain:station>project::core:model>project::domain:station"))
             }
         }
     }

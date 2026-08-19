@@ -237,45 +237,50 @@ private fun captureResolvedGraph(
     graphRecords.addAll(
         configuration.incoming.resolutionResult.rootComponent.map { root ->
             val records = sortedSetOf<String>()
-            val expandedPaths = mutableMapOf<String, MutableSet<String>>()
+            val expandedComponents = mutableSetOf<String>()
             val rootIdentity = selectedIdentity(root.id)
             records +=
                 "${module.path}|$componentName|$classpathKind|root|" +
                     "root=$rootIdentity|path=$rootIdentity"
             fun visit(
                 component: org.gradle.api.artifacts.result.ResolvedComponentResult,
-                path: List<String>,
             ) {
-                val selectedIdentity = selectedIdentity(component.id)
-                val pathIdentity = path.joinToString(">")
-                val expanded = expandedPaths.getOrPut(selectedIdentity, ::linkedSetOf)
-                if (pathIdentity !in expanded && expanded.size >= MAX_EXPANDED_PATHS_PER_COMPONENT) return
-                if (!expanded.add(pathIdentity)) return
+                val parentIdentity = selectedIdentity(component.id)
+                if (!expandedComponents.add(parentIdentity)) return
                 component.dependencies.forEach { dependency ->
                     when (dependency) {
                         is ResolvedDependencyResult -> {
                             val selected = selectedIdentity(dependency.selected.id)
-                            val nextPath = path + selected
+                            val edgePath =
+                                listOf(rootIdentity, parentIdentity, selected)
+                                    .fold(mutableListOf<String>()) { path, identity ->
+                                        path.apply { if (lastOrNull() != identity) add(identity) }
+                                    }
                             records +=
                                 "${module.path}|$componentName|$classpathKind|" +
-                                    "${if (path.size == 1) "direct" else "transitive"}|" +
-                                    "root=$rootIdentity|parent=$selectedIdentity|" +
+                                    "${if (parentIdentity == rootIdentity) "direct" else "transitive"}|" +
+                                    "root=$rootIdentity|parent=$parentIdentity|" +
                                     "requested=${stableToken(dependency.requested.displayName)}|selected=$selected|" +
-                                    "path=${nextPath.joinToString(">")}"
-                            if (selected !in path) visit(dependency.selected, nextPath)
+                                    "path=${edgePath.joinToString(">")}"
+                            visit(dependency.selected)
                         }
                         is UnresolvedDependencyResult -> {
                             val requested = stableToken(dependency.attempted.displayName)
+                            val edgePath =
+                                listOf(rootIdentity, parentIdentity, "unresolved:$requested")
+                                    .fold(mutableListOf<String>()) { path, identity ->
+                                        path.apply { if (lastOrNull() != identity) add(identity) }
+                                    }
                             records +=
                                 "${module.path}|$componentName|$classpathKind|unresolved|" +
-                                    "root=$rootIdentity|parent=$selectedIdentity|requested=$requested|" +
+                                    "root=$rootIdentity|parent=$parentIdentity|requested=$requested|" +
                                     "reason=${dependency.failure.javaClass.simpleName}|" +
-                                    "path=${(path + "unresolved:$requested").joinToString(">")}"
+                                    "path=${edgePath.joinToString(">")}"
                         }
                     }
                 }
             }
-            visit(root, listOf(rootIdentity))
+            visit(root)
             records.toList()
         },
     )
@@ -290,8 +295,6 @@ private fun selectedIdentity(identifier: org.gradle.api.artifacts.component.Comp
 
 private fun stableToken(value: String): String =
     value.replace('\\', '/').replace(Regex("(?:[A-Za-z]:)?/[^| ]+"), "<path>")
-
-private const val MAX_EXPANDED_PATHS_PER_COMPONENT = 2
 
 internal fun readActiveModulePaths(root: Project): List<String> {
     val raw = root.gradle.extensions.extraProperties.properties["gasstation.activeModulePaths"]
