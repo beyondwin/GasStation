@@ -6,6 +6,7 @@ import java.util.Properties
 data class CoverageFixture(
     val includeUnownedEmptyModule: Boolean = false,
     val assertNoLocationClassCollection: Boolean = false,
+    val jvmOnly: Boolean = false,
 )
 
 fun GradlePluginTestProject.writeCoverageFixture(
@@ -14,9 +15,11 @@ fun GradlePluginTestProject.writeCoverageFixture(
     val modules =
         buildList {
             add(":sample:jvm")
-            add(":android")
-            add(":app")
             add(":benchmark")
+            if (!fixture.jvmOnly) {
+                add(":android")
+                add(":app")
+            }
             if (fixture.includeUnownedEmptyModule) add(":empty")
         }
     writeSettings(
@@ -76,9 +79,38 @@ fun GradlePluginTestProject.writeCoverageFixture(
                   java-version: ${'$'}{{ env.CI_JAVA_VERSION }}
         """.trimIndent(),
     )
-    writeFile("config/quality/coverage-policy.json", COVERAGE_MEASUREMENT_POLICY)
+    writeFile(
+        "config/quality/coverage-policy.json",
+        if (fixture.jvmOnly) COVERAGE_JVM_MEASUREMENT_POLICY else COVERAGE_MEASUREMENT_POLICY,
+    )
     writeFile("config/quality/coverage-baseline.json", COVERAGE_STUB_BASELINE)
     writeFile("scripts/quality/verify_coverage.py", COVERAGE_STUB_VERIFIER)
+    writeFile("scripts/quality/real_verify_coverage.py", coverageRealVerifierSource().readText())
+    writeFile(
+        "scripts/quality/check_real_boundary.py",
+        """
+        import sys
+        from pathlib import Path
+        import real_verify_coverage as coverage
+
+        root = Path(__file__).resolve().parents[2]
+        try:
+            manifest = coverage.validate_manifest_schema(
+                coverage.read_json(root / "build/reports/coverage/report-manifest.json")
+            )
+            head = coverage._git(root, "rev-parse", "HEAD").decode().strip()
+            if manifest["sourceCommit"] != head:
+                raise coverage.CoverageError("manifest sourceCommit differs from fixture HEAD")
+            for relative in manifest["entries"]:
+                entry = coverage.validate_entry_schema(coverage.read_json(root / relative), relative)
+                if entry["sourceCommit"] != head:
+                    raise coverage.CoverageError("entry sourceCommit differs from fixture HEAD")
+                coverage.validate_entry_evidence(root, entry)
+        except coverage.CoverageError as error:
+            print(error)
+            sys.exit(1)
+        """.trimIndent(),
+    )
 
     writeFile(
         "sample/jvm/build.gradle.kts",
@@ -110,9 +142,10 @@ fun GradlePluginTestProject.writeCoverageFixture(
         """.trimIndent(),
     )
 
-    writeFile(
-        "android/build.gradle.kts",
-        buildString {
+    if (!fixture.jvmOnly) {
+        writeFile(
+            "android/build.gradle.kts",
+            buildString {
             if (fixture.assertNoLocationClassCollection) {
                 appendLine("import org.gradle.testing.jacoco.plugins.JacocoTaskExtension")
                 appendLine("import org.gradle.api.tasks.testing.Test")
@@ -124,17 +157,17 @@ fun GradlePluginTestProject.writeCoverageFixture(
                 appendLine()
                 appendLine(noLocationAssertion(setOf("testDebugUnitTest")))
             }
-        },
-    )
-    writeFile("android/src/main/AndroidManifest.xml", "<manifest />")
-    writeFile(
-        "android/src/main/java/fixture/android/AndroidLogic.java",
-        javaLogic("AndroidLogic"),
-    )
-    writeFile(
-        "android/src/test/java/fixture/android/AndroidLogicTest.java",
-        javaTest("AndroidLogic", "AndroidLogicTest"),
-    )
+            },
+        )
+        writeFile("android/src/main/AndroidManifest.xml", "<manifest />")
+        writeFile(
+            "android/src/main/java/fixture/android/AndroidLogic.java",
+            javaLogic("AndroidLogic"),
+        )
+        writeFile(
+            "android/src/test/java/fixture/android/AndroidLogicTest.java",
+            javaTest("AndroidLogic", "AndroidLogicTest"),
+        )
 
     writeFile(
         "app/build.gradle.kts",
@@ -162,22 +195,23 @@ fun GradlePluginTestProject.writeCoverageFixture(
             }
         },
     )
-    writeFile("app/src/main/AndroidManifest.xml", "<manifest />")
-    writeFile("app/src/main/java/fixture/app/SharedLogic.java", javaLogic("SharedLogic"))
-    writeFile("app/src/demo/java/fixture/app/DemoLogic.java", javaLogic("DemoLogic"))
-    writeFile("app/src/prod/java/fixture/app/ProdLogic.java", javaLogic("ProdLogic"))
-    writeFile(
-        "app/src/test/java/fixture/app/SharedLogicTest.java",
-        javaTest("SharedLogic", "SharedLogicTest"),
-    )
-    writeFile(
-        "app/src/testDemo/java/fixture/app/DemoLogicTest.java",
-        javaTest("DemoLogic", "DemoLogicTest"),
-    )
-    writeFile(
-        "app/src/testProd/java/fixture/app/ProdLogicTest.java",
-        javaTest("ProdLogic", "ProdLogicTest"),
-    )
+        writeFile("app/src/main/AndroidManifest.xml", "<manifest />")
+        writeFile("app/src/main/java/fixture/app/SharedLogic.java", javaLogic("SharedLogic"))
+        writeFile("app/src/demo/java/fixture/app/DemoLogic.java", javaLogic("DemoLogic"))
+        writeFile("app/src/prod/java/fixture/app/ProdLogic.java", javaLogic("ProdLogic"))
+        writeFile(
+            "app/src/test/java/fixture/app/SharedLogicTest.java",
+            javaTest("SharedLogic", "SharedLogicTest"),
+        )
+        writeFile(
+            "app/src/testDemo/java/fixture/app/DemoLogicTest.java",
+            javaTest("DemoLogic", "DemoLogicTest"),
+        )
+        writeFile(
+            "app/src/testProd/java/fixture/app/ProdLogicTest.java",
+            javaTest("ProdLogic", "ProdLogicTest"),
+        )
+    }
 
     writeFile("benchmark/build.gradle.kts", "plugins { `java-library` }")
     writeFile(
@@ -257,6 +291,12 @@ private fun coverageAndroidSdkDirectory(): String {
     }
 }
 
+private fun coverageRealVerifierSource(): File =
+    generateSequence(File(System.getProperty("user.dir")).canonicalFile, File::getParentFile)
+        .map { directory -> directory.resolve("scripts/quality/verify_coverage.py") }
+        .firstOrNull(File::isFile)
+        ?: error("Coverage fixture requires the production coverage verifier")
+
 private fun String.coveragePropertiesValue(): String = replace("\\", "\\\\").replace(":", "\\:")
 
 private val COVERAGE_VERSION_CATALOG =
@@ -315,6 +355,12 @@ private val COVERAGE_MEASUREMENT_POLICY =
       "nonExecutableExceptions": []
     }
     """.trimIndent()
+
+private val COVERAGE_JVM_MEASUREMENT_POLICY =
+    COVERAGE_MEASUREMENT_POLICY.replace(
+        "[\":android\", \":app\", \":benchmark\", \":sample:jvm\"]",
+        "[\":benchmark\", \":sample:jvm\"]",
+    )
 
 private val COVERAGE_STUB_BASELINE =
     """

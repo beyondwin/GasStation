@@ -7,6 +7,7 @@ import com.gasstation.buildlogic.testing.assertConfigurationCacheStored
 import com.gasstation.buildlogic.testing.assertTaskOutcome
 import com.gasstation.buildlogic.testing.writeCoverageFixture
 import java.io.File
+import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.gradle.testkit.runner.TaskOutcome
@@ -30,19 +31,39 @@ class CoverageConventionTest {
     @Test
     fun typedXmlReportAndKotlinSemanticIdentityMatchThePythonGoldenContract() {
         assertEquals("CoverageXmlReportTask", CoverageXmlReportTask::class.simpleName)
-        val xml =
-            """<report name="sample"><counter type="LINE" missed="1" covered="2"/>""" +
-                """<package name="owner"><counter type="BRANCH" missed="3" covered="4"/>""" +
-                """<class name="owner/Subject" sourcefilename="Subject.kt">""" +
-                """<method name="value" desc="()I" line="7"><counter type="LINE" missed="0" covered="1"/></method>""" +
-                """<counter type="LINE" missed="0" covered="1"/></class>""" +
-                """<sourcefile name="Subject.kt"><line nr="7" mi="0" ci="1" mb="1" cb="1"/>""" +
-                """<counter type="LINE" missed="0" covered="1"/></sourcefile></package></report>"""
+        val invalidInputs = listOf(
+            arrayOf<Any>(0, ":android:testDebugUnitTest", ":android:testDebugUnitTest", 1, true) to
+                "requires exactly one selected unit-test task",
+            arrayOf<Any>(1, ":android:wrongTest", ":android:testDebugUnitTest", 1, true) to
+                "test task identity mismatch",
+            arrayOf<Any>(1, ":android:testDebugUnitTest", ":android:testDebugUnitTest", 0, true) to
+                "requires exactly one existing JaCoCo execution file",
+            arrayOf<Any>(1, ":android:testDebugUnitTest", ":android:testDebugUnitTest", 1, false) to
+                "prepared class directory is empty",
+        )
+        invalidInputs.forEach { (values, expected) ->
+            val error = runCatching {
+                validateCoverageXmlReportInputs(
+                    ":android|debug",
+                    values[0] as Int,
+                    values[1] as String,
+                    values[2] as String,
+                    values[3] as Int,
+                    values[4] as Boolean,
+                )
+            }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains(expected))
+        }
+        val fixtures = File("../../scripts/quality/tests/fixtures/coverage").canonicalFile
+        val xml = fixtures.resolve("semantic-golden.xml").readBytes()
+        val swapped = fixtures.resolve("semantic-equal-counter-swap.xml").readBytes()
 
         assertEquals(
             "8e247f6b9358b45100493a19b74aeae2e8e4faaa503c17d40da3e380a3937366",
-            coverageXmlSemanticSha256(xml.toByteArray(), ":sample|main"),
+            coverageXmlSemanticSha256(xml, ":sample|main"),
         )
+        assertFalse(coverageXmlSemanticRecords(xml, ":sample|main").contentEquals(coverageXmlSemanticRecords(swapped, ":sample|main")))
+        assertFalse(coverageXmlSemanticSha256(xml, ":sample|main") == coverageXmlSemanticSha256(swapped, ":sample|main"))
     }
 
     @Test
@@ -97,7 +118,15 @@ class CoverageConventionTest {
     @Test
     fun providerReportsBindJvmAndroidAndBothAppVariantsWithoutBenchmarkOrInternalPaths() {
         val project = newProject("provider-matrix").writeCoverageFixture()
-        val sourceCommit = "1".repeat(40)
+        val sourceCommit = project.git("rev-parse", "HEAD").trim()
+        project.projectDir.resolve("android/build.gradle.kts").appendText(
+            """
+
+            tasks.register<Test>("unrelatedTest") {
+                doFirst { error("unrelated test task executed") }
+            }
+            """.trimIndent(),
+        )
 
         val result =
             project.runner(
@@ -117,6 +146,7 @@ class CoverageConventionTest {
         ).forEach { path ->
             result.assertTaskOutcome(path, TaskOutcome.SUCCESS)
         }
+        assertEquals(null, result.task(":android:unrelatedTest"))
         assertFalse(result.tasks.any { it.path.startsWith(":benchmark:test") })
         assertFalse(result.tasks.any { it.path.contains("ReleaseUnitTest") })
         val manifest = project.projectDir.resolve("build/reports/coverage/report-manifest.json")
@@ -133,10 +163,13 @@ class CoverageConventionTest {
         project.entryFiles().forEach { entry ->
             val text = entry.readText()
             assertTrue(text.contains("\"classFileCount\":"))
+            assertTrue(text.contains("\"inputClassArtifacts\":[{\"entryCount\":"))
+            assertFalse(text.contains("\"inputClassArtifacts\":[\""))
             assertTrue(text.contains("\"executionSemanticSha256\":"))
             assertTrue(text.contains("\"reportSemanticSha256\":"))
             assertFalse(text.contains(project.projectDir.absolutePath))
         }
+        project.assertRealVerifierMutationBoundary()
     }
 
     @Test
@@ -185,12 +218,38 @@ class CoverageConventionTest {
         cacheSecond.assertTaskOutcome(":verifyCoverageReport", TaskOutcome.SUCCESS)
         assertEquals(cacheIdentities, project.semanticIdentities())
         assertEquals("4", project.stubInvocationMarker().readText())
+    }
 
-        project.projectDir.resolve("sample/jvm/src/main/kotlin/fixture/JvmLogic.kt").appendText("\n")
-        project.git("add", ".")
-        project.git("commit", "-qm", "move head")
-        val stale = project.configurationCacheRunner(*rerunArguments).buildAndFail()
-        assertTrue(stale.output.contains("stale source commit"))
+    private fun GradlePluginTestProject.assertRealVerifierMutationBoundary() {
+        assertEquals(0, realVerifierBoundary().first)
+
+        val entryText = entryFiles().first { it.readText().contains("\"reportId\":\":sample:jvm|main\"") }.readText()
+        val artifact = Regex("\\\"inputClassArtifacts\\\":\\[\\{\\\"entryCount\\\":\\d+,\\\"kind\\\":\\\"directory\\\",\\\"path\\\":\\\"([^\\\"]+)\\\"")
+            .find(entryText)!!.groupValues[1]
+        val inputClass = projectDir.resolve(artifact).walkTopDown().first { it.isFile && it.extension == "class" }
+        val inputBytes = inputClass.readBytes()
+        inputClass.delete()
+        val removedInput = realVerifierBoundary()
+        assertEquals(removedInput.second, 1, removedInput.first)
+        assertTrue(removedInput.second.contains("input class artifact identity mismatch"))
+        inputClass.writeBytes(inputBytes)
+
+        val prepared = Regex("\\\"preparedClassDirectory\\\":\\\"([^\\\"]+)\\\"")
+            .find(entryText)!!.groupValues[1]
+        val extraClass = projectDir.resolve("$prepared/fixture/PostEntryMutation.class")
+        extraClass.parentFile.mkdirs()
+        extraClass.writeBytes(byteArrayOf(1, 2, 3))
+        val mutated = realVerifierBoundary()
+        assertEquals(mutated.second, 1, mutated.first)
+        assertTrue(mutated.second.contains("physical prepared class inventory"))
+        extraClass.delete()
+
+        projectDir.resolve("sample/jvm/src/main/kotlin/fixture/JvmLogic.kt").appendText("\n")
+        git("add", ".")
+        git("commit", "-qm", "move fixture head")
+        val stale = realVerifierBoundary()
+        assertEquals(stale.second, 1, stale.first)
+        assertTrue(stale.second.contains("manifest sourceCommit differs from fixture HEAD"))
     }
 
     @Test
@@ -234,13 +293,26 @@ class CoverageConventionTest {
 
     @Test
     fun preparedClassProducerRejectsTraversalDuplicatesAndRemovesStaleInputs() {
-        val project = newProject("prepared-classes").writeCoverageFixture()
+        fun assertCollision(first: String, second: String) {
+            val seen = linkedMapOf<String, String>()
+            recordCoverageClassPath(requireNotNull(normalizeCoverageClassPath(first)), seen)
+            val error = runCatching {
+                recordCoverageClassPath(requireNotNull(normalizeCoverageClassPath(second)), seen)
+            }.exceptionOrNull()
+            assertTrue(error?.message.orEmpty().contains("Duplicate or case-colliding coverage class path"))
+        }
+        // The same normalized path registry receives directory and jar entries.
+        assertCollision("fixture/Case.class", "fixture/case.class")
+        assertCollision("fixture/Caf\u00e9.class", "fixture/Cafe\u0301.class")
+
+        val project = newProject("prepared-classes").writeCoverageFixture(CoverageFixture(jvmOnly = true))
         project.projectDir.resolve("sample/jvm/build.gradle.kts").appendText(
             """
 
             tasks.named<com.gasstation.buildlogic.quality.coverage.PrepareCoverageClassesTask>("prepareCoverageMainClasses") {
                 inputJars.add(layout.projectDirectory.file("fixture-input.jar"))
                 inputDirectories.add(layout.projectDirectory.dir("extra-classes"))
+                inputDirectories.add(layout.projectDirectory.dir("extra-classes-two"))
             }
             """.trimIndent(),
         )
@@ -253,6 +325,14 @@ class CoverageConventionTest {
         writeJar(archive, "fixture/JvmLogic.class" to byteArrayOf(2))
         failed = project.runner(":sample:jvm:prepareCoverageMainClasses", "--rerun-tasks").buildAndFail()
         assertTrue(failed.output.contains("Duplicate or case-colliding coverage class path"))
+
+        val outside = project.projectDir.parentFile.resolve("outside.class").apply { writeBytes(byteArrayOf(7)) }
+        val traversal = project.projectDir.resolve("sample/jvm/extra-classes/fixture/Traversal.class")
+        traversal.parentFile.mkdirs()
+        Files.createSymbolicLink(traversal.toPath(), outside.toPath())
+        failed = project.runner(":sample:jvm:prepareCoverageMainClasses", "--rerun-tasks").buildAndFail()
+        assertTrue(failed.output.contains("escapes provider directory"))
+        traversal.delete()
 
         writeJar(archive, "fixture/Extra.class" to byteArrayOf(3))
         val staleInput = project.projectDir.resolve("sample/jvm/extra-classes/fixture/Stale.class")
@@ -270,7 +350,20 @@ class CoverageConventionTest {
 
     @Test
     fun generatedSourceRootIsRejectedFromAuthoredManifestInventory() {
-        val project = newProject("generated-source").writeCoverageFixture()
+        val project = newProject("generated-source").writeCoverageFixture(CoverageFixture(jvmOnly = true))
+        val outside = project.projectDir.parentFile.resolve("Outside.kt").apply {
+            writeText("package fixture\nclass Outside\n")
+        }
+        val linked = project.projectDir.resolve("sample/jvm/src/main/kotlin/fixture/Outside.kt")
+        Files.createSymbolicLink(linked.toPath(), outside.toPath())
+        var result = project.runner(
+            ":sample:jvm:writeCoverageMainManifestEntry",
+            "-Pgasstation.coverageSourceCommit=${project.git("rev-parse", "HEAD").trim()}",
+            "--rerun-tasks",
+        ).buildAndFail()
+        assertTrue(result.output, result.output.contains("Coverage path escapes repository"))
+        linked.delete()
+
         project.projectDir.resolve("sample/jvm/build.gradle.kts").appendText(
             """
 
@@ -284,7 +377,7 @@ class CoverageConventionTest {
             writeText("package fixture; public final class Generated {}")
         }
 
-        val result =
+        result =
             project.runner(
                 ":sample:jvm:writeCoverageMainManifestEntry",
                 "-Pgasstation.coverageSourceCommit=${project.git("rev-parse", "HEAD").trim()}",
@@ -324,6 +417,15 @@ class CoverageConventionTest {
         val output = process.inputStream.bufferedReader().readText()
         check(process.waitFor() == 0) { "git ${arguments.joinToString(" ")} failed: $output" }
         return output
+    }
+
+    private fun GradlePluginTestProject.realVerifierBoundary(): Pair<Int, String> {
+        val process = ProcessBuilder("python3", "scripts/quality/check_real_boundary.py")
+            .directory(projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        return process.waitFor() to output
     }
 
     private fun writeJar(file: File, vararg entries: Pair<String, ByteArray>) {

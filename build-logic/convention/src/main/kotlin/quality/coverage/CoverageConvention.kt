@@ -109,7 +109,9 @@ private fun registerJvmCoverage(
             }
         })
         excludedClassPatterns.set(REVIEWED_CLASS_EXCLUDES)
+        repositoryRoot.set(root.layout.projectDirectory)
         outputDirectory.set(module.layout.buildDirectory.dir("reports/coverage/main/prepared-classes"))
+        inputArtifactIdentityFile.set(module.layout.buildDirectory.file("reports/coverage/main/input-class-artifacts.txt"))
     }
     registerReport(
         module = module,
@@ -156,7 +158,11 @@ private fun <VariantT : Variant> registerAndroidCoverage(
         }
         val prepare = module.tasks.register<PrepareCoverageClassesTask>("prepareCoverage${suffix}Classes") {
             excludedClassPatterns.set(REVIEWED_CLASS_EXCLUDES)
+            repositoryRoot.set(root.layout.projectDirectory)
             outputDirectory.set(module.layout.buildDirectory.dir("reports/coverage/$reportName/prepared-classes"))
+            inputArtifactIdentityFile.set(
+                module.layout.buildDirectory.file("reports/coverage/$reportName/input-class-artifacts.txt"),
+            )
         }
         variant.artifacts.forScope(ScopedArtifacts.Scope.PROJECT).use(prepare).toGet(
             ScopedArtifact.CLASSES,
@@ -270,6 +276,7 @@ private fun registerReport(
         sourceFiles.from(sourceDirectories.asFileTree.matching { include("**/*.kt", "**/*.java") })
         testSourceFiles.from(testSourceDirectories.asFileTree.matching { include("**/*.kt", "**/*.java") })
         preparedClassDirectory.set(prepare.flatMap { it.outputDirectory })
+        inputClassArtifactIdentityFile.set(prepare.flatMap { it.inputArtifactIdentityFile })
         executionData.from(executionFiles)
         xmlReport.set(xmlOutput)
         outputFile.set(module.layout.buildDirectory.file("reports/coverage/$reportName/manifest-entry.json"))

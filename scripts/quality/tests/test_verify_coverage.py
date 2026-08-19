@@ -17,6 +17,109 @@ import verify_coverage as coverage
 
 
 class CanonicalAndSchemaTest(unittest.TestCase):
+    def test_malformed_strict_scalars_are_coverage_errors_and_verify_writes_failure_summary(self):
+        baseline = {
+            "schemaVersion": 1,
+            "sourceCommit": "1" * 40,
+            "policySha256": "2" * 64,
+            "manifestSchemaVersion": 1,
+            "predecessor": None,
+            "reports": [],
+            "units": [],
+        }
+        mutations = (
+            ("sourceCommit", 1),
+            ("sourceCommit", True),
+            ("sourceCommit", None),
+            ("policySha256", 7),
+        )
+        for key, value in mutations:
+            with self.subTest(key=key, value=value):
+                malformed = {**baseline, key: value}
+                with self.assertRaises(coverage.CoverageError):
+                    coverage.validate_baseline_schema(malformed)
+        for key in ("schemaVersion", "manifestSchemaVersion"):
+            with self.subTest(baseline_version=key), self.assertRaises(coverage.CoverageError):
+                coverage.validate_baseline_schema({**baseline, key: True})
+        for key in ("commit", "baselineBlobSha256", "policyBlobSha256"):
+            malformed = copy.deepcopy(baseline)
+            malformed["predecessor"] = {
+                "commit": "1" * 40,
+                "baselineBlobSha256": "2" * 64,
+                "policyBlobSha256": "3" * 64,
+            }
+            malformed["predecessor"][key] = False
+            with self.subTest(predecessor=key), self.assertRaises(coverage.CoverageError):
+                coverage.validate_baseline_schema(malformed)
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory, "summary.json")
+            arguments = [
+                "verify_coverage.py", "verify",
+                "--manifest", "build/reports/coverage/report-manifest.json",
+                "--policy", "config/quality/coverage-policy.json",
+                "--baseline", "config/quality/coverage-baseline.json",
+                "--source-commit", "1" * 40,
+                "--event", "local",
+                "--output", str(output),
+            ]
+            measurement = {
+                "policySha256": "2" * 64,
+                "reports": [],
+                "reportEvidence": [],
+                "units": [],
+            }
+            with mock.patch.object(sys, "argv", arguments), \
+                    mock.patch.object(coverage, "_measure", return_value=measurement), \
+                    mock.patch.object(coverage, "validate_policy", return_value={"maximumFloorRaiseBasisPoints": 200}), \
+                    mock.patch.object(coverage, "read_json", side_effect=[{}, {**baseline, "sourceCommit": 1}]), \
+                    mock.patch.object(coverage, "_git", return_value=b"/tmp\n"):
+                self.assertEqual(1, coverage._main())
+            summary = json.loads(output.read_text())
+            self.assertEqual("fail", summary["status"])
+            self.assertIn("sourceCommit", summary["violations"][0])
+
+    def test_manifest_policy_and_entry_strict_scalars_fail_as_coverage_errors(self):
+        manifest = {
+            "schemaVersion": 1,
+            "sourceCommit": "1" * 40,
+            "gradleProjects": [],
+            "buildModules": [],
+            "entries": [],
+        }
+        with self.assertRaises(coverage.CoverageError):
+            coverage.validate_manifest_schema({**manifest, "schemaVersion": True})
+        for value in (1, True, None):
+            with self.subTest(manifest_source_commit=value), self.assertRaises(coverage.CoverageError):
+                coverage.validate_manifest_schema({**manifest, "sourceCommit": value})
+
+        policy = fixture_policy()
+        with self.assertRaises(coverage.CoverageError):
+            coverage.validate_policy({**policy, "schemaVersion": True})
+        for key in ("id", "module", "platform", "variant", "testTask"):
+            malformed = copy.deepcopy(policy)
+            malformed["reports"][0][key] = False
+            with self.subTest(policy_report=key), self.assertRaises(coverage.CoverageError):
+                coverage.validate_policy(malformed)
+        for key in ("id", "family", "selection"):
+            malformed = copy.deepcopy(policy)
+            malformed["units"][0][key] = None
+            with self.subTest(policy_unit=key), self.assertRaises(coverage.CoverageError):
+                coverage.validate_policy(malformed)
+
+        entry = fixture_entry_schema()
+        with self.assertRaises(coverage.CoverageError):
+            coverage.validate_entry_schema({**entry, "schemaVersion": True}, "entry.json")
+        for key in (
+            "sourceCommit", "reportId", "module", "platform", "variant", "testTask",
+            "xmlReport", "preparedClassDirectory", "executionFileSha256",
+            "executionSemanticSha256", "xmlFileSha256", "reportSemanticSha256",
+        ):
+            malformed = copy.deepcopy(entry)
+            malformed[key] = True
+            with self.subTest(entry=key), self.assertRaises(coverage.CoverageError):
+                coverage.validate_entry_schema(malformed, "entry.json")
+
     def test_failed_capture_does_not_replace_existing_baseline_output(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory, "baseline.json")
@@ -113,6 +216,23 @@ package real.owner;
 
 
 class ReportIdentityAndCountersTest(unittest.TestCase):
+    def test_python_consumes_shared_semantic_bytes_and_equal_counter_swap_changes_identity(self):
+        fixtures = Path(__file__).parent / "fixtures/coverage"
+        golden = coverage.parse_jacoco_xml((fixtures / "semantic-golden.xml").read_bytes(), ":sample|main")
+        swapped = coverage.parse_jacoco_xml(
+            (fixtures / "semantic-equal-counter-swap.xml").read_bytes(),
+            ":sample|main",
+        )
+        self.assertEqual(
+            b"8e247f6b9358b45100493a19b74aeae2e8e4faaa503c17d40da3e380a3937366",
+            golden.semantic_sha256.encode(),
+        )
+        self.assertNotEqual(golden.semantic_sha256, swapped.semantic_sha256)
+        self.assertNotEqual(
+            coverage.canonical_json_bytes(golden.semantic_records),
+            coverage.canonical_json_bytes(swapped.semantic_records),
+        )
+
     def test_semantic_identity_covers_report_package_source_class_method_line_and_counter_structure(self):
         xml = b'''\
 <report name="sample"><counter type="LINE" missed="1" covered="2"/>
@@ -168,7 +288,26 @@ class ReportIdentityAndCountersTest(unittest.TestCase):
                 "xmlFileSha256": hashlib.sha256(xml_file.read_bytes()).hexdigest(),
                 "reportSemanticSha256": parsed.semantic_sha256,
             }
+            artifact_root = root / "provider-classes"
+            artifact_class = artifact_root / "owner/Subject.class"
+            artifact_class.parent.mkdir(parents=True)
+            artifact_class.write_bytes(b"provider-class-v1")
+            artifact_identity = [{
+                "entryCount": 1,
+                "kind": "directory",
+                "path": "provider-classes",
+                "sha256": hashlib.sha256(coverage.canonical_json_bytes([{
+                    "path": "owner/Subject.class",
+                    "sha256": hashlib.sha256(artifact_class.read_bytes()).hexdigest(),
+                }])).hexdigest(),
+            }]
+            entry["inputClassArtifacts"] = artifact_identity
             coverage.validate_entry_evidence(root, entry)
+            extra_class = root / "prepared/owner/Unlisted.class"
+            extra_class.write_bytes(b"unlisted")
+            with self.assertRaisesRegex(coverage.CoverageError, "physical prepared class inventory"):
+                coverage.validate_entry_evidence(root, entry)
+            extra_class.unlink()
             for path, replacement, expected in (
                 (class_file, b"class-v2", "class hash mismatch"),
                 (exec_file, b"exec-v2", "execution data hash mismatch"),
@@ -179,6 +318,9 @@ class ReportIdentityAndCountersTest(unittest.TestCase):
                 with self.subTest(path=path.name), self.assertRaisesRegex(coverage.CoverageError, expected):
                     coverage.validate_entry_evidence(root, entry)
                 path.write_bytes(original)
+            artifact_class.write_bytes(b"provider-class-v2")
+            with self.assertRaisesRegex(coverage.CoverageError, "input class artifact identity mismatch"):
+                coverage.validate_entry_evidence(root, entry)
 
     def test_manifest_evidence_requires_exactly_one_exec_and_class_inventory(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -400,6 +542,81 @@ class GitSourceAndDiffTest(unittest.TestCase):
         with self.assertRaisesRegex(coverage.CoverageError, "patch header"):
             coverage.parse_zero_context_diff(status, mismatched, changed_blob_paths={"new.kt"})
 
+    def test_patch_requires_file_headers_and_bounded_rename_score(self):
+        headerless = b"diff --git a/Subject.kt b/Subject.kt\n@@ -1 +1 @@\n-old\n+new\n"
+        with self.assertRaisesRegex(coverage.CoverageError, r"---.*\+\+\+"):
+            coverage.parse_zero_context_diff(
+                b"M\0Subject.kt\0",
+                headerless,
+                changed_blob_paths={"Subject.kt"},
+            )
+        with self.assertRaisesRegex(coverage.CoverageError, "score"):
+            coverage.parse_zero_context_diff(b"R999\0old.kt\0new.kt\0", b"")
+        duplicate = (
+            b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n--- a/Subject.kt\n"
+            b"+++ b/Subject.kt\n@@ -1 +1 @@\n-old\n+new\n"
+        )
+        with self.assertRaisesRegex(coverage.CoverageError, "exactly one"):
+            coverage.parse_zero_context_diff(b"M\0Subject.kt\0", duplicate)
+        reversed_headers = (
+            b"diff --git a/Subject.kt b/Subject.kt\n+++ b/Subject.kt\n--- a/Subject.kt\n"
+            b"@@ -1 +1 @@\n-old\n+new\n"
+        )
+        with self.assertRaisesRegex(coverage.CoverageError, "before"):
+            coverage.parse_zero_context_diff(b"M\0Subject.kt\0", reversed_headers)
+
+    def test_patch_hunk_payload_must_reconstruct_raw_old_and_new_blobs(self):
+        patch = b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n@@ -1 +1 @@\n-fake-old\n+fake-new\n"
+        with self.assertRaisesRegex(coverage.CoverageError, "hunk payload"):
+            coverage.parse_zero_context_diff(
+                b"M\0Subject.kt\0",
+                patch,
+                changed_blob_paths={"Subject.kt"},
+                blob_contents={"Subject.kt": (b"real-old\r\n", b"real-new\r\n")},
+            )
+        forged_range = (
+            b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+            b"@@ -1 +9 @@\n-old\n+new\n"
+        )
+        with self.assertRaisesRegex(coverage.CoverageError, "new range"):
+            coverage.parse_zero_context_diff(
+                b"M\0Subject.kt\0",
+                forged_range,
+                changed_blob_paths={"Subject.kt"},
+                blob_contents={"Subject.kt": (b"old\n", b"new\n")},
+            )
+
+    def test_patch_payload_reconstruction_accepts_add_modify_rename_crlf_no_newline_and_nul(self):
+        cases = (
+            (
+                b"A\0Added.kt\0",
+                b"diff --git a/Added.kt b/Added.kt\n--- /dev/null\n+++ b/Added.kt\n"
+                b"@@ -0,0 +1 @@\n+added\n\\ No newline at end of file\n",
+                "Added.kt", b"", b"added",
+            ),
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\r\n--- a/Subject.kt\r\n+++ b/Subject.kt\r\n"
+                b"@@ -1 +1 @@\r\n-old\r\n+new\r\n",
+                "Subject.kt", b"old\r\n", b"new\r\n",
+            ),
+            (
+                b"R080\0Old.kt\0New.kt\0",
+                b"diff --git a/Old.kt b/New.kt\n--- a/Old.kt\n+++ b/New.kt\n"
+                b"@@ -1 +1 @@\n-old\x00bytes\n+new\x00bytes\n",
+                "New.kt", b"old\x00bytes\n", b"new\x00bytes\n",
+            ),
+        )
+        for status, patch, path, old, new in cases:
+            with self.subTest(path=path):
+                changes = coverage.parse_zero_context_diff(
+                    status,
+                    patch,
+                    changed_blob_paths={path},
+                    blob_contents={path: (old, new)},
+                )
+                self.assertEqual(1, changes[path].hunk_count)
+
     def test_hardened_diff_uses_raw_blob_bytes_for_modified_rename(self):
         base = self.commit
         run_git(
@@ -535,6 +752,102 @@ class BaselineLineageTest(unittest.TestCase):
         coverage.validate_predecessor_floor_transitions(historical, replacement, 200)
 
 class ClassificationAndSummaryTest(unittest.TestCase):
+    def test_summary_evidence_exposes_full_topology_ratios_floors_targets_and_ratchet_outcomes(self):
+        report = fixture_policy()["reports"][0]
+        entry = fixture_entry_schema()
+        report_evidence = coverage._report_audit_evidence(report, entry, ["generated/Noise.kt"])
+        self.assertEqual(
+            {
+                "module": ":sample",
+                "platform": "jvm",
+                "variant": "main",
+                "testTask": ":sample:test",
+                "sourceRoots": ["sample/src/main"],
+                "testSourceRoots": ["sample/src/test"],
+                "ownedSourceRoots": ["sample/src/main"],
+            },
+            {key: report_evidence[key] for key in (
+                "module", "platform", "variant", "testTask", "sourceRoots",
+                "testSourceRoots", "ownedSourceRoots",
+            )},
+        )
+        self.assertEqual(entry["inputClassArtifacts"], report_evidence["inputClassArtifacts"])
+        self.assertEqual(["generated/Noise.kt"], report_evidence["excludedNonAuthoredXmlEntries"])
+
+        current = {
+            "id": ":sample|module",
+            "line": {"covered": 9, "missed": 1, "total": 10},
+            "branch": {"covered": 3, "missed": 1, "total": 4},
+            "authoredSourceCount": 2, "executableLineCount": 10, "branchCount": 4, "classCount": 3,
+        }
+        baseline = copy.deepcopy(current)
+        baseline["line"] = {"covered": 8, "missed": 2, "total": 10}
+        baseline["lineFloorBasisPointsAtCapture"] = 8000
+        baseline["branchFloorBasisPointsAtCapture"] = 7000
+        definition = {
+            "id": ":sample|module", "family": "contract", "selection": "all",
+            "reportIds": [":sample|main"], "sources": [],
+            "lineTargetBasisPoints": 9000, "branchTargetBasisPoints": 8000,
+            "lineFloorBasisPoints": 8000, "branchFloorBasisPoints": 7000,
+        }
+        evidence = coverage._unit_audit_evidence(current, baseline, definition, 50)
+        self.assertEqual({"covered": 9, "total": 10}, evidence["ratios"]["line"]["current"])
+        self.assertEqual({"covered": 8, "total": 10}, evidence["ratios"]["line"]["baseline"])
+        self.assertEqual(8000, evidence["ratios"]["line"]["capturedFloorBasisPoints"])
+        self.assertEqual(9000, evidence["ratios"]["line"]["targetBasisPoints"])
+        self.assertEqual(8000, evidence["ratios"]["line"]["policyFloorBasisPoints"])
+        self.assertEqual(
+            {
+                "currentFloorPassed": True,
+                "baselineCapturedFloorPassed": True,
+                "baselineDropPassed": True,
+            },
+            evidence["ratios"]["line"]["ratchetOutcomes"],
+        )
+        self.assertEqual(
+            {"authoredSourceCount": 0, "executableLineCount": 0, "branchCount": 0, "classCount": 0},
+            evidence["denominatorDelta"],
+        )
+
+    def test_verify_rejects_baseline_counters_below_captured_floor(self):
+        unit = {
+            "id": ":sample|module",
+            "line": {"covered": 9, "missed": 1, "total": 10},
+            "branch": {"covered": 1, "missed": 1, "total": 2},
+            "authoredSourceCount": 1,
+            "executableLineCount": 10,
+            "branchCount": 2,
+            "classCount": 1,
+            "lineFloorBasisPointsAtCapture": 8000,
+            "branchFloorBasisPointsAtCapture": 5000,
+        }
+        baseline = {
+            "schemaVersion": 1,
+            "sourceCommit": "1" * 40,
+            "policySha256": "2" * 64,
+            "manifestSchemaVersion": 1,
+            "predecessor": None,
+            "reports": [],
+            "units": [copy.deepcopy(unit)],
+        }
+        measurement = {"policySha256": "2" * 64, "reports": [], "units": [copy.deepcopy(unit)]}
+        policy = {
+            "enforcementMode": "blocking",
+            "maximumBaselineDropBasisPoints": 50,
+            "units": [{
+                "id": ":sample|module",
+                "family": "contract",
+                "lineFloorBasisPoints": 8000,
+                "branchFloorBasisPoints": 5000,
+            }],
+        }
+        baseline["units"][0]["line"] = {"covered": 0, "missed": 10, "total": 10}
+
+        self.assertIn(
+            ":sample|module baseline line is below captured floor 8000bp",
+            coverage._verify_current(measurement, policy, baseline),
+        )
+
     def test_historical_test_inventory_may_differ_when_report_topology_identity_is_stable(self):
         current_unit = {
             "id": ":sample|rendering",
@@ -762,6 +1075,75 @@ def fixture_unit():
         "sources": [],
         "lineTargetBasisPoints": 9000,
         "branchTargetBasisPoints": 8000,
+    }
+
+
+def fixture_policy():
+    return {
+        "schemaVersion": 1,
+        "enforcementMode": "measurement",
+        "activeModules": [":sample"],
+        "excludedModules": [{
+            "module": ":benchmark",
+            "reason": "connected macrobenchmark and device performance evidence owns this module",
+        }],
+        "reports": [{
+            "id": ":sample|main",
+            "module": ":sample",
+            "platform": "jvm",
+            "variant": "main",
+            "testTask": ":sample:test",
+            "sourceRoots": ["sample/src/main"],
+            "testSourceRoots": ["sample/src/test"],
+            "ownedSourceRoots": ["sample/src/main"],
+        }],
+        "units": [{
+            **fixture_unit(),
+            "reportIds": [":sample|main"],
+        }],
+        "changedThresholds": {"lineBasisPoints": 8000, "branchBasisPoints": 7000},
+        "maximumBaselineDropBasisPoints": 50,
+        "maximumFloorRaiseBasisPoints": 200,
+        "nonExecutableExceptions": [],
+        "unclassifiedAuthoredSource": "fail",
+    }
+
+
+def fixture_entry_schema():
+    return {
+        "schemaVersion": 1,
+        "sourceCommit": "1" * 40,
+        "reportId": ":sample|main",
+        "module": ":sample",
+        "platform": "jvm",
+        "variant": "main",
+        "testTask": ":sample:test",
+        "xmlReport": "build/report.xml",
+        "sourceRoots": ["sample/src/main"],
+        "sources": [{
+            "path": "sample/src/main/Subject.kt", "package": "owner",
+            "filename": "Subject.kt", "sha256": "2" * 64,
+        }],
+        "testSourceRoots": ["sample/src/test"],
+        "testSources": [{
+            "path": "sample/src/test/SubjectTest.kt", "filename": "SubjectTest.kt", "sha256": "3" * 64,
+        }],
+        "testInputIdentitySha256": "4" * 64,
+        "inputClassArtifacts": [{
+            "entryCount": 1, "kind": "directory", "path": "sample/build/classes", "sha256": "5" * 64,
+        }],
+        "preparedClassDirectory": "sample/build/prepared",
+        "classFileCount": 1,
+        "classes": [{
+            "path": "owner/Subject.class", "sha256": "6" * 64, "jacocoClassId": "0" * 16,
+        }],
+        "executionData": ["sample/build/test.exec"],
+        "executionFileSha256": "7" * 64,
+        "executionRecords": [],
+        "ignoredNonProjectExecutionRecordCount": 0,
+        "executionSemanticSha256": "8" * 64,
+        "xmlFileSha256": "9" * 64,
+        "reportSemanticSha256": "a" * 64,
     }
 
 

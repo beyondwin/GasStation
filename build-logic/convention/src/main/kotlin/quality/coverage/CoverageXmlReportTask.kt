@@ -33,31 +33,45 @@ abstract class CoverageXmlReportTask : JacocoReport() {
 
     @TaskAction
     override fun generate() {
-        if (selectedTestTaskCount.get() != 1) {
-            throw GradleException(
-                "${reportIdentity.get()} requires exactly one selected unit-test task; " +
-                    "found ${selectedTestTaskCount.get()}",
-            )
-        }
-        if (observedTestTaskPath.get() != expectedTestTaskPath.get()) {
-            throw GradleException(
-                "${reportIdentity.get()} test task identity mismatch: " +
-                    "${observedTestTaskPath.get()} != ${expectedTestTaskPath.get()}",
-            )
-        }
         val executionFiles = exactExecutionData.files.filter { it.isFile }
-        if (executionFiles.size != 1) {
-            throw GradleException(
-                "${reportIdentity.get()} requires exactly one existing JaCoCo execution file; " +
-                    "found ${executionFiles.size}",
-            )
-        }
-        if (
+        val hasPreparedClass =
             preparedClassDirectory.get().asFile.walkTopDown()
                 .none { it.isFile && it.extension == "class" }
-        ) {
-            throw GradleException("${reportIdentity.get()} prepared class directory is empty")
-        }
+                .not()
+        validateCoverageXmlReportInputs(
+            reportIdentity.get(),
+            selectedTestTaskCount.get(),
+            observedTestTaskPath.get(),
+            expectedTestTaskPath.get(),
+            executionFiles.size,
+            hasPreparedClass,
+        )
         super.generate()
     }
+}
+
+internal fun validateCoverageXmlReportInputs(
+    reportIdentity: String,
+    selectedTestTaskCount: Int,
+    observedTestTaskPath: String,
+    expectedTestTaskPath: String,
+    executionFileCount: Int,
+    hasPreparedClass: Boolean,
+) {
+    if (selectedTestTaskCount != 1) {
+        throw GradleException(
+            "$reportIdentity requires exactly one selected unit-test task; found $selectedTestTaskCount",
+        )
+    }
+    if (observedTestTaskPath != expectedTestTaskPath) {
+        throw GradleException(
+            "$reportIdentity test task identity mismatch: $observedTestTaskPath != $expectedTestTaskPath",
+        )
+    }
+    if (executionFileCount != 1) {
+        throw GradleException(
+            "$reportIdentity requires exactly one existing JaCoCo execution file; found $executionFileCount",
+        )
+    }
+    if (!hasPreparedClass) throw GradleException("$reportIdentity prepared class directory is empty")
 }

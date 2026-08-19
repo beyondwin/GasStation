@@ -4,6 +4,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 import java.text.Normalizer
+import java.util.Base64
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
@@ -51,6 +52,10 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val preparedClassDirectory: DirectoryProperty
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val inputClassArtifactIdentityFile: RegularFileProperty
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val executionData: ConfigurableFileCollection
@@ -72,6 +77,7 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
         val testRecords = sourceRecords(root, testSourceFiles.files, testSourceRoots.get(), includePackage = false)
         val prepared = preparedClassDirectory.get().asFile
         val classRecords = classRecords(prepared)
+        val artifactRecords = classArtifactRecords(inputClassArtifactIdentityFile.get().asFile)
         val classIds = classRecords.associate { it["jacocoClassId"] as String to true }
         val executionFiles = executionData.files.filter(File::isFile).sortedBy { relative(root, it) }
         if (executionFiles.size != 1) {
@@ -97,7 +103,7 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
             "testSourceRoots" to testSourceRoots.get().sorted(),
             "testSources" to testRecords,
             "testInputIdentitySha256" to sha256(canonicalCoverageJson(testRecords)),
-            "inputClassArtifacts" to listOf(relative(root, prepared)),
+            "inputClassArtifacts" to artifactRecords,
             "preparedClassDirectory" to relative(root, prepared),
             "classFileCount" to classRecords.size,
             "classes" to classRecords,
@@ -113,6 +119,32 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
             parentFile.mkdirs()
             writeBytes(canonicalCoverageJson(payload) + byteArrayOf('\n'.code.toByte()))
         }
+    }
+
+    private fun classArtifactRecords(identity: File): List<Map<String, Any>> {
+        val records = identity.readLines().filter(String::isNotBlank).map { line ->
+            val fields = line.split('\t')
+            if (fields.size != 4 || fields[0] !in setOf("file", "directory")) {
+                throw GradleException("Malformed provider-owned class input identity")
+            }
+            val count = fields[1].toIntOrNull()
+                ?: throw GradleException("Malformed provider-owned class input entry count")
+            val path = runCatching { String(Base64.getDecoder().decode(fields[3]), Charsets.UTF_8) }
+                .getOrElse { throw GradleException("Malformed provider-owned class input path", it) }
+            if (!fields[2].matches(Regex("[0-9a-f]{64}")) || count < 0) {
+                throw GradleException("Malformed provider-owned class input identity")
+            }
+            linkedMapOf(
+                "entryCount" to count,
+                "kind" to fields[0],
+                "path" to path,
+                "sha256" to fields[2],
+            )
+        }
+        if (records.isEmpty()) throw GradleException("${reportId.get()} has no provider-owned class input identity")
+        val paths = records.map { it["path"] as String }
+        if (paths != paths.sorted().distinct()) throw GradleException("Provider-owned class input identities are not unique")
+        return records
     }
 
     private fun sourceRecords(

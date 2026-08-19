@@ -232,6 +232,20 @@ def _strict_nonnegative_int(value: str | None, label: str) -> int:
     return int(value)
 
 
+def _require_string(value: Any, label: str) -> str:
+    if not isinstance(value, str):
+        raise CoverageError(f"{label} must be a string")
+    return value
+
+
+def _require_hex_string(value: Any, length: int, label: str, *, nonzero: bool = False) -> str:
+    text = _require_string(value, label)
+    if not re.fullmatch(rf"[0-9a-f]{{{length}}}", text) or (nonzero and text == "0" * length):
+        suffix = "non-zero " if nonzero else ""
+        raise CoverageError(f"{label} must be {suffix}{length}-hex")
+    return text
+
+
 def parse_jacoco_xml(xml_bytes: bytes, report_id: str) -> ParsedJacoco:
     try:
         root = ET.fromstring(xml_bytes)
@@ -394,6 +408,42 @@ def _safe_relative_file(root: Path, relative: Any, label: str) -> Path:
     return resolved
 
 
+def _safe_relative_location(root: Path, relative: Any, label: str) -> Path:
+    if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+        raise CoverageError(f"{label} must be one repository-relative path")
+    if "\\" in relative or any(part in {"", ".", ".."} for part in relative.split("/")):
+        raise CoverageError(f"{label} has a malformed path: {relative}")
+    resolved = (root / relative).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as error:
+        raise CoverageError(f"{label} escapes repository: {relative}") from error
+    if not resolved.exists():
+        raise CoverageError(f"{label} is missing: {relative}")
+    return resolved
+
+
+def _class_artifact_identity(path: Path, kind: str) -> tuple[int, str]:
+    if kind == "file":
+        if not path.is_file():
+            raise CoverageError(f"input class artifact is not a file: {path}")
+        return 1, hashlib.sha256(path.read_bytes()).hexdigest()
+    if kind != "directory" or not path.is_dir():
+        raise CoverageError(f"input class artifact has invalid kind: {kind}")
+    records: list[dict[str, str]] = []
+    for child in path.rglob("*"):
+        if not child.is_file():
+            continue
+        resolved = child.resolve()
+        try:
+            relative = resolved.relative_to(path.resolve()).as_posix()
+        except ValueError as error:
+            raise CoverageError(f"input class artifact entry escapes directory: {child}") from error
+        records.append({"path": relative, "sha256": hashlib.sha256(resolved.read_bytes()).hexdigest()})
+    records.sort(key=lambda item: item["path"])
+    return len(records), hashlib.sha256(canonical_json_bytes(records)).hexdigest()
+
+
 def validate_entry_evidence(root: Path, entry: dict[str, Any]) -> ParsedJacoco:
     """Bind every producer-owned raw and semantic identity to current files."""
     report_id = entry.get("reportId", "<unknown>")
@@ -416,6 +466,21 @@ def validate_entry_evidence(root: Path, entry: dict[str, Any]) -> ParsedJacoco:
     prepared = entry.get("preparedClassDirectory")
     if not isinstance(prepared, str):
         raise CoverageError(f"{report_id} prepared class directory is missing")
+    prepared_root = (root / prepared).resolve()
+    if not prepared_root.is_dir() or not prepared_root.is_relative_to(root.resolve()):
+        raise CoverageError(f"{report_id} prepared class directory is invalid")
+    artifacts = entry.get("inputClassArtifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        raise CoverageError(f"{report_id} has no provider-owned input class artifact identity")
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise CoverageError(f"{report_id} malformed input class artifact identity")
+        artifact_path = _safe_relative_location(root, artifact.get("path"), f"{report_id} input class artifact")
+        if artifact_path == prepared_root:
+            raise CoverageError(f"{report_id} prepared class output cannot be its own provider input")
+        count, digest = _class_artifact_identity(artifact_path, artifact.get("kind"))
+        if artifact.get("entryCount") != count or artifact.get("sha256") != digest:
+            raise CoverageError(f"{report_id} input class artifact identity mismatch: {artifact.get('path')}")
     class_ids: set[str] = set()
     class_names_by_id: dict[str, str] = {}
     class_paths: set[str] = set()
@@ -438,6 +503,17 @@ def validate_entry_evidence(root: Path, entry: dict[str, Any]) -> ParsedJacoco:
         class_names_by_id[class_id] = path[:-len(".class")]
     if [record["path"] for record in class_records] != sorted(class_paths):
         raise CoverageError(f"{report_id} class records are not canonically sorted")
+    physical_class_paths = {
+        path.relative_to(prepared_root).as_posix()
+        for path in prepared_root.rglob("*.class")
+        if path.is_file()
+    }
+    if physical_class_paths != class_paths:
+        missing = sorted(class_paths.difference(physical_class_paths))
+        extra = sorted(physical_class_paths.difference(class_paths))
+        raise CoverageError(
+            f"{report_id} physical prepared class inventory differs from manifest: missing={missing} extra={extra}",
+        )
 
     execution_records = entry.get("executionRecords")
     if not isinstance(execution_records, list):
@@ -553,12 +629,13 @@ def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
         set(),
         "coverage baseline",
     )
-    if baseline["schemaVersion"] != 1 or baseline["manifestSchemaVersion"] != 1:
+    if any(
+        isinstance(baseline[key], bool) or not isinstance(baseline[key], int) or baseline[key] != 1
+        for key in ("schemaVersion", "manifestSchemaVersion")
+    ):
         raise CoverageError("coverage baseline schema versions must equal 1")
-    if not re.fullmatch(r"[0-9a-f]{40}", baseline["sourceCommit"] or "") or baseline["sourceCommit"] == "0" * 40:
-        raise CoverageError("coverage baseline sourceCommit must be non-zero 40-hex")
-    if not re.fullmatch(r"[0-9a-f]{64}", baseline["policySha256"] or ""):
-        raise CoverageError("coverage baseline policySha256 must be 64-hex")
+    _require_hex_string(baseline["sourceCommit"], 40, "coverage baseline sourceCommit", nonzero=True)
+    _require_hex_string(baseline["policySha256"], 64, "coverage baseline policySha256")
     predecessor = baseline["predecessor"]
     if predecessor is not None:
         if not isinstance(predecessor, dict):
@@ -569,11 +646,9 @@ def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
             set(),
             "coverage baseline predecessor",
         )
-        if not re.fullmatch(r"[0-9a-f]{40}", predecessor["commit"] or ""):
-            raise CoverageError("coverage predecessor commit must be 40-hex")
+        _require_hex_string(predecessor["commit"], 40, "coverage predecessor commit")
         for key in ("baselineBlobSha256", "policyBlobSha256"):
-            if not re.fullmatch(r"[0-9a-f]{64}", predecessor[key] or ""):
-                raise CoverageError(f"coverage predecessor {key} must be 64-hex")
+            _require_hex_string(predecessor[key], 64, f"coverage predecessor {key}")
     if not isinstance(baseline["reports"], list) or not isinstance(baseline["units"], list):
         raise CoverageError("coverage baseline reports and units must be arrays")
     report_ids: set[str] = set()
@@ -586,12 +661,12 @@ def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
             set(),
             f"coverage baseline report {index}",
         )
-        if report["reportId"] in report_ids:
+        report_id = _require_string(report["reportId"], "coverage baseline reportId")
+        if report_id in report_ids:
             raise CoverageError(f"duplicate coverage baseline report: {report['reportId']}")
-        report_ids.add(report["reportId"])
+        report_ids.add(report_id)
         for key in ("inputIdentitySha256", "measuredTestInputIdentitySha256"):
-            if not re.fullmatch(r"[0-9a-f]{64}", report[key] or ""):
-                raise CoverageError(f"coverage baseline report {key} must be 64-hex")
+            _require_hex_string(report[key], 64, f"coverage baseline report {key}")
         if not isinstance(report["measuredTestSources"], list):
             raise CoverageError("measuredTestSources must be an array")
         paths: list[str] = []
@@ -599,9 +674,9 @@ def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
             if not isinstance(source, dict):
                 raise CoverageError("measured test source must be an object")
             _require_keys(source, {"path", "filename", "sha256"}, set(), "measured test source")
-            if not re.fullmatch(r"[0-9a-f]{64}", source["sha256"] or ""):
-                raise CoverageError("measured test source sha256 must be 64-hex")
-            paths.append(source["path"])
+            _require_hex_string(source["sha256"], 64, "measured test source sha256")
+            paths.append(_require_string(source["path"], "measured test source path"))
+            _require_string(source["filename"], "measured test source filename")
         if paths != sorted(set(paths)):
             raise CoverageError("measured test sources must be sorted and unique")
     unit_ids: set[str] = set()
@@ -614,9 +689,10 @@ def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
             {"lineFloorBasisPointsAtCapture", "branchFloorBasisPointsAtCapture"},
             f"coverage baseline unit {index}",
         )
-        if unit["id"] in unit_ids:
+        unit_id = _require_string(unit["id"], "coverage baseline unit id")
+        if unit_id in unit_ids:
             raise CoverageError(f"duplicate coverage baseline unit: {unit['id']}")
-        unit_ids.add(unit["id"])
+        unit_ids.add(unit_id)
         for metric in ("line", "branch"):
             counters = unit[metric]
             if not isinstance(counters, dict):
@@ -899,6 +975,7 @@ def parse_zero_context_diff(
     patch: bytes,
     *,
     changed_blob_paths: set[str] | None = None,
+    blob_contents: dict[str, tuple[bytes, bytes]] | None = None,
 ) -> dict[str, ChangedFile]:
     if name_status_z and not name_status_z.endswith(b"\0"):
         raise CoverageError("name-status stream is not NUL terminated")
@@ -917,6 +994,8 @@ def parse_zero_context_diff(
             or (status in {"R", "C"} and re.fullmatch(r"[RC][0-9]{1,3}", status_token))
         ):
             raise CoverageError(f"unexpected ACMR status: {status_token}")
+        if status in {"R", "C"} and int(status_token[1:]) > 100:
+            raise CoverageError(f"rename/copy score is outside 0..100: {status_token}")
         if status in {"R", "C"}:
             if index + 1 >= len(parts):
                 raise CoverageError(f"truncated rename/copy status: {status_token}")
@@ -938,10 +1017,27 @@ def parse_zero_context_diff(
     section_header: tuple[str, str] | None = None
     section_old: str | None = None
     section_new: str | None = None
+    seen_old_header = False
+    seen_new_header = False
     seen_sections: set[str] = set()
+    hunks: dict[str, list[tuple[int, int, int, int, list[bytes], list[bytes]]]] = {}
+    active_hunk: list[Any] | None = None
+
+    def finish_hunk() -> None:
+        nonlocal active_hunk
+        if active_hunk is None or current is None:
+            return
+        old_start, old_count, new_start, new_count, removed, added = active_hunk
+        if len(removed) != old_count or len(added) != new_count:
+            raise CoverageError(f"hunk payload count disagrees with header: {current.new_path}")
+        hunks.setdefault(current.new_path, []).append(
+            (old_start, old_count, new_start, new_count, removed, added),
+        )
+        active_hunk = None
 
     def finish_section() -> None:
-        nonlocal current, section_header, section_old, section_new
+        nonlocal current, section_header, section_old, section_new, seen_old_header, seen_new_header
+        finish_hunk()
         if section_header is None:
             return
         old_header, new_header = section_header
@@ -951,9 +1047,11 @@ def parse_zero_context_diff(
         expected_old = change.old_path if change.old_path is not None else change.new_path
         if old_header != expected_old:
             raise CoverageError(f"patch header old path disagrees with status: {old_header} != {expected_old}")
-        if section_old is not None and section_old != change.old_path:
+        if change.hunk_count and not (seen_old_header and seen_new_header):
+            raise CoverageError(f"patch section with hunks requires exact --- and +++ headers: {new_header}")
+        if seen_old_header and section_old != change.old_path:
             raise CoverageError(f"patch --- header disagrees with status: {section_old}")
-        if section_new is not None and section_new != change.new_path:
+        if seen_new_header and section_new != change.new_path:
             raise CoverageError(f"patch +++ header disagrees with status: {section_new}")
         if new_header in seen_sections:
             raise CoverageError(f"duplicate patch section: {new_header}")
@@ -962,37 +1060,64 @@ def parse_zero_context_diff(
         section_header = None
         section_old = None
         section_new = None
+        seen_old_header = False
+        seen_new_header = False
 
-    for raw_line in patch.replace(b"\r\n", b"\n").splitlines():
-        if raw_line.startswith(b"diff --git "):
+    for raw_line in patch.split(b"\n"):
+        metadata_line = raw_line[:-1] if raw_line.endswith(b"\r") else raw_line
+        if metadata_line.startswith(b"diff --git "):
             finish_section()
-            section_header = _diff_git_paths(raw_line)
+            section_header = _diff_git_paths(metadata_line)
             current = changes.get(section_header[1])
             if current is None:
                 raise CoverageError(f"patch header is absent from authoritative status: {section_header[1]}")
-        elif raw_line.startswith(b"--- "):
+        elif metadata_line.startswith(b"--- "):
+            finish_hunk()
             if section_header is None:
                 raise CoverageError("patch --- header appears outside a diff section")
-            token = raw_line[4:]
+            if seen_old_header:
+                raise CoverageError("patch section requires exactly one --- header")
+            if seen_new_header:
+                raise CoverageError("patch --- header must appear before +++ header")
+            seen_old_header = True
+            token = metadata_line[4:]
             section_old = None if token == b"/dev/null" else _strip_patch_prefix(_decode_path(token), "a/")
-        elif raw_line.startswith(b"+++ "):
+        elif metadata_line.startswith(b"+++ "):
             if section_header is None:
                 raise CoverageError("patch +++ header appears outside a diff section")
-            token = raw_line[4:]
+            if not seen_old_header:
+                raise CoverageError("patch --- header must appear before +++ header")
+            if seen_new_header:
+                raise CoverageError("patch section requires exactly one +++ header")
+            seen_new_header = True
+            token = metadata_line[4:]
             if token == b"/dev/null":
                 section_new = None
                 current = None
                 continue
             section_new = _strip_patch_prefix(_decode_path(token), "b/")
             current = changes.get(section_new)
-        elif raw_line.startswith(b"@@ ") and current is not None:
-            match = re.match(rb"@@ -[0-9]+(?:,[0-9]+)? \+([0-9]+)(?:,([0-9]+))? @@", raw_line)
+        elif metadata_line.startswith(b"@@ ") and current is not None:
+            finish_hunk()
+            if not (seen_old_header and seen_new_header):
+                raise CoverageError(f"patch section with hunks requires exact --- and +++ headers: {current.new_path}")
+            match = re.match(
+                rb"@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@",
+                metadata_line,
+            )
             if not match:
-                raise CoverageError(f"invalid zero-context hunk header: {raw_line!r}")
-            start = int(match.group(1))
-            count = int(match.group(2)) if match.group(2) is not None else 1
-            current.new_lines.update(range(start, start + count))
+                raise CoverageError(f"invalid zero-context hunk header: {metadata_line!r}")
+            old_start = int(match.group(1))
+            old_count = int(match.group(2)) if match.group(2) is not None else 1
+            new_start = int(match.group(3))
+            new_count = int(match.group(4)) if match.group(4) is not None else 1
+            current.new_lines.update(range(new_start, new_start + new_count))
             current.hunk_count += 1
+            active_hunk = [old_start, old_count, new_start, new_count, [], []]
+        elif active_hunk is not None and raw_line.startswith(b"-"):
+            active_hunk[4].append(raw_line[1:])
+        elif active_hunk is not None and raw_line.startswith(b"+"):
+            active_hunk[5].append(raw_line[1:])
     finish_section()
     required = changed_blob_paths if changed_blob_paths is not None else set()
     for path in sorted(required):
@@ -1000,6 +1125,29 @@ def parse_zero_context_diff(
             raise CoverageError(f"changed blob is absent from authoritative status: {path}")
         if changes[path].hunk_count == 0:
             raise CoverageError(f"changed blob has no hunk: {path}")
+    if blob_contents is not None:
+        for path, (old_bytes, new_bytes) in blob_contents.items():
+            old_lines = [] if not old_bytes else old_bytes.split(b"\n")
+            new_lines = [] if not new_bytes else new_bytes.split(b"\n")
+            if old_bytes.endswith(b"\n"):
+                old_lines.pop()
+            if new_bytes.endswith(b"\n"):
+                new_lines.pop()
+            rebuilt: list[bytes] = []
+            cursor = 0
+            for old_start, old_count, new_start, _new_count, removed, added in hunks.get(path, []):
+                old_index = 0 if old_start == 0 else old_start - 1
+                if old_index < cursor or old_lines[old_index:old_index + old_count] != removed:
+                    raise CoverageError(f"hunk payload disagrees with raw old blob: {path}")
+                rebuilt.extend(old_lines[cursor:old_index])
+                new_index = 0 if new_start == 0 else new_start - 1
+                if new_index != len(rebuilt):
+                    raise CoverageError(f"hunk new range disagrees with reconstructed blob: {path}")
+                rebuilt.extend(added)
+                cursor = old_index + old_count
+            rebuilt.extend(old_lines[cursor:])
+            if rebuilt != new_lines:
+                raise CoverageError(f"hunk payload disagrees with raw new blob: {path}")
     return changes
 
 
@@ -1082,9 +1230,10 @@ def validate_policy(policy: Any) -> dict[str, Any]:
         set(),
         "coverage policy",
     )
-    if policy["schemaVersion"] != 1:
+    if isinstance(policy["schemaVersion"], bool) or not isinstance(policy["schemaVersion"], int) or policy["schemaVersion"] != 1:
         raise CoverageError("coverage policy schemaVersion must equal 1")
     mode = policy["enforcementMode"]
+    _require_string(mode, "coverage policy enforcementMode")
     if mode not in {"measurement", "blocking"}:
         raise CoverageError("coverage policy enforcementMode must be measurement or blocking")
     if policy["unclassifiedAuthoredSource"] != "fail":
@@ -1121,6 +1270,8 @@ def validate_policy(policy: Any) -> dict[str, Any]:
             set(),
             f"policy report {index}",
         )
+        for key in ("id", "module", "platform", "variant", "testTask"):
+            _require_string(report[key], f"policy report {index} {key}")
         if report["id"] in report_ids:
             raise CoverageError(f"duplicate policy report: {report['id']}")
         report_ids.add(report["id"])
@@ -1144,6 +1295,8 @@ def validate_policy(policy: Any) -> dict[str, Any]:
             {"lineTargetBasisPoints", "branchTargetBasisPoints", "lineFloorBasisPoints", "branchFloorBasisPoints"},
             f"policy unit {index}",
         )
+        for key in ("id", "family", "selection"):
+            _require_string(unit[key], f"policy unit {index} {key}")
         if unit["id"] in unit_ids:
             raise CoverageError(f"duplicate policy unit: {unit['id']}")
         unit_ids.add(unit["id"])
@@ -1151,11 +1304,18 @@ def validate_policy(policy: Any) -> dict[str, Any]:
             raise CoverageError(f"invalid selection for {unit['id']}")
         if unit["family"] not in {"contract", "data", "state", "assembly", "rendering", "tool"}:
             raise CoverageError(f"invalid family for {unit['id']}")
-        if not isinstance(unit["sources"], list) or unit["sources"] != sorted(set(unit["sources"])):
+        if (
+            not isinstance(unit["sources"], list)
+            or any(not isinstance(item, str) for item in unit["sources"])
+            or unit["sources"] != sorted(set(unit["sources"]))
+        ):
             raise CoverageError(f"{unit['id']} sources must be a sorted unique array")
         if (unit["selection"] == "all") != (unit["sources"] == []):
             raise CoverageError(f"{unit['id']} all selection requires an empty sources array")
-        if not isinstance(unit["reportIds"], list) or any(item not in report_ids for item in unit["reportIds"]):
+        if (
+            not isinstance(unit["reportIds"], list)
+            or any(not isinstance(item, str) or item not in report_ids for item in unit["reportIds"])
+        ):
             raise CoverageError(f"{unit['id']} references an unknown report")
         for key in ("lineTargetBasisPoints", "branchTargetBasisPoints", "lineFloorBasisPoints", "branchFloorBasisPoints"):
             if key in unit:
@@ -1167,8 +1327,15 @@ def validate_policy(policy: Any) -> dict[str, Any]:
         if unit["family"] not in {"rendering", "tool", "assembly"}:
             validate_unit_floor_schema(unit, mode, branch_total=1 if "branchFloorBasisPoints" in unit else 0)
     if policy["nonExecutableExceptions"] != []:
+        if not isinstance(policy["nonExecutableExceptions"], list):
+            raise CoverageError("nonExecutableExceptions must be an array")
         for exception in policy["nonExecutableExceptions"]:
+            if not isinstance(exception, dict):
+                raise CoverageError("non-executable exception must be an object")
             _require_keys(exception, {"path", "sha256", "reason"}, set(), "non-executable exception")
+            _require_string(exception["path"], "non-executable exception path")
+            _require_hex_string(exception["sha256"], 64, "non-executable exception sha256")
+            _require_string(exception["reason"], "non-executable exception reason")
     return policy
 
 
@@ -1191,8 +1358,9 @@ def validate_manifest_schema(manifest: Any) -> dict[str, Any]:
         set(),
         "coverage manifest",
     )
-    if manifest["schemaVersion"] != 1:
+    if isinstance(manifest["schemaVersion"], bool) or not isinstance(manifest["schemaVersion"], int) or manifest["schemaVersion"] != 1:
         raise CoverageError("manifest schemaVersion must equal 1")
+    _require_hex_string(manifest["sourceCommit"], 40, "manifest sourceCommit", nonzero=True)
     for key in ("gradleProjects", "buildModules", "entries"):
         value = manifest[key]
         if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
@@ -1218,13 +1386,37 @@ def validate_entry_schema(entry: Any, relative: str) -> dict[str, Any]:
         set(),
         f"coverage entry {relative}",
     )
-    if entry["schemaVersion"] != 1:
+    if isinstance(entry["schemaVersion"], bool) or not isinstance(entry["schemaVersion"], int) or entry["schemaVersion"] != 1:
         raise CoverageError(f"coverage entry schemaVersion must equal 1: {relative}")
-    for key in ("sourceRoots", "testSourceRoots", "inputClassArtifacts", "executionData"):
+    _require_hex_string(entry["sourceCommit"], 40, "coverage entry sourceCommit", nonzero=True)
+    for key in ("reportId", "module", "platform", "variant", "testTask", "xmlReport", "preparedClassDirectory"):
+        _require_string(entry[key], f"coverage entry {key}")
+    for key in (
+        "testInputIdentitySha256", "executionFileSha256", "executionSemanticSha256",
+        "xmlFileSha256", "reportSemanticSha256",
+    ):
+        _require_hex_string(entry[key], 64, f"coverage entry {key}")
+    for key in ("sourceRoots", "testSourceRoots", "executionData"):
         if not isinstance(entry[key], list) or any(not isinstance(item, str) for item in entry[key]):
             raise CoverageError(f"coverage entry {key} must be a string array: {relative}")
         if entry[key] != sorted(set(entry[key])):
             raise CoverageError(f"coverage entry {key} must be sorted and unique: {relative}")
+    artifacts = entry["inputClassArtifacts"]
+    if not isinstance(artifacts, list) or not artifacts:
+        raise CoverageError(f"coverage entry inputClassArtifacts must be a non-empty array: {relative}")
+    artifact_paths: list[str] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise CoverageError(f"coverage entry inputClassArtifacts record must be an object: {relative}")
+        _require_keys(artifact, {"entryCount", "kind", "path", "sha256"}, set(), "input class artifact")
+        _require_nonnegative_integer(artifact["entryCount"], "input class artifact entryCount")
+        kind = _require_string(artifact["kind"], "input class artifact kind")
+        if kind not in {"file", "directory"}:
+            raise CoverageError("input class artifact kind must be file or directory")
+        artifact_paths.append(_require_string(artifact["path"], "input class artifact path"))
+        _require_hex_string(artifact["sha256"], 64, "input class artifact sha256")
+    if artifact_paths != sorted(set(artifact_paths)):
+        raise CoverageError(f"coverage entry inputClassArtifacts must be sorted by unique path: {relative}")
     for key, required_keys in (
         ("sources", {"path", "package", "filename", "sha256"}),
         ("testSources", {"path", "filename", "sha256"}),
@@ -1236,11 +1428,20 @@ def validate_entry_schema(entry: Any, relative: str) -> dict[str, Any]:
             if not isinstance(record, dict):
                 raise CoverageError(f"coverage entry {key} record must be an object: {relative}")
             _require_keys(record, required_keys, set(), f"coverage entry {key} record")
-            if not re.fullmatch(r"[0-9a-f]{64}", record["sha256"] or ""):
-                raise CoverageError(f"coverage entry {key} source hash must be 64-hex")
-            paths.append(record["path"])
+            _require_hex_string(record["sha256"], 64, f"coverage entry {key} source hash")
+            paths.append(_require_string(record["path"], f"coverage entry {key} source path"))
+            _require_string(record["filename"], f"coverage entry {key} filename")
+            if key == "sources":
+                _require_string(record["package"], "coverage entry source package")
         if paths != sorted(set(paths)):
             raise CoverageError(f"coverage entry {key} must be sorted by unique path: {relative}")
+    _require_nonnegative_integer(entry["classFileCount"], "coverage entry classFileCount")
+    _require_nonnegative_integer(
+        entry["ignoredNonProjectExecutionRecordCount"],
+        "coverage entry ignoredNonProjectExecutionRecordCount",
+    )
+    if not isinstance(entry["classes"], list) or not isinstance(entry["executionRecords"], list):
+        raise CoverageError("coverage entry classes and executionRecords must be arrays")
     return entry
 
 
@@ -1318,6 +1519,88 @@ def _load_run(manifest_path: Path, policy_path: Path, source_commit: str) -> tup
     return manifest, policy, entries, root
 
 
+def _report_audit_evidence(
+    report: dict[str, Any],
+    entry: dict[str, Any],
+    excluded: list[str],
+) -> dict[str, Any]:
+    topology = {
+        "reportId": report["id"],
+        "module": report["module"],
+        "platform": report["platform"],
+        "variant": report["variant"],
+        "testTask": report["testTask"],
+        "sourceRoots": report["sourceRoots"],
+        "testSourceRoots": report["testSourceRoots"],
+        "ownedSourceRoots": report["ownedSourceRoots"],
+    }
+    return {
+        **topology,
+        "inputIdentitySha256": _sha256_bytes(canonical_json_bytes(topology)),
+        "measuredTestInputIdentitySha256": entry["testInputIdentitySha256"],
+        "measuredTestSources": entry["testSources"],
+        "inputClassArtifacts": entry["inputClassArtifacts"],
+        "preparedClassDirectory": entry["preparedClassDirectory"],
+        "classFileCount": entry["classFileCount"],
+        "executionData": entry["executionData"],
+        "executionFileSha256": entry["executionFileSha256"],
+        "executionSemanticSha256": entry["executionSemanticSha256"],
+        "xmlReport": entry["xmlReport"],
+        "xmlFileSha256": entry["xmlFileSha256"],
+        "reportSemanticSha256": entry["reportSemanticSha256"],
+        "excludedNonAuthoredXmlEntries": excluded,
+    }
+
+
+def _unit_audit_evidence(
+    current: dict[str, Any],
+    baseline: dict[str, Any],
+    definition: dict[str, Any],
+    maximum_drop_basis_points: int,
+) -> dict[str, Any]:
+    denominator_keys = ("authoredSourceCount", "executableLineCount", "branchCount", "classCount")
+    ratios: dict[str, Any] = {}
+    for metric in ("line", "branch"):
+        now = current[metric]
+        before = baseline[metric]
+        floor = definition.get(f"{metric}FloorBasisPoints")
+        captured_floor = baseline.get(f"{metric}FloorBasisPointsAtCapture")
+        current_floor_passed = now["total"] == 0 or floor is None or not ratio_below_basis_points(
+            now["covered"], now["total"], floor,
+        )
+        captured_floor_passed = (
+            before["total"] == 0
+            or captured_floor is None
+            or not ratio_below_basis_points(before["covered"], before["total"], captured_floor)
+        )
+        drop_passed = (
+            before["total"] == 0
+            or now["total"] == 0
+            or not baseline_drop_exceeded(
+                now["covered"], now["total"], before["covered"], before["total"], maximum_drop_basis_points,
+            )
+        )
+        ratios[metric] = {
+            "current": {"covered": now["covered"], "total": now["total"]},
+            "baseline": {"covered": before["covered"], "total": before["total"]},
+            "capturedFloorBasisPoints": captured_floor,
+            "policyFloorBasisPoints": floor,
+            "targetBasisPoints": definition.get(f"{metric}TargetBasisPoints"),
+            "ratchetOutcomes": {
+                "currentFloorPassed": current_floor_passed,
+                "baselineCapturedFloorPassed": captured_floor_passed,
+                "baselineDropPassed": drop_passed,
+            },
+        }
+    return {
+        **current,
+        "baselineCounters": {metric: baseline[metric] for metric in ("line", "branch")},
+        "ratios": ratios,
+        "denominatorDelta": {key: current[key] - baseline[key] for key in denominator_keys},
+        "denominatorRatchetOutcomes": {key: current[key] >= baseline[key] for key in denominator_keys},
+    }
+
+
 def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict[str, Any]:
     manifest, policy, entries, root = _load_run(manifest_path, policy_path, source_commit)
     source_lines: dict[tuple[str, str], dict[int, tuple[int, int, int, int]]] = {}
@@ -1347,6 +1630,7 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
         topology = {
             "reportId": report_id,
             "module": report["module"],
+            "platform": report["platform"],
             "variant": report["variant"],
             "testTask": report["testTask"],
             "sourceRoots": report["sourceRoots"],
@@ -1360,17 +1644,11 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
             "measuredTestSources": entry["testSources"],
         })
         _, excluded = authored_counters(parsed, set(identity_to_path))
-        report_evidence.append({
-            "reportId": report_id,
-            "classFileCount": entry["classFileCount"],
-            "executionData": entry["executionData"],
-            "executionFileSha256": entry["executionFileSha256"],
-            "executionSemanticSha256": entry["executionSemanticSha256"],
-            "xmlReport": entry["xmlReport"],
-            "xmlFileSha256": entry["xmlFileSha256"],
-            "reportSemanticSha256": entry["reportSemanticSha256"],
-            "excludedNonAuthoredXmlEntries": [f"{package}/{source}" for package, source in excluded],
-        })
+        report_evidence.append(_report_audit_evidence(
+            report,
+            entry,
+            [f"{package}/{source}" for package, source in excluded],
+        ))
     units: list[dict[str, Any]] = []
     ownership = {
         path: report["id"] for report in policy["reports"]
@@ -1526,7 +1804,13 @@ def _verify_current(measurement: dict[str, Any], policy: dict[str, Any], baselin
                 policy["maximumBaselineDropBasisPoints"],
             ):
                 violations.append(f"{unit_id} {metric} dropped more than 50bp from baseline")
+            if before["total"] and ratio_below_basis_points(before["covered"], before["total"], floor):
+                violations.append(f"{unit_id} baseline {metric} is below policy floor {floor}bp")
             captured_key = f"{metric}FloorBasisPointsAtCapture"
+            if before["total"] and captured_key in old and ratio_below_basis_points(
+                before["covered"], before["total"], old[captured_key],
+            ):
+                violations.append(f"{unit_id} baseline {metric} is below captured floor {old[captured_key]}bp")
             if captured_key in old and floor != old[captured_key]:
                 violations.append(f"{unit_id} {metric} floor differs from captured baseline")
     return violations
@@ -1582,7 +1866,17 @@ def _hardened_diff(root: Path, merge_base: str) -> dict[str, ChangedFile]:
             raise CoverageError(f"authoritative changed path has no base blob: {change.old_path}")
         if new_blobs[path] != old_bytes and new_blobs[path]:
             required.add(path)
-    return parse_zero_context_diff(status, patch, changed_blob_paths=required)
+    blob_contents = {
+        path: (b"" if change.old_path is None else old_blobs[change.old_path], new_blobs[path])
+        for path, change in preliminary.items()
+        if path in required
+    }
+    return parse_zero_context_diff(
+        status,
+        patch,
+        changed_blob_paths=required,
+        blob_contents=blob_contents,
+    )
 
 
 def _changed_coverage(
@@ -1719,15 +2013,14 @@ def _main() -> int:
             )
         violations.extend(_verify_current(measurement, policy, baseline))
         baseline_units = {unit["id"]: unit for unit in baseline["units"]}
-        denominator_keys = ("authoredSourceCount", "executableLineCount", "branchCount", "classCount")
+        policy_units = {unit["id"]: unit for unit in policy["units"]}
         unit_evidence = [
-            {
-                **unit,
-                "denominatorDelta": {
-                    key: unit[key] - baseline_units[unit["id"]][key]
-                    for key in denominator_keys
-                },
-            }
+            _unit_audit_evidence(
+                unit,
+                baseline_units[unit["id"]],
+                policy_units[unit["id"]],
+                policy["maximumBaselineDropBasisPoints"],
+            )
             for unit in measurement["units"]
         ]
         _, _, entries, root = _load_run(args.manifest, args.policy, args.source_commit)
