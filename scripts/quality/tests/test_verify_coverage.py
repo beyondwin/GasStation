@@ -617,8 +617,15 @@ class GitSourceAndDiffTest(unittest.TestCase):
                 )
                 self.assertEqual(1, changes[path].hunk_count)
 
-    def test_patch_payload_reconstruction_accepts_zero_count_ranges_between_existing_lines(self):
+    def test_patch_payload_reconstruction_accepts_zero_count_ranges_at_bof_between_and_eof(self):
         cases = (
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -0,0 +1 @@\n+inserted\n",
+                b"first\nlast\n",
+                b"inserted\nfirst\nlast\n",
+            ),
             (
                 b"M\0Subject.kt\0",
                 b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
@@ -629,8 +636,29 @@ class GitSourceAndDiffTest(unittest.TestCase):
             (
                 b"M\0Subject.kt\0",
                 b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -2,0 +3 @@\n+inserted\n",
+                b"first\nlast\n",
+                b"first\nlast\ninserted\n",
+            ),
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -1 +0,0 @@\n-removed\n",
+                b"removed\nfirst\nlast\n",
+                b"first\nlast\n",
+            ),
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
                 b"@@ -2 +1,0 @@\n-removed\n",
                 b"first\nremoved\nlast\n",
+                b"first\nlast\n",
+            ),
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -3 +2,0 @@\n-removed\n",
+                b"first\nlast\nremoved\n",
                 b"first\nlast\n",
             ),
         )
@@ -643,6 +671,33 @@ class GitSourceAndDiffTest(unittest.TestCase):
                     blob_contents={"Subject.kt": (old, new)},
                 )
                 self.assertEqual(1, changes["Subject.kt"].hunk_count)
+
+    def test_patch_zero_count_old_and_new_coordinates_are_explicitly_bounded(self):
+        cases = (
+            (
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -999,0 +2 @@\n+last\n",
+                b"first\n",
+                b"first\nlast\n",
+                "old range is outside raw blob bounds",
+            ),
+            (
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -2 +999,0 @@\n-last\n",
+                b"first\nlast\n",
+                b"first\n",
+                "new range is outside raw blob bounds",
+            ),
+        )
+        for patch, old, new, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(coverage.CoverageError, message):
+                    coverage.parse_zero_context_diff(
+                        b"M\0Subject.kt\0",
+                        patch,
+                        changed_blob_paths={"Subject.kt"},
+                        blob_contents={"Subject.kt": (old, new)},
+                    )
 
     def test_hardened_diff_uses_raw_blob_bytes_for_modified_rename(self):
         base = self.commit

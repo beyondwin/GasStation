@@ -1137,11 +1137,15 @@ def parse_zero_context_diff(
             cursor = 0
             for old_start, old_count, new_start, _new_count, removed, added in hunks.get(path, []):
                 old_index = old_start if old_count == 0 else old_start - 1
+                if old_index < 0 or old_index > len(old_lines):
+                    raise CoverageError(f"hunk old range is outside raw blob bounds: {path}")
                 if old_index < cursor or old_lines[old_index:old_index + old_count] != removed:
                     raise CoverageError(f"hunk payload disagrees with raw old blob: {path}")
                 rebuilt.extend(old_lines[cursor:old_index])
                 new_count = _new_count
                 new_index = new_start if new_count == 0 else new_start - 1
+                if new_index < 0 or new_index > len(new_lines):
+                    raise CoverageError(f"hunk new range is outside raw blob bounds: {path}")
                 if new_index != len(rebuilt):
                     raise CoverageError(f"hunk new range disagrees with reconstructed blob: {path}")
                 rebuilt.extend(added)
