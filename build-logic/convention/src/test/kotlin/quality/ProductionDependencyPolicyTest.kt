@@ -1,6 +1,7 @@
 package com.gasstation.buildlogic.quality
 
 import java.nio.charset.StandardCharsets.UTF_8
+import org.gradle.api.GradleException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -104,6 +105,16 @@ class ProductionDependencyPolicyTest {
                 policy.requireExactActiveModules(active)
             }
         }
+
+        val componentless =
+            assertThrows(GradleException::class.java) {
+                requireExactProductionTopology(
+                    activeModules = active,
+                    components = listOf(":app|debug", ":benchmark|benchmark", ":benchmark|debug"),
+                    scopes = listOf(validScope),
+                )
+            }
+        assertTrue(componentless.message.orEmpty().contains("active modules without production components: [:core:model]"))
     }
 
     @Test
