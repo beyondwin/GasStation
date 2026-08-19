@@ -8,6 +8,7 @@ import com.gasstation.buildlogic.testing.assertTaskOutcome
 import com.gasstation.buildlogic.testing.writeCoverageFixture
 import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.gradle.testkit.runner.TaskOutcome
@@ -170,6 +171,193 @@ class CoverageConventionTest {
             assertFalse(text.contains(project.projectDir.absolutePath))
         }
         project.assertRealVerifierMutationBoundary()
+    }
+
+    @Test
+    fun typedXmlReportTaskRejectsLiveCardinalityIdentityExecAndClassMutations() {
+        val project = newProject("typed-report-invalid-inputs").writeCoverageFixture(CoverageFixture(jvmOnly = true))
+        project.projectDir.resolve("sample/jvm/probe").mkdirs()
+        project.projectDir.resolve("sample/jvm/probe/one.exec").writeBytes(byteArrayOf(1))
+        project.projectDir.resolve("sample/jvm/probe/two.exec").writeBytes(byteArrayOf(2))
+        project.projectDir.resolve("sample/jvm/probe-empty-classes").mkdirs()
+        project.projectDir.resolve("sample/jvm/build.gradle.kts").appendText(
+            """
+
+            val duplicateCoverageCandidate = tasks.register<org.gradle.api.tasks.testing.Test>("duplicateCoverageCandidate")
+            tasks.register<org.gradle.api.tasks.testing.Test>("unrelatedCoverageTest") {
+                doFirst { error("unrelated coverage test executed") }
+            }
+            val coverageProbeCase = providers.gradleProperty("gasstation.coverageProbeCase").orElse("valid")
+            val liveCoverageTests = tasks.withType<org.gradle.api.tasks.testing.Test>()
+            val observedCoverageCallbackPath = objects.property(String::class.java)
+            liveCoverageTests.matching {
+                if (coverageProbeCase.get() == "wrong-callback") {
+                    it.name == duplicateCoverageCandidate.get().name
+                } else {
+                    it.name == "test"
+                }
+            }.configureEach {
+                observedCoverageCallbackPath.set(path)
+            }
+            tasks.named<com.gasstation.buildlogic.quality.coverage.CoverageXmlReportTask>("coverageMainXmlReport") {
+                selectedTestTaskCount.set(providers.provider {
+                    when (coverageProbeCase.get()) {
+                        "zero-task" -> liveCoverageTests.matching { false }.size
+                        "two-task" -> liveCoverageTests.matching {
+                            it.name == "test" || it.name == duplicateCoverageCandidate.get().name
+                        }.size
+                        else -> liveCoverageTests.matching { it.name == "test" }.size
+                    }
+                })
+                observedTestTaskPath.set(observedCoverageCallbackPath)
+                if (coverageProbeCase.get() == "wrong-task") {
+                    expectedTestTaskPath.set("${'$'}{project.path}:wrongExpectedTask")
+                }
+                if (coverageProbeCase.get() == "zero-exec") {
+                    exactExecutionData.setFrom(layout.projectDirectory.file("probe/missing.exec"))
+                }
+                if (coverageProbeCase.get() == "two-exec") {
+                    exactExecutionData.setFrom(
+                        layout.projectDirectory.file("probe/one.exec"),
+                        layout.projectDirectory.file("probe/two.exec"),
+                    )
+                }
+                if (coverageProbeCase.get() == "empty-classes") {
+                    preparedClassDirectory.set(layout.projectDirectory.dir("probe-empty-classes"))
+                }
+            }
+            """.trimIndent(),
+        )
+        val sourceCommit = project.git("rev-parse", "HEAD").trim()
+        val cases =
+            listOf(
+                "zero-task" to "requires exactly one selected unit-test task; found 0",
+                "two-task" to "requires exactly one selected unit-test task; found 2",
+                "wrong-callback" to "test task identity mismatch",
+                "wrong-task" to "test task identity mismatch",
+                "zero-exec" to "requires exactly one existing JaCoCo execution file; found 0",
+                "two-exec" to "requires exactly one existing JaCoCo execution file; found 2",
+                "empty-classes" to "prepared class directory is empty",
+            )
+
+        cases.forEach { (probeCase, diagnostic) ->
+            val result =
+                project.runner(
+                    ":sample:jvm:coverageMainXmlReport",
+                    "-Pgasstation.coverageSourceCommit=$sourceCommit",
+                    "-Pgasstation.coverageProbeCase=$probeCase",
+                    "--rerun-tasks",
+                ).buildAndFail()
+
+            result.assertTaskOutcome(":sample:jvm:coverageMainXmlReport", TaskOutcome.FAILED)
+            assertTrue("$probeCase did not report $diagnostic\n${result.output}", result.output.contains(diagnostic))
+            assertEquals("unrelated test executed for $probeCase", null, result.task(":sample:jvm:unrelatedCoverageTest"))
+        }
+    }
+
+    @Test
+    fun gradleVerifierTaskUsesRealVerifierAndRejectsPostEntryMutations() {
+        val project = newProject("real-gradle-verifier").writeCoverageFixture(CoverageFixture(jvmOnly = true))
+        project.installRealVerifierArchitecture()
+        val architectureCommit = project.git("rev-parse", "HEAD").trim()
+        project.runner(
+            "coverageXmlReport",
+            "-Pgasstation.coverageSourceCommit=$architectureCommit",
+            "--rerun-tasks",
+        ).build().assertTaskOutcome(":coverageXmlReport", TaskOutcome.SUCCESS)
+        val capture =
+            project.runProcess(
+                "python3",
+                "scripts/quality/verify_coverage.py",
+                "capture",
+                "--manifest",
+                "build/reports/coverage/report-manifest.json",
+                "--policy",
+                "config/quality/coverage-policy.json",
+                "--source-commit",
+                architectureCommit,
+                "--output",
+                "config/quality/coverage-baseline.json",
+            )
+        assertEquals(capture.second, 0, capture.first)
+        project.git("add", "config/quality/coverage-baseline.json")
+        project.git("commit", "-qm", "capture fixture baseline")
+        val sourceCommit = project.git("rev-parse", "HEAD").trim()
+        val arguments =
+            arrayOf(
+                ":verifyCoverageReport",
+                "-Pgasstation.coverageSourceCommit=$sourceCommit",
+                "-Pgasstation.coverageEvent=local",
+                "--rerun-tasks",
+            )
+        val initial = project.runner(*arguments).build()
+        initial.assertTaskOutcome(":verifyCoverageReport", TaskOutcome.SUCCESS)
+        assertEquals(null, initial.task(":sample:jvm:unrelatedCoverageTest"))
+
+        val entry = project.entryFiles().single()
+        val originalEntry = entry.readBytes()
+        val entryText = originalEntry.toString(Charsets.UTF_8)
+        val verifyOnly =
+            arrayOf(
+                ":verifyCoverageReport",
+                "-x",
+                "coverageXmlReport",
+                "-Pgasstation.coverageSourceCommit=$sourceCommit",
+                "-Pgasstation.coverageEvent=local",
+            )
+        fun rejectMutation(diagnostic: String): org.gradle.testkit.runner.BuildResult {
+            val result = project.runner(*verifyOnly).buildAndFail()
+            result.assertTaskOutcome(":verifyCoverageReport", TaskOutcome.FAILED)
+            assertTrue("missing $diagnostic\n${result.output}", result.output.contains(diagnostic))
+            return result
+        }
+
+        val executionPath = Regex("\\\"executionData\\\":\\[\\\"([^\\\"]+)\\\"\\]").find(entryText)!!.groupValues[1]
+        val execution = project.projectDir.resolve(executionPath)
+        val originalExecution = execution.readBytes()
+        execution.writeBytes(originalExecution + byteArrayOf(0))
+        rejectMutation("execution data hash mismatch")
+        execution.writeBytes(originalExecution)
+
+        val xmlPath = Regex("\\\"xmlReport\\\":\\\"([^\\\"]+)\\\"").find(entryText)!!.groupValues[1]
+        val xml = project.projectDir.resolve(xmlPath)
+        val originalXml = xml.readBytes()
+        xml.writeBytes(originalXml + " ".toByteArray())
+        rejectMutation("XML hash mismatch")
+        xml.writeBytes(originalXml)
+
+        val semanticXml =
+            Regex("covered=\\\"([1-9][0-9]*)\\\"").replaceFirst(
+                originalXml.toString(Charsets.UTF_8),
+                "covered=\\\"0\\\"",
+            ).toByteArray()
+        assertFalse("semantic XML mutation did not change bytes", semanticXml.contentEquals(originalXml))
+        xml.writeBytes(semanticXml)
+        entry.writeBytes(replaceJsonHash(originalEntry, "xmlFileSha256", sha256(semanticXml)))
+        rejectMutation("XML semantic hash mismatch")
+        xml.writeBytes(originalXml)
+        entry.writeBytes(originalEntry)
+
+        val artifact =
+            Regex("\\\"inputClassArtifacts\\\":\\[\\{\\\"entryCount\\\":\\d+,\\\"kind\\\":\\\"directory\\\",\\\"path\\\":\\\"([^\\\"]+)\\\"")
+                .find(entryText)!!.groupValues[1]
+        val inputClass = project.projectDir.resolve(artifact).walkTopDown().first { it.isFile && it.extension == "class" }
+        val originalInput = inputClass.readBytes()
+        inputClass.delete()
+        rejectMutation("input class artifact identity mismatch")
+        inputClass.writeBytes(originalInput)
+
+        val prepared = Regex("\\\"preparedClassDirectory\\\":\\\"([^\\\"]+)\\\"").find(entryText)!!.groupValues[1]
+        val extraClass = project.projectDir.resolve("$prepared/fixture/PostEntryMutation.class")
+        extraClass.parentFile.mkdirs()
+        extraClass.writeBytes(byteArrayOf(1, 2, 3))
+        rejectMutation("physical prepared class inventory differs from manifest")
+        extraClass.delete()
+
+        project.projectDir.resolve("stale-head.txt").writeText("move HEAD")
+        project.git("add", "stale-head.txt")
+        project.git("commit", "-qm", "move fixture head")
+        rejectMutation("CLI source commit must equal HEAD")
     }
 
     @Test
@@ -419,6 +607,39 @@ class CoverageConventionTest {
         return output
     }
 
+    private fun GradlePluginTestProject.runProcess(vararg arguments: String): Pair<Int, String> {
+        val process = ProcessBuilder(arguments.toList()).directory(projectDir).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        return process.waitFor() to output
+    }
+
+    private fun GradlePluginTestProject.installRealVerifierArchitecture() {
+        projectDir.resolve("scripts/quality/verify_coverage.py")
+            .writeBytes(projectDir.resolve("scripts/quality/real_verify_coverage.py").readBytes())
+        projectDir.resolve("config/quality/coverage-baseline.json").delete()
+        projectDir.resolve("config/quality/coverage-policy.json").writeText(REAL_JVM_BLOCKING_POLICY)
+        projectDir.resolve("sample/jvm/build.gradle.kts").appendText(
+            """
+
+            tasks.register<org.gradle.api.tasks.testing.Test>("unrelatedCoverageTest") {
+                doFirst { error("unrelated coverage test executed") }
+            }
+            """.trimIndent(),
+        )
+        git("add", "-A")
+        git("commit", "-qm", "install real verifier architecture")
+    }
+
+    private fun replaceJsonHash(original: ByteArray, key: String, digest: String): ByteArray {
+        val pattern = Regex("(\\\"$key\\\":\\\")[0-9a-f]{64}(\\\")")
+        val text = original.toString(Charsets.UTF_8)
+        check(pattern.findAll(text).count() == 1) { "expected one $key in manifest entry" }
+        return pattern.replace(text, "${'$'}1$digest${'$'}2").toByteArray()
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
     private fun GradlePluginTestProject.realVerifierBoundary(): Pair<Int, String> {
         val process = ProcessBuilder("python3", "scripts/quality/check_real_boundary.py")
             .directory(projectDir)
@@ -437,5 +658,39 @@ class CoverageConventionTest {
                 output.closeEntry()
             }
         }
+    }
+
+    private companion object {
+        val REAL_JVM_BLOCKING_POLICY =
+            """
+            {
+              "schemaVersion": 1,
+              "enforcementMode": "blocking",
+              "activeModules": [":benchmark", ":sample:jvm"],
+              "excludedModules": [{"module": ":benchmark", "reason": "connected macrobenchmark and device performance evidence owns this module"}],
+              "reports": [{
+                "id": ":sample:jvm|main",
+                "module": ":sample:jvm",
+                "platform": "jvm",
+                "variant": "main",
+                "testTask": ":sample:jvm:test",
+                "sourceRoots": ["sample/jvm/src/main/java", "sample/jvm/src/main/kotlin"],
+                "testSourceRoots": ["sample/jvm/src/test/java", "sample/jvm/src/test/kotlin"],
+                "ownedSourceRoots": ["sample/jvm/src/main/java", "sample/jvm/src/main/kotlin"]
+              }],
+              "units": [{
+                "id": ":sample:jvm|assembly",
+                "family": "assembly",
+                "selection": "all",
+                "reportIds": [":sample:jvm|main"],
+                "sources": []
+              }],
+              "changedThresholds": {"lineBasisPoints": 8000, "branchBasisPoints": 7000},
+              "maximumBaselineDropBasisPoints": 50,
+              "maximumFloorRaiseBasisPoints": 200,
+              "nonExecutableExceptions": [],
+              "unclassifiedAuthoredSource": "fail"
+            }
+            """.trimIndent()
     }
 }
