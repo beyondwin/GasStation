@@ -199,21 +199,21 @@ jobs:
           mkdir -p build/reports/coverage
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
 
+          payload = {
+              "baseRef": os.environ["GASSTATION_COVERAGE_BASE_REF"],
+              "event": os.environ["GASSTATION_COVERAGE_EVENT"],
+              "expectedTasks": ["coverageXmlReport", "verifyCoverageReport"],
+              "policy": "config/quality/coverage-policy.json",
+              "baseline": "config/quality/coverage-baseline.json",
+              "schemaVersion": 1,
+              "sourceCommit": os.environ["COVERAGE_SOURCE_SHA"],
+          }
           Path("build/reports/coverage/coverage-attempt.json").write_text(
-              json.dumps(
-                  {
-                      "baseRef": "",
-                      "baseline": "config/quality/coverage-baseline.json",
-                      "event": "local",
-                      "expectedTasks": ["coverageXmlReport", "verifyCoverageReport"],
-                      "policy": "config/quality/coverage-policy.json",
-                      "schemaVersion": 1,
-                      "sourceCommit": "fixture",
-                  },
-                  sort_keys=True,
-              ) + "\\n"
+              json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
           )
           PY
       - name: Verify trustworthy coverage
@@ -463,6 +463,53 @@ if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.s
 fi
 assert_contains "$(cat "$fixture/coverage-report-only.out")" "coverage verification step must be blocking"
 assert_error_locations "$(cat "$fixture/coverage-report-only.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+text = workflow.read_text()
+text = text.replace(
+    '"sourceCommit": os.environ["COVERAGE_SOURCE_SHA"],',
+    '"sourceCommit": "0000000000000000000000000000000000000000",',
+).replace(
+    '"event": os.environ["GASSTATION_COVERAGE_EVENT"],',
+    '"event": "tag",',
+).replace(
+    '"baseRef": os.environ["GASSTATION_COVERAGE_BASE_REF"],',
+    '"baseRef": "bogus-base",',
+)
+workflow.write_text(text)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/coverage-forged-attempt.out" 2>&1; then
+  fail "CI accepted a forged coverage attempt envelope"
+fi
+assert_contains "$(cat "$fixture/coverage-forged-attempt.out")" "coverage attempt envelope must be deterministic and complete"
+assert_error_locations "$(cat "$fixture/coverage-forged-attempt.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+text = workflow.read_text().replace(
+    "            build/reports/coverage/verification-summary.json\n",
+    "",
+).replace(
+    "          PY\n      - name: Verify trustworthy coverage",
+    "            # build/reports/coverage/verification-summary.json\n"
+    "          PY\n      - name: Verify trustworthy coverage",
+)
+workflow.write_text(text)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/coverage-upload-decoy.out" 2>&1; then
+  fail "CI accepted a coverage upload path supplied only by a here-doc/comment decoy"
+fi
+assert_contains "$(cat "$fixture/coverage-upload-decoy.out")" "coverage evidence upload must retain every produced artifact"
+assert_error_locations "$(cat "$fixture/coverage-upload-decoy.out")"
 git -C "$fixture/repo" restore .github/workflows/android.yml
 
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'

@@ -446,7 +446,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew verifyCiRobolectricRuntime
 ```
 
-> `coverageXmlReport`는 JaCoCo 0.8.15로 settings의 18개 명시 모듈 중 reviewed `benchmark` 제외를 적용하고 JVM/Android/app demo·prod 보고서 18개와 provenance manifest를 생성합니다. `verifyCoverageReport`는 authored source, exact production/test Git blob, class/exec/XML identity, 20개 coverage unit floor와 changed 8000/7000bp를 검증하고 항상 다시 실행됩니다. CI는 두 lifecycle을 하나의 차단형 호출로 실행합니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
+> `coverageXmlReport`는 JaCoCo 0.8.15로 settings의 18개 명시 모듈 중 reviewed `benchmark` 제외를 적용하고 JVM/Android/app demo·prod 보고서 18개와 provenance manifest를 생성합니다. `verifyCoverageReport`는 authored source, exact production/test Git blob, exact-one class/exec/XML raw identity, Kotlin/Python full structural semantic identity, attributable denominator, 20개 coverage unit floor와 changed 8000/7000bp를 검증하고 항상 다시 실행됩니다. CI는 두 lifecycle을 하나의 차단형 호출로 실행합니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.
 
 ```bash
 ./gradlew coverageXmlReport verifyCoverageReport \
@@ -456,6 +456,8 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ```
 
 PR과 local changed 판정에는 `-Pgasstation.coverageBaseRef=<40-hex-base>`를 추가합니다. PR은 base가 없거나 유효하지 않으면 실패하고, main의 unavailable/zero before와 tag/local의 생략 base는 changed coverage를 `N/A`로 두되 provenance·floor·baseline ratchet은 계속 판정합니다. Evidence 위치는 root index/summary와 `**/build/reports/coverage/*/{manifest-entry.json,report.xml}`입니다.
+
+Baseline 교체는 architecture commit의 exact 40-hex HEAD에서 새 evidence를 생성한 뒤 `verify_coverage.py capture --predecessor-commit <same HEAD>`로 수행합니다. 새 baseline은 그 HEAD의 기존 baseline/policy blob hash를 고정하며 ancestry와 policy lineage를 검증하고 floor 감소 또는 200bp 초과 인상을 거부합니다. 첫 baseline만 predecessor가 없습니다.
 
 ## CI 연결
 

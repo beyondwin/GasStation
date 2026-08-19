@@ -9,6 +9,7 @@ accidental attempt to commit them.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -531,6 +532,54 @@ def workflow_job_fields(body: str) -> dict[str, str]:
     }
 
 
+def workflow_job_environment(body: str) -> dict[str, str]:
+    lines = body.splitlines()
+    for index, line in enumerate(lines):
+        if yaml_mapping_entry(line, 4) == ("env", ""):
+            environment: dict[str, str] = {}
+            for child in lines[index + 1:]:
+                entry = yaml_mapping_entry(child, 6)
+                if entry is None:
+                    break
+                environment[entry[0]] = entry[1]
+            return environment
+    return {}
+
+
+def coverage_attempt_script_is_exact(script: str) -> bool:
+    lines = script.splitlines()
+    if len(lines) < 4 or lines[0] != "mkdir -p build/reports/coverage":
+        return False
+    if lines[1] != "python3 - <<'PY'" or lines[-1] != "PY":
+        return False
+    actual_python = "\n".join(lines[2:-1]).strip()
+    expected_python = '''
+import json
+import os
+from pathlib import Path
+
+payload = {
+    "baseRef": os.environ["GASSTATION_COVERAGE_BASE_REF"],
+    "event": os.environ["GASSTATION_COVERAGE_EVENT"],
+    "expectedTasks": ["coverageXmlReport", "verifyCoverageReport"],
+    "policy": "config/quality/coverage-policy.json",
+    "baseline": "config/quality/coverage-baseline.json",
+    "schemaVersion": 1,
+    "sourceCommit": os.environ["COVERAGE_SOURCE_SHA"],
+}
+Path("build/reports/coverage/coverage-attempt.json").write_text(
+    json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\\n",
+    encoding="utf-8",
+)
+'''.strip()
+    try:
+        actual = ast.dump(ast.parse(actual_python), include_attributes=False)
+        expected = ast.dump(ast.parse(expected_python), include_attributes=False)
+    except SyntaxError:
+        return False
+    return actual == expected
+
+
 def workflow_steps(body: str) -> list[dict[str, object]]:
     """Parse the active fields needed from conventional GitHub Actions steps."""
     steps: list[dict[str, object]] = []
@@ -876,15 +925,10 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
     ):
         issues.append(issue(workflow_path, job_line, "coverage job must be blocking"))
 
-    if not re.search(
-        rf"(?m)^      GASSTATION_COVERAGE_EVENT: {re.escape(COVERAGE_EVENT_EXPRESSION)}$",
-        body,
-    ):
+    job_environment = workflow_job_environment(body)
+    if job_environment.get("GASSTATION_COVERAGE_EVENT") != yaml_scalar(COVERAGE_EVENT_EXPRESSION):
         issues.append(issue(workflow_path, job_line, "coverage event routing must use the immutable contract"))
-    if not re.search(
-        rf"(?m)^      GASSTATION_COVERAGE_BASE_REF: {re.escape(COVERAGE_BASE_EXPRESSION)}$",
-        body,
-    ):
+    if job_environment.get("GASSTATION_COVERAGE_BASE_REF") != yaml_scalar(COVERAGE_BASE_EXPRESSION):
         issues.append(issue(workflow_path, job_line, "coverage base routing must use the immutable contract"))
 
     steps = workflow_steps(body)
@@ -907,17 +951,9 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
         attempt = attempt_steps[0]
         attempt_run = str(attempt["fields"].get("run", ""))
         attempt_env = attempt["nested"].get("env", {})
-        attempt_anchors = (
-            "mkdir -p build/reports/coverage",
-            "coverage-attempt.json",
-            "coverageXmlReport",
-            "verifyCoverageReport",
-            "config/quality/coverage-policy.json",
-            "config/quality/coverage-baseline.json",
-            '"schemaVersion": 1',
-        )
-        if attempt_env.get("COVERAGE_SOURCE_SHA") != "${{ github.sha }}" or any(
-            anchor not in attempt_run for anchor in attempt_anchors
+        if (
+            attempt_env != {"COVERAGE_SOURCE_SHA": "${{ github.sha }}"}
+            or not coverage_attempt_script_is_exact(attempt_run)
         ):
             issues.append(issue(workflow_path, job_line, "coverage attempt envelope must be deterministic and complete"))
 
@@ -969,10 +1005,8 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
             evidence["fields"].get("if") != "always()"
             or evidence_with.get("if-no-files-found") != "error"
             or evidence_with.get("retention-days") != "7"
-            or any(
-                not re.search(rf"(?m)^            {re.escape(path)}$", body)
-                for path in required_evidence_paths
-            )
+            or tuple(line.strip() for line in evidence_with.get("path", "").splitlines() if line.strip())
+            != required_evidence_paths
         ):
             issues.append(issue(workflow_path, job_line, "coverage evidence upload must retain every produced artifact"))
 
@@ -986,7 +1020,7 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
     else:
         codecov = codecov_steps[0]
         if (
-            not re.search(r"(?m)^        if: \$\{\{ env\.CODECOV_TOKEN != '' \}\}$", body)
+            codecov["fields"].get("if") != yaml_scalar("${{ env.CODECOV_TOKEN != '' }}")
             or static_workflow_boolean(codecov["fields"].get("continue-on-error", "")) is not True
             or codecov["nested"].get("with", {}).get("files")
             != "**/build/reports/coverage/*/report.xml"

@@ -129,11 +129,26 @@ Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니�
 
 각 보고서는 `**/build/reports/coverage/*/report.xml`과 같은 디렉터리의 `manifest-entry.json`을 남깁니다. Root `build/reports/coverage/report-manifest.json`은 23개 Gradle project node, 18개 build module, 18개 entry를 연결합니다. Entry는 production/test source SHA-256, exact test task, prepared class와 JaCoCo class ID, execution/XML raw·semantic identity를 기록합니다. app shared source의 baseline owner는 demo이고 prod 전용 source는 prod가 소유하지만, shared changed line은 두 variant에서 각각 판정합니다.
 
-`verifyCoverageReport`는 current HEAD와 명시 source commit, Git production/test blob inventory, policy/baseline hash, source classification, denominator, 모듈 floor, baseline 대비 최대 50bp 하락, changed line 8000bp/branch 7000bp를 정수 연산으로 검증합니다. Feature는 exact `state`와 `rendering` source unit으로 나뉘며 rendering/design-system/tool/app assembly에는 raw floor를 만들지 않습니다. CI는 report 생성과 이 ratchet 판정을 하나의 차단형 Gradle 호출로 실행합니다.
+`verifyCoverageReport`는 current HEAD와 명시 source commit, Git production/test blob inventory, policy/baseline lineage, source classification, denominator, 모듈 floor, baseline 대비 최대 50bp 하락, changed line 8000bp/branch 7000bp를 정수 연산으로 검증합니다. Manifest 결정에는 exact-one class/exec/XML raw identity와 Kotlin/Python이 같은 full report/package/source/class/method/line/counter semantic identity가 포함됩니다. Summary는 report evidence, attributable class denominator와 baseline delta, authored source에 속하지 않아 제외된 XML entry를 함께 남깁니다. Feature는 exact `state`와 `rendering` source unit으로 나뉘며 rendering/design-system/tool/app assembly에는 raw floor를 만들지 않습니다. CI는 report 생성과 이 ratchet 판정을 하나의 차단형 Gradle 호출로 실행합니다.
 
 의존성 verification metadata는 Task 9의 단독 소유입니다. Coverage 작업과 명령은 기존 Gradle verification metadata를 읽을 수 있지만 그 파일을 생성·갱신하지 않습니다.
 
 Coverage ratchet 기준은 `config/quality/coverage-policy.json`과 `config/quality/coverage-baseline.json`입니다. PIT를 함께 담는 `quality-baseline.json`은 별도 mutation evidence이며 coverage baseline을 대체하지 않습니다. Coverage 실행에는 symbolic ref나 축약 SHA가 아닌 현재 40-hex HEAD를 명시합니다.
+
+Baseline 교체는 새 producer/verifier architecture를 먼저 commit한 뒤 그 exact HEAD에서 보고서를 다시 생성하고 `capture --predecessor-commit <same-40-hex-HEAD>`를 실행합니다. Capture는 그 commit의 기존 baseline/policy blob SHA-256을 predecessor로 기록하고 source ancestry, policy lineage, floor 비감소와 200bp 이하 인상만 허용합니다. 기존 baseline blob이 없는 첫 baseline만 predecessor를 생략할 수 있습니다. 실패한 capture는 기존 baseline output을 바꾸지 않습니다.
+
+```bash
+SOURCE_COMMIT="$(git rev-parse HEAD)"
+./gradlew coverageXmlReport \
+  -Pgasstation.coverageSourceCommit="$SOURCE_COMMIT" \
+  --warning-mode fail --rerun-tasks
+python3 scripts/quality/verify_coverage.py capture \
+  --manifest build/reports/coverage/report-manifest.json \
+  --policy config/quality/coverage-policy.json \
+  --source-commit "$SOURCE_COMMIT" \
+  --predecessor-commit "$SOURCE_COMMIT" \
+  --output config/quality/coverage-baseline.json
+```
 
 ```bash
 ./gradlew coverageXmlReport verifyCoverageReport \
