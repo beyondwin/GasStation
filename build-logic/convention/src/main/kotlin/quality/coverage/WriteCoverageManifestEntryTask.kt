@@ -3,7 +3,7 @@ package com.gasstation.buildlogic.quality.coverage
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
-import javax.xml.parsers.DocumentBuilderFactory
+import java.text.Normalizer
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
@@ -68,33 +68,21 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
             throw GradleException("gasstation.coverageSourceCommit must be one non-zero 40-hex object ID")
         }
         val root = repositoryRoot.get().asFile.canonicalFile
-        val productionRecords = sourceRecords(root, sourceFiles.files)
-        val testRecords = sourceRecords(root, testSourceFiles.files, includePackage = false)
+        val productionRecords = sourceRecords(root, sourceFiles.files, sourceRoots.get(), includePackage = true)
+        val testRecords = sourceRecords(root, testSourceFiles.files, testSourceRoots.get(), includePackage = false)
         val prepared = preparedClassDirectory.get().asFile
         val classRecords = classRecords(prepared)
         val classIds = classRecords.associate { it["jacocoClassId"] as String to true }
         val executionFiles = executionData.files.filter(File::isFile).sortedBy { relative(root, it) }
-        if (executionFiles.isEmpty()) throw GradleException("Missing JaCoCo execution data for ${reportId.get()}")
-        val store = ExecutionDataStore()
-        val sessions = SessionInfoStore()
-        executionFiles.forEach { file ->
-            FileInputStream(file).use { input ->
-                val reader = ExecutionDataReader(input)
-                reader.setExecutionDataVisitor(store)
-                reader.setSessionInfoVisitor(sessions)
-                while (reader.read()) Unit
-            }
-        }
-        val executionRecords = store.contents.sortedBy { it.id }.map { record ->
-            linkedMapOf<String, Any>(
-                "classId" to record.id.toHexId(),
-                "name" to record.name,
-                "probes" to record.probes.joinToString("") { if (it) "1" else "0" },
+        if (executionFiles.size != 1) {
+            throw GradleException(
+                "${reportId.get()} requires exactly one existing JaCoCo execution data file; found ${executionFiles.size}",
             )
         }
-        val projectExecution = executionRecords.filter { classIds.containsKey(it["classId"]) }
+        val (projectExecution, ignoredExecutionCount) =
+            readCoverageExecutionRecords(executionFiles, classIds.keys)
         val xml = xmlReport.get().asFile
-        val xmlSemantic = xmlSemanticRecords(xml)
+        val xmlSemanticSha256 = coverageXmlSemanticSha256(xml.readBytes(), reportId.get())
         val payload = linkedMapOf<String, Any>(
             "schemaVersion" to 1,
             "sourceCommit" to commit,
@@ -114,14 +102,12 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
             "classFileCount" to classRecords.size,
             "classes" to classRecords,
             "executionData" to executionFiles.map { relative(root, it) },
-            "executionFileSha256" to sha256(canonicalCoverageJson(executionFiles.map {
-                linkedMapOf("path" to relative(root, it), "sha256" to sha256(it.readBytes()))
-            })),
+            "executionFileSha256" to sha256(executionFiles.single().readBytes()),
             "executionRecords" to projectExecution,
-            "ignoredNonProjectExecutionRecordCount" to executionRecords.size - projectExecution.size,
+            "ignoredNonProjectExecutionRecordCount" to ignoredExecutionCount,
             "executionSemanticSha256" to sha256(canonicalCoverageJson(projectExecution)),
             "xmlFileSha256" to sha256(xml.readBytes()),
-            "reportSemanticSha256" to sha256(canonicalCoverageJson(xmlSemantic)),
+            "reportSemanticSha256" to xmlSemanticSha256,
         )
         outputFile.get().asFile.apply {
             parentFile.mkdirs()
@@ -129,19 +115,43 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
         }
     }
 
-    private fun sourceRecords(root: File, files: Set<File>, includePackage: Boolean = true): List<Map<String, Any>> =
-        files.filter { it.isFile && it.extension in setOf("kt", "java") }.sortedBy { relative(root, it) }.map { file ->
+    private fun sourceRecords(
+        root: File,
+        files: Set<File>,
+        declaredRoots: List<String>,
+        includePackage: Boolean,
+    ): List<Map<String, Any>> {
+        val records = files.filter { it.isFile && it.extension in setOf("kt", "java") }.sortedBy { relative(root, it) }.map { file ->
+            val path = relative(root, file)
+            if (path != Normalizer.normalize(path, Normalizer.Form.NFC)) {
+                throw GradleException("Coverage source path is not Unicode NFC: $path")
+            }
+            if (declaredRoots.none { path.startsWith("${it.trimEnd('/')}/") }) {
+                throw GradleException("Coverage source is outside its declared static roots: $path")
+            }
+            if (
+                path.contains("/build/") || path.contains("/generated/") ||
+                (includePackage && Regex("/src/(?:test|androidTest|testFixtures)(?:/|$)").containsMatchIn(path))
+            ) {
+                throw GradleException("Generated or test source cannot enter authored production coverage: $path")
+            }
             linkedMapOf<String, Any>().apply {
-                put("path", relative(root, file))
-                if (includePackage) put("package", lexicalPackage(file.readText()))
+                put("path", path)
+                if (includePackage) put("package", lexicalPackageDeclaration(file.readBytes(), file.extension))
                 put("filename", file.name)
                 put("sha256", sha256(file.readBytes()))
             }
         }
+        val collision = records.groupBy { (it["path"] as String).lowercase() }.values.firstOrNull { it.size > 1 }
+        if (collision != null) throw GradleException("Coverage source paths collide after case folding")
+        return records
+    }
 
     private fun classRecords(directory: File): List<Map<String, Any>> {
         val coverage = CoverageBuilder()
         Analyzer(ExecutionDataStore(), coverage).analyzeAll(directory)
+        val duplicateIds = coverage.classes.groupBy { it.id }.filterValues { it.size > 1 }
+        if (duplicateIds.isNotEmpty()) throw GradleException("Duplicate JaCoCo class ID in prepared classes")
         val ids = coverage.classes.associate { "${it.name}.class" to it.id.toHexId() }
         return directory.walkTopDown().filter { it.isFile && it.extension == "class" }
             .sortedBy { it.relativeTo(directory).invariantSeparatorsPath }
@@ -155,50 +165,39 @@ abstract class WriteCoverageManifestEntryTask : DefaultTask() {
             }.toList()
     }
 
-    private fun xmlSemanticRecords(file: File): List<Map<String, Any>> {
-        val factory = DocumentBuilderFactory.newInstance().apply {
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            isXIncludeAware = false
-            isExpandEntityReferences = false
-        }
-        val document = factory.newDocumentBuilder().parse(file)
-        val records = mutableListOf<Map<String, Any>>()
-        val packages = document.getElementsByTagName("package")
-        for (packageIndex in 0 until packages.length) {
-            val packageNode = packages.item(packageIndex)
-            val packageName = packageNode.attributes.getNamedItem("name").nodeValue
-            val children = packageNode.childNodes
-            for (sourceIndex in 0 until children.length) {
-                val source = children.item(sourceIndex)
-                if (source.nodeName != "sourcefile") continue
-                val sourceName = source.attributes.getNamedItem("name").nodeValue
-                val lines = source.childNodes
-                for (lineIndex in 0 until lines.length) {
-                    val line = lines.item(lineIndex)
-                    if (line.nodeName != "line") continue
-                    records += linkedMapOf(
-                        "package" to packageName,
-                        "source" to sourceName,
-                        "line" to line.attributes.getNamedItem("nr").nodeValue.toInt(),
-                        "mi" to line.attributes.getNamedItem("mi").nodeValue.toInt(),
-                        "ci" to line.attributes.getNamedItem("ci").nodeValue.toInt(),
-                        "mb" to line.attributes.getNamedItem("mb").nodeValue.toInt(),
-                        "cb" to line.attributes.getNamedItem("cb").nodeValue.toInt(),
-                    )
-                }
+}
+
+internal fun readCoverageExecutionRecords(
+    executionFiles: List<File>,
+    projectClassIds: Set<String>,
+): Pair<List<Map<String, Any>>, Int> {
+    val store = ExecutionDataStore()
+    val sessions = SessionInfoStore()
+    try {
+        executionFiles.forEach { file ->
+            FileInputStream(file).use { input ->
+                val reader = ExecutionDataReader(input)
+                reader.setExecutionDataVisitor(store)
+                reader.setSessionInfoVisitor(sessions)
+                while (reader.read()) Unit
             }
         }
-        return records.sortedWith(compareBy({ it["package"].toString() }, { it["source"].toString() }, { it["line"] as Int }))
+    } catch (error: IllegalStateException) {
+        throw GradleException("Incompatible duplicate JaCoCo execution record", error)
     }
-
-    private fun lexicalPackage(text: String): String {
-        val stripped = text.replace(Regex("(?s)/\\*.*?\\*/|//[^\\r\\n]*|\"\"\".*?\"\"\"|\"(?:\\\\.|[^\"\\\\])*\""), " ")
-        val match = Regex("(?m)^\\s*package\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)").findAll(stripped).toList()
-        if (match.size != 1) throw GradleException("Expected exactly one package declaration in authored source")
-        return match.single().groupValues[1]
-    }
+    val records =
+        store.contents.sortedWith { left, right ->
+            val idComparison = java.lang.Long.compareUnsigned(left.id, right.id)
+            if (idComparison != 0) idComparison else left.name.compareTo(right.name)
+        }.map { record ->
+            linkedMapOf<String, Any>(
+                "classId" to record.id.toHexId(),
+                "name" to record.name,
+                "probes" to record.probes.joinToString("") { if (it) "1" else "0" },
+            )
+        }
+    val project = records.filter { it["classId"] in projectClassIds }
+    return project to (records.size - project.size)
 }
 
 private fun relative(root: File, file: File): String {

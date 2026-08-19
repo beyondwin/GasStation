@@ -199,10 +199,30 @@ def parse_package_declaration(source: bytes, suffix: str) -> str:
     return package
 
 
+def _class_belongs_to_authored_file(source_path: Path, source: bytes, class_internal_name: str) -> bool:
+    cleaned = _strip_comments_and_strings(source.decode("utf-8"), source_path.suffix)
+    outer = class_internal_name.rsplit("/", 1)[-1].split("$", 1)[0]
+    base = source_path.stem
+    allowed = {base, f"{base}Kt"}
+    allowed.update(
+        re.findall(
+            r"\b(?:class|object|interface|enum\s+class|annotation\s+class)\s+([A-Za-z_][A-Za-z0-9_]*)",
+            cleaned,
+        ),
+    )
+    if source_path.suffix == ".kt":
+        jvm_name = re.search(r'@file:\s*JvmName\s*\(\s*"([A-Za-z_$][A-Za-z0-9_$]*)"\s*\)', source.decode("utf-8"))
+        if jvm_name:
+            allowed.add(jvm_name.group(1))
+    return outer in allowed
+
+
 @dataclass(frozen=True)
 class ParsedJacoco:
     report_id: str
     sources: dict[tuple[str, str], dict[int, tuple[int, int, int, int]]]
+    source_classes: dict[tuple[str, str], set[str]]
+    semantic_records: tuple[dict[str, Any], ...]
     semantic_sha256: str
 
 
@@ -219,12 +239,78 @@ def parse_jacoco_xml(xml_bytes: bytes, report_id: str) -> ParsedJacoco:
         raise CoverageError(f"invalid JaCoCo XML for {report_id}: {error}") from error
     if root.tag != "report":
         raise CoverageError(f"JaCoCo XML root must be report for {report_id}")
+    report_name = root.get("name")
+    if report_name is None:
+        raise CoverageError(f"JaCoCo report without name for {report_id}")
+    allowed_counters = {"INSTRUCTION", "BRANCH", "LINE", "COMPLEXITY", "METHOD", "CLASS"}
     sources: dict[tuple[str, str], dict[int, tuple[int, int, int, int]]] = {}
-    identities: list[dict[str, Any]] = []
+    source_classes: dict[tuple[str, str], set[str]] = {}
+    records: list[dict[str, Any]] = [
+        {"kind": "report-identity", "reportId": report_id, "name": report_name},
+    ]
+    seen_records: set[bytes] = set()
+
+    def append(record: dict[str, Any]) -> None:
+        identity = canonical_json_bytes(record)
+        if identity in seen_records:
+            raise CoverageError(f"duplicate XML semantic identity in {report_id}: {record}")
+        seen_records.add(identity)
+        records.append(record)
+
+    def counters(parent: ET.Element, kind: str, fields: dict[str, Any]) -> None:
+        seen_types: set[str] = set()
+        for counter in parent.findall("counter"):
+            counter_type = counter.get("type")
+            if counter_type not in allowed_counters:
+                raise CoverageError(f"unknown JaCoCo counter type in {report_id}: {counter_type}")
+            if counter_type in seen_types:
+                raise CoverageError(f"duplicate {kind} counter {counter_type} in {report_id}")
+            seen_types.add(counter_type)
+            append({
+                "kind": f"{kind}-counter",
+                **fields,
+                "type": counter_type,
+                "missed": _strict_nonnegative_int(counter.get("missed"), f"{kind} counter missed"),
+                "covered": _strict_nonnegative_int(counter.get("covered"), f"{kind} counter covered"),
+            })
+
+    counters(root, "report", {"reportId": report_id})
     for package in root.findall("package"):
         package_name = package.get("name")
         if package_name is None:
             raise CoverageError(f"package without name in {report_id}")
+        append({"kind": "package-identity", "reportId": report_id, "package": package_name})
+        counters(package, "package", {"reportId": report_id, "package": package_name})
+        for class_node in package.findall("class"):
+            class_name = class_node.get("name")
+            if class_name is None or class_name.rsplit("/", 1)[0] != package_name:
+                raise CoverageError(f"class/package mismatch in {report_id}: {class_name}")
+            source_name = class_node.get("sourcefilename")
+            class_fields = {
+                "reportId": report_id,
+                "package": package_name,
+                "class": class_name,
+                "source": source_name,
+            }
+            append({"kind": "class-identity", **class_fields})
+            counters(class_node, "class", class_fields)
+            if source_name is not None:
+                source_classes.setdefault((package_name, source_name), set()).add(class_name)
+            for method in class_node.findall("method"):
+                method_name = method.get("name")
+                descriptor = method.get("desc")
+                if method_name is None or descriptor is None:
+                    raise CoverageError(f"method without name/descriptor in {report_id}: {class_name}")
+                raw_line = method.get("line")
+                declared_line = None if raw_line is None else _strict_nonnegative_int(raw_line, "method line")
+                method_fields = {
+                    **class_fields,
+                    "method": method_name,
+                    "descriptor": descriptor,
+                    "declaredLine": declared_line,
+                }
+                append({"kind": "method-identity", **method_fields})
+                counters(method, "method", method_fields)
         for source in package.findall("sourcefile"):
             source_name = source.get("name")
             if source_name is None:
@@ -232,22 +318,38 @@ def parse_jacoco_xml(xml_bytes: bytes, report_id: str) -> ParsedJacoco:
             identity = (package_name, source_name)
             if identity in sources:
                 raise CoverageError(f"duplicate XML identity {package_name}/{source_name}")
+            source_fields = {"reportId": report_id, "package": package_name, "source": source_name}
+            append({"kind": "source-identity", **source_fields})
+            counters(source, "source", source_fields)
             lines: dict[int, tuple[int, int, int, int]] = {}
             for line in source.findall("line"):
                 number = _strict_nonnegative_int(line.get("nr"), "line number")
                 if number == 0 or number in lines:
                     raise CoverageError(f"duplicate XML identity {package_name}/{source_name}:{number}")
-                counters = tuple(
+                line_counters = tuple(
                     _strict_nonnegative_int(line.get(attribute), f"{identity}:{number} {attribute}")
                     for attribute in ("mi", "ci", "mb", "cb")
                 )
-                lines[number] = counters  # type: ignore[assignment]
-                identities.append(
-                    {"package": package_name, "source": source_name, "line": number, "counters": list(counters)},
-                )
+                lines[number] = line_counters  # type: ignore[assignment]
+                append({
+                    "kind": "source-line",
+                    **source_fields,
+                    "line": number,
+                    "mi": line_counters[0],
+                    "ci": line_counters[1],
+                    "mb": line_counters[2],
+                    "cb": line_counters[3],
+                })
             sources[identity] = lines
-    digest = hashlib.sha256(canonical_json_bytes({"reportId": report_id, "lines": identities})).hexdigest()
-    return ParsedJacoco(report_id=report_id, sources=sources, semantic_sha256=digest)
+    ordered = tuple(sorted(records, key=canonical_json_bytes))
+    digest = hashlib.sha256(canonical_json_bytes(ordered)).hexdigest()
+    return ParsedJacoco(
+        report_id=report_id,
+        sources=sources,
+        source_classes=source_classes,
+        semantic_records=ordered,
+        semantic_sha256=digest,
+    )
 
 
 def authored_counters(
@@ -275,6 +377,111 @@ def authored_counters(
         },
     }
     return counters, sorted(set(parsed.sources).difference(authored))
+
+
+def _safe_relative_file(root: Path, relative: Any, label: str) -> Path:
+    if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+        raise CoverageError(f"{label} must be one repository-relative path")
+    if "\\" in relative or any(part in {"", ".", ".."} for part in relative.split("/")):
+        raise CoverageError(f"{label} has a malformed path: {relative}")
+    resolved = (root / relative).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as error:
+        raise CoverageError(f"{label} escapes repository: {relative}") from error
+    if not resolved.is_file():
+        raise CoverageError(f"{label} is missing: {relative}")
+    return resolved
+
+
+def validate_entry_evidence(root: Path, entry: dict[str, Any]) -> ParsedJacoco:
+    """Bind every producer-owned raw and semantic identity to current files."""
+    report_id = entry.get("reportId", "<unknown>")
+    if entry.get("testInputIdentitySha256") != hashlib.sha256(
+        canonical_json_bytes(entry.get("testSources", [])),
+    ).hexdigest():
+        raise CoverageError(f"{report_id} test input semantic hash mismatch")
+    execution_paths = entry.get("executionData")
+    if not isinstance(execution_paths, list) or len(execution_paths) != 1:
+        raise CoverageError(f"{report_id} requires exactly one execution data file")
+    execution_file = _safe_relative_file(root, execution_paths[0], f"{report_id} execution data")
+    execution_digest = hashlib.sha256(execution_file.read_bytes()).hexdigest()
+    if entry.get("executionFileSha256") != execution_digest:
+        raise CoverageError(f"{report_id} execution data hash mismatch")
+
+    class_records = entry.get("classes")
+    class_count = entry.get("classFileCount")
+    if not isinstance(class_records, list) or not class_records or class_count != len(class_records):
+        raise CoverageError(f"{report_id} class inventory/count mismatch or zero classes")
+    prepared = entry.get("preparedClassDirectory")
+    if not isinstance(prepared, str):
+        raise CoverageError(f"{report_id} prepared class directory is missing")
+    class_ids: set[str] = set()
+    class_names_by_id: dict[str, str] = {}
+    class_paths: set[str] = set()
+    for record in class_records:
+        if not isinstance(record, dict) or set(record) != {"path", "sha256", "jacocoClassId"}:
+            raise CoverageError(f"{report_id} malformed class record")
+        path = record["path"]
+        class_id = record["jacocoClassId"]
+        if (
+            not isinstance(path, str) or not path.endswith(".class") or path in class_paths
+            or not isinstance(class_id, str) or not re.fullmatch(r"[0-9a-f]{16}", class_id)
+            or class_id in class_ids
+        ):
+            raise CoverageError(f"{report_id} duplicate or malformed class identity")
+        class_file = _safe_relative_file(root, f"{prepared.rstrip('/')}/{path}", f"{report_id} class")
+        if hashlib.sha256(class_file.read_bytes()).hexdigest() != record["sha256"]:
+            raise CoverageError(f"{report_id} class hash mismatch: {path}")
+        class_paths.add(path)
+        class_ids.add(class_id)
+        class_names_by_id[class_id] = path[:-len(".class")]
+    if [record["path"] for record in class_records] != sorted(class_paths):
+        raise CoverageError(f"{report_id} class records are not canonically sorted")
+
+    execution_records = entry.get("executionRecords")
+    if not isinstance(execution_records, list):
+        raise CoverageError(f"{report_id} execution records must be an array")
+    execution_keys: set[tuple[int, str]] = set()
+    for record in execution_records:
+        if not isinstance(record, dict) or set(record) != {"classId", "name", "probes"}:
+            raise CoverageError(f"{report_id} malformed execution record")
+        class_id = record["classId"]
+        name = record["name"]
+        probes = record["probes"]
+        if (
+            not isinstance(class_id, str) or not re.fullmatch(r"[0-9a-f]{16}", class_id)
+            or class_id not in class_ids or not isinstance(name, str) or name != class_names_by_id.get(class_id)
+            or not isinstance(probes, str) or not re.fullmatch(r"[01]+", probes)
+        ):
+            raise CoverageError(f"{report_id} invalid project execution record")
+        key = (int(class_id, 16), name)
+        if key in execution_keys:
+            raise CoverageError(f"{report_id} duplicate execution record")
+        execution_keys.add(key)
+    expected_execution = sorted(execution_records, key=lambda item: (int(item["classId"], 16), item["name"]))
+    if execution_records != expected_execution:
+        raise CoverageError(f"{report_id} execution records are not canonically sorted")
+    ignored = entry.get("ignoredNonProjectExecutionRecordCount")
+    if isinstance(ignored, bool) or not isinstance(ignored, int) or ignored < 0:
+        raise CoverageError(f"{report_id} invalid ignored execution record count")
+    if entry.get("executionSemanticSha256") != hashlib.sha256(
+        canonical_json_bytes(execution_records),
+    ).hexdigest():
+        raise CoverageError(f"{report_id} execution semantic hash mismatch")
+
+    xml_file = _safe_relative_file(root, entry.get("xmlReport"), f"{report_id} XML report")
+    xml_bytes = xml_file.read_bytes()
+    if entry.get("xmlFileSha256") != hashlib.sha256(xml_bytes).hexdigest():
+        raise CoverageError(f"{report_id} XML hash mismatch")
+    parsed = parse_jacoco_xml(xml_bytes, report_id)
+    xml_classes = {name for names in parsed.source_classes.values() for name in names}
+    missing_xml_classes = sorted(xml_classes.difference(class_names_by_id.values()))
+    if missing_xml_classes:
+        raise CoverageError(f"{report_id} XML class is absent from prepared inventory: {missing_xml_classes[0]}")
+    if entry.get("reportSemanticSha256") != parsed.semantic_sha256:
+        raise CoverageError(f"{report_id} XML semantic hash mismatch")
+    return parsed
 
 
 def ratio_below_basis_points(covered: int, total: int, threshold: int) -> bool:
@@ -329,6 +536,169 @@ def validate_floor_transition(previous: int, current: int, maximum_raise: int) -
         raise CoverageError(f"coverage floor decrease is forbidden: {previous} -> {current}")
     if current - previous > maximum_raise:
         raise CoverageError(f"coverage floor raise exceeds {maximum_raise} basis points")
+
+
+def _require_nonnegative_integer(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise CoverageError(f"{label} must be a non-negative integer")
+    return value
+
+
+def validate_baseline_schema(baseline: Any) -> dict[str, Any]:
+    if not isinstance(baseline, dict):
+        raise CoverageError("coverage baseline must be an object")
+    _require_keys(
+        baseline,
+        {"schemaVersion", "sourceCommit", "policySha256", "manifestSchemaVersion", "predecessor", "reports", "units"},
+        set(),
+        "coverage baseline",
+    )
+    if baseline["schemaVersion"] != 1 or baseline["manifestSchemaVersion"] != 1:
+        raise CoverageError("coverage baseline schema versions must equal 1")
+    if not re.fullmatch(r"[0-9a-f]{40}", baseline["sourceCommit"] or "") or baseline["sourceCommit"] == "0" * 40:
+        raise CoverageError("coverage baseline sourceCommit must be non-zero 40-hex")
+    if not re.fullmatch(r"[0-9a-f]{64}", baseline["policySha256"] or ""):
+        raise CoverageError("coverage baseline policySha256 must be 64-hex")
+    predecessor = baseline["predecessor"]
+    if predecessor is not None:
+        if not isinstance(predecessor, dict):
+            raise CoverageError("coverage baseline predecessor must be null or an object")
+        _require_keys(
+            predecessor,
+            {"commit", "baselineBlobSha256", "policyBlobSha256"},
+            set(),
+            "coverage baseline predecessor",
+        )
+        if not re.fullmatch(r"[0-9a-f]{40}", predecessor["commit"] or ""):
+            raise CoverageError("coverage predecessor commit must be 40-hex")
+        for key in ("baselineBlobSha256", "policyBlobSha256"):
+            if not re.fullmatch(r"[0-9a-f]{64}", predecessor[key] or ""):
+                raise CoverageError(f"coverage predecessor {key} must be 64-hex")
+    if not isinstance(baseline["reports"], list) or not isinstance(baseline["units"], list):
+        raise CoverageError("coverage baseline reports and units must be arrays")
+    report_ids: set[str] = set()
+    for index, report in enumerate(baseline["reports"]):
+        if not isinstance(report, dict):
+            raise CoverageError(f"coverage baseline report {index} must be an object")
+        _require_keys(
+            report,
+            {"reportId", "inputIdentitySha256", "measuredTestInputIdentitySha256", "measuredTestSources"},
+            set(),
+            f"coverage baseline report {index}",
+        )
+        if report["reportId"] in report_ids:
+            raise CoverageError(f"duplicate coverage baseline report: {report['reportId']}")
+        report_ids.add(report["reportId"])
+        for key in ("inputIdentitySha256", "measuredTestInputIdentitySha256"):
+            if not re.fullmatch(r"[0-9a-f]{64}", report[key] or ""):
+                raise CoverageError(f"coverage baseline report {key} must be 64-hex")
+        if not isinstance(report["measuredTestSources"], list):
+            raise CoverageError("measuredTestSources must be an array")
+        paths: list[str] = []
+        for source in report["measuredTestSources"]:
+            if not isinstance(source, dict):
+                raise CoverageError("measured test source must be an object")
+            _require_keys(source, {"path", "filename", "sha256"}, set(), "measured test source")
+            if not re.fullmatch(r"[0-9a-f]{64}", source["sha256"] or ""):
+                raise CoverageError("measured test source sha256 must be 64-hex")
+            paths.append(source["path"])
+        if paths != sorted(set(paths)):
+            raise CoverageError("measured test sources must be sorted and unique")
+    unit_ids: set[str] = set()
+    for index, unit in enumerate(baseline["units"]):
+        if not isinstance(unit, dict):
+            raise CoverageError(f"coverage baseline unit {index} must be an object")
+        _require_keys(
+            unit,
+            {"id", "line", "branch", "authoredSourceCount", "executableLineCount", "branchCount", "classCount"},
+            {"lineFloorBasisPointsAtCapture", "branchFloorBasisPointsAtCapture"},
+            f"coverage baseline unit {index}",
+        )
+        if unit["id"] in unit_ids:
+            raise CoverageError(f"duplicate coverage baseline unit: {unit['id']}")
+        unit_ids.add(unit["id"])
+        for metric in ("line", "branch"):
+            counters = unit[metric]
+            if not isinstance(counters, dict):
+                raise CoverageError(f"coverage baseline {unit['id']} {metric} must be an object")
+            _require_keys(counters, {"covered", "missed", "total"}, set(), f"coverage baseline {metric}")
+            covered = _require_nonnegative_integer(counters["covered"], f"{unit['id']} {metric} covered")
+            missed = _require_nonnegative_integer(counters["missed"], f"{unit['id']} {metric} missed")
+            total = _require_nonnegative_integer(counters["total"], f"{unit['id']} {metric} total")
+            if covered + missed != total:
+                raise CoverageError(f"coverage baseline {unit['id']} {metric} counters do not sum")
+        for key in ("authoredSourceCount", "executableLineCount", "branchCount", "classCount"):
+            _require_nonnegative_integer(unit[key], f"{unit['id']} {key}")
+        for key in ("lineFloorBasisPointsAtCapture", "branchFloorBasisPointsAtCapture"):
+            if key in unit:
+                require_basis_points(unit[key], f"{unit['id']} {key}")
+    return baseline
+
+
+def _git_file_bytes(root: Path, commit: str, relative: str) -> bytes:
+    try:
+        return _git(root, "show", f"{commit}:{relative}")
+    except CoverageError as error:
+        raise CoverageError(f"required historical blob is missing: {commit}:{relative}") from error
+
+
+def validate_baseline_lineage(root: Path, baseline: Any, current_commit: str) -> dict[str, Any] | None:
+    candidate = validate_baseline_schema(baseline)
+    source = candidate["sourceCommit"]
+    try:
+        _git(root, "cat-file", "-e", f"{source}^{{commit}}")
+        _git(root, "cat-file", "-e", f"{current_commit}^{{commit}}")
+        _git(root, "merge-base", "--is-ancestor", source, current_commit)
+    except CoverageError as error:
+        raise CoverageError("coverage baseline sourceCommit must resolve and be an ancestor of current source") from error
+    predecessor = candidate["predecessor"]
+    baseline_relative = "config/quality/coverage-baseline.json"
+    policy_relative = "config/quality/coverage-policy.json"
+    if predecessor is None:
+        exists = subprocess.run(
+            ["git", "cat-file", "-e", f"{source}:{baseline_relative}"],
+            cwd=root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode == 0
+        if exists:
+            raise CoverageError("first baseline source already contains a baseline blob")
+        return None
+    if predecessor["commit"] != source:
+        raise CoverageError("coverage predecessor commit must equal baseline sourceCommit")
+    old_baseline_bytes = _git_file_bytes(root, source, baseline_relative)
+    old_policy_bytes = _git_file_bytes(root, source, policy_relative)
+    if hashlib.sha256(old_baseline_bytes).hexdigest() != predecessor["baselineBlobSha256"]:
+        raise CoverageError("coverage predecessor baseline blob hash mismatch")
+    if hashlib.sha256(old_policy_bytes).hexdigest() != predecessor["policyBlobSha256"]:
+        raise CoverageError("coverage predecessor policy blob hash mismatch")
+    try:
+        old_baseline = _normalize(json.loads(old_baseline_bytes, object_pairs_hook=_reject_duplicate_pairs))
+        old_policy = _normalize(json.loads(old_policy_bytes, object_pairs_hook=_reject_duplicate_pairs))
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise CoverageError("invalid historical baseline or policy JSON") from error
+    validate_baseline_schema(old_baseline)
+    validate_policy(old_policy)
+    if old_baseline["policySha256"] != hashlib.sha256(old_policy_bytes).hexdigest():
+        raise CoverageError("historical baseline policy hash mismatch")
+    return old_baseline
+
+
+def validate_predecessor_floor_transitions(old: dict[str, Any], new: dict[str, Any], maximum_raise: int) -> None:
+    old_units = {unit["id"]: unit for unit in old["units"]}
+    new_units = {unit["id"]: unit for unit in new["units"]}
+    if set(old_units) != set(new_units):
+        raise CoverageError("predecessor/current baseline unit topology mismatch")
+    for unit_id, previous in old_units.items():
+        current = new_units[unit_id]
+        for metric in ("line", "branch"):
+            floor_key = f"{metric}FloorBasisPointsAtCapture"
+            if previous[metric]["total"] > 0:
+                if current[metric]["total"] == 0:
+                    raise CoverageError(f"{unit_id} {metric} became N/A across baseline replacement")
+                if floor_key not in previous or floor_key not in current:
+                    raise CoverageError(f"{unit_id} {metric} captured floor disappeared")
+                validate_floor_transition(previous[floor_key], current[floor_key], maximum_raise)
 
 
 def _git(root: Path, *arguments: str, input_bytes: bytes | None = None) -> bytes:
@@ -428,6 +798,27 @@ def _batch_git_blobs(root: Path, objects: dict[str, str]) -> dict[str, bytes]:
     return result
 
 
+def _git_blob_ids(root: Path, commit: str, paths: Iterable[str]) -> dict[str, str]:
+    selected = sorted(set(paths))
+    if not selected:
+        return {}
+    output = _git(root, "ls-tree", "-rz", commit, "--", *selected)
+    result: dict[str, str] = {}
+    for record in output.split(b"\0"):
+        if not record:
+            continue
+        try:
+            metadata, raw_path = record.split(b"\t", 1)
+            mode, object_type, object_id = metadata.decode("ascii").split()
+            path = raw_path.decode("utf-8")
+        except (ValueError, UnicodeError) as error:
+            raise CoverageError("malformed git tree blob record") from error
+        if object_type != "blob" or not mode.startswith("100"):
+            raise CoverageError(f"changed path is not a regular blob at {commit}: {path}")
+        result[path] = object_id
+    return result
+
+
 @dataclass
 class ChangedFile:
     status: str
@@ -458,40 +849,139 @@ def _decode_path(token: bytes) -> str:
     return token.decode("utf-8")
 
 
+def _strip_patch_prefix(path: str, prefix: str) -> str:
+    if not path.startswith(prefix):
+        raise CoverageError(f"patch header path lacks {prefix!r} prefix: {path}")
+    return path[len(prefix):]
+
+
+def _diff_git_paths(line: bytes) -> tuple[str, str]:
+    payload = line[len(b"diff --git "):]
+    tokens: list[bytes] = []
+    index = 0
+    while index < len(payload):
+        while index < len(payload) and payload[index:index + 1] == b" ":
+            index += 1
+        if index == len(payload):
+            break
+        start = index
+        if payload[index:index + 1] == b'"':
+            index += 1
+            escaped = False
+            while index < len(payload):
+                byte = payload[index]
+                index += 1
+                if escaped:
+                    escaped = False
+                elif byte == 92:
+                    escaped = True
+                elif byte == 34:
+                    break
+            else:
+                raise CoverageError(f"unterminated quoted diff header: {line!r}")
+        else:
+            while index < len(payload) and payload[index:index + 1] != b" ":
+                index += 1
+        tokens.append(payload[start:index])
+    if len(tokens) != 2:
+        raise CoverageError(f"invalid diff --git header: {line!r}")
+    return (
+        _strip_patch_prefix(_decode_path(tokens[0]), "a/"),
+        _strip_patch_prefix(_decode_path(tokens[1]), "b/"),
+    )
+
+
 def parse_zero_context_diff(
     name_status_z: bytes,
     patch: bytes,
     *,
     changed_blob_paths: set[str] | None = None,
 ) -> dict[str, ChangedFile]:
+    if name_status_z and not name_status_z.endswith(b"\0"):
+        raise CoverageError("name-status stream is not NUL terminated")
     parts = name_status_z.split(b"\0")
     changes: dict[str, ChangedFile] = {}
     index = 0
     while index < len(parts) and parts[index]:
-        status_token = parts[index].decode("ascii")
+        try:
+            status_token = parts[index].decode("ascii")
+        except UnicodeDecodeError as error:
+            raise CoverageError("name-status contains a non-ASCII status") from error
         index += 1
         status = status_token[0]
+        if not (
+            status_token in {"A", "M"}
+            or (status in {"R", "C"} and re.fullmatch(r"[RC][0-9]{1,3}", status_token))
+        ):
+            raise CoverageError(f"unexpected ACMR status: {status_token}")
         if status in {"R", "C"}:
+            if index + 1 >= len(parts):
+                raise CoverageError(f"truncated rename/copy status: {status_token}")
             old_path = _decode_path(parts[index])
             new_path = _decode_path(parts[index + 1])
             index += 2
         else:
+            if index >= len(parts):
+                raise CoverageError(f"truncated name-status record: {status_token}")
             old_path = None if status == "A" else _decode_path(parts[index])
             new_path = _decode_path(parts[index])
             index += 1
+        if new_path in changes:
+            raise CoverageError(f"duplicate authoritative status path: {new_path}")
         changes[new_path] = ChangedFile(status=status, old_path=old_path, new_path=new_path, new_lines=set())
+    if any(parts[index:]):
+        raise CoverageError("malformed trailing name-status data")
     current: ChangedFile | None = None
+    section_header: tuple[str, str] | None = None
+    section_old: str | None = None
+    section_new: str | None = None
+    seen_sections: set[str] = set()
+
+    def finish_section() -> None:
+        nonlocal current, section_header, section_old, section_new
+        if section_header is None:
+            return
+        old_header, new_header = section_header
+        change = changes.get(new_header)
+        if change is None:
+            raise CoverageError(f"patch header is absent from authoritative status: {new_header}")
+        expected_old = change.old_path if change.old_path is not None else change.new_path
+        if old_header != expected_old:
+            raise CoverageError(f"patch header old path disagrees with status: {old_header} != {expected_old}")
+        if section_old is not None and section_old != change.old_path:
+            raise CoverageError(f"patch --- header disagrees with status: {section_old}")
+        if section_new is not None and section_new != change.new_path:
+            raise CoverageError(f"patch +++ header disagrees with status: {section_new}")
+        if new_header in seen_sections:
+            raise CoverageError(f"duplicate patch section: {new_header}")
+        seen_sections.add(new_header)
+        current = None
+        section_header = None
+        section_old = None
+        section_new = None
+
     for raw_line in patch.replace(b"\r\n", b"\n").splitlines():
         if raw_line.startswith(b"diff --git "):
-            current = None
+            finish_section()
+            section_header = _diff_git_paths(raw_line)
+            current = changes.get(section_header[1])
+            if current is None:
+                raise CoverageError(f"patch header is absent from authoritative status: {section_header[1]}")
+        elif raw_line.startswith(b"--- "):
+            if section_header is None:
+                raise CoverageError("patch --- header appears outside a diff section")
+            token = raw_line[4:]
+            section_old = None if token == b"/dev/null" else _strip_patch_prefix(_decode_path(token), "a/")
         elif raw_line.startswith(b"+++ "):
+            if section_header is None:
+                raise CoverageError("patch +++ header appears outside a diff section")
             token = raw_line[4:]
             if token == b"/dev/null":
+                section_new = None
+                current = None
                 continue
-            path = _decode_path(token)
-            if path.startswith("b/"):
-                path = path[2:]
-            current = changes.get(path)
+            section_new = _strip_patch_prefix(_decode_path(token), "b/")
+            current = changes.get(section_new)
         elif raw_line.startswith(b"@@ ") and current is not None:
             match = re.match(rb"@@ -[0-9]+(?:,[0-9]+)? \+([0-9]+)(?:,([0-9]+))? @@", raw_line)
             if not match:
@@ -500,9 +990,12 @@ def parse_zero_context_diff(
             count = int(match.group(2)) if match.group(2) is not None else 1
             current.new_lines.update(range(start, start + count))
             current.hunk_count += 1
+    finish_section()
     required = changed_blob_paths if changed_blob_paths is not None else set()
     for path in sorted(required):
-        if path in changes and changes[path].status != "D" and changes[path].hunk_count == 0:
+        if path not in changes:
+            raise CoverageError(f"changed blob is absent from authoritative status: {path}")
+        if changes[path].hunk_count == 0:
             raise CoverageError(f"changed blob has no hunk: {path}")
     return changes
 
@@ -540,6 +1033,8 @@ def write_summary(
     base_ref: str | None = None,
     merge_base: str | None = None,
     changed_coverage: list[dict[str, Any]] | None = None,
+    reports: list[dict[str, Any]] | None = None,
+    units: list[dict[str, Any]] | None = None,
 ) -> None:
     payload = {
         "schemaVersion": 1,
@@ -551,6 +1046,8 @@ def write_summary(
         "violations": sorted(set(violations)),
         "artifacts": sorted(set(artifacts)),
         "changedCoverage": sorted(changed_coverage or [], key=lambda item: item["reportId"]),
+        "reports": sorted(reports or [], key=lambda item: item["reportId"]),
+        "units": sorted(units or [], key=lambda item: item["id"]),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(canonical_json_bytes(payload) + b"\n")
@@ -682,16 +1179,78 @@ def _entry_sources(entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return records
 
 
+def validate_manifest_schema(manifest: Any) -> dict[str, Any]:
+    if not isinstance(manifest, dict):
+        raise CoverageError("coverage manifest must be an object")
+    _require_keys(
+        manifest,
+        {"schemaVersion", "sourceCommit", "gradleProjects", "buildModules", "entries"},
+        set(),
+        "coverage manifest",
+    )
+    if manifest["schemaVersion"] != 1:
+        raise CoverageError("manifest schemaVersion must equal 1")
+    for key in ("gradleProjects", "buildModules", "entries"):
+        value = manifest[key]
+        if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+            raise CoverageError(f"manifest {key} must be a string array")
+        if value != sorted(set(value)):
+            raise CoverageError(f"manifest {key} must be sorted and unique")
+    return manifest
+
+
+def validate_entry_schema(entry: Any, relative: str) -> dict[str, Any]:
+    if not isinstance(entry, dict):
+        raise CoverageError(f"coverage entry must be an object: {relative}")
+    _require_keys(
+        entry,
+        {
+            "schemaVersion", "sourceCommit", "reportId", "module", "platform", "variant", "testTask",
+            "xmlReport", "sourceRoots", "sources", "testSourceRoots", "testSources",
+            "testInputIdentitySha256", "inputClassArtifacts", "preparedClassDirectory", "classFileCount",
+            "classes", "executionData", "executionFileSha256", "executionRecords",
+            "ignoredNonProjectExecutionRecordCount", "executionSemanticSha256", "xmlFileSha256",
+            "reportSemanticSha256",
+        },
+        set(),
+        f"coverage entry {relative}",
+    )
+    if entry["schemaVersion"] != 1:
+        raise CoverageError(f"coverage entry schemaVersion must equal 1: {relative}")
+    for key in ("sourceRoots", "testSourceRoots", "inputClassArtifacts", "executionData"):
+        if not isinstance(entry[key], list) or any(not isinstance(item, str) for item in entry[key]):
+            raise CoverageError(f"coverage entry {key} must be a string array: {relative}")
+        if entry[key] != sorted(set(entry[key])):
+            raise CoverageError(f"coverage entry {key} must be sorted and unique: {relative}")
+    for key, required_keys in (
+        ("sources", {"path", "package", "filename", "sha256"}),
+        ("testSources", {"path", "filename", "sha256"}),
+    ):
+        if not isinstance(entry[key], list):
+            raise CoverageError(f"coverage entry {key} must be an array: {relative}")
+        paths: list[str] = []
+        for record in entry[key]:
+            if not isinstance(record, dict):
+                raise CoverageError(f"coverage entry {key} record must be an object: {relative}")
+            _require_keys(record, required_keys, set(), f"coverage entry {key} record")
+            if not re.fullmatch(r"[0-9a-f]{64}", record["sha256"] or ""):
+                raise CoverageError(f"coverage entry {key} source hash must be 64-hex")
+            paths.append(record["path"])
+        if paths != sorted(set(paths)):
+            raise CoverageError(f"coverage entry {key} must be sorted by unique path: {relative}")
+    return entry
+
+
 def _under_roots(path: str, roots: list[str]) -> bool:
     return any(path.startswith(root.rstrip("/") + "/") for root in roots)
 
 
 def _load_run(manifest_path: Path, policy_path: Path, source_commit: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], Path]:
     root = Path(_git(manifest_path.resolve().parents[3], "rev-parse", "--show-toplevel").decode().strip())
-    manifest = read_json(manifest_path)
+    if not re.fullmatch(r"[0-9a-f]{40}", source_commit) or source_commit == "0" * 40:
+        raise CoverageError("CLI source commit must be one non-zero 40-hex commit")
+    manifest = validate_manifest_schema(read_json(manifest_path))
     policy = validate_policy(read_json(policy_path))
-    if manifest.get("schemaVersion") != 1:
-        raise CoverageError("manifest schemaVersion must equal 1")
     if manifest.get("sourceCommit") != source_commit:
         raise CoverageError("manifest/CLI source commit mismatch")
     head = _git(root, "rev-parse", "HEAD").decode().strip()
@@ -702,7 +1261,7 @@ def _load_run(manifest_path: Path, policy_path: Path, source_commit: str) -> tup
     entries: dict[str, Any] = {}
     for relative in manifest.get("entries", []):
         path = root / relative
-        entry = read_json(path)
+        entry = validate_entry_schema(read_json(path), relative)
         report_id = entry.get("reportId")
         if report_id in entries:
             raise CoverageError(f"duplicate manifest report: {report_id}")
@@ -723,6 +1282,15 @@ def _load_run(manifest_path: Path, policy_path: Path, source_commit: str) -> tup
         manifest_sources = _entry_sources(entry)
         verify_git_source_set(root, source_commit, entry["sourceRoots"], entry["sources"], f"{report_id} production")
         verify_git_source_set(root, source_commit, entry["testSourceRoots"], entry["testSources"], f"{report_id} test")
+    authored_keys: dict[tuple[str, str], set[str]] = {}
+    for report_id, entry in entries.items():
+        for source in entry["sources"]:
+            key = (source["package"], source["filename"])
+            authored_keys.setdefault(key, set()).add(entry["module"])
+    collisions = sorted((key, modules) for key, modules in authored_keys.items() if len(modules) > 1)
+    if collisions:
+        key, modules = collisions[0]
+        raise CoverageError(f"authored package/filename key crosses modules: {key} in {sorted(modules)}")
     owned_by_report = {
         report["id"]: sorted(
             path for path in _entry_sources(entries[report["id"]]) if _under_roots(path, report["ownedSourceRoots"])
@@ -750,11 +1318,13 @@ def _load_run(manifest_path: Path, policy_path: Path, source_commit: str) -> tup
 def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict[str, Any]:
     manifest, policy, entries, root = _load_run(manifest_path, policy_path, source_commit)
     source_lines: dict[tuple[str, str], dict[int, tuple[int, int, int, int]]] = {}
+    source_classes: dict[tuple[str, str], set[str]] = {}
     report_measurements: list[dict[str, Any]] = []
+    report_evidence: list[dict[str, Any]] = []
     for report in policy["reports"]:
         report_id = report["id"]
         entry = entries[report_id]
-        parsed = parse_jacoco_xml((root / entry["xmlReport"]).read_bytes(), report_id)
+        parsed = validate_entry_evidence(root, entry)
         identity_to_path: dict[tuple[str, str], str] = {}
         for path, record in _entry_sources(entry).items():
             identity = (record["package"].replace(".", "/"), record["filename"])
@@ -764,6 +1334,13 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
         authored_counters(parsed, set(identity_to_path))
         for identity, path in identity_to_path.items():
             source_lines[(report_id, path)] = parsed.sources[identity]
+            source_classes[(report_id, path)] = parsed.source_classes.get(identity, set())
+            source_bytes = (root / path).read_bytes()
+            for class_name in source_classes[(report_id, path)]:
+                if not _class_belongs_to_authored_file(Path(path), source_bytes, class_name):
+                    raise CoverageError(
+                        f"ambiguous external-inline source/class collision: {report_id} {path} <- {class_name}",
+                    )
         topology = {
             "reportId": report_id,
             "module": report["module"],
@@ -778,6 +1355,18 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
             "inputIdentitySha256": _sha256_bytes(canonical_json_bytes(topology)),
             "measuredTestInputIdentitySha256": entry["testInputIdentitySha256"],
             "measuredTestSources": entry["testSources"],
+        })
+        _, excluded = authored_counters(parsed, set(identity_to_path))
+        report_evidence.append({
+            "reportId": report_id,
+            "classFileCount": entry["classFileCount"],
+            "executionData": entry["executionData"],
+            "executionFileSha256": entry["executionFileSha256"],
+            "executionSemanticSha256": entry["executionSemanticSha256"],
+            "xmlReport": entry["xmlReport"],
+            "xmlFileSha256": entry["xmlFileSha256"],
+            "reportSemanticSha256": entry["reportSemanticSha256"],
+            "excludedNonAuthoredXmlEntries": [f"{package}/{source}" for package, source in excluded],
         })
     units: list[dict[str, Any]] = []
     ownership = {
@@ -794,6 +1383,11 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
         line_covered = sum(1 for item in all_lines if item[1] > 0)
         branch_missed = sum(item[2] for item in all_lines)
         branch_covered = sum(item[3] for item in all_lines)
+        attributable_classes = {
+            (ownership[path], class_name)
+            for path in unit_sources
+            for class_name in source_classes[(ownership[path], path)]
+        }
         units.append({
             "id": unit["id"],
             "line": {"covered": line_covered, "missed": line_missed, "total": line_covered + line_missed},
@@ -801,7 +1395,7 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
             "authoredSourceCount": len(unit_sources),
             "executableLineCount": line_covered + line_missed,
             "branchCount": branch_covered + branch_missed,
-            "classCount": len(unit["sources"]),
+            "classCount": len(attributable_classes),
         })
     return {
         "schemaVersion": 1,
@@ -810,6 +1404,7 @@ def _measure(manifest_path: Path, policy_path: Path, source_commit: str) -> dict
         "manifestSchemaVersion": manifest["schemaVersion"],
         "reports": sorted(report_measurements, key=lambda item: item["reportId"]),
         "units": sorted(units, key=lambda item: item["id"]),
+        "reportEvidence": sorted(report_evidence, key=lambda item: item["reportId"]),
     }
 
 
@@ -820,7 +1415,12 @@ def _write_atomic(path: Path, payload: Any) -> None:
     temporary.replace(path)
 
 
-def _capture(measurement: dict[str, Any], policy: dict[str, Any], root: Path) -> dict[str, Any]:
+def _capture(
+    measurement: dict[str, Any],
+    policy: dict[str, Any],
+    root: Path,
+    predecessor_commit: str | None = None,
+) -> dict[str, Any]:
     if policy["enforcementMode"] != "blocking":
         raise CoverageError("capture requires blocking policy")
     measured = {unit["id"]: unit for unit in measurement["units"]}
@@ -848,16 +1448,44 @@ def _capture(measurement: dict[str, Any], policy: dict[str, Any], root: Path) ->
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     ).returncode == 0
+    if tree_has_baseline and predecessor_commit != measurement["sourceCommit"]:
+        raise CoverageError("baseline replacement requires predecessor commit equal to sourceCommit")
+    if not tree_has_baseline and predecessor_commit is not None:
+        raise CoverageError("first baseline must not declare a predecessor")
+    predecessor = None
     if tree_has_baseline:
-        raise CoverageError("baseline replacement requires an exact predecessor record")
-    return {**measurement, "predecessor": None, "units": units}
+        old_baseline_bytes = _git_file_bytes(root, measurement["sourceCommit"], "config/quality/coverage-baseline.json")
+        old_policy_bytes = _git_file_bytes(root, measurement["sourceCommit"], "config/quality/coverage-policy.json")
+        predecessor = {
+            "commit": measurement["sourceCommit"],
+            "baselineBlobSha256": hashlib.sha256(old_baseline_bytes).hexdigest(),
+            "policyBlobSha256": hashlib.sha256(old_policy_bytes).hexdigest(),
+        }
+    candidate = {
+        "schemaVersion": measurement["schemaVersion"],
+        "sourceCommit": measurement["sourceCommit"],
+        "policySha256": measurement["policySha256"],
+        "manifestSchemaVersion": measurement["manifestSchemaVersion"],
+        "predecessor": predecessor,
+        "reports": sorted(measurement["reports"], key=lambda item: item["reportId"]),
+        "units": sorted(units, key=lambda item: item["id"]),
+    }
+    historical = validate_baseline_lineage(root, candidate, measurement["sourceCommit"])
+    if historical is not None:
+        validate_predecessor_floor_transitions(
+            historical,
+            candidate,
+            policy["maximumFloorRaiseBasisPoints"],
+        )
+    return candidate
 
 
 def _verify_current(measurement: dict[str, Any], policy: dict[str, Any], baseline: dict[str, Any]) -> list[str]:
     violations: list[str] = []
     if policy["enforcementMode"] != "blocking":
         raise CoverageError("verify requires blocking policy")
-    if baseline.get("schemaVersion") != 1 or baseline.get("policySha256") != measurement["policySha256"]:
+    validate_baseline_schema(baseline)
+    if baseline.get("policySha256") != measurement["policySha256"]:
         raise CoverageError("baseline policy hash mismatch")
     baseline_report_ids = {
         item["reportId"]: item["inputIdentitySha256"] for item in baseline.get("reports", [])
@@ -934,7 +1562,23 @@ def _hardened_diff(root: Path, merge_base: str) -> dict[str, ChangedFile]:
             cwd=root, env=environment, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         ).stdout
     preliminary = parse_zero_context_diff(status, patch)
-    required = {path for path, change in preliminary.items() if change.status in {"A", "M"}}
+    old_ids = _git_blob_ids(
+        root,
+        merge_base,
+        (change.old_path for change in preliminary.values() if change.old_path is not None),
+    )
+    new_ids = _git_blob_ids(root, "HEAD", preliminary)
+    old_blobs = _batch_git_blobs(root, old_ids)
+    new_blobs = _batch_git_blobs(root, new_ids)
+    required: set[str] = set()
+    for path, change in preliminary.items():
+        if path not in new_blobs:
+            raise CoverageError(f"authoritative changed path has no HEAD blob: {path}")
+        old_bytes = b"" if change.old_path is None else old_blobs.get(change.old_path)
+        if old_bytes is None:
+            raise CoverageError(f"authoritative changed path has no base blob: {change.old_path}")
+        if new_blobs[path] != old_bytes and new_blobs[path]:
+            required.add(path)
     return parse_zero_context_diff(status, patch, changed_blob_paths=required)
 
 
@@ -946,6 +1590,10 @@ def _changed_coverage(
     event: str,
     base_ref: str | None,
 ) -> tuple[list[str], list[dict[str, Any]], str | None]:
+    if event not in {"pull-request", "main", "tag", "local"}:
+        raise CoverageError(f"unknown coverage event: {event}")
+    if event == "tag":
+        return [], [], None
     if not base_ref:
         if event == "pull-request":
             raise CoverageError("pull-request coverage requires an explicit base ref")
@@ -1033,12 +1681,18 @@ def _main() -> int:
             subparser.add_argument("--baseline", type=Path, required=True)
             subparser.add_argument("--event", choices=("pull-request", "main", "tag", "local"), required=True)
             subparser.add_argument("--base-ref")
+        if command == "capture":
+            subparser.add_argument("--predecessor-commit")
     args = parser.parse_args()
     violations: list[str] = []
     changed_coverage: list[dict[str, Any]] = []
+    report_evidence: list[dict[str, Any]] = []
+    unit_evidence: list[dict[str, Any]] = []
     merge_base: str | None = None
     try:
         measurement = _measure(args.manifest, args.policy, args.source_commit)
+        report_evidence = measurement.get("reportEvidence", [])
+        unit_evidence = measurement["units"]
         policy = validate_policy(read_json(args.policy))
         if args.command == "measure":
             if policy["enforcementMode"] != "measurement":
@@ -1047,10 +1701,32 @@ def _main() -> int:
             return 0
         root = Path(_git(args.manifest.resolve().parents[3], "rev-parse", "--show-toplevel").decode().strip())
         if args.command == "capture":
-            _write_atomic(args.output, _capture(measurement, policy, root))
+            _write_atomic(
+                args.output,
+                _capture(measurement, policy, root, args.predecessor_commit),
+            )
             return 0
         baseline = read_json(args.baseline)
+        historical = validate_baseline_lineage(root, baseline, args.source_commit)
+        if historical is not None:
+            validate_predecessor_floor_transitions(
+                historical,
+                baseline,
+                policy["maximumFloorRaiseBasisPoints"],
+            )
         violations.extend(_verify_current(measurement, policy, baseline))
+        baseline_units = {unit["id"]: unit for unit in baseline["units"]}
+        denominator_keys = ("authoredSourceCount", "executableLineCount", "branchCount", "classCount")
+        unit_evidence = [
+            {
+                **unit,
+                "denominatorDelta": {
+                    key: unit[key] - baseline_units[unit["id"]][key]
+                    for key in denominator_keys
+                },
+            }
+            for unit in measurement["units"]
+        ]
         _, _, entries, root = _load_run(args.manifest, args.policy, args.source_commit)
         changed_violations, changed_coverage, merge_base = _changed_coverage(
             args.manifest, policy, entries, root, args.event, args.base_ref,
@@ -1069,6 +1745,8 @@ def _main() -> int:
         base_ref=getattr(args, "base_ref", None),
         merge_base=merge_base,
         changed_coverage=changed_coverage,
+        reports=report_evidence,
+        units=unit_evidence,
     )
     if violations:
         for violation in violations:

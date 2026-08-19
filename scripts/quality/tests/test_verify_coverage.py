@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import subprocess
 import sys
@@ -92,6 +93,86 @@ package real.owner;
 
 
 class ReportIdentityAndCountersTest(unittest.TestCase):
+    def test_semantic_identity_covers_report_package_source_class_method_line_and_counter_structure(self):
+        xml = b'''\
+<report name="sample"><counter type="LINE" missed="1" covered="2"/>
+<package name="owner"><counter type="BRANCH" missed="3" covered="4"/>
+<class name="owner/Subject" sourcefilename="Subject.kt">
+<method name="value" desc="()I" line="7"><counter type="LINE" missed="0" covered="1"/></method>
+<counter type="LINE" missed="0" covered="1"/></class>
+<sourcefile name="Subject.kt"><line nr="7" mi="0" ci="1" mb="1" cb="1"/>
+<counter type="LINE" missed="0" covered="1"/></sourcefile></package></report>'''
+        parsed = coverage.parse_jacoco_xml(xml, ":sample|main")
+        kinds = {record["kind"] for record in parsed.semantic_records}
+        self.assertEqual(
+            {
+                "report-identity", "report-counter", "package-identity", "package-counter",
+                "source-identity", "source-counter", "source-line", "class-identity",
+                "class-counter", "method-identity", "method-counter",
+            },
+            kinds,
+        )
+        self.assertEqual({("owner", "Subject.kt"): {"owner/Subject"}}, parsed.source_classes)
+
+    def test_manifest_evidence_rejects_post_manifest_class_exec_and_xml_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            class_file = root / "prepared/owner/Subject.class"
+            exec_file = root / "test.exec"
+            xml_file = root / "report.xml"
+            class_file.parent.mkdir(parents=True)
+            class_file.write_bytes(b"class-v1")
+            exec_file.write_bytes(b"exec-v1")
+            xml_file.write_bytes(jacoco_xml([("owner", "Subject.kt", 1, 0, 1, 0, 0)]))
+            parsed = coverage.parse_jacoco_xml(xml_file.read_bytes(), ":sample|main")
+            execution_records = [{"classId": "0000000000000001", "name": "owner/Subject", "probes": "01"}]
+            entry = {
+                "reportId": ":sample|main",
+                "testSources": [],
+                "testInputIdentitySha256": hashlib.sha256(coverage.canonical_json_bytes([])).hexdigest(),
+                "preparedClassDirectory": "prepared",
+                "classFileCount": 1,
+                "classes": [{
+                    "path": "owner/Subject.class",
+                    "sha256": hashlib.sha256(class_file.read_bytes()).hexdigest(),
+                    "jacocoClassId": "0000000000000001",
+                }],
+                "executionData": ["test.exec"],
+                "executionFileSha256": hashlib.sha256(exec_file.read_bytes()).hexdigest(),
+                "executionRecords": execution_records,
+                "ignoredNonProjectExecutionRecordCount": 0,
+                "executionSemanticSha256": hashlib.sha256(
+                    coverage.canonical_json_bytes(execution_records),
+                ).hexdigest(),
+                "xmlReport": "report.xml",
+                "xmlFileSha256": hashlib.sha256(xml_file.read_bytes()).hexdigest(),
+                "reportSemanticSha256": parsed.semantic_sha256,
+            }
+            coverage.validate_entry_evidence(root, entry)
+            for path, replacement, expected in (
+                (class_file, b"class-v2", "class hash mismatch"),
+                (exec_file, b"exec-v2", "execution data hash mismatch"),
+                (xml_file, b'<report name="changed"/>', "XML hash mismatch"),
+            ):
+                original = path.read_bytes()
+                path.write_bytes(replacement)
+                with self.subTest(path=path.name), self.assertRaisesRegex(coverage.CoverageError, expected):
+                    coverage.validate_entry_evidence(root, entry)
+                path.write_bytes(original)
+
+    def test_manifest_evidence_requires_exactly_one_exec_and_class_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = {
+                "reportId": ":sample|main",
+                "testSources": [],
+                "testInputIdentitySha256": hashlib.sha256(coverage.canonical_json_bytes([])).hexdigest(),
+                "executionData": [],
+                "classes": [],
+                "classFileCount": 0,
+            }
+            with self.assertRaisesRegex(coverage.CoverageError, "exactly one execution data"):
+                coverage.validate_entry_evidence(root, entry)
     def test_line_counter_uses_jacoco_line_semantics_not_instruction_totals(self):
         parsed = coverage.parse_jacoco_xml(
             jacoco_xml(source_rows=[("owner", "Authored.kt", 1, 5, 2, 0, 0)]),
@@ -290,6 +371,31 @@ class GitSourceAndDiffTest(unittest.TestCase):
         with self.assertRaisesRegex(coverage.CoverageError, "no hunk"):
             coverage.parse_zero_context_diff(status, patch, changed_blob_paths={"module/src/main/kotlin/owner/Subject.kt"})
 
+    def test_modified_rename_without_hunk_and_status_header_mismatch_fail_closed(self):
+        status = b"R090\0old.kt\0new.kt\0"
+        patch = b"diff --git a/old.kt b/new.kt\n--- a/old.kt\n+++ b/new.kt\n"
+        with self.assertRaisesRegex(coverage.CoverageError, "no hunk"):
+            coverage.parse_zero_context_diff(status, patch, changed_blob_paths={"new.kt"})
+        mismatched = b"diff --git a/other.kt b/new.kt\n--- a/other.kt\n+++ b/new.kt\n@@ -1 +1 @@\n-old\n+new\n"
+        with self.assertRaisesRegex(coverage.CoverageError, "patch header"):
+            coverage.parse_zero_context_diff(status, mismatched, changed_blob_paths={"new.kt"})
+
+    def test_hardened_diff_uses_raw_blob_bytes_for_modified_rename(self):
+        base = self.commit
+        run_git(
+            self.root,
+            "mv",
+            "module/src/main/kotlin/owner/Subject.kt",
+            "module/src/main/kotlin/owner/Renamed.kt",
+        )
+        self.write("module/src/main/kotlin/owner/Renamed.kt", "package owner\nclass Renamed\n")
+        run_git(self.root, "add", ".")
+        run_git(self.root, "commit", "-qm", "modified rename")
+        changes = coverage._hardened_diff(self.root, base)
+        renamed = changes["module/src/main/kotlin/owner/Renamed.kt"]
+        self.assertEqual("R", renamed.status)
+        self.assertGreater(renamed.hunk_count, 0)
+
     def test_hardened_diff_overrides_hostile_repository_configuration(self):
         base = self.commit
         self.write("module/src/main/kotlin/owner/Subject.kt", "package owner\nclass Subject { val value = 2 }\n")
@@ -309,6 +415,89 @@ class GitSourceAndDiffTest(unittest.TestCase):
         changes = coverage._hardened_diff(self.root, base)
         self.assertEqual({2}, changes["module/src/main/kotlin/owner/Subject.kt"].new_lines)
 
+
+class BaselineLineageTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        run_git(self.root, "init", "-q")
+        run_git(self.root, "config", "user.name", "Coverage Test")
+        run_git(self.root, "config", "user.email", "coverage@example.invalid")
+        (self.root / "config/quality").mkdir(parents=True)
+        self.policy_path = self.root / "config/quality/coverage-policy.json"
+        self.baseline_path = self.root / "config/quality/coverage-baseline.json"
+        self.policy_path.write_bytes(coverage.canonical_json_bytes({
+            "schemaVersion": 1,
+            "enforcementMode": "blocking",
+            "activeModules": [":benchmark"],
+            "excludedModules": [{
+                "module": ":benchmark",
+                "reason": "connected macrobenchmark and device performance evidence owns this module",
+            }],
+            "reports": [],
+            "units": [],
+            "changedThresholds": {"lineBasisPoints": 8000, "branchBasisPoints": 7000},
+            "maximumBaselineDropBasisPoints": 50,
+            "maximumFloorRaiseBasisPoints": 200,
+            "nonExecutableExceptions": [],
+            "unclassifiedAuthoredSource": "fail",
+        }) + b"\n")
+        run_git(self.root, "add", ".")
+        run_git(self.root, "commit", "-qm", "first architecture")
+        self.first_source = run_git(self.root, "rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def baseline(self, source_commit: str, predecessor=None):
+        return {
+            "schemaVersion": 1,
+            "sourceCommit": source_commit,
+            "policySha256": hashlib.sha256(self.policy_path.read_bytes()).hexdigest(),
+            "manifestSchemaVersion": 1,
+            "predecessor": predecessor,
+            "reports": [],
+            "units": [],
+        }
+
+    def test_first_baseline_requires_no_baseline_blob_at_exact_source_and_valid_ancestry(self):
+        candidate = self.baseline(self.first_source)
+        coverage.validate_baseline_lineage(self.root, candidate, self.first_source)
+        self.baseline_path.write_text(json.dumps(candidate))
+        run_git(self.root, "add", ".")
+        run_git(self.root, "commit", "-qm", "baseline")
+        later = run_git(self.root, "rev-parse", "HEAD").strip()
+        forged = self.baseline(later)
+        with self.assertRaisesRegex(coverage.CoverageError, "first baseline source already contains"):
+            coverage.validate_baseline_lineage(self.root, forged, later)
+        with self.assertRaisesRegex(coverage.CoverageError, "ancestor"):
+            coverage.validate_baseline_lineage(self.root, candidate, "0" * 39 + "1")
+
+    def test_replacement_requires_exact_predecessor_blobs_and_non_decreasing_bounded_floors(self):
+        old = self.baseline(self.first_source)
+        old["units"] = [{
+            "id": ":sample|module",
+            "line": {"covered": 8, "missed": 2, "total": 10},
+            "branch": {"covered": 0, "missed": 0, "total": 0},
+            "authoredSourceCount": 1, "executableLineCount": 10, "branchCount": 0, "classCount": 1,
+            "lineFloorBasisPointsAtCapture": 7000,
+        }]
+        self.baseline_path.write_bytes(coverage.canonical_json_bytes(old) + b"\n")
+        run_git(self.root, "add", ".")
+        run_git(self.root, "commit", "-qm", "old baseline")
+        source = run_git(self.root, "rev-parse", "HEAD").strip()
+        predecessor = {
+            "commit": source,
+            "baselineBlobSha256": hashlib.sha256(self.baseline_path.read_bytes()).hexdigest(),
+            "policyBlobSha256": hashlib.sha256(self.policy_path.read_bytes()).hexdigest(),
+        }
+        replacement = self.baseline(source, predecessor)
+        replacement["units"] = [{**old["units"][0], "lineFloorBasisPointsAtCapture": 7200}]
+        historical = coverage.validate_baseline_lineage(self.root, replacement, source)
+        coverage.validate_predecessor_floor_transitions(historical, replacement, 200)
+        replacement["units"][0]["lineFloorBasisPointsAtCapture"] = 6999
+        with self.assertRaisesRegex(coverage.CoverageError, "decrease"):
+            coverage.validate_predecessor_floor_transitions(historical, replacement, 200)
 
 class ClassificationAndSummaryTest(unittest.TestCase):
     def test_historical_test_inventory_may_differ_when_report_topology_identity_is_stable(self):
@@ -330,16 +519,19 @@ class ClassificationAndSummaryTest(unittest.TestCase):
                 "measuredTestInputIdentitySha256": "new",
                 "measuredTestSources": [{"path": "NewTest.kt", "sha256": "3" * 64}],
             }],
-            "units": [current_unit],
+            "units": [copy.deepcopy(current_unit)],
         }
         baseline = {
             "schemaVersion": 1,
+            "sourceCommit": "1" * 40,
             "policySha256": "1" * 64,
+            "manifestSchemaVersion": 1,
+            "predecessor": None,
             "reports": [{
                 "reportId": ":sample|main",
                 "inputIdentitySha256": "2" * 64,
-                "measuredTestInputIdentitySha256": "old",
-                "measuredTestSources": [{"path": "OldTest.kt", "sha256": "4" * 64}],
+                "measuredTestInputIdentitySha256": "4" * 64,
+                "measuredTestSources": [{"path": "OldTest.kt", "filename": "OldTest.kt", "sha256": "4" * 64}],
             }],
             "units": [current_unit],
         }
@@ -349,6 +541,12 @@ class ClassificationAndSummaryTest(unittest.TestCase):
             "units": [{"id": ":sample|rendering", "family": "rendering"}],
         }
         self.assertEqual([], coverage._verify_current(measurement, policy, baseline))
+        measurement["units"][0]["classCount"] = 0
+        self.assertEqual(
+            [":sample|rendering denominator decreased: classCount 1 -> 0"],
+            coverage._verify_current(measurement, policy, baseline),
+        )
+        measurement["units"][0]["classCount"] = 1
         measurement["reports"][0]["inputIdentitySha256"] = "9" * 64
         with self.assertRaisesRegex(coverage.CoverageError, "topology identity"):
             coverage._verify_current(measurement, policy, baseline)
@@ -474,8 +672,9 @@ class ClassificationAndSummaryTest(unittest.TestCase):
                 coverage._capture(measurement, policy, root)
             policy["units"][-1]["lineFloorBasisPoints"] = 0
             captured = coverage._capture(measurement, policy, root)
-            for unit in captured["units"][:3]:
-                self.assertNotIn("lineFloorBasisPointsAtCapture", unit)
+            for unit in captured["units"]:
+                if unit["id"] != ":sample|state":
+                    self.assertNotIn("lineFloorBasisPointsAtCapture", unit)
 
     def test_feature_classification_is_exhaustive_non_overlapping_and_has_no_rendering_floor(self):
         sources = {"feature/src/main/State.kt", "feature/src/main/Screen.kt"}

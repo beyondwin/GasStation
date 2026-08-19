@@ -21,7 +21,6 @@ import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withType
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
-import org.gradle.testing.jacoco.tasks.JacocoReport
 
 internal fun configureCoverage(root: Project) {
     val rawModules =
@@ -142,6 +141,7 @@ private fun <VariantT : Variant> registerAndroidCoverage(
         val suffix = reportName.replaceFirstChar(Char::uppercase)
         val expectedTaskName = variant.computeTaskName("test", "UnitTest")
         val exactTests = module.tasks.withType<Test>().matching { it.name == expectedTaskName }
+        val observedTestTaskPath = module.objects.property(String::class.java)
         val variantJava = requireNotNull(variant.sources.java) { "AGP variant Java source provider is required" }
         val variantKotlin = requireNotNull(variant.sources.kotlin) { "AGP variant Kotlin source provider is required" }
         val testJava = requireNotNull(unitTest.sources.java) { "AGP unit-test Java source provider is required" }
@@ -173,6 +173,7 @@ private fun <VariantT : Variant> registerAndroidCoverage(
             testTask = null,
             liveTestTasks = exactTests,
             expectedTestTaskName = expectedTaskName,
+            observedTestTaskPathProvider = observedTestTaskPath,
             prepare = prepare,
             sourceDirectories = sources,
             testSourceDirectories = testSources,
@@ -190,6 +191,7 @@ private fun <VariantT : Variant> registerAndroidCoverage(
                 excludes = listOf("jdk.internal.*")
             }
             registered.executionData.from(concrete.extensions.getByType<JacocoTaskExtension>().destinationFile)
+            observedTestTaskPath.set(concrete.path)
         }
     }
 }
@@ -200,7 +202,7 @@ private fun applyPinnedJacoco(module: Project) {
 }
 
 private data class RegisteredCoverage(
-    val report: TaskProvider<JacocoReport>,
+    val report: TaskProvider<CoverageXmlReportTask>,
     val entry: TaskProvider<WriteCoverageManifestEntryTask>,
     val executionData: org.gradle.api.file.ConfigurableFileCollection,
 )
@@ -215,6 +217,7 @@ private fun registerReport(
     testTask: TaskProvider<Test>?,
     liveTestTasks: org.gradle.api.tasks.TaskCollection<Test>? = null,
     expectedTestTaskName: String = testTask?.name.orEmpty(),
+    observedTestTaskPathProvider: org.gradle.api.provider.Provider<String>? = null,
     prepare: TaskProvider<PrepareCoverageClassesTask>,
     sourceDirectories: org.gradle.api.file.FileCollection,
     testSourceDirectories: org.gradle.api.file.FileCollection,
@@ -227,9 +230,21 @@ private fun registerReport(
     if (testTask != null) {
         executionFiles.from(testTask.map { it.extensions.getByType<JacocoTaskExtension>().destinationFile })
     }
-    val report = module.tasks.register<JacocoReport>("coverage${suffix}XmlReport") {
+    val report = module.tasks.register<CoverageXmlReportTask>("coverage${suffix}XmlReport") {
         dependsOn(prepare)
         if (testTask != null) dependsOn(testTask) else liveTestTasks?.let { dependsOn(it) }
+        reportIdentity.set("${module.path}|$reportName")
+        expectedTestTaskPath.set("${module.path}:$expectedTestTaskName")
+        if (testTask != null) {
+            observedTestTaskPath.set(testTask.map { it.path })
+            selectedTestTaskCount.set(1)
+        } else {
+            observedTestTaskPath.set(requireNotNull(observedTestTaskPathProvider))
+            selectedTestTaskCount.set(module.provider { liveTestTasks!!.size })
+        }
+        preparedClassDirectory.set(prepare.flatMap { it.outputDirectory })
+        authoredSourceDirectories.from(sourceDirectories)
+        exactExecutionData.from(executionFiles)
         classDirectories.from(prepare.flatMap { it.outputDirectory })
         this.sourceDirectories.from(sourceDirectories)
         this.additionalSourceDirs.from(sourceDirectories)

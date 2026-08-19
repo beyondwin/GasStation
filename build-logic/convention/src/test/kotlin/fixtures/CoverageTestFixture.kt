@@ -41,8 +41,23 @@ fun GradlePluginTestProject.writeCoverageFixture(
     writeFile("gradle/libs.versions.toml", COVERAGE_VERSION_CATALOG)
     writeBuildFile(
         """
+        import com.gasstation.buildlogic.quality.coverage.CoverageXmlReportTask
+
         plugins {
             id("gasstation.root.quality")
+        }
+
+        tasks.register("assertCoverageTopology") {
+            dependsOn("coverageXmlReport")
+            doLast {
+                val reports = allprojects.flatMap { project ->
+                    project.tasks.matching {
+                        it.name != "coverageXmlReport" && it.name.startsWith("coverage") && it.name.endsWith("XmlReport")
+                    }.toList()
+                }
+                check(reports.size == 4) { "expected exactly four coverage XML reports, found ${'$'}{reports.size}" }
+                check(reports.all { it is CoverageXmlReportTask }) { "coverage XML report is not typed" }
+            }
         }
         """.trimIndent(),
     )
@@ -100,16 +115,14 @@ fun GradlePluginTestProject.writeCoverageFixture(
         buildString {
             if (fixture.assertNoLocationClassCollection) {
                 appendLine("import org.gradle.testing.jacoco.plugins.JacocoTaskExtension")
+                appendLine("import org.gradle.api.tasks.testing.Test")
                 appendLine()
             }
             appendLine("plugins { id(\"gasstation.android.library\") }")
             appendLine("android { namespace = \"fixture.android\" }")
             if (fixture.assertNoLocationClassCollection) {
                 appendLine()
-                appendLine("gradle.projectsEvaluated {")
-                appendLine("    check(tasks.named(\"testDebugUnitTest\").get().extensions")
-                appendLine("        .getByType(JacocoTaskExtension::class.java).isIncludeNoLocationClasses)")
-                appendLine("}")
+                appendLine(noLocationAssertion(setOf("testDebugUnitTest")))
             }
         },
     )
@@ -125,7 +138,13 @@ fun GradlePluginTestProject.writeCoverageFixture(
 
     writeFile(
         "app/build.gradle.kts",
-        """
+        buildString {
+            if (fixture.assertNoLocationClassCollection) {
+                appendLine("import org.gradle.testing.jacoco.plugins.JacocoTaskExtension")
+                appendLine("import org.gradle.api.tasks.testing.Test")
+                appendLine()
+            }
+            appendLine("""
         plugins { id("gasstation.android.application.compose") }
         android {
             namespace = "fixture.app"
@@ -136,7 +155,12 @@ fun GradlePluginTestProject.writeCoverageFixture(
                 create("prod") { dimension = "environment" }
             }
         }
-        """.trimIndent(),
+        """.trimIndent())
+            if (fixture.assertNoLocationClassCollection) {
+                appendLine()
+                appendLine(noLocationAssertion(setOf("testDemoDebugUnitTest", "testProdDebugUnitTest")))
+            }
+        },
     )
     writeFile("app/src/main/AndroidManifest.xml", "<manifest />")
     writeFile("app/src/main/java/fixture/app/SharedLogic.java", javaLogic("SharedLogic"))
@@ -163,8 +187,34 @@ fun GradlePluginTestProject.writeCoverageFixture(
     if (fixture.includeUnownedEmptyModule) {
         writeFile("empty/.gitkeep", "")
     }
+    runFixtureGit("init", "-q")
+    runFixtureGit("config", "user.name", "Coverage Fixture")
+    runFixtureGit("config", "user.email", "coverage-fixture@example.invalid")
+    runFixtureGit("add", ".")
+    runFixtureGit("commit", "-qm", "fixture")
     return this
 }
+
+private fun GradlePluginTestProject.runFixtureGit(vararg arguments: String) {
+    val process = ProcessBuilder(listOf("git") + arguments).directory(projectDir).redirectErrorStream(true).start()
+    val output = process.inputStream.bufferedReader().readText()
+    check(process.waitFor() == 0) { "git ${arguments.joinToString(" ")} failed: $output" }
+}
+
+private fun noLocationAssertion(expected: Set<String>): String =
+    """
+    tasks.register("assertCoverageNoLocationScope") {
+        dependsOn(${expected.sorted().joinToString { "tasks.named(\"$it\")" }})
+        doLast {
+            tasks.withType<Test>().forEach { candidate ->
+                val actual = candidate.extensions.getByType(JacocoTaskExtension::class.java).isIncludeNoLocationClasses
+                check(actual == (candidate.name in ${expected.sorted().joinToString(prefix = "setOf(", postfix = ")") { "\"$it\"" }})) {
+                    "unexpected no-location scope for ${'$'}{candidate.path}: ${'$'}actual"
+                }
+            }
+        }
+    }
+    """.trimIndent()
 
 private fun javaLogic(name: String): String =
     """
@@ -276,9 +326,15 @@ private val COVERAGE_STUB_VERIFIER =
     #!/usr/bin/env python3
     import json
     import pathlib
+    import subprocess
     import sys
 
     args = sys.argv[1:]
+    source = args[args.index("--source-commit") + 1]
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if source != head:
+        print("stale source commit", file=sys.stderr)
+        raise SystemExit(1)
     summary = pathlib.Path(args[args.index("--output") + 1])
     marker = summary.with_name("stub-invocations.txt")
     count = int(marker.read_text() if marker.exists() else "0") + 1
