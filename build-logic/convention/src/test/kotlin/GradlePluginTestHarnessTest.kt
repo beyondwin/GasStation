@@ -238,18 +238,20 @@ class GradlePluginTestHarnessTest {
     }
 
     @Test
-    fun independentFixturesCannotReuseDirectoriesOrStaleFiles() {
-        val firstRoot = temporaryFolder.newFolder("first-root")
-        val secondRoot = temporaryFolder.newFolder("second-root")
-        val first = GradlePluginTestProject.create(firstRoot).writeFile("stale.txt", "stale")
-        val second = GradlePluginTestProject.create(secondRoot)
+    fun fourConcurrentFixturesUseIsolatedProjectTestKitAndGradleHomes() {
+        assertEquals("4", System.getProperty("gasstation.convention.test.maxParallelForks"))
+        val roots = (1..4).map { index -> temporaryFolder.newFolder("parallel-$index-root") }
+        val fixtures = roots.map(GradlePluginTestProject::create)
+        fixtures.first().writeFile("stale.txt", "stale")
 
-        assertNotEquals(first.projectDir.canonicalFile, second.projectDir.canonicalFile)
-        assertNotEquals(first.testKitDir.canonicalFile, second.testKitDir.canonicalFile)
-        assertNotEquals(first.gradleUserHomeDir.canonicalFile, second.gradleUserHomeDir.canonicalFile)
-        assertFalse(second.projectDir.resolve("stale.txt").exists())
+        listOf(
+            fixtures.map { it.projectDir.canonicalFile },
+            fixtures.map { it.testKitDir.canonicalFile },
+            fixtures.map { it.gradleUserHomeDir.canonicalFile },
+        ).forEach { directories -> assertEquals(4, directories.toSet().size) }
+        fixtures.drop(1).forEach { fixture -> assertFalse(fixture.projectDir.resolve("stale.txt").exists()) }
         assertThrows(IllegalArgumentException::class.java) {
-            GradlePluginTestProject.create(firstRoot)
+            GradlePluginTestProject.create(roots.first())
         }
     }
 
