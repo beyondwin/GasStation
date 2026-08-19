@@ -1,6 +1,6 @@
 package com.gasstation.core.model
 
-enum class Brand {
+public enum class Brand {
     SKE,
     GSC,
     HDO,
@@ -13,9 +13,9 @@ enum class Brand {
     SKG,
     ;
 
-    companion object {
+    public companion object {
         private val BY_NAME = entries.associateBy(Brand::name)
 
-        fun fromCode(code: String): Brand = BY_NAME[code] ?: ETC
+        public fun fromCode(code: String): Brand = BY_NAME[code] ?: ETC
     }
 }

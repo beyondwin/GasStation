@@ -31,6 +31,7 @@ data class RootQualityFixture(
     val kotlinSources: Map<String, String> = emptyMap(),
     val pluginProjectPath: String = ":",
     val fixedInputMutation: RootQualityFixedInputMutation? = null,
+    val contractApiFixture: Boolean = false,
 )
 
 fun GradlePluginTestProject.writeRootQualityFixture(
@@ -61,6 +62,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
 
     writeSettings(
         buildString {
+            if (fixture.contractApiFixture) {
+                appendLine("dependencyResolutionManagement { repositories { mavenCentral() } }")
+            }
             appendLine("rootProject.name = \"gasstation-root-quality-fixture\"")
             appendLine("val activeModulePaths: List<String> = listOf(${modules.joinToString { "\"$it\"" }})")
             appendLine("include(*activeModulePaths.toTypedArray())")
@@ -74,6 +78,21 @@ fun GradlePluginTestProject.writeRootQualityFixture(
             ""
         },
     )
+    if (fixture.contractApiFixture) {
+        require(modules == CONTRACT_API_MODULES.map(ContractApiFixture::module).sorted()) {
+            "Contract API fixture requires the exact five ABI modules"
+        }
+        writeFile(
+            "gradle/libs.versions.toml",
+            """
+            [versions]
+            kotlin = "2.4.10"
+
+            [libraries]
+            kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+            """.trimIndent(),
+        )
+    }
 
     val dependenciesByConsumer = fixture.projectDependencies.groupBy { it.consumer }
     modules.forEach { module ->
@@ -83,7 +102,11 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         val buildScript =
             buildString {
                 appendLine("plugins {")
-                appendLine("    `java-library`")
+                if (fixture.contractApiFixture) {
+                    appendLine("    id(\"gasstation.jvm.library\")")
+                } else {
+                    appendLine("    `java-library`")
+                }
                 if (fixture.pluginProjectPath == module) {
                     appendLine("    id(\"gasstation.root.quality\")")
                 }
@@ -108,8 +131,32 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                     }
                     appendLine("}")
                 }
+                if (fixture.contractApiFixture && module == ":core:model") {
+                    appendLine()
+                    appendLine(
+                        "dependencies { compileOnly(\"org.jetbrains.kotlin:kotlin-stdlib:2.4.10\") }",
+                    )
+                }
             }
         writeFile(module.toFixtureDirectory().resolveFixture("build.gradle.kts"), buildScript)
+    }
+
+    if (fixture.contractApiFixture) {
+        CONTRACT_API_MODULES.forEach { contract ->
+            val directory = contract.module.toFixtureDirectory()
+            val internalName = contract.packageName.replace('.', '/') + "/Marker"
+            writeFile(
+                directory.resolveFixture(
+                    "src/main/kotlin/${contract.packageName.replace('.', '/')}/Marker.kt",
+                ),
+                "package ${contract.packageName}\n\npublic class Marker",
+            )
+            writeFile(
+                contract.dumpPath,
+                "public final class $internalName {\n\tpublic fun <init> ()V\n}\n",
+            )
+            projectDir.resolve(contract.dumpPath).appendText("\n")
+        }
     }
 
     writeFile("src/test/kotlin/fixture/Safe.kt", SAFE_KOTLIN_SOURCE)
@@ -120,6 +167,20 @@ fun GradlePluginTestProject.writeRootQualityFixture(
     writeFile(
         "config/robolectric/robolectric.properties",
         "sdk=${fixture.robolectricSdk}",
+    )
+    writeFile(
+        "config/quality/production-dependency-policy.txt",
+        buildString {
+            appendLine("schema-version=1")
+            appendLine("enforcement=report-only")
+            modules.forEach { appendLine("module|$it") }
+            if (fixture.contractApiFixture) {
+                appendLine(
+                    "scope|:core:model|external|org.jetbrains.kotlin:kotlin-stdlib|compileOnly|" +
+                        "compile=main|runtime=-",
+                )
+            }
+        },
     )
     return this
 }
@@ -203,6 +264,37 @@ private fun String.toFixtureDirectory(): String = removePrefix(":").replace(':',
 private fun String.resolveFixture(relativePath: String): String = "$this/$relativePath"
 
 private val ROOT_QUALITY_PROJECT_PATH = Regex("(?::[a-z][a-z0-9-]*)+")
+
+private data class ContractApiFixture(
+    val module: String,
+    val dumpPath: String,
+    val packageName: String,
+)
+
+private val CONTRACT_API_MODULES =
+    listOf(
+        ContractApiFixture(":core:model", "core/model/api/model.api", "com.gasstation.core.model"),
+        ContractApiFixture(
+            ":core:observability",
+            "core/observability/api/observability.api",
+            "com.gasstation.core.observability",
+        ),
+        ContractApiFixture(
+            ":domain:location",
+            "domain/location/api/location.api",
+            "com.gasstation.domain.location",
+        ),
+        ContractApiFixture(
+            ":domain:settings",
+            "domain/settings/api/settings.api",
+            "com.gasstation.domain.settings",
+        ),
+        ContractApiFixture(
+            ":domain:station",
+            "domain/station/api/station.api",
+            "com.gasstation.domain.station",
+        ),
+    )
 
 private val SAFE_KOTLIN_SOURCE =
     """

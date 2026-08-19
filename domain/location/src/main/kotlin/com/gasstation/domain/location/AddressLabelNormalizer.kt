@@ -1,8 +1,8 @@
 package com.gasstation.domain.location
 
-fun normalizeCurrentAddressLabel(rawLabel: String): String = administrativeDongLabelOrNull(rawLabel) ?: rawLabel
+public fun normalizeCurrentAddressLabel(rawLabel: String): String = administrativeDongLabelOrNull(rawLabel) ?: rawLabel
 
-fun administrativeDongLabelOrNull(rawLabel: String): String? = rawLabel.toAddressTokens().toAdministrativeDongLabel()
+public fun administrativeDongLabelOrNull(rawLabel: String): String? = rawLabel.toAddressTokens().toAdministrativeDongLabel()
 
 private fun String.isAdministrativeDongPart(): Boolean {
     val normalized = trim('(', ')', '[', ']', ',', '.')

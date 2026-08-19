@@ -5,8 +5,8 @@ import com.gasstation.domain.settings.SettingsRepository
 import com.gasstation.domain.settings.model.UserPreferences
 import javax.inject.Inject
 
-class UpdateBrandFilterUseCase @Inject constructor(private val settingsRepository: SettingsRepository) {
-    suspend operator fun invoke(brandFilter: BrandFilter): UserPreferences = settingsRepository.updateUserPreferences { current ->
+public class UpdateBrandFilterUseCase @Inject public constructor(private val settingsRepository: SettingsRepository) {
+    public suspend operator fun invoke(brandFilter: BrandFilter): UserPreferences = settingsRepository.updateUserPreferences { current ->
         current.copy(brandFilter = brandFilter)
     }
 }

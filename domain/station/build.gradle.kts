@@ -4,8 +4,8 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":core:model"))
-    implementation(libs.kotlinx.coroutines.core)
+    api(project(":core:model"))
+    api(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
     testImplementation(libs.app.cash.turbine)
 }

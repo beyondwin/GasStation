@@ -27,6 +27,10 @@ Android application/library convention은 production source와 test source를 �
 
 Android Lint는 application/library Android source를 맡고, Kotlin compiler warning gate는 현재 활성 `domain:*` 세 모듈과 `core:model`, `core:observability`의 다섯 JVM contract 모듈을 blocking으로 맡습니다. 그 밖의 convention-owned 모듈은 report-only이며 명시적 opt-in으로만 strict로 승격합니다. application, Android library, JVM library convention이 소유하는 모든 `Test` task는 15분 task timeout을 사용하고 retry는 적용하지 않습니다.
 
+다섯 JVM contract 모듈은 Kotlin 2.4.10 built-in ABI validation의 전체 `api/` baseline을 사용합니다. `checkKotlinAbi`가 source와 baseline 일치를 먼저 증명한 뒤 `verifyPublicApiBoundaries`가 실제 writer dump의 class/field/fun grammar를 fail-closed로 파싱하고, dump가 선택한 owner/name/descriptor만 ASM 9.9.1로 스캔합니다. descriptor뿐 아니라 generic signature, bound, suspend `Continuation`, Kotlin `FunctionN`, exception, annotation과 class-valued annotation 위치까지 검사하므로 generic erasure 뒤의 Android/Compose/Room/Retrofit/DataStore/SDK 타입 누수도 차단합니다. `Flow`, Kotlin/JDK collection, `Instant`, `Throwable`, GasStation model 타입은 정상 계약 타입입니다.
+
+TestKit은 다섯 `checkKotlinAbi` 뒤 root scanner가 실행되고 `updateKotlinAbi`가 task graph에 없으며 configuration cache 재사용 후 report bytes가 동일함을 확인합니다. 순수 parser 테스트는 malformed descriptor, unknown record, duplicate member, dotted object descriptor를 거부하고 forbidden family를 substring이 아닌 canonical class identity로 판정합니다.
+
 Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니다. 정확한 Roborazzi lifecycle task를 해당 프로젝트에 요청하거나 명시적인 exact-true property를 준 경우에만 포함합니다. 정확한 속성 표와 실행 명령은 [검증 매트릭스](verification-matrix.md#kotlin-및-convention-정책)를 따릅니다.
 
 ## 계층별 목적

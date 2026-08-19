@@ -1,0 +1,15 @@
+public abstract interface class com/gasstation/core/observability/CrashReporter {
+	public abstract fun log (Ljava/lang/String;)V
+	public abstract fun recordNonFatal (Ljava/lang/Throwable;Ljava/util/Map;)V
+	public static synthetic fun recordNonFatal$default (Lcom/gasstation/core/observability/CrashReporter;Ljava/lang/Throwable;Ljava/util/Map;ILjava/lang/Object;)V
+}
+
+public final class com/gasstation/core/observability/CrashReporter$DefaultImpls {
+	public static synthetic fun recordNonFatal$default (Lcom/gasstation/core/observability/CrashReporter;Ljava/lang/Throwable;Ljava/util/Map;ILjava/lang/Object;)V
+}
+
+public final class com/gasstation/core/observability/CrashReporterKt {
+	public static final fun recordNonFatalSafely (Lcom/gasstation/core/observability/CrashReporter;Ljava/lang/Throwable;Ljava/util/Map;)V
+	public static synthetic fun recordNonFatalSafely$default (Lcom/gasstation/core/observability/CrashReporter;Ljava/lang/Throwable;Ljava/util/Map;ILjava/lang/Object;)V
+}
+

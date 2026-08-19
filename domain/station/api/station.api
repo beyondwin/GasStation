@@ -1,0 +1,399 @@
+public abstract interface class com/gasstation/domain/station/StationEventLogger {
+	public abstract fun log (Lcom/gasstation/domain/station/model/StationEvent;)V
+}
+
+public final class com/gasstation/domain/station/StationEventLoggerKt {
+	public static final fun logSafely (Lcom/gasstation/domain/station/StationEventLogger;Lcom/gasstation/domain/station/model/StationEvent;)V
+}
+
+public final class com/gasstation/domain/station/StationRefreshException : java/lang/IllegalStateException {
+	public fun <init> (Lcom/gasstation/domain/station/StationRefreshFailureReason;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lcom/gasstation/domain/station/StationRefreshFailureReason;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getReason ()Lcom/gasstation/domain/station/StationRefreshFailureReason;
+}
+
+public abstract interface class com/gasstation/domain/station/StationRefreshFailureReason {
+}
+
+public final class com/gasstation/domain/station/StationRefreshFailureReason$Http : com/gasstation/domain/station/StationRefreshFailureReason {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lcom/gasstation/domain/station/StationRefreshFailureReason$Http;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/StationRefreshFailureReason$Http;IILjava/lang/Object;)Lcom/gasstation/domain/station/StationRefreshFailureReason$Http;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getStatusCode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/StationRefreshFailureReason$InvalidPayload : com/gasstation/domain/station/StationRefreshFailureReason {
+	public static final field INSTANCE Lcom/gasstation/domain/station/StationRefreshFailureReason$InvalidPayload;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/StationRefreshFailureReason$Network : com/gasstation/domain/station/StationRefreshFailureReason {
+	public static final field INSTANCE Lcom/gasstation/domain/station/StationRefreshFailureReason$Network;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/StationRefreshFailureReason$Timeout : com/gasstation/domain/station/StationRefreshFailureReason {
+	public static final field INSTANCE Lcom/gasstation/domain/station/StationRefreshFailureReason$Timeout;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/StationRefreshFailureReason$Unknown : com/gasstation/domain/station/StationRefreshFailureReason {
+	public static final field INSTANCE Lcom/gasstation/domain/station/StationRefreshFailureReason$Unknown;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/station/StationRepository {
+	public abstract fun observeNearbyStations (Lcom/gasstation/domain/station/model/StationQuery;)Lkotlinx/coroutines/flow/Flow;
+	public abstract fun observeWatchlist (Lcom/gasstation/domain/station/model/WatchlistQuery;)Lkotlinx/coroutines/flow/Flow;
+	public abstract fun refreshNearbyStations (Lcom/gasstation/domain/station/model/StationQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun removeWatchedStation (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun updateWatchState (Lcom/gasstation/domain/station/model/Station;ZLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/station/model/Station {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;IILcom/gasstation/core/model/Coordinates;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lcom/gasstation/core/model/Brand;
+	public final fun component4-nY8Pt20 ()I
+	public final fun component5-joe-zjA ()I
+	public final fun component6 ()Lcom/gasstation/core/model/Coordinates;
+	public final fun copy-5vbkifE (Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;IILcom/gasstation/core/model/Coordinates;)Lcom/gasstation/domain/station/model/Station;
+	public static synthetic fun copy-5vbkifE$default (Lcom/gasstation/domain/station/model/Station;Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;IILcom/gasstation/core/model/Coordinates;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/Station;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBrand ()Lcom/gasstation/core/model/Brand;
+	public final fun getCoordinates ()Lcom/gasstation/core/model/Coordinates;
+	public final fun getDistance-joe-zjA ()I
+	public final fun getId ()Ljava/lang/String;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getPrice-nY8Pt20 ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/station/model/StationEvent {
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$CompareViewed : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lcom/gasstation/domain/station/model/StationEvent$CompareViewed;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$CompareViewed;IILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$CompareViewed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCount ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$ExternalMapOpened : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Ljava/lang/String;Lcom/gasstation/core/model/MapProvider;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lcom/gasstation/core/model/MapProvider;
+	public final fun copy (Ljava/lang/String;Lcom/gasstation/core/model/MapProvider;)Lcom/gasstation/domain/station/model/StationEvent$ExternalMapOpened;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$ExternalMapOpened;Ljava/lang/String;Lcom/gasstation/core/model/MapProvider;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$ExternalMapOpened;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getProvider ()Lcom/gasstation/core/model/MapProvider;
+	public final fun getStationId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$LocationFailed : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lcom/gasstation/domain/station/model/StationEvent$LocationFailed;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$LocationFailed;Ljava/lang/String;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$LocationFailed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getResultType ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$RefreshFailed : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Lcom/gasstation/domain/station/StationRefreshFailureReason;)V
+	public final fun component1 ()Lcom/gasstation/domain/station/StationRefreshFailureReason;
+	public final fun copy (Lcom/gasstation/domain/station/StationRefreshFailureReason;)Lcom/gasstation/domain/station/model/StationEvent$RefreshFailed;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$RefreshFailed;Lcom/gasstation/domain/station/StationRefreshFailureReason;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$RefreshFailed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Lcom/gasstation/domain/station/StationRefreshFailureReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$RetryAttempted : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Lcom/gasstation/domain/station/StationRefreshFailureReason;Z)V
+	public final fun component1 ()Lcom/gasstation/domain/station/StationRefreshFailureReason;
+	public final fun component2 ()Z
+	public final fun copy (Lcom/gasstation/domain/station/StationRefreshFailureReason;Z)Lcom/gasstation/domain/station/model/StationEvent$RetryAttempted;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$RetryAttempted;Lcom/gasstation/domain/station/StationRefreshFailureReason;ZILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$RetryAttempted;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOriginalReason ()Lcom/gasstation/domain/station/StationRefreshFailureReason;
+	public final fun getSucceeded ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$SearchRefreshed : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/SortOrder;Z)V
+	public final fun component1 ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun component2 ()Lcom/gasstation/core/model/FuelType;
+	public final fun component3 ()Lcom/gasstation/core/model/SortOrder;
+	public final fun component4 ()Z
+	public final fun copy (Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/SortOrder;Z)Lcom/gasstation/domain/station/model/StationEvent$SearchRefreshed;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$SearchRefreshed;Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/SortOrder;ZILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$SearchRefreshed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFuelType ()Lcom/gasstation/core/model/FuelType;
+	public final fun getRadius ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun getSortOrder ()Lcom/gasstation/core/model/SortOrder;
+	public final fun getStale ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationEvent$WatchToggled : com/gasstation/domain/station/model/StationEvent {
+	public fun <init> (Ljava/lang/String;Z)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Z
+	public final fun copy (Ljava/lang/String;Z)Lcom/gasstation/domain/station/model/StationEvent$WatchToggled;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationEvent$WatchToggled;Ljava/lang/String;ZILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationEvent$WatchToggled;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getStationId ()Ljava/lang/String;
+	public final fun getWatched ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/station/model/StationFreshness {
+}
+
+public final class com/gasstation/domain/station/model/StationFreshness$Fresh : com/gasstation/domain/station/model/StationFreshness {
+	public static final field INSTANCE Lcom/gasstation/domain/station/model/StationFreshness$Fresh;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationFreshness$Stale : com/gasstation/domain/station/model/StationFreshness {
+	public static final field INSTANCE Lcom/gasstation/domain/station/model/StationFreshness$Stale;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationListEntry {
+	public fun <init> (Lcom/gasstation/domain/station/model/Station;Lcom/gasstation/domain/station/model/StationPriceDelta;ZLjava/time/Instant;)V
+	public final fun component1 ()Lcom/gasstation/domain/station/model/Station;
+	public final fun component2 ()Lcom/gasstation/domain/station/model/StationPriceDelta;
+	public final fun component3 ()Z
+	public final fun component4 ()Ljava/time/Instant;
+	public final fun copy (Lcom/gasstation/domain/station/model/Station;Lcom/gasstation/domain/station/model/StationPriceDelta;ZLjava/time/Instant;)Lcom/gasstation/domain/station/model/StationListEntry;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationListEntry;Lcom/gasstation/domain/station/model/Station;Lcom/gasstation/domain/station/model/StationPriceDelta;ZLjava/time/Instant;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationListEntry;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLastSeenAt ()Ljava/time/Instant;
+	public final fun getPriceDelta ()Lcom/gasstation/domain/station/model/StationPriceDelta;
+	public final fun getStation ()Lcom/gasstation/domain/station/model/Station;
+	public fun hashCode ()I
+	public final fun isWatched ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/station/model/StationPriceDelta {
+	public static final field Companion Lcom/gasstation/domain/station/model/StationPriceDelta$Companion;
+	public abstract fun getAmountWonOrNull ()Ljava/lang/Integer;
+	public abstract fun getDirection ()Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$Companion {
+	public final fun from (Ljava/lang/Integer;I)Lcom/gasstation/domain/station/model/StationPriceDelta;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$Decreased : com/gasstation/domain/station/model/StationPriceDelta {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lcom/gasstation/domain/station/model/StationPriceDelta$Decreased;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationPriceDelta$Decreased;IILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationPriceDelta$Decreased;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAmountWon ()I
+	public fun getAmountWonOrNull ()Ljava/lang/Integer;
+	public fun getDirection ()Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$Increased : com/gasstation/domain/station/model/StationPriceDelta {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lcom/gasstation/domain/station/model/StationPriceDelta$Increased;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationPriceDelta$Increased;IILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationPriceDelta$Increased;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAmountWon ()I
+	public fun getAmountWonOrNull ()Ljava/lang/Integer;
+	public fun getDirection ()Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$PriceDirection : java/lang/Enum {
+	public static final field FALL Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public static final field NEUTRAL Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public static final field RISE Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public static fun values ()[Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$Unavailable : com/gasstation/domain/station/model/StationPriceDelta {
+	public static final field INSTANCE Lcom/gasstation/domain/station/model/StationPriceDelta$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAmountWonOrNull ()Ljava/lang/Integer;
+	public fun getDirection ()Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationPriceDelta$Unchanged : com/gasstation/domain/station/model/StationPriceDelta {
+	public static final field INSTANCE Lcom/gasstation/domain/station/model/StationPriceDelta$Unchanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAmountWonOrNull ()Ljava/lang/Integer;
+	public fun getDirection ()Lcom/gasstation/domain/station/model/StationPriceDelta$PriceDirection;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationQuery {
+	public fun <init> (Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;)V
+	public final fun component1 ()Lcom/gasstation/core/model/Coordinates;
+	public final fun component2 ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun component3 ()Lcom/gasstation/core/model/FuelType;
+	public final fun component4 ()Lcom/gasstation/core/model/BrandFilter;
+	public final fun component5 ()Lcom/gasstation/core/model/SortOrder;
+	public final fun copy (Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;)Lcom/gasstation/domain/station/model/StationQuery;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationQuery;Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationQuery;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBrandFilter ()Lcom/gasstation/core/model/BrandFilter;
+	public final fun getCoordinates ()Lcom/gasstation/core/model/Coordinates;
+	public final fun getFuelType ()Lcom/gasstation/core/model/FuelType;
+	public final fun getRadius ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun getSortOrder ()Lcom/gasstation/core/model/SortOrder;
+	public fun hashCode ()I
+	public final fun toCacheKey (I)Lcom/gasstation/domain/station/model/StationQueryCacheKey;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationQueryCacheKey {
+	public fun <init> (IIILcom/gasstation/core/model/FuelType;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()Lcom/gasstation/core/model/FuelType;
+	public final fun copy (IIILcom/gasstation/core/model/FuelType;)Lcom/gasstation/domain/station/model/StationQueryCacheKey;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationQueryCacheKey;IIILcom/gasstation/core/model/FuelType;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationQueryCacheKey;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFuelType ()Lcom/gasstation/core/model/FuelType;
+	public final fun getLatitudeBucket ()I
+	public final fun getLongitudeBucket ()I
+	public final fun getRadiusMeters ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/StationSearchResult {
+	public fun <init> (Ljava/util/List;Lcom/gasstation/domain/station/model/StationFreshness;Ljava/time/Instant;Z)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Lcom/gasstation/domain/station/model/StationFreshness;
+	public final fun component3 ()Ljava/time/Instant;
+	public final fun component4 ()Z
+	public final fun copy (Ljava/util/List;Lcom/gasstation/domain/station/model/StationFreshness;Ljava/time/Instant;Z)Lcom/gasstation/domain/station/model/StationSearchResult;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/StationSearchResult;Ljava/util/List;Lcom/gasstation/domain/station/model/StationFreshness;Ljava/time/Instant;ZILjava/lang/Object;)Lcom/gasstation/domain/station/model/StationSearchResult;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFetchedAt ()Ljava/time/Instant;
+	public final fun getFreshness ()Lcom/gasstation/domain/station/model/StationFreshness;
+	public final fun getHasCachedSnapshot ()Z
+	public final fun getStations ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/WatchMutationResult : java/lang/Enum {
+	public static final field Committed Lcom/gasstation/domain/station/model/WatchMutationResult;
+	public static final field Superseded Lcom/gasstation/domain/station/model/WatchMutationResult;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/domain/station/model/WatchMutationResult;
+	public static fun values ()[Lcom/gasstation/domain/station/model/WatchMutationResult;
+}
+
+public final class com/gasstation/domain/station/model/WatchedStationSummary {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;Lcom/gasstation/core/model/MoneyWon;ILcom/gasstation/core/model/Coordinates;Lcom/gasstation/domain/station/model/StationPriceDelta;Ljava/time/Instant;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lcom/gasstation/core/model/Brand;
+	public final fun component4-No0eK-E ()Lcom/gasstation/core/model/MoneyWon;
+	public final fun component5-joe-zjA ()I
+	public final fun component6 ()Lcom/gasstation/core/model/Coordinates;
+	public final fun component7 ()Lcom/gasstation/domain/station/model/StationPriceDelta;
+	public final fun component8 ()Ljava/time/Instant;
+	public final fun copy-z1Lh68s (Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;Lcom/gasstation/core/model/MoneyWon;ILcom/gasstation/core/model/Coordinates;Lcom/gasstation/domain/station/model/StationPriceDelta;Ljava/time/Instant;)Lcom/gasstation/domain/station/model/WatchedStationSummary;
+	public static synthetic fun copy-z1Lh68s$default (Lcom/gasstation/domain/station/model/WatchedStationSummary;Ljava/lang/String;Ljava/lang/String;Lcom/gasstation/core/model/Brand;Lcom/gasstation/core/model/MoneyWon;ILcom/gasstation/core/model/Coordinates;Lcom/gasstation/domain/station/model/StationPriceDelta;Ljava/time/Instant;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/WatchedStationSummary;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBrand ()Lcom/gasstation/core/model/Brand;
+	public final fun getCoordinates ()Lcom/gasstation/core/model/Coordinates;
+	public final fun getDistance-joe-zjA ()I
+	public final fun getId ()Ljava/lang/String;
+	public final fun getLastSeenAt ()Ljava/time/Instant;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getPrice-No0eK-E ()Lcom/gasstation/core/model/MoneyWon;
+	public final fun getPriceDelta ()Lcom/gasstation/domain/station/model/StationPriceDelta;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/model/WatchlistQuery {
+	public fun <init> (Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/FuelType;)V
+	public final fun component1 ()Lcom/gasstation/core/model/Coordinates;
+	public final fun component2 ()Lcom/gasstation/core/model/FuelType;
+	public final fun copy (Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/FuelType;)Lcom/gasstation/domain/station/model/WatchlistQuery;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/station/model/WatchlistQuery;Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/FuelType;ILjava/lang/Object;)Lcom/gasstation/domain/station/model/WatchlistQuery;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFuelType ()Lcom/gasstation/core/model/FuelType;
+	public final fun getOrigin ()Lcom/gasstation/core/model/Coordinates;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/station/usecase/ObserveNearbyStationsUseCase {
+	public fun <init> (Lcom/gasstation/domain/station/StationRepository;)V
+	public final fun invoke (Lcom/gasstation/domain/station/model/StationQuery;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class com/gasstation/domain/station/usecase/ObserveWatchlistUseCase {
+	public fun <init> (Lcom/gasstation/domain/station/StationRepository;)V
+	public final fun invoke (Lcom/gasstation/domain/station/model/WatchlistQuery;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class com/gasstation/domain/station/usecase/RefreshNearbyStationsUseCase {
+	public fun <init> (Lcom/gasstation/domain/station/StationRepository;)V
+	public final fun invoke (Lcom/gasstation/domain/station/model/StationQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/station/usecase/RemoveWatchedStationUseCase {
+	public fun <init> (Lcom/gasstation/domain/station/StationRepository;)V
+	public final fun invoke (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/station/usecase/UpdateWatchStateUseCase {
+	public fun <init> (Lcom/gasstation/domain/station/StationRepository;)V
+	public final fun invoke (Lcom/gasstation/domain/station/model/Station;ZLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

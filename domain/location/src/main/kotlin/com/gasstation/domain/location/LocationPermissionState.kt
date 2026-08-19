@@ -1,7 +1,7 @@
 package com.gasstation.domain.location
 
-sealed interface LocationPermissionState {
-    data object Denied : LocationPermissionState
-    data object ApproximateGranted : LocationPermissionState
-    data object PreciseGranted : LocationPermissionState
+public sealed interface LocationPermissionState {
+    public data object Denied : LocationPermissionState
+    public data object ApproximateGranted : LocationPermissionState
+    public data object PreciseGranted : LocationPermissionState
 }

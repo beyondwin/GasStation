@@ -10,9 +10,9 @@
 - `data:*`는 저장과 조합을 담당하지만 화면 상태나 Compose 타입을 만들지 않습니다.
 - `core:*`는 여러 모듈이 공유하는 인프라와 값 객체만 둡니다.
 - 위 경계는 `gasstation.root.quality`가 등록하는 `verifyModuleBoundaries`(CI `static-analysis` 포함)로 강제합니다.
-  현재 강제 범위는 정확한 `api`/`implementation` configuration에 선언된 직접 project dependency이며, 외부·전이·variant·다른 configuration 의존성까지 검사한다는 의미는 아닙니다.
-  의도된 예외는 `core:location → domain:location` 하나이며 가드 규칙에서 제외돼 있습니다.
-  세 root quality guard의 Gradle task model과 configuration-cache 호환성은 Gradle TestKit이 보호하며, 정확한 실행 명령은 [검증 매트릭스](verification-matrix.md#kotlin-및-convention-정책)를 따릅니다.
+  `settings.gradle.kts`가 소유하는 정확한 18개 활성 모듈의 JVM `main` 및 Android production variant compile/runtime hierarchy를 public Gradle/AGP model로 수집합니다. 직접 project/external dependency는 선언 configuration과 component membership까지 `config/quality/production-dependency-policy.txt`의 exact scope row와 대조하며 wildcard는 허용하지 않습니다. `benchmark → app`은 self-instrumenting tested-target 관계로 별도 관리합니다.
+  `productionDependencyInventory`의 전이 resolved graph는 보고 전용 evidence이며 direct architecture allowlist로 승격하지 않습니다. 의도된 project 예외는 exact allowlist의 `core:location → domain:location` 한 행뿐입니다.
+- 공개 ABI owner는 정확히 `core:model`, `core:observability`, `domain:location`, `domain:settings`, `domain:station`입니다. 각 모듈의 전체 `api/*.api` baseline과 compiled JVM surface를 `verifyPublicApiBoundaries`가 대조하고 `android.*`, `androidx.*`, `com.google.android.gms.*`, `retrofit2.*`, `okhttp3.*`, `com.google.gson.*` 타입의 공개 계약 누수를 차단합니다.
 
 ## 모듈 인벤토리
 

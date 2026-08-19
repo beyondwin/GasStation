@@ -6,14 +6,14 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 
-data class StationQuery(
+public data class StationQuery(
     val coordinates: Coordinates,
     val radius: SearchRadius,
     val fuelType: FuelType,
     val brandFilter: BrandFilter,
     val sortOrder: SortOrder,
 ) {
-    fun toCacheKey(bucketMeters: Int): StationQueryCacheKey {
+    public fun toCacheKey(bucketMeters: Int): StationQueryCacheKey {
         require(bucketMeters > 0) { "bucketMeters must be greater than 0" }
 
         val latitudeBucket = ((coordinates.latitude * METERS_PER_LATITUDE_DEGREE) / bucketMeters).toInt()

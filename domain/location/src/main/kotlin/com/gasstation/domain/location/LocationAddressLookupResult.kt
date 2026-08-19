@@ -1,9 +1,9 @@
 package com.gasstation.domain.location
 
-sealed interface LocationAddressLookupResult {
-    data class Success(val addressLabel: String) : LocationAddressLookupResult
+public sealed interface LocationAddressLookupResult {
+    public data class Success(val addressLabel: String) : LocationAddressLookupResult
 
-    data object Unavailable : LocationAddressLookupResult
+    public data object Unavailable : LocationAddressLookupResult
 
-    data class Error(val throwable: Throwable) : LocationAddressLookupResult
+    public data class Error(val throwable: Throwable) : LocationAddressLookupResult
 }

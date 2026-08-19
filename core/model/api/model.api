@@ -1,0 +1,130 @@
+public final class com/gasstation/core/model/Brand : java/lang/Enum {
+	public static final field Companion Lcom/gasstation/core/model/Brand$Companion;
+	public static final field E1G Lcom/gasstation/core/model/Brand;
+	public static final field ETC Lcom/gasstation/core/model/Brand;
+	public static final field GSC Lcom/gasstation/core/model/Brand;
+	public static final field HDO Lcom/gasstation/core/model/Brand;
+	public static final field NHO Lcom/gasstation/core/model/Brand;
+	public static final field RTO Lcom/gasstation/core/model/Brand;
+	public static final field RTX Lcom/gasstation/core/model/Brand;
+	public static final field SKE Lcom/gasstation/core/model/Brand;
+	public static final field SKG Lcom/gasstation/core/model/Brand;
+	public static final field SOL Lcom/gasstation/core/model/Brand;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/Brand;
+	public static fun values ()[Lcom/gasstation/core/model/Brand;
+}
+
+public final class com/gasstation/core/model/Brand$Companion {
+	public final fun fromCode (Ljava/lang/String;)Lcom/gasstation/core/model/Brand;
+}
+
+public final class com/gasstation/core/model/BrandFilter : java/lang/Enum {
+	public static final field ALL Lcom/gasstation/core/model/BrandFilter;
+	public static final field ALTEUL Lcom/gasstation/core/model/BrandFilter;
+	public static final field E1G Lcom/gasstation/core/model/BrandFilter;
+	public static final field ETC Lcom/gasstation/core/model/BrandFilter;
+	public static final field GSC Lcom/gasstation/core/model/BrandFilter;
+	public static final field HDO Lcom/gasstation/core/model/BrandFilter;
+	public static final field SKE Lcom/gasstation/core/model/BrandFilter;
+	public static final field SKG Lcom/gasstation/core/model/BrandFilter;
+	public static final field SOL Lcom/gasstation/core/model/BrandFilter;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun matches (Lcom/gasstation/core/model/Brand;)Z
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/BrandFilter;
+	public static fun values ()[Lcom/gasstation/core/model/BrandFilter;
+}
+
+public final class com/gasstation/core/model/Coordinates {
+	public static final field Companion Lcom/gasstation/core/model/Coordinates$Companion;
+	public fun <init> (DD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun copy (DD)Lcom/gasstation/core/model/Coordinates;
+	public static synthetic fun copy$default (Lcom/gasstation/core/model/Coordinates;DDILjava/lang/Object;)Lcom/gasstation/core/model/Coordinates;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLatitude ()D
+	public final fun getLongitude ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/core/model/Coordinates$Companion {
+	public final fun ofOrNull (DD)Lcom/gasstation/core/model/Coordinates;
+}
+
+public final class com/gasstation/core/model/CoordinatesDistanceKt {
+	public static final fun distanceTo (Lcom/gasstation/core/model/Coordinates;Lcom/gasstation/core/model/Coordinates;)I
+}
+
+public final class com/gasstation/core/model/DistanceMeters {
+	public static final synthetic fun box-impl (I)Lcom/gasstation/core/model/DistanceMeters;
+	public static fun constructor-impl (I)I
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class com/gasstation/core/model/FuelType : java/lang/Enum {
+	public static final field DIESEL Lcom/gasstation/core/model/FuelType;
+	public static final field GASOLINE Lcom/gasstation/core/model/FuelType;
+	public static final field KEROSENE Lcom/gasstation/core/model/FuelType;
+	public static final field LPG Lcom/gasstation/core/model/FuelType;
+	public static final field PREMIUM_GASOLINE Lcom/gasstation/core/model/FuelType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/FuelType;
+	public static fun values ()[Lcom/gasstation/core/model/FuelType;
+}
+
+public final class com/gasstation/core/model/MapProvider : java/lang/Enum {
+	public static final field KAKAO_MAP Lcom/gasstation/core/model/MapProvider;
+	public static final field NAVER_MAP Lcom/gasstation/core/model/MapProvider;
+	public static final field TMAP Lcom/gasstation/core/model/MapProvider;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/MapProvider;
+	public static fun values ()[Lcom/gasstation/core/model/MapProvider;
+}
+
+public final class com/gasstation/core/model/MoneyWon {
+	public static final field Companion Lcom/gasstation/core/model/MoneyWon$Companion;
+	public static final synthetic fun box-impl (I)Lcom/gasstation/core/model/MoneyWon;
+	public static fun constructor-impl (I)I
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class com/gasstation/core/model/MoneyWon$Companion {
+	public final fun ofOrNull-9T16dPE (I)Lcom/gasstation/core/model/MoneyWon;
+}
+
+public final class com/gasstation/core/model/SearchRadius : java/lang/Enum {
+	public static final field KM_3 Lcom/gasstation/core/model/SearchRadius;
+	public static final field KM_4 Lcom/gasstation/core/model/SearchRadius;
+	public static final field KM_5 Lcom/gasstation/core/model/SearchRadius;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getMeters ()I
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/SearchRadius;
+	public static fun values ()[Lcom/gasstation/core/model/SearchRadius;
+}
+
+public final class com/gasstation/core/model/SortOrder : java/lang/Enum {
+	public static final field DISTANCE Lcom/gasstation/core/model/SortOrder;
+	public static final field PRICE Lcom/gasstation/core/model/SortOrder;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/gasstation/core/model/SortOrder;
+	public static fun values ()[Lcom/gasstation/core/model/SortOrder;
+}
+

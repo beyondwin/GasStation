@@ -6,7 +6,7 @@ import com.gasstation.core.model.DistanceMeters
 import com.gasstation.core.model.MoneyWon
 import java.time.Instant
 
-data class WatchedStationSummary(
+public data class WatchedStationSummary(
     val id: String,
     val name: String,
     val brand: Brand,

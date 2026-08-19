@@ -106,6 +106,18 @@ RELEASE_JOB_PREREQUISITES = {
 WORKFLOW_JOB_TEMPLATE = (
     r"(?ms)^  {job}:\s*\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)"
 )
+QUALITY_ABI_TASKS = [
+    ":core:model:checkKotlinAbi",
+    ":core:observability:checkKotlinAbi",
+    ":domain:location:checkKotlinAbi",
+    ":domain:settings:checkKotlinAbi",
+    ":domain:station:checkKotlinAbi",
+]
+QUALITY_REPORT_PATHS = [
+    "build/reports/quality/module-boundaries.json",
+    "build/reports/quality/production-dependency-graph.json",
+    "build/reports/quality/public-api-boundaries.json",
+]
 LINT_JOB_CONTRACTS = {
     "static-analysis": {
         "property": "-Pgasstation.lintTestSources=false",
@@ -115,7 +127,10 @@ LINT_JOB_CONTRACTS = {
             ":app:lintDemoDebug",
             ":app:lintProdDebug",
             "lint",
+            *QUALITY_ABI_TASKS,
+            "verifyPublicApiBoundaries",
             "verifyModuleBoundaries",
+            "productionDependencyInventory",
             "verifyNoDeprecatedComposeTestApis",
             "verifyCiRobolectricRuntime",
             "-Pgasstation.lintTestSources=false",
@@ -126,7 +141,10 @@ LINT_JOB_CONTRACTS = {
             "Spotless": "spotlessCheck",
             "demo app lint task": ":app:lintDemoDebug",
             "prod app lint task": ":app:lintProdDebug",
+            "five exact ABI checks": QUALITY_ABI_TASKS[0],
+            "public API boundary guard": "verifyPublicApiBoundaries",
             "module boundary guard": "verifyModuleBoundaries",
+            "resolved production dependency inventory": "productionDependencyInventory",
             "Compose test API guard": "verifyNoDeprecatedComposeTestApis",
             "Robolectric runtime guard": "verifyCiRobolectricRuntime",
         },
@@ -807,6 +825,28 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                 )
             )
         if job_name == "static-analysis":
+            lint_step = max(
+                (
+                    step
+                    for step, (invocations, _) in zip(steps, parsed_runs)
+                    if any(
+                        normalize_gradle_arguments(arguments) == contract["arguments"]
+                        for arguments in invocations
+                    )
+                ),
+                default=None,
+                key=lambda _: 1,
+            )
+            if lint_step is not None:
+                lint_fields = lint_step["fields"]
+                if "if" in lint_fields or "continue-on-error" in lint_fields:
+                    issues.append(
+                        issue(
+                            workflow_path,
+                            job_line,
+                            "static-analysis dependency and ABI gate step must be unconditional and blocking",
+                        )
+                    )
             convention_test_steps = [
                 step
                 for step, _, standalone in convention_test_invocations
@@ -886,6 +926,67 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
                         workflow_path,
                         job_line,
                         f"{job_name} lint artifact upload missing: {name}",
+                    )
+                )
+        if job_name == "static-analysis":
+            quality_artifact = next(
+                (
+                    step
+                    for step in steps
+                    if step["fields"].get("uses", "").startswith("actions/upload-artifact@")
+                    and step["nested"].get("with", {}).get("name")
+                    == "dependency-public-api-reports"
+                ),
+                None,
+            )
+            if quality_artifact is None:
+                issues.append(
+                    issue(workflow_path, job_line, "dependency and public API report upload missing")
+                )
+            else:
+                quality_fields = quality_artifact["fields"]
+                quality_with = quality_artifact["nested"].get("with", {})
+                actual_paths = quality_with.get("path", "").splitlines()
+                if (
+                    quality_fields.get("if") != "always()"
+                    or quality_with.get("if-no-files-found") != "error"
+                    or quality_with.get("retention-days") != "7"
+                    or actual_paths != QUALITY_REPORT_PATHS
+                ):
+                    issues.append(
+                        issue(
+                            workflow_path,
+                            job_line,
+                            "dependency and public API report upload must use exact blocking paths",
+                        )
+                    )
+    return issues
+
+
+def check_forbidden_abi_automation(root: Path, workflow: str) -> list[str]:
+    """Keep reviewed ABI baseline updates and deprecated aliases out of automation."""
+    issues: list[str] = []
+    forbidden = ("updateKotlinAbi", "checkLegacyAbi", "updateLegacyAbi")
+    for step in workflow_steps(workflow):
+        run = str(step["fields"].get("run", ""))
+        for task in forbidden:
+            if task in run:
+                issues.append(
+                    issue(
+                        ".github/workflows/android.yml",
+                        1,
+                        f"forbidden ABI automation task: {task}",
+                    )
+                )
+    for script in sorted((root / "scripts" / "agent").glob("*.sh")):
+        text = script.read_text(errors="replace")
+        for task in forbidden:
+            if task in text:
+                issues.append(
+                    issue(
+                        script.relative_to(root),
+                        1,
+                        f"forbidden ABI automation task: {task}",
                     )
                 )
     return issues
@@ -1105,6 +1206,7 @@ def check_ci_contracts(root: Path) -> list[str]:
     if workflow_path.is_file():
         workflow = workflow_path.read_text(errors="replace")
         issues += check_lint_workflow_contracts(workflow)
+        issues += check_forbidden_abi_automation(root, workflow)
         issues += check_coverage_workflow_contract(workflow)
         release_job = RELEASE_JOB.search(workflow)
         if release_job is None:

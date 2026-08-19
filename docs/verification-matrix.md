@@ -437,13 +437,39 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
-모듈 경계 가드, Compose v1 test API 가드, CI Java/Robolectric 호환성 가드는 빠르고 config-cache-safe하므로 빌드를 깨는 게이트입니다. CI `static-analysis` job에 포함되며 로컬에서도 단독 실행할 수 있습니다.
+직접 모듈/외부 의존성 경계, 다섯 공개 ABI baseline/compiled surface, Compose v1 test API, CI Java/Robolectric 호환성 가드는 CI `static-analysis`의 차단형 게이트입니다. Resolved graph는 명시적으로 실행하고 보관하는 보고 전용 evidence입니다.
 
 ```bash
-# 금지된 production 모듈 의존성 엣지를 검증한다. 의도된 core:location→domain:location 예외는 제외.
-./gradlew verifyModuleBoundaries
+# 다섯 baseline과 compiled public surface, exact direct scope, resolved graph를 검증/기록한다.
+./gradlew \
+  :core:model:checkKotlinAbi \
+  :core:observability:checkKotlinAbi \
+  :domain:location:checkKotlinAbi \
+  :domain:settings:checkKotlinAbi \
+  :domain:station:checkKotlinAbi \
+  verifyPublicApiBoundaries \
+  verifyModuleBoundaries \
+  productionDependencyInventory \
+  --warning-mode fail
+
 ./gradlew verifyNoDeprecatedComposeTestApis
 ./gradlew verifyCiRobolectricRuntime
+```
+
+보고서는 정확히 `build/reports/quality/module-boundaries.json`, `build/reports/quality/production-dependency-graph.json`, `build/reports/quality/public-api-boundaries.json`입니다.
+
+### ABI baseline 운영자 갱신 (검증 명령 아님)
+
+아래 명령은 reviewed source HEAD에서 공개 계약을 의도적으로 바꿀 때 운영자가 한 번 실행해 다섯 diff, UTF-8/LF byte count와 SHA-256을 검토하는 baseline mutation입니다. CI, `check`, agent script나 다른 verification task에 연결하지 않습니다.
+
+```bash
+./gradlew \
+  :core:model:updateKotlinAbi \
+  :core:observability:updateKotlinAbi \
+  :domain:location:updateKotlinAbi \
+  :domain:settings:updateKotlinAbi \
+  :domain:station:updateKotlinAbi \
+  --warning-mode fail
 ```
 
 > `coverageXmlReport`는 JaCoCo 0.8.15로 settings의 18개 명시 모듈 중 reviewed `benchmark` 제외를 적용하고 JVM/Android/app demo·prod 보고서 18개와 provenance manifest를 생성합니다. `verifyCoverageReport`는 authored source, exact production/test Git blob, exact-one class/exec/XML raw identity, Kotlin/Python full structural semantic identity, attributable denominator, 20개 coverage unit floor와 changed 8000/7000bp를 검증하고 항상 다시 실행됩니다. CI는 두 lifecycle을 하나의 차단형 호출로 실행합니다. Kover는 0.9.8의 미해결 Gradle 10 deprecation 때문에 제거했습니다.

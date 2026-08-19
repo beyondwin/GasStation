@@ -1,0 +1,65 @@
+public abstract interface class com/gasstation/domain/settings/SettingsRepository {
+	public abstract fun observeUserPreferences ()Lkotlinx/coroutines/flow/Flow;
+	public abstract fun updateUserPreferences (Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/model/UserPreferences {
+	public static final field Companion Lcom/gasstation/domain/settings/model/UserPreferences$Companion;
+	public fun <init> (Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;Lcom/gasstation/core/model/MapProvider;)V
+	public final fun component1 ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun component2 ()Lcom/gasstation/core/model/FuelType;
+	public final fun component3 ()Lcom/gasstation/core/model/BrandFilter;
+	public final fun component4 ()Lcom/gasstation/core/model/SortOrder;
+	public final fun component5 ()Lcom/gasstation/core/model/MapProvider;
+	public final fun copy (Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;Lcom/gasstation/core/model/MapProvider;)Lcom/gasstation/domain/settings/model/UserPreferences;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/settings/model/UserPreferences;Lcom/gasstation/core/model/SearchRadius;Lcom/gasstation/core/model/FuelType;Lcom/gasstation/core/model/BrandFilter;Lcom/gasstation/core/model/SortOrder;Lcom/gasstation/core/model/MapProvider;ILjava/lang/Object;)Lcom/gasstation/domain/settings/model/UserPreferences;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBrandFilter ()Lcom/gasstation/core/model/BrandFilter;
+	public final fun getFuelType ()Lcom/gasstation/core/model/FuelType;
+	public final fun getMapProvider ()Lcom/gasstation/core/model/MapProvider;
+	public final fun getSearchRadius ()Lcom/gasstation/core/model/SearchRadius;
+	public final fun getSortOrder ()Lcom/gasstation/core/model/SortOrder;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/settings/model/UserPreferences$Companion {
+	public final fun default ()Lcom/gasstation/domain/settings/model/UserPreferences;
+}
+
+public final class com/gasstation/domain/settings/usecase/ObserveUserPreferencesUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public fun <init> (Lkotlin/jvm/functions/Function0;)V
+	public final fun invoke ()Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class com/gasstation/domain/settings/usecase/TogglePreferredSortOrderUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/usecase/UpdateBrandFilterUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/BrandFilter;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/usecase/UpdateFuelTypeUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/FuelType;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/usecase/UpdateMapProviderUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/MapProvider;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/usecase/UpdatePreferredSortOrderUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/SortOrder;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/settings/usecase/UpdateSearchRadiusUseCase {
+	public fun <init> (Lcom/gasstation/domain/settings/SettingsRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/SearchRadius;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

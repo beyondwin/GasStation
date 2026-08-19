@@ -144,7 +144,14 @@ jobs:
             :app:lintDemoDebug \
             :app:lintProdDebug \
             lint \
+            :core:model:checkKotlinAbi \
+            :core:observability:checkKotlinAbi \
+            :domain:location:checkKotlinAbi \
+            :domain:settings:checkKotlinAbi \
+            :domain:station:checkKotlinAbi \
+            verifyPublicApiBoundaries \
             verifyModuleBoundaries \
+            productionDependencyInventory \
             verifyNoDeprecatedComposeTestApis \
             verifyCiRobolectricRuntime \
             -Pgasstation.lintTestSources=false \
@@ -158,6 +165,17 @@ jobs:
         with:
           name: lint-production-reports
           path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload dependency and public API reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-public-api-reports
+          path: |
+            build/reports/quality/module-boundaries.json
+            build/reports/quality/production-dependency-graph.json
+            build/reports/quality/public-api-boundaries.json
           if-no-files-found: error
           retention-days: 7
   lint-tests:
@@ -429,6 +447,62 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(workflow.read_text().replace("            :domain:station:checkKotlinAbi \\\n", "", 1))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/abi-check-missing.out" 2>&1; then
+  fail "CI accepted an omitted ABI module check"
+fi
+assert_contains "$(cat "$fixture/abi-check-missing.out")" "static-analysis command arguments must exactly match the lint contract"
+assert_error_locations "$(cat "$fixture/abi-check-missing.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "build/reports/quality/public-api-boundaries.json",
+        "build/reports/quality/*.json",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/quality-artifact-broad.out" 2>&1; then
+  fail "CI accepted a broad dependency/API report artifact path"
+fi
+assert_contains "$(cat "$fixture/quality-artifact-broad.out")" "dependency and public API report upload must use exact blocking paths"
+assert_error_locations "$(cat "$fixture/quality-artifact-broad.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+workflow = Path(sys.argv[1])
+workflow.write_text(
+    workflow.read_text().replace(
+        "      - name: Convention plugin tests\n",
+        "      - name: Forbidden ABI update\n"
+        "        run: ./gradlew :core:model:updateKotlinAbi\n"
+        "      - name: Convention plugin tests\n",
+        1,
+    )
+)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/abi-update-automation.out" 2>&1; then
+  fail "CI accepted automated ABI baseline mutation"
+fi
+assert_contains "$(cat "$fixture/abi-update-automation.out")" "forbidden ABI automation task: updateKotlinAbi"
+assert_error_locations "$(cat "$fixture/abi-update-automation.out")"
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
 from pathlib import Path

@@ -1,6 +1,8 @@
 package com.gasstation.buildlogic.quality
 
+import com.gasstation.buildlogic.contractApiModules
 import com.gasstation.buildlogic.quality.coverage.configureCoverage
+import com.gasstation.buildlogic.requireContractApiModules
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -8,7 +10,10 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.ConfigurableFileTree
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.HasConfigurableValue
+import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.getByType
 
 class GasStationRootQualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -17,6 +22,13 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
         }
 
         configureCoverage(target)
+        val productionDependencies = registerProductionDependencies(target)
+        val contractModules =
+            if (contractApiModules.all { it.projectPath in productionDependencies.activeModules }) {
+                requireContractApiModules(productionDependencies.activeModules)
+            } else {
+                emptyList()
+            }
 
         val inspectedModulePaths = target.subprojects.map(Project::getPath).sorted()
         val capturedModuleEdges = target.objects.setProperty(String::class.java)
@@ -43,11 +55,92 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                 forbiddenEdges.set(FORBIDDEN_MODULE_EDGES.sorted())
                 moduleEdges.set(capturedModuleEdges.map { edges -> edges.sorted() })
                 modulePaths.set(inspectedModulePaths)
+                activeModulePaths.set(productionDependencies.activeModules)
+                productionComponents.set(productionDependencies.components.map { it.sorted() })
+                productionDeclarationEvidence.set(productionDependencies.declarations.map { it.sorted() })
+                testedTargetEvidence.set(productionDependencies.testedTargetEvidence.map { it.sorted() })
+                productionPolicyFile.set(
+                    target.layout.projectDirectory.file("config/quality/production-dependency-policy.txt"),
+                )
+                reportFile.set(
+                    target.layout.buildDirectory.file("reports/quality/module-boundaries.json"),
+                )
                 forbiddenEdges.lock()
                 moduleEdges.lock()
                 modulePaths.lock()
+                activeModulePaths.lock()
+                productionComponents.lock()
+                productionDeclarationEvidence.lock()
+                testedTargetEvidence.lock()
+                productionPolicyFile.lock()
+                reportFile.lock()
             },
         )
+
+        target.tasks.register(
+            "productionDependencyInventory",
+            ProductionDependencyInventoryTask::class.java,
+            Action<ProductionDependencyInventoryTask> {
+                group = "verification"
+                description = "Writes resolved production compile/runtime dependency graph evidence."
+                graphShards.from(productionDependencies.graphShards)
+                reportFile.set(
+                    target.layout.buildDirectory.file(
+                        "reports/quality/production-dependency-graph.json",
+                    ),
+                )
+                reportFile.lock()
+            },
+        )
+
+        if (contractModules.isNotEmpty()) {
+            val publicApiBoundaries =
+                target.tasks.register(
+                    "verifyPublicApiBoundaries",
+                    VerifyPublicApiBoundariesTask::class.java,
+                    Action<VerifyPublicApiBoundariesTask> {
+                        group = "verification"
+                        description =
+                            "Verifies all five checked-in ABI directories and scans their compiled public JVM surface for platform and implementation SDK types."
+                        moduleMappings.set(
+                            contractModules.map { module ->
+                                "${module.projectPath}|${module.dumpPath}|${module.packageRoot}"
+                            },
+                        )
+                        forbiddenFamilies.set(FORBIDDEN_PUBLIC_API_FAMILIES)
+                        scannerSchema.set("kotlin-abi-2.4.10+asm-9.9.1")
+                        contractModules.forEach { module ->
+                            dumpFiles.from(
+                                target.fileTree(target.layout.projectDirectory.dir(module.dumpPath.substringBeforeLast('/'))) {
+                                    include("**/*.api")
+                                },
+                            )
+                        }
+                        reportFile.set(
+                            target.layout.buildDirectory.file("reports/quality/public-api-boundaries.json"),
+                        )
+                        moduleMappings.lock()
+                        forbiddenFamilies.lock()
+                        scannerSchema.lock()
+                        dumpFiles.lock()
+                        reportFile.lock()
+                    },
+                )
+            contractModules.forEach { contractModule ->
+                val module = target.project(contractModule.projectPath)
+                module.pluginManager.withPlugin("gasstation.jvm.library") {
+                    val main =
+                        module.extensions
+                            .getByType<JavaPluginExtension>()
+                            .sourceSets
+                            .named(SourceSet.MAIN_SOURCE_SET_NAME)
+                    publicApiBoundaries.configure {
+                        dependsOn(module.tasks.named("checkKotlinAbi"))
+                        classDirectories.from(main.map { it.output.classesDirs })
+                    }
+                }
+            }
+        }
 
         target.tasks.register(
             "verifyNoDeprecatedComposeTestApis",
@@ -136,4 +229,14 @@ private val FORBIDDEN_COMPOSE_IMPORTS =
         "import androidx.compose.ui.test.runAndroidComposeUiTest",
         "import androidx.compose.ui.test.runComposeUiTest",
         "import androidx.compose.ui.test.runEmptyComposeUiTest",
+    )
+
+private val FORBIDDEN_PUBLIC_API_FAMILIES =
+    listOf(
+        "android.",
+        "androidx.",
+        "com.google.android.gms.",
+        "retrofit2.",
+        "okhttp3.",
+        "com.google.gson.",
     )

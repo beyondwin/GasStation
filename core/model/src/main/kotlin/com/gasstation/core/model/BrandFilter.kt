@@ -1,6 +1,6 @@
 package com.gasstation.core.model
 
-enum class BrandFilter(private val matchedBrands: Set<Brand>) {
+public enum class BrandFilter(private val matchedBrands: Set<Brand>) {
     ALL(emptySet()),
     SKE(setOf(Brand.SKE)),
     GSC(setOf(Brand.GSC)),
@@ -12,5 +12,5 @@ enum class BrandFilter(private val matchedBrands: Set<Brand>) {
     ETC(setOf(Brand.ETC)),
     ;
 
-    fun matches(stationBrand: Brand): Boolean = this == ALL || stationBrand in matchedBrands
+    public fun matches(stationBrand: Brand): Boolean = this == ALL || stationBrand in matchedBrands
 }

@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.findLibrary("spotless-gradlePlugin").get())
     implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
     implementation("org.jacoco:org.jacoco.core:0.8.15")
+    implementation(libs.findLibrary("asm").get())
     testImplementation(gradleTestKit())
     testImplementation(libs.findLibrary("junit").get())
 }

@@ -2,14 +2,14 @@ package com.gasstation.domain.location
 
 import com.gasstation.core.model.Coordinates
 
-sealed interface LocationLookupResult {
-    data class Success(val coordinates: Coordinates) : LocationLookupResult
+public sealed interface LocationLookupResult {
+    public data class Success(val coordinates: Coordinates) : LocationLookupResult
 
-    data object PermissionDenied : LocationLookupResult
+    public data object PermissionDenied : LocationLookupResult
 
-    data object Unavailable : LocationLookupResult
+    public data object Unavailable : LocationLookupResult
 
-    data object TimedOut : LocationLookupResult
+    public data object TimedOut : LocationLookupResult
 
-    data class Error(val throwable: Throwable) : LocationLookupResult
+    public data class Error(val throwable: Throwable) : LocationLookupResult
 }

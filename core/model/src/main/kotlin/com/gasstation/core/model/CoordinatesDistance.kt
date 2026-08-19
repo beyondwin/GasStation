@@ -8,7 +8,7 @@ import kotlin.math.sqrt
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 
-fun Coordinates.distanceTo(destination: Coordinates): DistanceMeters {
+public fun Coordinates.distanceTo(destination: Coordinates): DistanceMeters {
     val latitudeDelta = Math.toRadians(destination.latitude - latitude)
     val longitudeDelta = Math.toRadians(destination.longitude - longitude)
     val originLatitudeRadians = Math.toRadians(latitude)

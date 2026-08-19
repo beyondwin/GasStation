@@ -1,7 +1,7 @@
 package com.gasstation.domain.station.model
 
-sealed interface StationFreshness {
-    data object Fresh : StationFreshness
+public sealed interface StationFreshness {
+    public data object Fresh : StationFreshness
 
-    data object Stale : StationFreshness
+    public data object Stale : StationFreshness
 }

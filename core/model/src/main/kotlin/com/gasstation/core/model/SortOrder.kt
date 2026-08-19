@@ -1,6 +1,6 @@
 package com.gasstation.core.model
 
-enum class SortOrder {
+public enum class SortOrder {
     DISTANCE,
     PRICE,
 }

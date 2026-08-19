@@ -1,13 +1,13 @@
 package com.gasstation.domain.station
 
-sealed interface StationRefreshFailureReason {
-    data object Timeout : StationRefreshFailureReason
+public sealed interface StationRefreshFailureReason {
+    public data object Timeout : StationRefreshFailureReason
 
-    data object Network : StationRefreshFailureReason
+    public data object Network : StationRefreshFailureReason
 
-    data object InvalidPayload : StationRefreshFailureReason
+    public data object InvalidPayload : StationRefreshFailureReason
 
-    data class Http(val statusCode: Int) : StationRefreshFailureReason
+    public data class Http(val statusCode: Int) : StationRefreshFailureReason
 
-    data object Unknown : StationRefreshFailureReason
+    public data object Unknown : StationRefreshFailureReason
 }

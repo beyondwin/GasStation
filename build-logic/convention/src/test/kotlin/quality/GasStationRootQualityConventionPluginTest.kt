@@ -12,6 +12,7 @@ import com.gasstation.buildlogic.testing.writeRootQualityFixture
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -362,15 +363,15 @@ class GasStationRootQualityConventionPluginTest {
         val project = newProject("cache-success")
             .writeRootQualityFixture(
                 RootQualityFixture(
-                    modules = listOf(":core:location", ":domain:location"),
-                    projectDependencies =
+                    modules =
                         listOf(
-                            RootQualityProjectDependency(
-                                ":core:location",
-                                RootQualityDependencyBucket.API,
-                                ":domain:location",
-                            ),
+                            ":core:model",
+                            ":core:observability",
+                            ":domain:location",
+                            ":domain:settings",
+                            ":domain:station",
                         ),
+                    contractApiFixture = true,
                 ),
             )
         val arguments =
@@ -378,18 +379,25 @@ class GasStationRootQualityConventionPluginTest {
                 "verifyModuleBoundaries",
                 "verifyNoDeprecatedComposeTestApis",
                 "verifyCiRobolectricRuntime",
+                "verifyPublicApiBoundaries",
                 "--rerun-tasks",
             )
 
         val first = project.configurationCacheRunner(*arguments).build()
         assertThreeSuccessOutcomes(first)
+        assertContractApiOutcomes(first)
         first.assertConfigurationCacheStored()
-        assertSuccessSentinels(first, expectedModuleCount = 4)
+        assertSuccessSentinels(first, expectedModuleCount = 7)
+        val report = project.projectDir.resolve("build/reports/quality/public-api-boundaries.json")
+        val firstReport = report.readBytes()
+        assertTrue(firstReport.toString(Charsets.UTF_8).contains("\"selectedClassCount\":5"))
 
         val second = project.configurationCacheRunner(*arguments).build()
         assertThreeSuccessOutcomes(second)
+        assertContractApiOutcomes(second)
         second.assertConfigurationCacheReused()
-        assertSuccessSentinels(second, expectedModuleCount = 4)
+        assertSuccessSentinels(second, expectedModuleCount = 7)
+        assertArrayEquals(firstReport, report.readBytes())
     }
 
     @Test
@@ -488,6 +496,20 @@ class GasStationRootQualityConventionPluginTest {
         result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":verifyNoDeprecatedComposeTestApis", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.SUCCESS)
+    }
+
+    private fun assertContractApiOutcomes(result: BuildResult) {
+        listOf(
+            ":core:model",
+            ":core:observability",
+            ":domain:location",
+            ":domain:settings",
+            ":domain:station",
+        ).forEach { module ->
+            result.assertTaskOutcome("$module:checkKotlinAbi", TaskOutcome.SUCCESS)
+        }
+        result.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.SUCCESS)
+        assertFalse(result.tasks.any { it.path.endsWith(":updateKotlinAbi") })
     }
 
     private fun assertSuccessSentinels(result: BuildResult, expectedModuleCount: Int) {

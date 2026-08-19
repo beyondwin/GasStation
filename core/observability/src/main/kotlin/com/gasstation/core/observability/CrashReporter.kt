@@ -2,12 +2,12 @@ package com.gasstation.core.observability
 
 import java.util.concurrent.CancellationException
 
-interface CrashReporter {
-    fun recordNonFatal(throwable: Throwable, metadata: Map<String, String> = emptyMap())
-    fun log(message: String)
+public interface CrashReporter {
+    public fun recordNonFatal(throwable: Throwable, metadata: Map<String, String> = emptyMap())
+    public fun log(message: String)
 }
 
-fun CrashReporter.recordNonFatalSafely(throwable: Throwable, metadata: Map<String, String> = emptyMap()) {
+public fun CrashReporter.recordNonFatalSafely(throwable: Throwable, metadata: Map<String, String> = emptyMap()) {
     try {
         recordNonFatal(throwable, metadata)
     } catch (cancellation: CancellationException) {

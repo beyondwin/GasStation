@@ -1,0 +1,128 @@
+public final class com/gasstation/domain/location/AddressLabelNormalizerKt {
+	public static final fun administrativeDongLabelOrNull (Ljava/lang/String;)Ljava/lang/String;
+	public static final fun normalizeCurrentAddressLabel (Ljava/lang/String;)Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/GetCurrentAddressUseCase {
+	public fun <init> (Lcom/gasstation/domain/location/LocationRepository;)V
+	public final fun invoke (Lcom/gasstation/core/model/Coordinates;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/gasstation/domain/location/GetCurrentLocationUseCase {
+	public fun <init> (Lcom/gasstation/domain/location/LocationRepository;)V
+	public final fun invoke (Lcom/gasstation/domain/location/LocationPermissionState;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public abstract interface class com/gasstation/domain/location/LocationAddressLookupResult {
+}
+
+public final class com/gasstation/domain/location/LocationAddressLookupResult$Error : com/gasstation/domain/location/LocationAddressLookupResult {
+	public fun <init> (Ljava/lang/Throwable;)V
+	public final fun component1 ()Ljava/lang/Throwable;
+	public final fun copy (Ljava/lang/Throwable;)Lcom/gasstation/domain/location/LocationAddressLookupResult$Error;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/location/LocationAddressLookupResult$Error;Ljava/lang/Throwable;ILjava/lang/Object;)Lcom/gasstation/domain/location/LocationAddressLookupResult$Error;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getThrowable ()Ljava/lang/Throwable;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationAddressLookupResult$Success : com/gasstation/domain/location/LocationAddressLookupResult {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lcom/gasstation/domain/location/LocationAddressLookupResult$Success;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/location/LocationAddressLookupResult$Success;Ljava/lang/String;ILjava/lang/Object;)Lcom/gasstation/domain/location/LocationAddressLookupResult$Success;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAddressLabel ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationAddressLookupResult$Unavailable : com/gasstation/domain/location/LocationAddressLookupResult {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationAddressLookupResult$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/location/LocationLookupResult {
+}
+
+public final class com/gasstation/domain/location/LocationLookupResult$Error : com/gasstation/domain/location/LocationLookupResult {
+	public fun <init> (Ljava/lang/Throwable;)V
+	public final fun component1 ()Ljava/lang/Throwable;
+	public final fun copy (Ljava/lang/Throwable;)Lcom/gasstation/domain/location/LocationLookupResult$Error;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/location/LocationLookupResult$Error;Ljava/lang/Throwable;ILjava/lang/Object;)Lcom/gasstation/domain/location/LocationLookupResult$Error;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getThrowable ()Ljava/lang/Throwable;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationLookupResult$PermissionDenied : com/gasstation/domain/location/LocationLookupResult {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationLookupResult$PermissionDenied;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationLookupResult$Success : com/gasstation/domain/location/LocationLookupResult {
+	public fun <init> (Lcom/gasstation/core/model/Coordinates;)V
+	public final fun component1 ()Lcom/gasstation/core/model/Coordinates;
+	public final fun copy (Lcom/gasstation/core/model/Coordinates;)Lcom/gasstation/domain/location/LocationLookupResult$Success;
+	public static synthetic fun copy$default (Lcom/gasstation/domain/location/LocationLookupResult$Success;Lcom/gasstation/core/model/Coordinates;ILjava/lang/Object;)Lcom/gasstation/domain/location/LocationLookupResult$Success;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCoordinates ()Lcom/gasstation/core/model/Coordinates;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationLookupResult$TimedOut : com/gasstation/domain/location/LocationLookupResult {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationLookupResult$TimedOut;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationLookupResult$Unavailable : com/gasstation/domain/location/LocationLookupResult {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationLookupResult$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/location/LocationPermissionState {
+}
+
+public final class com/gasstation/domain/location/LocationPermissionState$ApproximateGranted : com/gasstation/domain/location/LocationPermissionState {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationPermissionState$ApproximateGranted;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationPermissionState$Denied : com/gasstation/domain/location/LocationPermissionState {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationPermissionState$Denied;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/gasstation/domain/location/LocationPermissionState$PreciseGranted : com/gasstation/domain/location/LocationPermissionState {
+	public static final field INSTANCE Lcom/gasstation/domain/location/LocationPermissionState$PreciseGranted;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/gasstation/domain/location/LocationRepository {
+	public abstract fun getCurrentAddress (Lcom/gasstation/core/model/Coordinates;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun getCurrentLocation (Lcom/gasstation/domain/location/LocationPermissionState;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun observeAvailability ()Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class com/gasstation/domain/location/ObserveLocationAvailabilityUseCase {
+	public fun <init> (Lcom/gasstation/domain/location/LocationRepository;)V
+	public final fun invoke ()Lkotlinx/coroutines/flow/Flow;
+}
+

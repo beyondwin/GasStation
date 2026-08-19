@@ -37,6 +37,7 @@ robolectric = "4.16.1"
 spotless = "8.8.0"
 ktlint = "1.8.0"
 javaxInject = "1"
+asm = "9.9.1"
 pitestEngine = "1.25.7"
 
 [libraries]
@@ -102,6 +103,7 @@ roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose"
 roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
 roborazzi-gradlePlugin = { module = "io.github.takahirom.roborazzi:roborazzi-gradle-plugin", version.ref = "roborazzi" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

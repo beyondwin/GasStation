@@ -55,7 +55,14 @@ jobs:
             :app:lintDemoDebug \
             :app:lintProdDebug \
             lint \
+            :core:model:checkKotlinAbi \
+            :core:observability:checkKotlinAbi \
+            :domain:location:checkKotlinAbi \
+            :domain:settings:checkKotlinAbi \
+            :domain:station:checkKotlinAbi \
+            verifyPublicApiBoundaries \
             verifyModuleBoundaries \
+            productionDependencyInventory \
             verifyNoDeprecatedComposeTestApis \
             verifyCiRobolectricRuntime \
             -Pgasstation.lintTestSources=false \
@@ -69,6 +76,17 @@ jobs:
         with:
           name: lint-production-reports
           path: "**/build/reports/lint-results-*"
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload dependency and public API reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-public-api-reports
+          path: |
+            build/reports/quality/module-boundaries.json
+            build/reports/quality/production-dependency-graph.json
+            build/reports/quality/public-api-boundaries.json
           if-no-files-found: error
           retention-days: 7
 

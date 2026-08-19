@@ -6,15 +6,15 @@ import com.gasstation.core.model.MapProvider
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 
-data class UserPreferences(
+public data class UserPreferences(
     val searchRadius: SearchRadius,
     val fuelType: FuelType,
     val brandFilter: BrandFilter,
     val sortOrder: SortOrder,
     val mapProvider: MapProvider,
 ) {
-    companion object {
-        fun default(): UserPreferences = UserPreferences(
+    public companion object {
+        public fun default(): UserPreferences = UserPreferences(
             searchRadius = SearchRadius.KM_3,
             fuelType = FuelType.GASOLINE,
             brandFilter = BrandFilter.ALL,

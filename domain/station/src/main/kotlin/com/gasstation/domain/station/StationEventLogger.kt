@@ -3,11 +3,11 @@ package com.gasstation.domain.station
 import com.gasstation.domain.station.model.StationEvent
 import kotlinx.coroutines.CancellationException
 
-interface StationEventLogger {
-    fun log(event: StationEvent)
+public interface StationEventLogger {
+    public fun log(event: StationEvent)
 }
 
-fun StationEventLogger.logSafely(event: StationEvent) {
+public fun StationEventLogger.logSafely(event: StationEvent) {
     try {
         log(event)
     } catch (cancel: CancellationException) {

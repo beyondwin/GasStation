@@ -1,3 +1,4 @@
+import com.gasstation.buildlogic.configureGasStationContractApiConvention
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -15,6 +16,7 @@ class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
         pluginManager.apply("java-library")
         pluginManager.apply("org.jetbrains.kotlin.jvm")
         configureGasStationKotlinAndTestConventions()
+        configureGasStationContractApiConvention()
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
