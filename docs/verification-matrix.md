@@ -437,6 +437,19 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
+## Production dependency and public ABI verification
+
+```text
+:core:model:checkKotlinAbi
+:core:observability:checkKotlinAbi
+:domain:location:checkKotlinAbi
+:domain:settings:checkKotlinAbi
+:domain:station:checkKotlinAbi
+verifyPublicApiBoundaries
+verifyModuleBoundaries
+productionDependencyInventory
+```
+
 직접 모듈/외부 의존성 경계, 다섯 공개 ABI baseline/compiled surface, Compose v1 test API, CI Java/Robolectric 호환성 가드는 CI `static-analysis`의 차단형 게이트입니다. Resolved graph는 명시적으로 실행하고 보관하는 보고 전용 evidence입니다.
 
 ```bash
@@ -456,7 +469,23 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew verifyCiRobolectricRuntime
 ```
 
-보고서는 정확히 `build/reports/quality/module-boundaries.json`, `build/reports/quality/production-dependency-graph.json`, `build/reports/quality/public-api-boundaries.json`입니다.
+## Quality report upload paths
+
+```text
+build/reports/quality/module-boundaries.json
+build/reports/quality/production-dependency-graph.json
+build/reports/quality/public-api-boundaries.json
+```
+
+## ABI baseline operator mutation, not verification
+
+```text
+:core:model:updateKotlinAbi
+:core:observability:updateKotlinAbi
+:domain:location:updateKotlinAbi
+:domain:settings:updateKotlinAbi
+:domain:station:updateKotlinAbi
+```
 
 ### ABI baseline 운영자 갱신 (검증 명령 아님)
 

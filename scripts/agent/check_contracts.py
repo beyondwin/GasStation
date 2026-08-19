@@ -135,6 +135,14 @@ FORBIDDEN_PUBLIC_API_FAMILIES = [
     "okhttp3.*",
     "com.google.gson.*",
 ]
+ABI_MAPPING_BLOCK = [f"{module}|{dump}" for module, dump in ABI_DUMP_MAPPINGS]
+QUALITY_VERIFICATION_BLOCK = [
+    *QUALITY_ABI_TASKS,
+    "verifyPublicApiBoundaries",
+    "verifyModuleBoundaries",
+    "productionDependencyInventory",
+]
+ABI_UPDATE_OPERATOR_BLOCK = [task.replace("checkKotlinAbi", "updateKotlinAbi") for task in QUALITY_ABI_TASKS]
 LINT_JOB_CONTRACTS = {
     "static-analysis": {
         "property": "-Pgasstation.lintTestSources=false",
@@ -567,6 +575,21 @@ def workflow_job_fields(body: str) -> dict[str, str]:
     }
 
 
+def workflow_job_raw_fields(body: str) -> dict[str, str]:
+    """Retain scalar spelling where a contract permits one literal form only."""
+    fields: dict[str, str] = {}
+    for line in body.splitlines():
+        if len(line) - len(line.lstrip(" ")) != 4:
+            continue
+        content = line[4:]
+        if not content or content.startswith("#") or ":" not in content:
+            continue
+        key, value = content.split(":", 1)
+        if re.fullmatch(r"[A-Za-z0-9_-]+", key):
+            fields[key] = value.strip()
+    return fields
+
+
 def workflow_job_environment(body: str) -> dict[str, str]:
     lines = body.splitlines()
     for index, line in enumerate(lines):
@@ -767,11 +790,19 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
         body = match.group("body")
         job_line = source_line(workflow, match.start())
         job_fields = workflow_job_fields(body)
+        job_raw_fields = workflow_job_raw_fields(body)
         if job_fields.get("timeout-minutes") != "30":
             issues.append(
                 issue(workflow_path, job_line, f"{job_name} timeout must be 30 minutes")
             )
-        if job_fields.get("continue-on-error") == "true":
+        if "if" in job_fields:
+            issues.append(
+                issue(workflow_path, job_line, f"{job_name} job must not declare if")
+            )
+        if (
+            "continue-on-error" in job_fields
+            and job_raw_fields.get("continue-on-error") != "false"
+        ):
             issues.append(issue(workflow_path, job_line, f"{job_name} must be blocking"))
 
         steps = workflow_steps(body)
@@ -1043,15 +1074,15 @@ def check_dependency_and_abi_repository_contracts(root: Path) -> list[str]:
             )
     module_doc_path = root / "docs" / "module-contracts.md"
     module_doc = module_doc_path.read_text(errors="replace") if module_doc_path.is_file() else ""
-    for module, dump in ABI_DUMP_MAPPINGS:
-        if module not in module_doc or dump not in module_doc:
-            issues.append(
-                issue(
-                    "docs/module-contracts.md",
-                    1,
-                    f"exact ABI mapping missing: {module} -> {dump}",
-                )
+    mapping_block = markdown_fenced_block(module_doc, "Exact public ABI mappings")
+    if mapping_block != ABI_MAPPING_BLOCK:
+        issues.append(
+            issue(
+                "docs/module-contracts.md",
+                1,
+                "docs must contain the exact ordered ABI mapping block",
             )
+        )
     for family in FORBIDDEN_PUBLIC_API_FAMILIES:
         if family not in module_doc:
             issues.append(
@@ -1063,16 +1094,57 @@ def check_dependency_and_abi_repository_contracts(root: Path) -> list[str]:
             )
     verification_path = root / "docs" / "verification-matrix.md"
     verification = verification_path.read_text(errors="replace") if verification_path.is_file() else ""
-    for report in QUALITY_REPORT_PATHS:
-        if report not in verification:
-            issues.append(
-                issue(
-                    "docs/verification-matrix.md",
-                    1,
-                    f"quality report path missing: {report}",
-                )
+    verification_block = markdown_fenced_block(
+        verification,
+        "Production dependency and public ABI verification",
+    )
+    if verification_block != QUALITY_VERIFICATION_BLOCK:
+        issues.append(
+            issue(
+                "docs/verification-matrix.md",
+                1,
+                "docs must contain the exact ordered verification block",
             )
+        )
+    report_block = markdown_fenced_block(verification, "Quality report upload paths")
+    if report_block != QUALITY_REPORT_PATHS:
+        issues.append(
+            issue(
+                "docs/verification-matrix.md",
+                1,
+                "docs must contain the exact ordered quality report block",
+            )
+        )
+    operator_block = markdown_fenced_block(
+        verification,
+        "ABI baseline operator mutation, not verification",
+    )
+    if operator_block != ABI_UPDATE_OPERATOR_BLOCK:
+        issues.append(
+            issue(
+                "docs/verification-matrix.md",
+                1,
+                "docs must contain the exact ordered ABI operator block",
+            )
+        )
     return issues
+
+
+def markdown_fenced_block(document: str, heading: str) -> list[str] | None:
+    """Return the one exact text fence owned by a level-two heading."""
+    match = re.search(
+        rf"(?ms)^## {re.escape(heading)}\s*$\n\s*```text\s*$\n(?P<body>.*?)^```\s*$",
+        document,
+    )
+    if match is None:
+        return None
+    body = match.group("body")
+    if not body.endswith("\n") or "\r" in body:
+        return None
+    lines = body[:-1].split("\n")
+    if not lines or any(not line or line != line.strip() for line in lines):
+        return None
+    return lines
 
 
 def check_coverage_workflow_contract(workflow: str) -> list[str]:

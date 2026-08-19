@@ -12,8 +12,17 @@
 - 위 경계는 `gasstation.root.quality`가 등록하는 `verifyModuleBoundaries`(CI `static-analysis` 포함)로 강제합니다.
   `settings.gradle.kts`가 소유하는 정확한 18개 활성 모듈의 JVM `main` 및 Android production variant compile/runtime hierarchy를 public Gradle/AGP model로 수집합니다. 직접 project/external dependency는 선언 configuration과 component membership까지 `config/quality/production-dependency-policy.txt`의 exact scope row와 대조하며 wildcard는 허용하지 않습니다. `benchmark → app`은 self-instrumenting tested-target 관계로 별도 관리합니다.
   `productionDependencyInventory`의 전이 resolved graph는 보고 전용 evidence이며 direct architecture allowlist로 승격하지 않습니다. 의도된 project 예외는 exact allowlist의 `core:location → domain:location` 한 행뿐입니다.
-- 공개 ABI owner는 정확히 `core:model`, `core:observability`, `domain:location`, `domain:settings`, `domain:station`입니다. 각 모듈의 전체 `api/*.api` baseline과 compiled JVM surface를 `verifyPublicApiBoundaries`가 대조하고 `android.*`, `androidx.*`, `com.google.android.gms.*`, `retrofit2.*`, `okhttp3.*`, `com.google.gson.*` 타입의 공개 계약 누수를 차단합니다.
-  고정 mapping은 `:core:model` → `core/model/api/model.api`, `:core:observability` → `core/observability/api/observability.api`, `:domain:location` → `domain/location/api/location.api`, `:domain:settings` → `domain/settings/api/settings.api`, `:domain:station` → `domain/station/api/station.api` 순서입니다. 새 `domain:*` module은 mapping/dump/policy를 함께 추가하지 않으면 strict topology 검증에 실패합니다.
+- 공개 ABI owner는 정확히 `core:model`, `core:observability`, `domain:location`, `domain:settings`, `domain:station`입니다. 각 모듈의 전체 `api/*.api` baseline과 compiled JVM surface를 `verifyPublicApiBoundaries`가 대조하고 `android.*`, `androidx.*`, `com.google.android.gms.*`, `retrofit2.*`, `okhttp3.*`, `com.google.gson.*` 타입의 공개 계약 누수를 차단합니다. 새 `domain:*` module은 mapping/dump/policy를 함께 추가하지 않으면 strict topology 검증에 실패합니다.
+
+## Exact public ABI mappings
+
+```text
+:core:model|core/model/api/model.api
+:core:observability|core/observability/api/observability.api
+:domain:location|domain/location/api/location.api
+:domain:settings|domain/settings/api/settings.api
+:domain:station|domain/station/api/station.api
+```
 
 ## 모듈 인벤토리
 

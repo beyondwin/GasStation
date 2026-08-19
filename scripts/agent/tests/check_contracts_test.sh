@@ -74,17 +74,49 @@ cat > "$fixture/repo/docs/module-contracts.md" <<'EOF'
 # Module contracts
 
 The active module is `app`.
-:core:model core/model/api/model.api
-:core:observability core/observability/api/observability.api
-:domain:location domain/location/api/location.api
-:domain:settings domain/settings/api/settings.api
-:domain:station domain/station/api/station.api
+## Exact public ABI mappings
+
+```text
+:core:model|core/model/api/model.api
+:core:observability|core/observability/api/observability.api
+:domain:location|domain/location/api/location.api
+:domain:settings|domain/settings/api/settings.api
+:domain:station|domain/station/api/station.api
+```
+
 android.* androidx.* com.google.android.gms.* retrofit2.* okhttp3.* com.google.gson.*
 EOF
 cat >> "$fixture/repo/docs/verification-matrix.md" <<'EOF'
+## Production dependency and public ABI verification
+
+```text
+:core:model:checkKotlinAbi
+:core:observability:checkKotlinAbi
+:domain:location:checkKotlinAbi
+:domain:settings:checkKotlinAbi
+:domain:station:checkKotlinAbi
+verifyPublicApiBoundaries
+verifyModuleBoundaries
+productionDependencyInventory
+```
+
+## Quality report upload paths
+
+```text
 build/reports/quality/module-boundaries.json
 build/reports/quality/production-dependency-graph.json
 build/reports/quality/public-api-boundaries.json
+```
+
+## ABI baseline operator mutation, not verification
+
+```text
+:core:model:updateKotlinAbi
+:core:observability:updateKotlinAbi
+:domain:location:updateKotlinAbi
+:domain:settings:updateKotlinAbi
+:domain:station:updateKotlinAbi
+```
 EOF
 cat > "$fixture/repo/config/quality/production-dependency-policy.txt" <<'EOF'
 schema-version=1
@@ -468,6 +500,148 @@ assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scr
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+
+python3 - "$fixture/repo/docs/module-contracts.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+text = text.replace(
+    ":core:model|core/model/api/model.api\n:core:observability|core/observability/api/observability.api",
+    ":core:model|core/observability/api/observability.api\n:core:observability|core/model/api/model.api",
+)
+path.write_text(text)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/abi-mapping-swapped.out" 2>&1; then
+  fail "CI accepted swapped ABI dump ownership"
+fi
+assert_contains "$(cat "$fixture/abi-mapping-swapped.out")" "exact ordered ABI mapping block"
+assert_error_locations "$(cat "$fixture/abi-mapping-swapped.out")"
+git -C "$fixture/repo" restore docs/module-contracts.md
+
+python3 - "$fixture/repo/docs/module-contracts.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+path.write_text(path.read_text().replace(
+    ":domain:station|domain/station/api/station.api\n```",
+    ":domain:station|domain/station/api/station.api\n:core:network|core/network/api/network.api\n```",
+))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/abi-mapping-extra.out" 2>&1; then
+  fail "CI accepted a sixth ABI dump mapping"
+fi
+assert_contains "$(cat "$fixture/abi-mapping-extra.out")" "exact ordered ABI mapping block"
+assert_error_locations "$(cat "$fixture/abi-mapping-extra.out")"
+git -C "$fixture/repo" restore docs/module-contracts.md
+
+python3 - "$fixture/repo/docs/verification-matrix.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+text = text.replace(
+    ":core:model:checkKotlinAbi\n:core:observability:checkKotlinAbi",
+    ":core:observability:checkKotlinAbi\n:core:model:checkKotlinAbi",
+).replace(
+    "build/reports/quality/module-boundaries.json\nbuild/reports/quality/production-dependency-graph.json",
+    "build/reports/quality/production-dependency-graph.json\nbuild/reports/quality/module-boundaries.json",
+)
+path.write_text(text)
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/verification-order.out" 2>&1; then
+  fail "CI accepted reordered ABI tasks and report paths"
+fi
+assert_contains "$(cat "$fixture/verification-order.out")" "exact ordered verification block"
+assert_error_locations "$(cat "$fixture/verification-order.out")"
+git -C "$fixture/repo" restore docs/verification-matrix.md
+
+python3 - "$fixture/repo/docs/verification-matrix.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+path.write_text(path.read_text().replace(
+    "build/reports/quality/public-api-boundaries.json",
+    "build/reports/quality/*.json",
+    1,
+))
+PY
+if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/docs-report-broad.out" 2>&1; then
+  fail "CI accepted a broad documented quality report path"
+fi
+assert_contains "$(cat "$fixture/docs-report-broad.out")" "exact ordered quality report block"
+assert_error_locations "$(cat "$fixture/docs-report-broad.out")"
+git -C "$fixture/repo" restore docs/verification-matrix.md
+
+for job_if in \
+  'if: false' \
+  'if: ${{ false }}' \
+  'if: true' \
+  'if: ${{ github.event_name == '\''push'\'' }}' \
+  'if: "${{ github.event_name == '\''push'\'' }}"'; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$job_if" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+field = sys.argv[2]
+path.write_text(path.read_text().replace(
+    "  static-analysis:\n    runs-on: ubuntu-latest\n",
+    "  static-analysis:\n" + f"    {field}\n" + "    runs-on: ubuntu-latest\n",
+    1,
+))
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/static-job-if.out" 2>&1; then
+    fail "CI accepted conditional static-analysis job with $job_if"
+  fi
+  assert_contains "$(cat "$fixture/static-job-if.out")" "static-analysis job must not declare if"
+  assert_error_locations "$(cat "$fixture/static-job-if.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+for job_continue in \
+  'continue-on-error: true' \
+  'continue-on-error: ${{ true }}' \
+  'continue-on-error: "false"' \
+  'continue-on-error: ${{ false }}' \
+  'continue-on-error: ${{ github.event_name == '\''pull_request'\'' }}'; do
+  python3 - "$fixture/repo/.github/workflows/android.yml" "$job_continue" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+field = sys.argv[2]
+path.write_text(path.read_text().replace(
+    "  static-analysis:\n    runs-on: ubuntu-latest\n",
+    "  static-analysis:\n" + f"    {field}\n" + "    runs-on: ubuntu-latest\n",
+    1,
+))
+PY
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/static-job-nonblocking.out" 2>&1; then
+    fail "CI accepted non-literal-false static-analysis continue-on-error with $job_continue"
+  fi
+  assert_contains "$(cat "$fixture/static-job-nonblocking.out")" "static-analysis must be blocking"
+  assert_error_locations "$(cat "$fixture/static-job-nonblocking.out")"
+  git -C "$fixture/repo" restore .github/workflows/android.yml
+done
+
+python3 - "$fixture/repo/.github/workflows/android.yml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+path.write_text(path.read_text().replace(
+    "  static-analysis:\n    runs-on: ubuntu-latest\n",
+    "  static-analysis:\n    continue-on-error: false\n    runs-on: ubuntu-latest\n",
+    1,
+))
+PY
+GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+git -C "$fixture/repo" restore .github/workflows/android.yml
 
 python3 -c 'from pathlib import Path; p=Path(__import__("sys").argv[1]); p.write_text(p.read_text().replace("enforcement=blocking", "enforcement=report-only"))' "$fixture/repo/config/quality/production-dependency-policy.txt"
 if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/dependency-report-only.out" 2>&1; then
