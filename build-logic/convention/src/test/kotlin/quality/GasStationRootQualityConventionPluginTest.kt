@@ -163,6 +163,113 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
+    fun moduleGuardCapturesApiImplementationNestedProjectsAndSortedUniqueViolations() {
+        val dependencies =
+            listOf(
+                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
+                RootQualityProjectDependency(":feature:nested:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":core:database"),
+                RootQualityProjectDependency(":domain:sample", RootQualityDependencyBucket.API, ":core:network"),
+                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
+            )
+        val project = newProject("module-violations")
+            .writeRootQualityFixture(
+                RootQualityFixture(
+                    modules = dependencies.flatMap { listOf(it.consumer, it.target) }.distinct(),
+                    projectDependencies = dependencies,
+                    blockingDependencyPolicy = true,
+                ),
+            )
+
+        val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
+
+        result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
+        val expected =
+            listOf(
+                "unallowlisted direct production declaration: scope|:domain:sample|project|:core:network|api|compile=main|runtime=main",
+                "unallowlisted direct production declaration: scope|:feature:nested:sample|project|:core:database|implementation|compile=main|runtime=main",
+                "unallowlisted direct production declaration: scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main",
+            )
+        expected.forEach { assertTrue(result.output.contains(it)) }
+        val positions = expected.map(result.output::indexOf)
+        assertTrue("violations not sorted: $positions", positions.zipWithNext().all { it.first < it.second })
+        assertTrue(result.output.contains("production dependency policy violations 3"))
+    }
+
+    @Test
+    fun failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence() {
+        val project = newProject("cache-failure")
+            .writeRootQualityFixture(
+                RootQualityFixture(
+                    modules = listOf(":feature:sample", ":data:sample"),
+                    projectDependencies =
+                        listOf(
+                            RootQualityProjectDependency(
+                                ":feature:sample",
+                                RootQualityDependencyBucket.IMPLEMENTATION,
+                                ":data:sample",
+                            ),
+                        ),
+                    blockingDependencyPolicy = true,
+                ),
+            )
+        val arguments = arrayOf("verifyModuleBoundaries", "--rerun-tasks")
+        val expected =
+            "unallowlisted direct production declaration: " +
+                "scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main"
+
+        val first = project.configurationCacheRunner(*arguments).buildAndFail()
+        first.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
+        first.assertConfigurationCacheStored()
+        assertTrue(first.output.contains(expected))
+        val firstReport = project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes()
+
+        val second = project.configurationCacheRunner(*arguments).buildAndFail()
+        second.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
+        second.assertConfigurationCacheReused()
+        assertTrue(second.output.contains(expected))
+        assertArrayEquals(firstReport, project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes())
+    }
+
+    @Test
+    fun componentlessActiveModuleFailsClosed() {
+        val project =
+            newProject("componentless-active")
+                .writeRootQualityFixture(
+                    RootQualityFixture(
+                        modules = listOf(":empty"),
+                        componentlessModules = setOf(":empty"),
+                    ),
+                )
+
+        val result = project.runner("verifyModuleBoundaries", "--rerun-tasks").buildAndFail()
+
+        result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
+        assertTrue(result.output.contains("active modules without production components: [:empty]"))
+    }
+
+    @Test
+    fun publicApiTaskFailsClosedWhenSelectedTopologyIsNotExactlyFiveModules() {
+        val project =
+            newProject("public-api-topology-mismatch")
+                .writeRootQualityFixture(
+                    RootQualityFixture(
+                        modules =
+                            listOf(
+                                ":core:model",
+                                ":core:observability",
+                                ":domain:location",
+                                ":domain:settings",
+                            ),
+                    ),
+                )
+
+        val result = project.runner("verifyPublicApiBoundaries", "--rerun-tasks").buildAndFail()
+
+        result.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
+        assertTrue(result.output.contains("public API topology mismatch"))
+    }
+
+    @Test
     fun composeGuardAllowsV2NormalCommentsAndExcludedTrees() {
         val project = newProject("compose-safe")
             .writeRootQualityFixture(
@@ -351,6 +458,16 @@ class GasStationRootQualityConventionPluginTest {
         second.assertConfigurationCacheReused()
         assertSuccessSentinels(second, expectedModuleCount = 7)
         assertArrayEquals(firstReport, report.readBytes())
+
+        project.writeFile(
+            "core/model/api/unexpected.api",
+            "public final class com/gasstation/core/model/Unexpected {\n\tpublic fun <init> ()V\n}\n",
+        )
+        val extraDump = project.configurationCacheRunner(*arguments).buildAndFail()
+        extraDump.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
+        extraDump.assertConfigurationCacheReused()
+        assertTrue(extraDump.output.contains("unexpected or ambiguous ABI dump: unexpected.api"))
+        assertFalse(extraDump.tasks.any { it.path.endsWith(":updateKotlinAbi") })
     }
 
     @Test

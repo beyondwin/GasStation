@@ -69,6 +69,25 @@ internal data class ProductionDependencyPolicy(
                 "production dependency policy active module mismatch: policy=$modules active=$canonical",
             )
         }
+        val active = canonical.toSet()
+        val inactiveEndpoints =
+            buildList {
+                scopes.forEach { scope ->
+                    if (scope.consumer !in active) add("scope consumer ${scope.consumer}")
+                    if (scope.kind == ProductionDependencyKind.PROJECT && scope.target !in active) {
+                        add("scope target ${scope.target}")
+                    }
+                }
+                testedTarget?.let { relation ->
+                    if (relation.consumer !in active) add("tested-target consumer ${relation.consumer}")
+                    if (relation.target !in active) add("tested-target target ${relation.target}")
+                }
+            }.sorted()
+        if (inactiveEndpoints.isNotEmpty()) {
+            throw ProductionDependencyPolicyException(
+                "production dependency policy contains inactive topology endpoints: $inactiveEndpoints",
+            )
+        }
     }
 
     fun compareDirectDeclarations(actual: List<ProductionDependencyScope>): List<String> {

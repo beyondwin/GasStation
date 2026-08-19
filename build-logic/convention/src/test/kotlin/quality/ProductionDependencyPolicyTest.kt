@@ -59,6 +59,54 @@ class ProductionDependencyPolicyTest {
     }
 
     @Test
+    fun activeTopologyBindsEveryScopeAndTestedTargetEndpoint() {
+        val active = listOf(":app", ":benchmark", ":core:model")
+        val validScope = projectScope(":app", ":core:model")
+        val validTarget =
+            TestedTargetRelation(
+                consumer = ":benchmark",
+                components = listOf("benchmark", "debug"),
+                target = ":app",
+                selfInstrumenting = true,
+                compileOnlyMembership = "absent",
+            )
+        val mutations =
+            listOf(
+                validScope.copy(consumer = ":inactive"),
+                validScope.copy(target = ":grouping"),
+            )
+
+        mutations.forEach { invalidScope ->
+            val policy =
+                ProductionDependencyPolicy(
+                    enforcement = ProductionDependencyEnforcement.BLOCKING,
+                    modules = active,
+                    scopes = listOf(invalidScope),
+                    testedTarget = validTarget,
+                )
+            assertThrows(ProductionDependencyPolicyException::class.java) {
+                policy.requireExactActiveModules(active)
+            }
+        }
+
+        listOf(
+            validTarget.copy(consumer = ":inactive"),
+            validTarget.copy(target = ":grouping"),
+        ).forEach { invalidTarget ->
+            val policy =
+                ProductionDependencyPolicy(
+                    enforcement = ProductionDependencyEnforcement.BLOCKING,
+                    modules = active,
+                    scopes = listOf(validScope),
+                    testedTarget = invalidTarget,
+                )
+            assertThrows(ProductionDependencyPolicyException::class.java) {
+                policy.requireExactActiveModules(active)
+            }
+        }
+    }
+
+    @Test
     fun directComparisonBindsDeclarationConfigurationAndComponentMembership() {
         val policy =
             ProductionDependencyPolicy.parse(

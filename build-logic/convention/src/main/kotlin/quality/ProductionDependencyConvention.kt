@@ -5,7 +5,6 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import com.android.build.api.variant.TestAndroidComponentsExtension
 import com.android.build.api.variant.Variant
-import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
@@ -33,9 +32,6 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
     val declarations = root.objects.setProperty(String::class.java).convention(emptySet())
     val graphShards = root.objects.fileCollection()
     val testedTargetEvidence = root.objects.setProperty(String::class.java).convention(emptySet())
-    val testedTargetComponents = root.objects.setProperty(String::class.java).convention(emptySet())
-    val testedTargetPath = root.objects.property(String::class.java)
-    val selfInstrumenting = root.objects.property(Boolean::class.java)
 
     root.subprojects.filter { it.path in activeModules }.forEach { module ->
         val moduleGraphRecords = module.objects.setProperty(String::class.java).convention(emptySet())
@@ -53,10 +49,9 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
             outputFile.disallowChanges()
         }
         graphShards.from(shard.flatMap { it.outputFile })
-        module.pluginManager.withPlugin("gasstation.jvm.library") {
+        module.pluginManager.withPlugin("java") {
             val java = module.extensions.getByType<JavaPluginExtension>()
             val main = java.sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
-            recordJvmKotlinStdlib(module, declarations)
             registerProductionComponent(
                 module,
                 "main",
@@ -87,8 +82,10 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
         }
         module.pluginManager.withPlugin("com.android.test") {
             val android = module.extensions.getByType<TestAndroidComponentsExtension>()
+            val testedTargetComponents = root.objects.setProperty(String::class.java).convention(emptySet())
+            val selfInstrumenting = root.objects.property(Boolean::class.java)
+            val testedTargetClasspaths = mutableListOf<Triple<String, Configuration, Configuration>>()
             android.finalizeDsl { dsl ->
-                testedTargetPath.set(dsl.targetProjectPath)
                 selfInstrumenting.set(
                     dsl.experimentalProperties["android.experimental.self-instrumenting"] as? Boolean
                         ?: false,
@@ -96,6 +93,11 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
             }
             android.onVariants(android.selector().all()) { variant ->
                 testedTargetComponents.add(variant.name)
+                testedTargetClasspaths += Triple(
+                    variant.name,
+                    variant.compileConfiguration,
+                    variant.runtimeConfiguration,
+                )
                 registerProductionComponent(
                     module,
                     variant.name,
@@ -106,21 +108,41 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
                     moduleGraphRecords,
                 )
             }
+            testedTargetEvidence.add(
+                root.provider {
+                    val componentNames = testedTargetComponents.get().sorted()
+                    val targets = module.configurations.getByName("testedApks").dependencies
+                        .filterIsInstance<ProjectDependency>()
+                        .map(ProjectDependency::getPath)
+                        .sorted()
+                    val compileOnlyComponents = testedTargetClasspaths.mapNotNull { (component, compile, runtime) ->
+                        val compileTargets = projectDependencyTargets(compile)
+                        val runtimeTargets = projectDependencyTargets(runtime)
+                        component.takeIf { targets.any { it in compileTargets && it !in runtimeTargets } }
+                    }.sorted()
+                    val membership = when {
+                        compileOnlyComponents.isEmpty() -> "absent"
+                        compileOnlyComponents == componentNames -> "present"
+                        else -> "mixed:${compileOnlyComponents.joinToString(",")}"
+                    }
+                    if (targets.size == 1 && !membership.startsWith("mixed:")) {
+                        TestedTargetRelation(
+                            consumer = module.path,
+                            components = componentNames,
+                            target = targets.single(),
+                            selfInstrumenting = selfInstrumenting.get(),
+                            compileOnlyMembership = membership,
+                        ).encoded
+                    } else {
+                        "tested-target-observation|${module.path}|${componentNames.joinToString(",")}|" +
+                            "targets=${targets.ifEmpty { listOf("-") }.joinToString(",")}|" +
+                            "self-instrumenting=${selfInstrumenting.get()}|" +
+                            "compile-only-components=${compileOnlyComponents.ifEmpty { listOf("-") }.joinToString(",")}"
+                    }
+                },
+            )
         }
     }
-    testedTargetEvidence.add(
-        root.provider {
-            val componentNames = testedTargetComponents.get().sorted()
-            if (componentNames.isEmpty()) return@provider ""
-            TestedTargetRelation(
-                consumer = ":benchmark",
-                components = componentNames,
-                target = testedTargetPath.get(),
-                selfInstrumenting = selfInstrumenting.get(),
-                compileOnlyMembership = if (selfInstrumenting.get()) "absent" else "present",
-            ).encoded
-        },
-    )
 
     return ProductionDependencyRegistration(
         activeModules = activeModules,
@@ -131,17 +153,10 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
     )
 }
 
-private fun recordJvmKotlinStdlib(
-    module: Project,
-    declarations: org.gradle.api.provider.SetProperty<String>,
-) {
-    listOf("compile", "runtime").forEach { classpathKind ->
-        declarations.add(
-            "${module.path}|main|$classpathKind|external|" +
-                "org.jetbrains.kotlin:kotlin-stdlib|api",
-        )
-    }
-}
+private fun projectDependencyTargets(configuration: Configuration): Set<String> =
+    configuration.hierarchy
+        .flatMap { it.dependencies.filterIsInstance<ProjectDependency>().map(ProjectDependency::getPath) }
+        .toSet()
 
 private fun <VariantT : Variant> registerAndroidProductionComponents(
     module: Project,
@@ -186,18 +201,16 @@ private fun captureDeclarations(
     configuration: Configuration,
     declarations: org.gradle.api.provider.SetProperty<String>,
 ) {
-    configuration.hierarchy.sortedBy(Configuration::getName).forEach { bucket ->
-        bucket.dependencies.configureEach(
-            object : Action<Dependency> {
-                override fun execute(dependency: Dependency) {
+    declarations.addAll(
+        module.provider {
+            configuration.hierarchy.sortedBy(Configuration::getName).flatMap { bucket ->
+                bucket.dependencies.map { dependency ->
                     val (kind, target) = dependencyIdentity(dependency)
-                    declarations.add(
-                        "${module.path}|$componentName|$classpathKind|$kind|$target|${bucket.name}",
-                    )
+                    "${module.path}|$componentName|$classpathKind|$kind|$target|${bucket.name}"
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 private fun dependencyIdentity(dependency: Dependency): Pair<String, String> =
@@ -224,30 +237,45 @@ private fun captureResolvedGraph(
     graphRecords.addAll(
         configuration.incoming.resolutionResult.rootComponent.map { root ->
             val records = sortedSetOf<String>()
-            val visited = mutableSetOf<String>()
-            fun visit(component: org.gradle.api.artifacts.result.ResolvedComponentResult, depth: Int) {
+            val expandedPaths = mutableMapOf<String, MutableSet<String>>()
+            val rootIdentity = selectedIdentity(root.id)
+            records +=
+                "${module.path}|$componentName|$classpathKind|root|" +
+                    "root=$rootIdentity|path=$rootIdentity"
+            fun visit(
+                component: org.gradle.api.artifacts.result.ResolvedComponentResult,
+                path: List<String>,
+            ) {
                 val selectedIdentity = selectedIdentity(component.id)
-                if (!visited.add(selectedIdentity)) return
+                val pathIdentity = path.joinToString(">")
+                val expanded = expandedPaths.getOrPut(selectedIdentity, ::linkedSetOf)
+                if (pathIdentity !in expanded && expanded.size >= MAX_EXPANDED_PATHS_PER_COMPONENT) return
+                if (!expanded.add(pathIdentity)) return
                 component.dependencies.forEach { dependency ->
                     when (dependency) {
                         is ResolvedDependencyResult -> {
                             val selected = selectedIdentity(dependency.selected.id)
+                            val nextPath = path + selected
                             records +=
                                 "${module.path}|$componentName|$classpathKind|" +
-                                    "${if (depth == 0) "direct" else "transitive"}|" +
-                                    "requested=${stableToken(dependency.requested.displayName)}|selected=$selected"
-                            visit(dependency.selected, depth + 1)
+                                    "${if (path.size == 1) "direct" else "transitive"}|" +
+                                    "root=$rootIdentity|parent=$selectedIdentity|" +
+                                    "requested=${stableToken(dependency.requested.displayName)}|selected=$selected|" +
+                                    "path=${nextPath.joinToString(">")}"
+                            if (selected !in path) visit(dependency.selected, nextPath)
                         }
                         is UnresolvedDependencyResult -> {
+                            val requested = stableToken(dependency.attempted.displayName)
                             records +=
                                 "${module.path}|$componentName|$classpathKind|unresolved|" +
-                                    "requested=${stableToken(dependency.attempted.displayName)}|" +
-                                    "reason=${dependency.failure.javaClass.simpleName}"
+                                    "root=$rootIdentity|parent=$selectedIdentity|requested=$requested|" +
+                                    "reason=${dependency.failure.javaClass.simpleName}|" +
+                                    "path=${(path + "unresolved:$requested").joinToString(">")}"
                         }
                     }
                 }
             }
-            visit(root, 0)
+            visit(root, listOf(rootIdentity))
             records.toList()
         },
     )
@@ -262,6 +290,8 @@ private fun selectedIdentity(identifier: org.gradle.api.artifacts.component.Comp
 
 private fun stableToken(value: String): String =
     value.replace('\\', '/').replace(Regex("(?:[A-Za-z]:)?/[^| ]+"), "<path>")
+
+private const val MAX_EXPANDED_PATHS_PER_COMPONENT = 2
 
 internal fun readActiveModulePaths(root: Project): List<String> {
     val raw = root.gradle.extensions.extraProperties.properties["gasstation.activeModulePaths"]

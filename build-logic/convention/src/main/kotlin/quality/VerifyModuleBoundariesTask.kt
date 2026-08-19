@@ -54,6 +54,11 @@ abstract class VerifyModuleBoundariesTask : DefaultTask() {
         val policy = ProductionDependencyPolicy.parse(productionPolicyFile.get().asFile.readBytes())
         policy.requireExactActiveModules(activeModulePaths.get())
         val actualScopes = aggregateProductionScopes(productionDeclarationEvidence.get())
+        requireExactProductionTopology(
+            activeModulePaths.get(),
+            productionComponents.get(),
+            actualScopes,
+        )
         val directViolations = policy.compareDirectDeclarations(actualScopes)
         val testedTargetViolations = compareTestedTarget(policy.testedTarget, testedTargetEvidence.get())
         val diagnostics = (directViolations + testedTargetViolations).sorted()
@@ -140,5 +145,43 @@ internal fun compareTestedTarget(expected: TestedTargetRelation?, evidence: List
         expected == null -> listOf("unexpected tested-target relation: $observed")
         observed == listOf(expected.encoded) -> emptyList()
         else -> listOf("tested-target relation mismatch: expected=${expected.encoded} actual=$observed")
+    }
+}
+
+internal fun requireExactProductionTopology(
+    activeModules: List<String>,
+    components: List<String>,
+    scopes: List<ProductionDependencyScope>,
+) {
+    val active = activeModules.toSortedSet()
+    if (active.size != activeModules.size) {
+        throw GradleException("active production module topology contains duplicates")
+    }
+    val componentMap = linkedMapOf<String, MutableSet<String>>()
+    components.sorted().forEach { encoded ->
+        val fields = encoded.split('|')
+        if (fields.size != 2 || fields[0] !in active || fields[1].isBlank()) {
+            throw GradleException("invalid production component evidence: $encoded")
+        }
+        componentMap.getOrPut(fields[0], ::sortedSetOf).add(fields[1])
+    }
+    val missing = active - componentMap.keys
+    if (missing.isNotEmpty()) {
+        throw GradleException("active modules without production components: ${missing.toList()}")
+    }
+    scopes.forEach { scope ->
+        if (scope.consumer !in active) {
+            throw GradleException("production scope has inactive consumer: ${scope.encoded}")
+        }
+        if (scope.kind == ProductionDependencyKind.PROJECT && scope.target !in active) {
+            throw GradleException("production scope has inactive project target: ${scope.encoded}")
+        }
+        val ownedComponents = componentMap.getValue(scope.consumer)
+        val unknown = (scope.compileComponents + scope.runtimeComponents).toSet() - ownedComponents
+        if (unknown.isNotEmpty()) {
+            throw GradleException(
+                "production scope has components not owned by ${scope.consumer}: ${unknown.sorted()}",
+            )
+        }
     }
 }

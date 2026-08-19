@@ -9,6 +9,7 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
@@ -19,6 +20,7 @@ class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
         configureGasStationContractApiConvention()
 
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+        val kotlin = extensions.getByType<KotlinJvmProjectExtension>()
 
         extensions.configure<JavaPluginExtension> {
             toolchain.languageVersion.set(JavaLanguageVersion.of(17))
@@ -29,6 +31,7 @@ class GasStationJvmLibraryConventionPlugin : Plugin<Project> {
         }
 
         dependencies {
+            add("api", "org.jetbrains.kotlin:kotlin-stdlib:${kotlin.coreLibrariesVersion}")
             add("testImplementation", libs.findLibrary("kotlin-test").get())
         }
     }

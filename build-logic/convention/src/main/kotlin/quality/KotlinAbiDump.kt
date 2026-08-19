@@ -94,11 +94,16 @@ internal object KotlinAbiDumpParser {
         if ('.' in descriptor || "//" in descriptor) {
             throw KotlinAbiFormatException("line $line: object descriptors must use canonical JVM slash syntax")
         }
-        if (kind == "fun" && (descriptor.count { it == '(' } != 1 || descriptor.count { it == ')' } != 1 || descriptor.indexOf(')') <= 0 || descriptor.endsWith(')'))) {
-            throw KotlinAbiFormatException("line $line: malformed JVM method descriptor")
-        }
         try {
-            if (kind == "field") Type.getType(descriptor) else Type.getMethodType(descriptor)
+            if (kind == "field") {
+                JvmDescriptorGrammar.requireFieldDescriptor(descriptor)
+                Type.getType(descriptor)
+            } else {
+                JvmDescriptorGrammar.requireMethodDescriptor(descriptor)
+                Type.getMethodType(descriptor)
+            }
+        } catch (failure: KotlinAbiFormatException) {
+            throw KotlinAbiFormatException("line $line: malformed JVM descriptor $descriptor", failure)
         } catch (failure: IllegalArgumentException) {
             throw KotlinAbiFormatException("line $line: malformed JVM descriptor $descriptor", failure)
         }
@@ -143,6 +148,58 @@ internal object KotlinAbiDumpParser {
     }
 }
 
+internal object JvmDescriptorGrammar {
+    private val internalName =
+        Regex("[A-Za-z_$][A-Za-z0-9_$]*(?:/[A-Za-z_$][A-Za-z0-9_$]*)*")
+
+    fun requireFieldDescriptor(descriptor: String) {
+        val end = consumeFieldType(descriptor, 0)
+        if (end != descriptor.length) fail(descriptor)
+    }
+
+    fun requireMethodDescriptor(descriptor: String) {
+        if (descriptor.firstOrNull() != '(') fail(descriptor)
+        var cursor = 1
+        while (cursor < descriptor.length && descriptor[cursor] != ')') {
+            cursor = consumeFieldType(descriptor, cursor)
+        }
+        if (cursor >= descriptor.length || descriptor[cursor] != ')') fail(descriptor)
+        cursor += 1
+        if (cursor >= descriptor.length) fail(descriptor)
+        cursor =
+            if (descriptor[cursor] == 'V') {
+                cursor + 1
+            } else {
+                consumeFieldType(descriptor, cursor)
+            }
+        if (cursor != descriptor.length) fail(descriptor)
+    }
+
+    private fun consumeFieldType(descriptor: String, start: Int): Int {
+        if (start >= descriptor.length) fail(descriptor)
+        return when (descriptor[start]) {
+            'B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z' -> start + 1
+            '[' -> {
+                var cursor = start
+                while (cursor < descriptor.length && descriptor[cursor] == '[') cursor += 1
+                if (cursor >= descriptor.length || descriptor[cursor] == 'V') fail(descriptor)
+                consumeFieldType(descriptor, cursor)
+            }
+            'L' -> {
+                val terminator = descriptor.indexOf(';', startIndex = start + 1)
+                if (terminator < 0) fail(descriptor)
+                val name = descriptor.substring(start + 1, terminator)
+                if (!internalName.matches(name)) fail(descriptor)
+                terminator + 1
+            }
+            else -> fail(descriptor)
+        }
+    }
+
+    private fun fail(descriptor: String): Nothing =
+        throw KotlinAbiFormatException("malformed JVM descriptor $descriptor")
+}
+
 internal object JvmAbiTypeScanner {
     private val forbiddenPrefixes =
         listOf("android.", "androidx.", "com.google.android.gms.", "retrofit2.", "okhttp3.", "com.google.gson.")
@@ -150,7 +207,13 @@ internal object JvmAbiTypeScanner {
     fun typesFromDescriptor(descriptor: String): Set<String> {
         val types = sortedSetOf<String>()
         val root = try {
-            if (descriptor.startsWith('(')) Type.getMethodType(descriptor) else Type.getType(descriptor)
+            if (descriptor.startsWith('(')) {
+                JvmDescriptorGrammar.requireMethodDescriptor(descriptor)
+                Type.getMethodType(descriptor)
+            } else {
+                JvmDescriptorGrammar.requireFieldDescriptor(descriptor)
+                Type.getType(descriptor)
+            }
         } catch (failure: IllegalArgumentException) {
             throw KotlinAbiFormatException("malformed JVM descriptor $descriptor", failure)
         }
@@ -168,6 +231,7 @@ internal object JvmAbiTypeScanner {
     fun typesFromSignature(signature: String, typeSignature: Boolean): List<String> {
         val types = mutableListOf<String>()
         try {
+            JvmSignatureGrammar.requireSignature(signature, typeSignature)
             val visitor =
                 object : SignatureVisitor(Opcodes.ASM9) {
                     private var currentClass: String? = null
@@ -197,6 +261,138 @@ internal object JvmAbiTypeScanner {
             Type.ARRAY -> collect(type.elementType, result)
             Type.OBJECT -> result += type.className
         }
+    }
+}
+
+internal object JvmSignatureGrammar {
+    fun requireSignature(signature: String, typeSignature: Boolean) {
+        val parser = Parser(signature)
+        if (typeSignature) parser.fieldType() else parser.classOrMethodSignature()
+        if (!parser.atEnd()) throw KotlinAbiFormatException("malformed JVM signature $signature")
+    }
+
+    private class Parser(private val value: String) {
+        private var cursor = 0
+
+        fun atEnd(): Boolean = cursor == value.length
+
+        fun classOrMethodSignature() {
+            formals()
+            if (peek() == '(') {
+                cursor += 1
+                while (peek() != ')') type(allowVoid = false)
+                expect(')')
+                type(allowVoid = true)
+                while (peek() == '^') {
+                    cursor += 1
+                    if (peek() == 'T') typeVariable() else classType()
+                }
+            } else {
+                classType()
+                while (!atEnd()) classType()
+            }
+        }
+
+        fun fieldType() {
+            when (peek()) {
+                'L' -> classType()
+                'T' -> typeVariable()
+                '[' -> {
+                    cursor += 1
+                    type(allowVoid = false)
+                }
+                else -> fail()
+            }
+        }
+
+        private fun type(allowVoid: Boolean) {
+            when (peek()) {
+                'B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z' -> cursor += 1
+                'V' -> if (allowVoid) cursor += 1 else fail()
+                else -> fieldType()
+            }
+        }
+
+        private fun formals() {
+            if (peek() != '<') return
+            cursor += 1
+            var count = 0
+            while (peek() != '>') {
+                identifier(':')
+                expect(':')
+                if (peek() != ':') fieldType()
+                while (peek() == ':') {
+                    cursor += 1
+                    fieldType()
+                }
+                count += 1
+            }
+            if (count == 0) fail()
+            expect('>')
+        }
+
+        private fun classType() {
+            expect('L')
+            classSegment(first = true)
+            while (peek() == '.') {
+                cursor += 1
+                classSegment(first = false)
+            }
+            expect(';')
+        }
+
+        private fun classSegment(first: Boolean) {
+            val start = cursor
+            while (!atEnd() && peek() !in charArrayOf('<', '.', ';')) {
+                val char = peek()
+                if (char == ':' || char == '[' || char == '>' || (!first && char == '/')) fail()
+                cursor += 1
+            }
+            if (cursor == start || value.substring(start, cursor).startsWith('/') || value.substring(start, cursor).endsWith('/')) fail()
+            if (peek() == '<') typeArguments()
+        }
+
+        private fun typeArguments() {
+            expect('<')
+            var count = 0
+            while (peek() != '>') {
+                when (peek()) {
+                    '*' -> cursor += 1
+                    '+', '-' -> {
+                        cursor += 1
+                        fieldType()
+                    }
+                    else -> fieldType()
+                }
+                count += 1
+            }
+            if (count == 0) fail()
+            expect('>')
+        }
+
+        private fun typeVariable() {
+            expect('T')
+            identifier(';')
+            expect(';')
+        }
+
+        private fun identifier(terminator: Char) {
+            val start = cursor
+            while (!atEnd() && peek() != terminator) {
+                if (peek() in charArrayOf('<', '>', '.', '/', '[', ';')) fail()
+                cursor += 1
+            }
+            if (cursor == start) fail()
+        }
+
+        private fun expect(expected: Char) {
+            if (peek() != expected) fail()
+            cursor += 1
+        }
+
+        private fun peek(): Char = value.getOrNull(cursor) ?: '\u0000'
+
+        private fun fail(): Nothing = throw KotlinAbiFormatException("malformed JVM signature $value")
     }
 }
 

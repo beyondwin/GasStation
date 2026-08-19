@@ -7,10 +7,12 @@ import java.nio.charset.StandardCharsets.UTF_8
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -28,6 +30,15 @@ import org.objectweb.asm.Type
 abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
     @get:Input
     abstract val moduleMappings: ListProperty<String>
+
+    @get:Input
+    abstract val selectedActiveModules: ListProperty<String>
+
+    @get:Input
+    abstract val classRootMappings: ListProperty<String>
+
+    @get:Internal
+    abstract val repositoryRoot: DirectoryProperty
 
     @get:Input
     abstract val forbiddenFamilies: ListProperty<String>
@@ -71,6 +82,15 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
 
     private fun verifyCheckedSurface() {
         val mappings = moduleMappings.get().map(::decodeMapping).sortedBy(Mapping::module)
+        val expectedModules = mappings.map(Mapping::module)
+        val selectedModules = selectedActiveModules.get().sorted()
+        val rootsByModule = decodeClassRoots(classRootMappings.get())
+        if (selectedModules != expectedModules || rootsByModule.keys.toList() != expectedModules) {
+            throw GradleException(
+                "public API topology mismatch: mappings=$expectedModules active=$selectedModules " +
+                    "classRoots=${rootsByModule.keys.toList()}",
+            )
+        }
         val expectedPaths = mappings.map(Mapping::dumpPath).toSortedSet()
         val dumpsByPath = linkedMapOf<String, File>()
         dumpFiles.files.filter(File::isFile).forEach { file ->
@@ -82,8 +102,11 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             throw GradleException("ABI dump discovery mismatch: expected=$expectedPaths actual=${dumpsByPath.keys.sorted()}")
         }
 
-        val classRoots = classDirectories.files.filter(File::isDirectory).sortedBy(File::getName)
-        if (classRoots.isEmpty()) throw GradleException("compiled public API class directories are missing")
+        val classRoots = classDirectories.files.filter(File::isDirectory).map(File::getCanonicalFile).toSortedSet()
+        val mappedRoots = rootsByModule.values.flatten().filter(File::isDirectory).map(File::getCanonicalFile).toSortedSet()
+        if (classRoots.isEmpty() || classRoots != mappedRoots || rootsByModule.any { (_, roots) -> roots.none(File::isDirectory) }) {
+            throw GradleException("compiled public API class root mismatch")
+        }
         val violations = sortedSetOf<String>()
         val dumpIdentities = mutableListOf<String>()
         val classIdentities = sortedSetOf<String>()
@@ -93,6 +116,7 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         var signatureLocations = 0
 
         mappings.forEach { mapping ->
+            val moduleRoots = rootsByModule.getValue(mapping.module)
             val dumpFile = dumpsByPath.getValue(mapping.dumpPath)
             val dumpBytes = dumpFile.readBytes()
             if (dumpBytes.isEmpty() || dumpBytes.any { it == '\r'.code.toByte() }) {
@@ -107,7 +131,7 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             dumpIdentities += "${mapping.dumpPath}|bytes=${dumpBytes.size}|sha256=${sha256(dumpBytes)}"
             dump.classes.forEach { abiClass ->
                 val relativeClass = "${abiClass.internalName}.class"
-                val candidates = classRoots.map { it.resolve(relativeClass) }.filter(File::isFile)
+                val candidates = moduleRoots.map { it to it.resolve(relativeClass) }.filter { it.second.isFile }
                 if (candidates.size != 1) {
                     violations +=
                         "${mapping.module}|${mapping.dumpPath}:${abiClass.line}|${abiClass.internalName}|" +
@@ -115,21 +139,46 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                     return@forEach
                 }
                 selectedClasses += 1
-                val classFile = candidates.single()
+                val (selectedRoot, classFile) = candidates.single()
                 val classBytes = classFile.readBytes()
-                classIdentities += "$relativeClass|bytes=${classBytes.size}|sha256=${sha256(classBytes)}"
+                classIdentities +=
+                    "${mapping.module}|$relativeClass|root=${relativeToRoot(selectedRoot)}|" +
+                        "bytes=${classBytes.size}|sha256=${sha256(classBytes)}"
                 val scan = scanClass(abiClass, classBytes)
                 selectedMembers += scan.selectedMembers
                 descriptorLocations += scan.descriptorTypes.size
                 signatureLocations += scan.signatureTypes.size
                 scan.missingMembers.forEach { missing ->
-                    violations += "${mapping.module}|${mapping.dumpPath}:$missing|$relativeClass|missing selected ABI member"
+                    val member = abiClass.members.single { "${it.line}|${it.kind} ${it.name} ${it.descriptor}" == missing }
+                    val inherited = resolveInheritedMember(abiClass, member, classBytes, moduleRoots)
+                    when {
+                        inherited.owners.size > 1 ->
+                            violations +=
+                                "${mapping.module}|${mapping.dumpPath}:$missing|$relativeClass|" +
+                                    "inherited selected ABI member owner expected=1 actual=${inherited.owners}"
+                        inherited.scan == null ->
+                            violations +=
+                                "${mapping.module}|${mapping.dumpPath}:$missing|$relativeClass|missing selected ABI member"
+                        else -> {
+                            selectedMembers += inherited.scan.selectedMembers
+                            descriptorLocations += inherited.scan.descriptorTypes.size
+                            signatureLocations += inherited.scan.signatureTypes.size
+                            inherited.scan.descriptorTypes.forEach { token ->
+                                if (forbiddenFamilies.get().any(token.className::startsWith)) {
+                                    violations += forbiddenViolation(mapping, token, relativeClass)
+                                }
+                            }
+                            inherited.scan.signatureTypes.forEach { token ->
+                                if (forbiddenFamilies.get().any(token.className::startsWith)) {
+                                    violations += forbiddenViolation(mapping, token, relativeClass)
+                                }
+                            }
+                        }
+                    }
                 }
                 (scan.descriptorTypes + scan.signatureTypes).sortedBy(ScannedType::location).forEach { token ->
                     if (forbiddenFamilies.get().any(token.className::startsWith)) {
-                        violations +=
-                            "${mapping.module}|${mapping.dumpPath}:${token.dumpLine}|${token.entry}|" +
-                                "$relativeClass|${token.location}|${token.className}"
+                        violations += forbiddenViolation(mapping, token, relativeClass)
                     }
                 }
             }
@@ -242,6 +291,9 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                         descriptorTypes += ScannedType("method-exception", exception.replace('/', '.'), selected.line, name)
                     }
                     return object : MethodVisitor(Opcodes.ASM9) {
+                        override fun visitAnnotationDefault(): AnnotationVisitor =
+                            annotationValueVisitor("annotation-default", selected.line, name, descriptorTypes)
+
                         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
                             annotationVisitor("method-annotation", descriptor, selected.line, name, descriptorTypes)
 
@@ -267,6 +319,41 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             signatureTypes = signatureTypes,
         )
     }
+
+    private fun resolveInheritedMember(
+        abiClass: KotlinAbiClass,
+        member: KotlinAbiMember,
+        ownerBytes: ByteArray,
+        moduleRoots: List<File>,
+    ): InheritedResolution {
+        val pending = ArrayDeque(classParents(ownerBytes))
+        val visited = mutableSetOf<String>()
+        val owners = mutableListOf<Pair<String, ClassScan>>()
+        while (pending.isNotEmpty()) {
+            val internalName = pending.removeFirst()
+            if (!visited.add(internalName)) continue
+            val candidates = moduleRoots.map { it.resolve("$internalName.class") }.filter(File::isFile)
+            if (candidates.size > 1) {
+                return InheritedResolution(candidates.map { internalName }, null)
+            }
+            val candidate = candidates.singleOrNull() ?: continue
+            val bytes = candidate.readBytes()
+            val inheritedClass = abiClass.copy(internalName = internalName, members = listOf(member))
+            val scan = scanClass(inheritedClass, bytes)
+            if (scan.selectedMembers == 1) owners += internalName to scan
+            pending.addAll(classParents(bytes))
+        }
+        return InheritedResolution(owners.map { it.first }.sorted(), owners.singleOrNull()?.second)
+    }
+
+    private fun classParents(bytes: ByteArray): List<String> {
+        val reader = ClassReader(bytes)
+        return listOfNotNull(reader.superName).plus(reader.interfaces).sorted()
+    }
+
+    private fun forbiddenViolation(mapping: Mapping, token: ScannedType, relativeClass: String): String =
+        "${mapping.module}|${mapping.dumpPath}:${token.dumpLine}|${token.entry}|" +
+            "$relativeClass|${token.location}|${token.className}"
 
     private fun addDescriptorTypes(
         descriptor: String,
@@ -306,7 +393,16 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         JvmAbiTypeScanner.typesFromDescriptor(descriptor).forEach { type ->
             result += ScannedType(location, type, line, entry)
         }
-        return object : AnnotationVisitor(Opcodes.ASM9) {
+        return annotationValueVisitor(location, line, entry, result)
+    }
+
+    private fun annotationValueVisitor(
+        location: String,
+        line: Int,
+        entry: String,
+        result: MutableList<ScannedType>,
+    ): AnnotationVisitor =
+        object : AnnotationVisitor(Opcodes.ASM9) {
             override fun visit(name: String?, value: Any?) {
                 if (value is Type) {
                     JvmAbiTypeScanner.typesFromDescriptor(value.descriptor).forEach { type ->
@@ -326,13 +422,29 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
 
             override fun visitArray(name: String?): AnnotationVisitor = this
         }
-    }
 
     private fun decodeMapping(encoded: String): Mapping {
         val fields = encoded.split('|')
         if (fields.size != 3) throw GradleException("invalid public API mapping: $encoded")
         return Mapping(fields[0], fields[1], fields[2])
     }
+
+    private fun decodeClassRoots(encodedRoots: List<String>): Map<String, List<File>> {
+        val decoded = encodedRoots.sorted().map { encoded ->
+            val fields = encoded.split('|')
+            if (fields.size != 2 || fields[0].isBlank() || fields[1].isBlank()) {
+                throw GradleException("invalid public API class root mapping: $encoded")
+            }
+            fields[0] to repositoryRoot.get().asFile.resolve(fields[1]).canonicalFile
+        }
+        if (decoded.size != decoded.toSet().size) {
+            throw GradleException("duplicate public API class root mapping")
+        }
+        return decoded.groupBy({ it.first }, { it.second }).toSortedMap()
+    }
+
+    private fun relativeToRoot(file: File): String =
+        file.relativeTo(repositoryRoot.get().asFile).invariantSeparatorsPath
 
     private fun decodeUtf8(bytes: ByteArray, path: String): String = try {
         UTF_8.newDecoder()
@@ -355,4 +467,6 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         val descriptorTypes: List<ScannedType>,
         val signatureTypes: List<ScannedType>,
     )
+
+    private data class InheritedResolution(val owners: List<String>, val scan: ClassScan?)
 }

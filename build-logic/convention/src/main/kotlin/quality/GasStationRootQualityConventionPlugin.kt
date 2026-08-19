@@ -2,7 +2,6 @@ package com.gasstation.buildlogic.quality
 
 import com.gasstation.buildlogic.contractApiModules
 import com.gasstation.buildlogic.quality.coverage.configureCoverage
-import com.gasstation.buildlogic.requireContractApiModules
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -21,12 +20,9 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
 
         configureCoverage(target)
         val productionDependencies = registerProductionDependencies(target)
-        val contractModules =
-            if (contractApiModules.all { it.projectPath in productionDependencies.activeModules }) {
-                requireContractApiModules(productionDependencies.activeModules)
-            } else {
-                emptyList()
-            }
+        val selectedContractModules = productionDependencies.activeModules.filter { active ->
+            contractApiModules.any { it.projectPath == active }
+        }
 
         val inspectedModulePaths = target.subprojects.map(Project::getPath).sorted()
         target.tasks.register(
@@ -72,9 +68,8 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
             },
         )
 
-        if (contractModules.isNotEmpty()) {
-            val publicApiBoundaries =
-                target.tasks.register(
+        val publicApiBoundaries =
+            target.tasks.register(
                     "verifyPublicApiBoundaries",
                     VerifyPublicApiBoundariesTask::class.java,
                     Action<VerifyPublicApiBoundariesTask> {
@@ -82,13 +77,16 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                         description =
                             "Verifies all five checked-in ABI directories and scans their compiled public JVM surface for platform and implementation SDK types."
                         moduleMappings.set(
-                            contractModules.map { module ->
+                            contractApiModules.map { module ->
                                 "${module.projectPath}|${module.dumpPath}|${module.packageRoot}"
                             },
                         )
+                        selectedActiveModules.set(selectedContractModules)
+                        classRootMappings.convention(emptyList())
+                        repositoryRoot.set(target.layout.projectDirectory)
                         forbiddenFamilies.set(FORBIDDEN_PUBLIC_API_FAMILIES)
                         scannerSchema.set("kotlin-abi-2.4.10+asm-9.9.1")
-                        contractModules.forEach { module ->
+                        contractApiModules.forEach { module ->
                             dumpFiles.from(
                                 target.fileTree(target.layout.projectDirectory.dir(module.dumpPath.substringBeforeLast('/'))) {
                                     include("**/*.api")
@@ -99,14 +97,17 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                             target.layout.buildDirectory.file("reports/quality/public-api-boundaries.json"),
                         )
                         moduleMappings.lock()
+                        selectedActiveModules.lock()
+                        classRootMappings.finalizeValueOnRead()
+                        repositoryRoot.lock()
                         forbiddenFamilies.lock()
                         scannerSchema.lock()
                         dumpFiles.lock()
                         reportFile.lock()
                     },
                 )
-            contractModules.forEach { contractModule ->
-                val module = target.project(contractModule.projectPath)
+        contractApiModules.forEach { contractModule ->
+            val module = target.findProject(contractModule.projectPath) ?: return@forEach
                 module.pluginManager.withPlugin("gasstation.jvm.library") {
                     val main =
                         module.extensions
@@ -116,10 +117,16 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                     publicApiBoundaries.configure {
                         dependsOn(module.tasks.named("checkKotlinAbi"))
                         classDirectories.from(main.map { it.output.classesDirs })
+                        classRootMappings.addAll(
+                            main.map { sourceSet ->
+                                sourceSet.output.classesDirs.files.map { directory ->
+                                    "${module.path}|${target.relativePath(directory)}"
+                                }.sorted()
+                            },
+                        )
                     }
                 }
             }
-        }
 
         target.tasks.register(
             "verifyNoDeprecatedComposeTestApis",

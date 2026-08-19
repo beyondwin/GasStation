@@ -30,6 +30,8 @@ data class RootQualityFixture(
     val pluginProjectPath: String = ":",
     val fixedInputMutation: RootQualityFixedInputMutation? = null,
     val contractApiFixture: Boolean = false,
+    val componentlessModules: Set<String> = emptySet(),
+    val blockingDependencyPolicy: Boolean = false,
 )
 
 fun GradlePluginTestProject.writeRootQualityFixture(
@@ -50,6 +52,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         require(dependency.target in modules) {
             "Dependency target must be included: ${dependency.target}"
         }
+    }
+    require(fixture.componentlessModules.all { it in modules }) {
+        "Componentless fixture modules must be active"
     }
     fixture.kotlinSources.keys.forEach { relativePath ->
         require(
@@ -100,7 +105,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         val buildScript =
             buildString {
                 appendLine("plugins {")
-                if (fixture.contractApiFixture) {
+                if (module in fixture.componentlessModules) {
+                    // Deliberately empty: the production topology gate must reject it.
+                } else if (fixture.contractApiFixture) {
                     appendLine("    id(\"gasstation.jvm.library\")")
                 } else {
                     appendLine("    `java-library`")
@@ -134,6 +141,19 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                     appendLine(
                         "dependencies { compileOnly(\"org.jetbrains.kotlin:kotlin-stdlib:2.4.10\") }",
                     )
+                    appendLine()
+                    appendLine("afterEvaluate {")
+                    appendLine("    check(configurations.getByName(\"api\").dependencies.any {")
+                    appendLine("        it.group == \"org.jetbrains.kotlin\" && it.name == \"kotlin-stdlib\"")
+                    appendLine("    }) { \"kotlin stdlib must be a real api declaration\" }")
+                    appendLine("}")
+                }
+                if (fixture.contractApiFixture && module == ":domain:station") {
+                    appendLine()
+                    appendLine("dependencies {")
+                    appendLine("    api(project(\":core:model\"))")
+                    appendLine("    api(\"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2\")")
+                    appendLine("}")
                 }
             }
         writeFile(module.toFixtureDirectory().resolveFixture("build.gradle.kts"), buildScript)
@@ -155,6 +175,33 @@ fun GradlePluginTestProject.writeRootQualityFixture(
             )
             projectDir.resolve(contract.dumpPath).appendText("\n")
         }
+        writeFile(
+            "domain/station/src/main/kotlin/com/gasstation/domain/station/KotlinConsumer.kt",
+            """
+            package com.gasstation.domain.station
+
+            import com.gasstation.core.model.Marker
+            import kotlinx.coroutines.flow.Flow
+
+            internal class KotlinConsumer(
+                private val marker: Marker,
+                private val stream: Flow<Marker>,
+            )
+            """.trimIndent(),
+        )
+        writeFile(
+            "domain/station/src/main/java/com/gasstation/domain/station/JavaConsumer.java",
+            """
+            package com.gasstation.domain.station;
+
+            import com.gasstation.core.model.Marker;
+
+            final class JavaConsumer {
+                private final Marker marker;
+                JavaConsumer(Marker marker) { this.marker = marker; }
+            }
+            """.trimIndent(),
+        )
     }
 
     writeFile("src/test/kotlin/fixture/Safe.kt", SAFE_KOTLIN_SOURCE)
@@ -171,7 +218,8 @@ fun GradlePluginTestProject.writeRootQualityFixture(
         buildString {
             appendLine("schema-version=1")
             appendLine(
-                "enforcement=" + if (fixture.contractApiFixture) "blocking" else "report-only",
+                "enforcement=" +
+                    if (fixture.contractApiFixture || fixture.blockingDependencyPolicy) "blocking" else "report-only",
             )
             modules.forEach { appendLine("module|$it") }
             if (fixture.contractApiFixture) {
@@ -187,12 +235,23 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                     "scope|:core:observability|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
                         "compile=main|runtime=main",
                 )
-                listOf(":domain:location", ":domain:settings", ":domain:station").forEach { module ->
+                listOf(":domain:location", ":domain:settings").forEach { module ->
                     appendLine(
                         "scope|$module|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
                             "compile=main|runtime=main",
                     )
                 }
+                appendLine(
+                    "scope|:domain:station|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
+                        "compile=main|runtime=main",
+                )
+                appendLine(
+                    "scope|:domain:station|external|org.jetbrains.kotlinx:kotlinx-coroutines-core|api|" +
+                        "compile=main|runtime=main",
+                )
+                appendLine(
+                    "scope|:domain:station|project|:core:model|api|compile=main|runtime=main",
+                )
             }
         },
     )
