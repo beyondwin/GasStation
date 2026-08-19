@@ -617,6 +617,33 @@ class GitSourceAndDiffTest(unittest.TestCase):
                 )
                 self.assertEqual(1, changes[path].hunk_count)
 
+    def test_patch_payload_reconstruction_accepts_zero_count_ranges_between_existing_lines(self):
+        cases = (
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -1,0 +2 @@\n+inserted\n",
+                b"first\nlast\n",
+                b"first\ninserted\nlast\n",
+            ),
+            (
+                b"M\0Subject.kt\0",
+                b"diff --git a/Subject.kt b/Subject.kt\n--- a/Subject.kt\n+++ b/Subject.kt\n"
+                b"@@ -2 +1,0 @@\n-removed\n",
+                b"first\nremoved\nlast\n",
+                b"first\nlast\n",
+            ),
+        )
+        for status, patch, old, new in cases:
+            with self.subTest(patch=patch):
+                changes = coverage.parse_zero_context_diff(
+                    status,
+                    patch,
+                    changed_blob_paths={"Subject.kt"},
+                    blob_contents={"Subject.kt": (old, new)},
+                )
+                self.assertEqual(1, changes["Subject.kt"].hunk_count)
+
     def test_hardened_diff_uses_raw_blob_bytes_for_modified_rename(self):
         base = self.commit
         run_git(
