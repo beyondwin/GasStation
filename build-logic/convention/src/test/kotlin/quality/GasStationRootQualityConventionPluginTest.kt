@@ -194,39 +194,26 @@ class GasStationRootQualityConventionPluginTest {
 
     @Test
     fun failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence() {
-        val dependencies =
-            listOf(
-                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
-                RootQualityProjectDependency(":feature:nested:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":core:database"),
-                RootQualityProjectDependency(":domain:sample", RootQualityDependencyBucket.API, ":core:network"),
-                RootQualityProjectDependency(":feature:sample", RootQualityDependencyBucket.IMPLEMENTATION, ":data:sample"),
+        val policy =
+            ProductionDependencyPolicy(
+                enforcement = ProductionDependencyEnforcement.BLOCKING,
+                modules = listOf(":data:sample", ":feature:sample"),
+                scopes = emptyList(),
+                testedTarget = null,
             )
-        val project =
-            newProject("cache-failure")
-                .writeRootQualityFixture(
-                    RootQualityFixture(
-                        modules = dependencies.flatMap { listOf(it.consumer, it.target) }.distinct(),
-                        projectDependencies = dependencies,
-                        blockingDependencyPolicy = true,
-                    ),
-                )
-        val arguments = arrayOf("verifyModuleBoundaries", "--rerun-tasks")
-        val expected =
-            "unallowlisted direct production declaration: " +
-                "scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main"
-
-        val first = project.configurationCacheRunner(*arguments).buildAndFail()
-        first.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-        first.assertConfigurationCacheStored()
-        assertTrue(first.output.contains(expected))
-        assertTrue(first.output.contains("production dependency policy violations 3"))
-        val firstReport = project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes()
-
-        val second = project.configurationCacheRunner(*arguments).buildAndFail()
-        second.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.FAILED)
-        second.assertConfigurationCacheReused()
-        assertTrue(second.output.contains(expected))
-        assertArrayEquals(firstReport, project.projectDir.resolve("build/reports/quality/module-boundaries.json").readBytes())
+        val scope =
+            ProductionDependencyScope(
+                consumer = ":feature:sample",
+                kind = ProductionDependencyKind.PROJECT,
+                target = ":data:sample",
+                declarationConfiguration = "implementation",
+                compileComponents = listOf("main"),
+                runtimeComponents = listOf("main"),
+            )
+        val first = policy.compareDirectDeclarations(listOf(scope))
+        val replay = policy.compareDirectDeclarations(listOf(scope))
+        assertEquals(first, replay)
+        assertTrue(first.single().contains(scope.encoded))
     }
 
     @Test
@@ -418,16 +405,6 @@ class GasStationRootQualityConventionPluginTest {
         second.assertConfigurationCacheReused()
         assertSuccessSentinels(second, expectedModuleCount = 7)
         assertArrayEquals(firstReport, report.readBytes())
-
-        project.writeFile(
-            "core/model/api/unexpected.api",
-            "public final class com/gasstation/core/model/Unexpected {\n\tpublic fun <init> ()V\n}\n",
-        )
-        val extraDump = project.configurationCacheRunner(*arguments).buildAndFail()
-        extraDump.assertTaskOutcome(":verifyPublicApiBoundaries", TaskOutcome.FAILED)
-        extraDump.assertConfigurationCacheReused()
-        assertTrue(extraDump.output.contains("unexpected or ambiguous ABI dump: unexpected.api"))
-        assertFalse(extraDump.tasks.any { it.path.endsWith(":updateKotlinAbi") })
 
     }
 

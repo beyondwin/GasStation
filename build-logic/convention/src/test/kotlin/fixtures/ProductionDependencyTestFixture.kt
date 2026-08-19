@@ -25,6 +25,15 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             ":domain:settings",
             ":domain:station",
         )
+    val graphModules = listOf(":graph:a", ":graph:b", ":graph:unresolved")
+    val violationDependencies =
+        listOf(
+            Triple(":feature:sample", "implementation", ":data:sample"),
+            Triple(":feature:nested:sample", "implementation", ":core:database"),
+            Triple(":domain:sample", "api", ":core:network"),
+            Triple(":feature:sample", "implementation", ":data:sample"),
+        )
+    val violationModules = violationDependencies.flatMap { listOf(it.first, it.third) }.distinct()
     val benchmarkMutations =
         if (mutation == TestedTargetMutation.ALL_INVALID) {
             linkedMapOf(
@@ -42,7 +51,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             addAll(benchmarkMutations.keys)
             if (mutation in setOf(TestedTargetMutation.CHANGED, TestedTargetMutation.ALL_INVALID)) add(":other-app")
         }
-    val modules = (androidModules + contractModules).sorted()
+    val modules = (androidModules + contractModules + graphModules + violationModules).sorted()
     writeSettings(
         """
         pluginManagement {
@@ -68,6 +77,16 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
         """.trimIndent(),
     )
     writeFile("local.properties", "sdk.dir=${productionFixtureAndroidSdk().escapeProperties()}")
+    writeFile(
+        "gradle/libs.versions.toml",
+        """
+        [versions]
+        kotlin = "2.4.10"
+
+        [libraries]
+        kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+        """.trimIndent(),
+    )
     writeBuildFile(
         """
         plugins {
@@ -156,7 +175,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
 
     val contractDependencies =
         mapOf(
-            ":core:model" to listOf(":domain:station"),
+            ":core:model" to emptyList(),
             ":core:observability" to listOf(":core:model"),
             ":domain:location" to listOf(":core:observability"),
             ":domain:settings" to listOf(":core:observability"),
@@ -167,17 +186,77 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
         writeFile(
             "${module.removePrefix(":").replace(':', '/')}/build.gradle.kts",
             buildString {
-                appendLine("plugins { `java-library` }")
+                appendLine("plugins { id(\"gasstation.jvm.library\") }")
                 if (dependencies.isNotEmpty()) {
                     appendLine("dependencies {")
                     dependencies.forEach { appendLine("    api(project(\"$it\"))") }
                     appendLine("}")
                 }
-                if (
-                    mutation in setOf(TestedTargetMutation.UNRESOLVED, TestedTargetMutation.ALL_INVALID) &&
-                    module == ":domain:station"
-                ) {
-                    appendLine("dependencies { implementation(\"invalid.example:never-resolve:1.0\") }")
+                if (module == ":domain:station") {
+                    appendLine("dependencies { api(\"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2\") }")
+                }
+            },
+        )
+        val directory = module.removePrefix(":").replace(':', '/')
+        val packageName = "com.gasstation.${directory.replace('/', '.')}"
+        val internalName = packageName.replace('.', '/') + "/Marker"
+        writeFile(
+            "$directory/src/main/kotlin/${packageName.replace('.', '/')}/Marker.kt",
+            "package $packageName\n\npublic class Marker",
+        )
+        writeFile(
+            "$directory/api/${module.substringAfterLast(':')}.api",
+            "public final class $internalName {\n\tpublic fun <init> ()V\n}\n",
+        )
+        projectDir.resolve("$directory/api/${module.substringAfterLast(':')}.api").appendText("\n")
+    }
+    writeFile(
+        "domain/station/src/main/kotlin/com/gasstation/domain/station/KotlinConsumer.kt",
+        """
+        package com.gasstation.domain.station
+
+        import com.gasstation.core.model.Marker as ModelMarker
+        import kotlinx.coroutines.flow.Flow
+
+        internal class KotlinConsumer(
+            private val marker: ModelMarker,
+            private val stream: Flow<ModelMarker>,
+        )
+        """.trimIndent(),
+    )
+    writeFile(
+        "domain/station/src/main/java/com/gasstation/domain/station/JavaConsumer.java",
+        """
+        package com.gasstation.domain.station;
+
+        import com.gasstation.core.model.Marker;
+
+        final class JavaConsumer {
+            private final Marker marker;
+            JavaConsumer(Marker marker) { this.marker = marker; }
+        }
+        """.trimIndent(),
+    )
+    mapOf(":graph:a" to ":graph:b", ":graph:b" to ":graph:a").forEach { (consumer, target) ->
+        writeFile(
+            "${consumer.removePrefix(":").replace(':', '/')}/build.gradle.kts",
+            "plugins { `java-library` }\ndependencies { api(project(\"$target\")) }",
+        )
+    }
+    writeFile(
+        "graph/unresolved/build.gradle.kts",
+        "plugins { `java-library` }\ndependencies { implementation(\"invalid.example:never-resolve:1.0\") }",
+    )
+    violationModules.forEach { module ->
+        val dependencies = violationDependencies.filter { it.first == module }
+        writeFile(
+            "${module.removePrefix(":").replace(':', '/')}/build.gradle.kts",
+            buildString {
+                appendLine("plugins { `java-library` }")
+                if (dependencies.isNotEmpty()) {
+                    appendLine("dependencies {")
+                    dependencies.forEach { (_, bucket, target) -> appendLine("    $bucket(project(\"$target\"))") }
+                    appendLine("}")
                 }
             },
         )
@@ -189,7 +268,7 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             appendLine("enforcement=blocking")
             modules.forEach { appendLine("module|$it") }
             val scopes = mutableListOf<String>()
-            (listOf(":app", ":library") + benchmarkMutations.keys).sorted().forEach { consumer ->
+            androidModules.sorted().forEach { consumer ->
                 if (consumer in modules) {
                     val components = if (consumer.startsWith(":benchmark")) "benchmark,debug" else "debug,release"
                     scopes +=
@@ -197,6 +276,14 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                             "compile=$components|runtime=$components"
                 }
             }
+            contractModules.forEach { consumer ->
+                scopes +=
+                    "scope|$consumer|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
+                        "compile=main|runtime=main"
+            }
+            scopes +=
+                "scope|:domain:station|external|org.jetbrains.kotlinx:kotlinx-coroutines-core|api|" +
+                    "compile=main|runtime=main"
             if (mutation == TestedTargetMutation.VALID_FALSE) {
                 scopes +=
                     "scope|:benchmark|project|:app|compileOnly|" +
@@ -210,6 +297,9 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                 targets.forEach { target ->
                     scopes += "scope|$consumer|project|$target|api|compile=main|runtime=main"
                 }
+            }
+            listOf(":graph:a" to ":graph:b", ":graph:b" to ":graph:a").forEach { (consumer, target) ->
+                scopes += "scope|$consumer|project|$target|api|compile=main|runtime=main"
             }
             scopes.sorted().forEach(::appendLine)
             val expectedConsumer =
