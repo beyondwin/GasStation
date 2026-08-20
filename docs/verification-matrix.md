@@ -450,7 +450,7 @@ verifyModuleBoundaries
 productionDependencyInventory
 ```
 
-직접 모듈/외부 의존성 경계, 다섯 공개 ABI baseline/compiled surface, Compose v1 test API, CI Java/Robolectric 호환성 가드는 CI `static-analysis`의 차단형 게이트입니다. Resolved graph는 명시적으로 실행하고 보관하는 보고 전용 evidence입니다.
+직접 모듈/외부 의존성 경계, 다섯 공개 ABI baseline/compiled surface, Compose v1 test API, CI Java/Robolectric 호환성 가드는 CI `static-analysis`의 차단형 게이트입니다. `verifyPublicApiBoundaries`는 `config/quality/public-api-signatures.txt`의 exact reviewed Signature expectation도 입력으로 검증하고 report에 policy SHA-256과 expectation을 기록합니다. Resolved graph는 명시적으로 실행하고 보관하는 보고 전용 evidence입니다.
 
 ```bash
 # 다섯 baseline과 compiled public surface, exact direct scope, resolved graph를 검증/기록한다.
@@ -489,7 +489,7 @@ build/reports/quality/public-api-boundaries.json
 
 ### ABI baseline 운영자 갱신 (검증 명령 아님)
 
-아래 명령은 reviewed source HEAD에서 공개 계약을 의도적으로 바꿀 때 운영자가 한 번 실행해 다섯 diff, UTF-8/LF byte count와 SHA-256을 검토하는 baseline mutation입니다. CI, `check`, agent script나 다른 verification task에 연결하지 않습니다.
+아래 명령은 reviewed source HEAD에서 공개 계약을 의도적으로 바꿀 때 운영자가 한 번 실행해 다섯 diff, UTF-8/LF byte count와 SHA-256을 검토하는 baseline mutation입니다. CI, `check`, agent script나 다른 verification task에 연결하지 않습니다. 각 `updateKotlinAbi` 경로를 CLI에 직접 나열한 운영자 호출만 허용되며, aggregate나 다른 task가 updater를 끌어오면 즉시 실패합니다.
 
 ```bash
 ./gradlew \
