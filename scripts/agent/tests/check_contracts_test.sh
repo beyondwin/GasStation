@@ -1697,7 +1697,30 @@ def copy_contract() -> Path:
     return target
 
 
+def corrected_java_version_contract() -> Path:
+    target = copy_contract()
+    canonical = "${{ env.CI_JAVA_VERSION }}"
+    for relative in (
+        ".github/workflows/android.yml",
+        ".github/workflows/mutation-schedule.yml",
+    ):
+        path = target / relative
+        text = path.read_text().replace("java-version: '21'", f"java-version: {canonical}")
+        if "CI_JAVA_VERSION:" not in text:
+            text = text.replace(
+                "\npermissions:\n",
+                '\nenv:\n  CI_JAVA_VERSION: "21"\n\npermissions:\n',
+                1,
+            )
+        path.write_text(text)
+    return target
+
+
 issues = check_mutation_workflow_contracts(repo)
+assert not issues, "\n".join(issues)
+
+target = corrected_java_version_contract()
+issues = check_mutation_workflow_contracts(target)
 assert not issues, "\n".join(issues)
 
 mutations = (
@@ -1721,6 +1744,49 @@ for relative, old, new in mutations:
     assert old in text, (relative, old)
     path.write_text(text.replace(old, new))
     assert check_mutation_workflow_contracts(target), (relative, old, new)
+
+canonical = "${{ env.CI_JAVA_VERSION }}"
+java_version_mutations = (
+    (".github/workflows/android.yml", f"java-version: {canonical}", "java-version: '21'"),
+    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: 21"),
+    (".github/workflows/android.yml", f"java-version: {canonical}", "java-version: ${{ env.MUTATION_JAVA_VERSION }}"),
+    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: ${{ vars.CI_JAVA_VERSION }}"),
+    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: ${{ inputs.java-version }}"),
+    (".github/workflows/android.yml", 'CI_JAVA_VERSION: "21"', 'CI_JAVA_VERSION: "17"'),
+    (
+        ".github/workflows/mutation-schedule.yml",
+        'CI_JAVA_VERSION: "21"',
+        'CI_JAVA_VERSION: "21"\n  CI_JAVA_VERSION: "21"',
+    ),
+)
+for relative, old, new in java_version_mutations:
+    target = corrected_java_version_contract()
+    path = target / relative
+    text = path.read_text()
+    assert old in text, (relative, old)
+    path.write_text(text.replace(old, new, 1))
+    assert check_mutation_workflow_contracts(target), (relative, old, new)
+
+target = corrected_java_version_contract()
+workflow = target / ".github/workflows/mutation-schedule.yml"
+workflow.write_text(workflow.read_text().replace("          distribution: temurin\n", "          distribution: temurin\n          env:\n            CI_JAVA_VERSION: 21\n", 1))
+assert check_mutation_workflow_contracts(target), "step shadow accepted"
+
+target = corrected_java_version_contract()
+workflow = target / ".github/workflows/android.yml"
+workflow.write_text(workflow.read_text().replace(f"          java-version: {canonical}\n", "", 1))
+assert check_mutation_workflow_contracts(target), "missing canonical reference accepted"
+
+target = corrected_java_version_contract()
+workflow = target / ".github/workflows/mutation-schedule.yml"
+workflow.write_text(
+    workflow.read_text().replace(
+        "  mutation:\n    runs-on:",
+        "  mutation:\n    env:\n      CI_JAVA_VERSION: 21\n    runs-on:",
+        1,
+    )
+)
+assert check_mutation_workflow_contracts(target), "job shadow accepted"
 
 target = copy_contract()
 workflow = target / ".github/workflows/android.yml"

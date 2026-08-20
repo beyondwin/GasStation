@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: "17 3 * * 0"
 
+env:
+  CI_JAVA_VERSION: "21"
+
 permissions:
   contents: read
 
@@ -19,7 +22,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.CI_JAVA_VERSION }}
       - name: Stage mutation Java selector
         shell: /usr/bin/env -i LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
         run: |

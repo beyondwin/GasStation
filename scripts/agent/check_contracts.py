@@ -226,6 +226,8 @@ set -C
 MUTATION_UPLOAD_PATHS = """build/reports/pitest/**
 domain/*/build/reports/quality/pitest-configuration.json
 domain/*/build/reports/pitest/**"""
+MUTATION_CI_JAVA_VERSION = '"21"'
+MUTATION_JAVA_VERSION_REFERENCE = "${{ env.CI_JAVA_VERSION }}"
 MUTATION_PRIMARY_RUNS = {
     "Mutation (pull request)": (
         "github.event_name == pull_request",
@@ -637,6 +639,43 @@ def workflow_job_environment(body: str) -> dict[str, str]:
     return {}
 
 
+def workflow_top_level_environment(text: str) -> list[tuple[str, str]] | None:
+    """Return the one exact workflow-level env mapping, preserving scalar spelling."""
+    lines = text.splitlines()
+    headers = [index for index, line in enumerate(lines) if line == "env:"]
+    if len(headers) != 1:
+        return None
+    entries: list[tuple[str, str]] = []
+    for line in lines[headers[0] + 1:]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if len(line) - len(line.lstrip(" ")) < 2:
+            break
+        if len(line) - len(line.lstrip(" ")) != 2 or ":" not in line:
+            return None
+        key, value = line[2:].split(":", 1)
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+            return None
+        entries.append((key, value.strip()))
+    return entries
+
+
+def workflow_setup_java_versions(text: str) -> tuple[int, list[str]]:
+    """Return every parsed setup-java version plus the raw action count."""
+    raw_count = len(
+        re.findall(r"(?m)^\s+(?:-\s+)?uses:\s*actions/setup-java@v5\s*$", text)
+    )
+    versions: list[str] = []
+    for match in re.finditer(
+        WORKFLOW_JOB_TEMPLATE.format(job=r"[A-Za-z0-9_-]+"),
+        text,
+    ):
+        for step in workflow_steps(match.group("body")):
+            if step["fields"].get("uses") == "actions/setup-java@v5":
+                versions.append(step["nested"].get("with", {}).get("java-version", ""))
+    return raw_count, versions
+
+
 def coverage_attempt_script_is_exact(script: str) -> bool:
     lines = script.splitlines()
     if len(lines) < 4 or lines[0] != "mkdir -p build/reports/coverage":
@@ -839,6 +878,28 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
 
     primary = primary_path.read_text(errors="replace")
     scheduled = scheduled_path.read_text(errors="replace")
+    for text, path in (
+        (primary, ".github/workflows/android.yml"),
+        (scheduled, ".github/workflows/mutation-schedule.yml"),
+    ):
+        top_level_environment = workflow_top_level_environment(text)
+        if top_level_environment != [("CI_JAVA_VERSION", MUTATION_CI_JAVA_VERSION)]:
+            issues.append(issue(path, 1, 'workflow must declare one exact top-level CI_JAVA_VERSION: "21"'))
+        if len(re.findall(r"(?m)^\s*CI_JAVA_VERSION:\s*", text)) != 1:
+            issues.append(issue(path, 1, "CI_JAVA_VERSION must not be duplicated or shadowed"))
+        setup_count, setup_versions = workflow_setup_java_versions(text)
+        if (
+            setup_count == 0
+            or len(setup_versions) != setup_count
+            or any(version != MUTATION_JAVA_VERSION_REFERENCE for version in setup_versions)
+        ):
+            issues.append(
+                issue(
+                    path,
+                    1,
+                    "every setup-java step must use exact ${{ env.CI_JAVA_VERSION }}",
+                )
+            )
     if not all(anchor in primary for anchor in ("pull_request:", "branches:\n      - main", "tags:\n      - \"v*\"")):
         issues.append(issue(".github/workflows/android.yml", 1, "mutation primary trigger matrix drifted"))
     if 'cron: "17 3 * * 0"' not in scheduled:
@@ -884,7 +945,8 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
         if (
             setup["fields"].get("id") != "mutation_java"
             or setup["fields"].get("uses") != "actions/setup-java@v5"
-            or setup["nested"].get("with") != {"distribution": "temurin", "java-version": "21"}
+            or setup["nested"].get("with")
+            != {"distribution": "temurin", "java-version": MUTATION_JAVA_VERSION_REFERENCE}
         ):
             issues.append(issue(path, line, "mutation Java setup output contract drifted"))
         stage = steps[2]["fields"]
