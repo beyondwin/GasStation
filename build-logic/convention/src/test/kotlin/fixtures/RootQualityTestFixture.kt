@@ -1,5 +1,8 @@
 package com.gasstation.buildlogic.testing
 
+import com.gasstation.buildlogic.quality.coverage.canonicalCoverageJson
+import java.security.MessageDigest
+
 enum class RootQualityDependencyBucket(val notation: String) {
     API("api"),
     IMPLEMENTATION("implementation"),
@@ -32,6 +35,7 @@ data class RootQualityFixture(
     val contractApiFixture: Boolean = false,
     val componentlessModules: Set<String> = emptySet(),
     val blockingDependencyPolicy: Boolean = false,
+    val mutationFixture: Boolean = false,
 )
 
 fun GradlePluginTestProject.writeRootQualityFixture(
@@ -55,6 +59,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
     }
     require(fixture.componentlessModules.all { it in modules }) {
         "Componentless fixture modules must be active"
+    }
+    require(!fixture.mutationFixture || fixture.contractApiFixture) {
+        "Mutation fixture extends the exact contract-API fixture"
     }
     fixture.kotlinSources.keys.forEach { relativePath ->
         require(
@@ -107,6 +114,8 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                 appendLine("plugins {")
                 if (module in fixture.componentlessModules) {
                     // Deliberately empty: the production topology gate must reject it.
+                } else if (fixture.mutationFixture && module in MUTATION_MODULES) {
+                    appendLine("    id(\"gasstation.jvm.mutation\")")
                 } else if (fixture.contractApiFixture) {
                     appendLine("    id(\"gasstation.jvm.library\")")
                 } else {
@@ -213,6 +222,9 @@ fun GradlePluginTestProject.writeRootQualityFixture(
             """.trimIndent(),
         )
     }
+    if (fixture.mutationFixture) {
+        writeMutationRouteFixture()
+    }
 
     writeFile("src/test/kotlin/fixture/Safe.kt", SAFE_KOTLIN_SOURCE)
     fixture.kotlinSources.toSortedMap().forEach { (relativePath, source) ->
@@ -268,6 +280,72 @@ fun GradlePluginTestProject.writeRootQualityFixture(
     writeFile("config/quality/public-api-signatures.txt", "schema-version=1\n")
     return this
 }
+
+private val MUTATION_MODULES = setOf(":domain:location", ":domain:settings", ":domain:station")
+
+private fun GradlePluginTestProject.writeMutationRouteFixture() {
+    val targets =
+        listOf("location", "settings", "station").associateWith { module ->
+            mapOf(
+                "targetClasses" to listOf("com.gasstation.domain.$module.*"),
+                "targetTests" to listOf("com.gasstation.domain.$module.*"),
+            )
+        }
+    val pitest = mapOf("pitestVersion" to "1.25.7", "pluginVersion" to "1.19.0")
+    val policy = canonicalCoverageJson(mapOf("modules" to targets, "pitest" to pitest)) + byteArrayOf('\n'.code.toByte())
+    writeFile("config/quality/mutation-policy.json", policy.toString(Charsets.UTF_8))
+    val neutral =
+        mapOf(
+            "java" to mapOf(
+                "major" to 21,
+                "toolchainRole" to "mutation-runtime",
+                "vendorFamily" to "Eclipse Adoptium/Temurin",
+            ),
+            "pitestEngine" to "1.25.7",
+            "pitestPlugin" to "1.19.0",
+            "reportGeneration" to pitest,
+            "schema" to "host-neutral-mutation-identity-v1",
+            "targets" to targets.mapValues { (_, module) ->
+                mapOf(
+                    "sourceSets" to listOf("main", "test"),
+                    "targetClasses" to module.getValue("targetClasses"),
+                    "targetTests" to module.getValue("targetTests"),
+                )
+            },
+        )
+    val route =
+        canonicalCoverageJson(
+            mapOf(
+                "hostNeutralMutationIdentity" to neutral,
+                "perRunExecutionProvenance" to mapOf(
+                    "imageIdentity" to null,
+                    "javaExecutableSha256" to "d".repeat(64),
+                    "javaRuntimeVersion" to "21.0.12.1+1",
+                    "observedToolBundleSha256" to "e".repeat(64),
+                    "profileDefinitionSha256" to "f".repeat(64),
+                    "schema" to "per-run-execution-provenance-route-v1",
+                    "selectedProfile" to "darwin-arm64",
+                ),
+                "policySha256" to sha256(policy),
+            ),
+        ) + byteArrayOf('\n'.code.toByte())
+    writeFile("build/reports/pitest/route.json", route.toString(Charsets.UTF_8))
+    val routeReceipt =
+        canonicalCoverageJson(
+            mapOf(
+                "predecessors" to mapOf(
+                    "policy" to sha256(policy),
+                    "route" to sha256(route),
+                ),
+            ),
+        ) + byteArrayOf('\n'.code.toByte())
+    writeFile("build/reports/pitest/route-receipt.json", routeReceipt.toString(Charsets.UTF_8))
+}
+
+private fun sha256(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(bytes)
+        .joinToString("") { byte -> "%02x".format(byte) }
 
 private fun rootQualityBuildScript(mutation: RootQualityFixedInputMutation?): String =
     buildString {

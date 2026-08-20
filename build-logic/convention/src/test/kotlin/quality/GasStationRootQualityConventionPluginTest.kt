@@ -325,6 +325,7 @@ class GasStationRootQualityConventionPluginTest {
                             ":domain:station",
                         ),
                     contractApiFixture = true,
+                    mutationFixture = true,
                 ),
             )
         val arguments =
@@ -333,6 +334,7 @@ class GasStationRootQualityConventionPluginTest {
                 "verifyNoDeprecatedComposeTestApis",
                 "verifyCiRobolectricRuntime",
                 "verifyPublicApiBoundaries",
+                "verifyPitestConfiguration",
                 "--rerun-tasks",
             )
 
@@ -344,6 +346,17 @@ class GasStationRootQualityConventionPluginTest {
         val report = project.projectDir.resolve("build/reports/quality/public-api-boundaries.json")
         val firstReport = report.readBytes()
         assertTrue(firstReport.toString(Charsets.UTF_8).contains("\"selectedClassCount\":5"))
+        val mutationConfiguration =
+            listOf("location", "settings", "station").associateWith { module ->
+                val path = project.projectDir.resolve("domain/$module/build/reports/quality/pitest-configuration.json")
+                assertTrue("missing mutation configuration for $module", path.isFile)
+                val bytes = path.readBytes()
+                val text = bytes.toString(Charsets.UTF_8)
+                assertTrue(text, text.contains("\"hostNeutralMutationIdentity\""))
+                assertTrue(text, text.contains("\"perRunExecutionProvenance\""))
+                assertFalse(text, text.contains(project.projectDir.absolutePath))
+                bytes
+            }
 
         val second = project.configurationCacheRunner(*arguments).build()
         assertThreeSuccessOutcomes(second)
@@ -351,6 +364,12 @@ class GasStationRootQualityConventionPluginTest {
         second.assertConfigurationCacheReused()
         assertSuccessSentinels(second, expectedModuleCount = 7)
         assertArrayEquals(firstReport, report.readBytes())
+        mutationConfiguration.forEach { (module, bytes) ->
+            assertArrayEquals(
+                bytes,
+                project.projectDir.resolve("domain/$module/build/reports/quality/pitest-configuration.json").readBytes(),
+            )
+        }
 
     }
 

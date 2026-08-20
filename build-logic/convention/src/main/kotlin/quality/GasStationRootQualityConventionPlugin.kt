@@ -20,6 +20,12 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
 
         configureCoverage(target)
         val productionDependencies = registerProductionDependencies(target)
+        val mutationModulePaths = listOf(":domain:station", ":domain:location", ":domain:settings")
+        target.tasks.register("verifyPitestConfiguration") {
+            group = "verification"
+            description = "Validates the exact three sealed JVM PIT configurations."
+            dependsOn(mutationModulePaths.map { "$it:verifyPitestConfiguration" })
+        }
         val selectedContractModules = productionDependencies.activeModules.filter { active ->
             contractApiModules.any { it.projectPath == active }
         }

@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.findLibrary("roborazzi-gradlePlugin").get())
     implementation("org.jacoco:org.jacoco.core:0.8.15")
     implementation(libs.findLibrary("asm").get())
+    implementation(libs.findLibrary("pitest-gradlePlugin").get())
     testImplementation(gradleTestKit())
     testImplementation(libs.findLibrary("junit").get())
 }
@@ -74,6 +75,11 @@ gradlePlugin {
             id = "gasstation.root.quality"
             implementationClass =
                 "com.gasstation.buildlogic.quality.GasStationRootQualityConventionPlugin"
+        }
+        register("gasStationJvmMutation") {
+            id = "gasstation.jvm.mutation"
+            implementationClass =
+                "com.gasstation.buildlogic.quality.mutation.GasStationJvmMutationConventionPlugin"
         }
     }
 }

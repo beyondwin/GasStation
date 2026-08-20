@@ -39,6 +39,7 @@ ktlint = "1.8.0"
 javaxInject = "1"
 asm = "9.9.1"
 pitestEngine = "1.25.7"
+pitestPlugin = "1.19.0"
 
 [libraries]
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -104,6 +105,7 @@ roborazzi-junit-rule = { module = "io.github.takahirom.roborazzi:roborazzi-junit
 roborazzi-gradlePlugin = { module = "io.github.takahirom.roborazzi:roborazzi-gradle-plugin", version.ref = "roborazzi" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+pitest-gradlePlugin = { module = "info.solidsoft.gradle.pitest:gradle-pitest-plugin", version.ref = "pitestPlugin" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -114,4 +116,4 @@ googleDevtoolsKsp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 googleDaggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
-pitest = { id = "info.solidsoft.pitest", version = "1.19.0" }
+pitest = { id = "info.solidsoft.pitest", version.ref = "pitestPlugin" }
