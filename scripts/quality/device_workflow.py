@@ -13,7 +13,7 @@ EXPECTED_JOBS = {
     "device-pr-api28": {
         "lane": "api28-pr-smoke",
         "timeout": "55",
-        "step_timeout": "40",
+        "step_timeout": "34",
         "retention": "14",
         "artifact": "device-api28-pr-",
         "report_only": True,
@@ -21,7 +21,7 @@ EXPECTED_JOBS = {
     "device-scheduled-api24": {
         "lane": "api24-scheduled",
         "timeout": "80",
-        "step_timeout": "67",
+        "step_timeout": "59",
         "retention": "30",
         "artifact": "device-api24-scheduled-",
         "report_only": False,
@@ -29,7 +29,7 @@ EXPECTED_JOBS = {
     "device-scheduled-api28": {
         "lane": "api28-scheduled",
         "timeout": "80",
-        "step_timeout": "66",
+        "step_timeout": "58",
         "retention": "30",
         "artifact": "device-api28-scheduled-",
         "report_only": False,
@@ -37,7 +37,7 @@ EXPECTED_JOBS = {
     "device-scheduled-api36": {
         "lane": "api36-scheduled",
         "timeout": "100",
-        "step_timeout": "82",
+        "step_timeout": "74",
         "retention": "30",
         "artifact": "device-api36-scheduled-",
         "report_only": False,
@@ -150,6 +150,9 @@ def check_device_contracts(root: Path) -> list[str]:
             )
             if active >= budget["outerMinutes"] or active + budget["reserveMinutes"] != budget["outerMinutes"]:
                 issues.append(f"config/quality/device-evidence-policy.json:1: {name} active budget is unbounded")
+            wrapper_minutes = budget["preflightMinutes"] + budget["appMinutes"] + budget["roomMinutes"] + budget["locationMinutes"] + budget["completionMinutes"]
+            if str(wrapper_minutes) != expected["step_timeout"]:
+                issues.append(f"config/quality/device-evidence-policy.json:1: {name} wrapper phase sum differs")
         if _active_scalar(body, "runs-on", 4) != "ubuntu-latest":
             issues.append(f".github/workflows/device-evidence.yml:1: {name} runner drifted")
         if _active_scalar(body, "timeout-minutes", 4) != expected["timeout"]:
@@ -172,6 +175,9 @@ def check_device_contracts(root: Path) -> list[str]:
         gradle = [step for step in steps if (_step_value(step, "uses") or "").startswith("gradle/actions/setup-gradle@")]
         if len(checkout) != 1 or len(java) != 1 or len(gradle) != 1:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} setup action family differs")
+        for setup_step in [*checkout, *java, *gradle]:
+            if _step_value(setup_step, "timeout-minutes") != "2":
+                issues.append(f".github/workflows/device-evidence.yml:1: {name} setup action is unbounded")
         run_steps = [step for step in steps if _step_value(step, "run") is not None or "run: |" in step]
         active = "\n".join(run_steps)
         if "|| true" in active:
@@ -186,6 +192,9 @@ def check_device_contracts(root: Path) -> list[str]:
         for required in ("test -c /dev/kvm", "test -r /dev/kvm", "test -w /dev/kvm"):
             if not re.search(rf"(?m)^          {re.escape(required)}$", active):
                 issues.append(f".github/workflows/device-evidence.yml:1: {name} KVM proof missing")
+        kvm_steps = [step for step in run_steps if "test -c /dev/kvm" in step]
+        if len(kvm_steps) != 1 or _step_value(kvm_steps[0], "timeout-minutes") != "2":
+            issues.append(f".github/workflows/device-evidence.yml:1: {name} KVM phase is unbounded")
         verifier_mentions = active.count("verify_device_evidence.py")
         if verifier_mentions != 0:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} bypasses wrapper-owned verifier chain")
@@ -198,6 +207,7 @@ def check_device_contracts(root: Path) -> list[str]:
             if (
                 _step_value(upload, "id") != "upload"
                 or _step_value(upload, "if") != "always()"
+                or _step_value(upload, "timeout-minutes") != "3"
                 or _with_value(upload, "if-no-files-found") != "error"
                 or _with_value(upload, "retention-days") != expected["retention"]
                 or not (_with_value(upload, "name") or "").startswith(expected["artifact"])
@@ -205,6 +215,9 @@ def check_device_contracts(root: Path) -> list[str]:
                 issues.append(f".github/workflows/device-evidence.yml:1: {name} upload contract differs")
         if "steps.upload.outputs.artifact-id" not in active or "steps.upload.outputs.artifact-url" not in active or "steps.upload.outputs.artifact-digest" not in active:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} upload identity summary missing")
+        summary_steps = [step for step in run_steps if "steps.upload.outputs.artifact-digest" in step]
+        if len(summary_steps) != 1 or _step_value(summary_steps[0], "timeout-minutes") != "1":
+            issues.append(f".github/workflows/device-evidence.yml:1: {name} upload summary is unbounded")
 
     android = (root / ".github/workflows/android.yml").read_text(encoding="utf-8", errors="strict")
     release = re.search(r"(?ms)^  release-publish:\s*\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)", android)
@@ -214,4 +227,49 @@ def check_device_contracts(root: Path) -> list[str]:
     properties = (root / "gradle.properties").read_text(encoding="utf-8", errors="strict")
     if re.search(r"(?m)^android\.enableAdditionalTestOutput\s*=\s*false\s*$", properties):
         issues.append("gradle.properties:1: Android additional test output is disabled")
+
+    device_dir = root / "scripts/quality/device"
+    wrapper_contracts = {
+        "run_gmd_lane.sh": (
+            'run_device_phase "$lane" hostPreflight',
+            'run_device_seconds "$seconds"',
+            'run_device_phase "$lane" collection',
+            'run_device_phase "$lane" cleanup',
+            'run_device_phase "$lane" completion',
+            'run_device_phase "$lane" verify',
+        ),
+        "run_api24_avd.sh": (
+            'run_device_phase "$lane" hostPreflight',
+            'run_device_phase "$lane" provision',
+            'run_device_phase "$lane" boot',
+            'run_device_seconds "${seconds[$index]}"',
+            'run_device_phase "$lane" collection',
+            'run_device_phase "$lane" cleanup',
+            'run_device_phase "$lane" completion',
+            'run_device_phase "$lane" verify',
+        ),
+    }
+    for filename, anchors in wrapper_contracts.items():
+        path = device_dir / filename
+        if not path.is_file():
+            issues.append(f"scripts/quality/device/{filename}:1: canonical wrapper missing")
+            continue
+        wrapper_text = "\n".join(
+            line for line in path.read_text(encoding="utf-8", errors="strict").splitlines()
+            if not line.lstrip().startswith("#")
+        )
+        for anchor in anchors:
+            if wrapper_text.count(anchor) != 1:
+                issues.append(f"scripts/quality/device/{filename}:1: executable phase bound differs: {anchor}")
+        if "--cleanup-status" in wrapper_text:
+            issues.append(f"scripts/quality/device/{filename}:1: caller asserts cleanup status")
+    for helper in (
+        "execute_gmd_task.sh",
+        "capture_gmd_receipt.py",
+        "cleanup_gmd_lane.py",
+        "cleanup_connected_avd.sh",
+        "record_connected_teardown.py",
+    ):
+        if not (device_dir / helper).is_file():
+            issues.append(f"scripts/quality/device/{helper}:1: raw device phase helper missing")
     return issues

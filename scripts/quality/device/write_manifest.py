@@ -160,69 +160,212 @@ def parse_getprop(path: Path) -> dict[str, str]:
     return result
 
 
+GMD_RECEIPT_FIELDS = {"schemaVersion", "producer", "task", "device", "execution", "teardown"}
+GMD_DEVICE_FIELDS = {
+    "abi",
+    "apiLevel",
+    "fingerprint",
+    "imagePackage",
+    "imageSource",
+    "locale",
+    "permissionControllerPackage",
+    "permissionControllerRevision",
+    "profile",
+    "serial",
+}
+CONNECTED_TEARDOWN_FIELDS = {
+    "schemaVersion",
+    "kind",
+    "timedOut",
+    "logcatStopExitCode",
+    "emulatorKillExitCode",
+    "emulatorPidAlive",
+    "serialPresent",
+    "portsFree",
+    "avdRemoved",
+}
+GMD_CLEANUP_FIELDS = {
+    "schemaVersion",
+    "kind",
+    "timedOut",
+    "baselinePids",
+    "observedPids",
+    "killedPids",
+    "killFailures",
+    "livePids",
+    "adbExitCode",
+    "adbTargets",
+}
+
+
+def read_json_object(path: Path, name: str) -> dict:
+    if path.is_symlink() or not path.is_file():
+        raise DeviceEvidenceError(f"{name} missing: {path.name}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DeviceEvidenceError(f"invalid {name}: {path.name}") from error
+    if not isinstance(value, dict):
+        raise DeviceEvidenceError(f"{name} must be a JSON object: {path.name}")
+    return value
+
+
+def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
+    paths = sorted((attempt_root / "raw").glob("gmd-task-*.json"))
+    expected_paths = [attempt_root / "raw" / f"gmd-task-{index}.json" for index in range(len(tasks))]
+    if paths != expected_paths:
+        raise DeviceEvidenceError("GMD requires exactly one indexed raw AGP/UTP receipt per selected task")
+    receipts = []
+    for index, (path, task) in enumerate(zip(paths, tasks, strict=True)):
+        receipt = read_json_object(path, "GMD task receipt")
+        if set(receipt) != GMD_RECEIPT_FIELDS:
+            raise DeviceEvidenceError(f"GMD task receipt {index} fields differ")
+        if receipt["schemaVersion"] != 1 or receipt["producer"] != "agp-utp" or receipt["task"] != task:
+            raise DeviceEvidenceError(f"GMD task receipt {index} identity differs")
+        device = receipt["device"]
+        execution = receipt["execution"]
+        teardown = receipt["teardown"]
+        if not isinstance(device, dict) or set(device) != GMD_DEVICE_FIELDS:
+            raise DeviceEvidenceError(f"GMD task receipt {index} device fields differ")
+        if not isinstance(execution, dict) or set(execution) != {"shards"} or execution["shards"] != 1:
+            raise DeviceEvidenceError(f"GMD task receipt {index} execution differs")
+        if (
+            not isinstance(teardown, dict)
+            or set(teardown) != {"status", "timedOut"}
+            or teardown["status"] not in {"SUCCESS", "FAILED"}
+            or not isinstance(teardown["timedOut"], bool)
+        ):
+            raise DeviceEvidenceError(f"GMD task receipt {index} teardown fields differ")
+        if (
+            not isinstance(device["apiLevel"], int)
+            or device["apiLevel"] <= 0
+            or device["abi"] != "x86_64"
+            or any(not isinstance(device[field], str) or not device[field].strip() for field in GMD_DEVICE_FIELDS - {"apiLevel"})
+        ):
+            raise DeviceEvidenceError(f"GMD task receipt {index} device facts are incomplete")
+        receipts.append(receipt)
+    return receipts
+
+
 def connected_metadata(attempt_root: Path, lane_name: str) -> dict:
     getprop_path = attempt_root / "raw/getprop.txt"
     devices_path = attempt_root / "raw/adb-devices.txt"
     avd_path = attempt_root / "raw/avd-config.ini"
-    for path in (getprop_path, devices_path, avd_path):
+    package_path = attempt_root / "raw/permission-controller-package.txt"
+    revision_path = attempt_root / "raw/permission-controller-revision.txt"
+    for path in (getprop_path, devices_path, avd_path, package_path, revision_path):
         if path.is_symlink() or not path.is_file():
             raise DeviceEvidenceError(f"connected raw metadata missing: {path.name}")
     properties = parse_getprop(getprop_path)
     devices = devices_path.read_text(encoding="utf-8", errors="strict")
     avd = avd_path.read_text(encoding="utf-8", errors="strict")
-    if len(re.findall(r"(?m)^emulator-5554\s+device(?:\s|$)", devices)) != 1:
-        raise DeviceEvidenceError("connected metadata does not bind exact emulator-5554")
+    device_lines = [line for line in devices.splitlines()[1:] if line.strip()]
+    if len(device_lines) != 1 or not re.fullmatch(r"emulator-5554\s+device(?:\s+.*)?", device_lines[0]):
+        raise DeviceEvidenceError("connected metadata requires exactly one online authorized emulator-5554 target")
     if "hw.device.name = pixel_2" not in avd or "android-24/google_apis/x86_64" not in avd:
         raise DeviceEvidenceError("AVD config does not bind Pixel 2 API-24 Google APIs x86_64")
     try:
         api = int(properties["ro.build.version.sdk"])
     except (KeyError, ValueError) as error:
         raise DeviceEvidenceError("connected getprop lacks a numeric SDK") from error
-    if not properties.get("ro.build.fingerprint") or not properties.get("ro.product.cpu.abi"):
-        raise DeviceEvidenceError("connected getprop lacks fingerprint or ABI")
+    fingerprint = properties.get("ro.build.fingerprint", "")
+    abi = properties.get("ro.product.cpu.abi", "")
+    locale = properties.get("persist.sys.locale") or properties.get("ro.product.locale", "")
+    permission_package = package_path.read_text(encoding="utf-8", errors="strict").strip()
+    permission_revision = revision_path.read_text(encoding="utf-8", errors="strict").strip()
+    if not fingerprint or abi != "x86_64" or not locale or not permission_package or not permission_revision.isdigit():
+        raise DeviceEvidenceError("connected raw adb facts lack exact ABI/fingerprint/locale/permission package revision")
     return {
         "schemaVersion": 1,
         "source": "adb",
         "lane": lane_name,
         "kind": "connected-avd",
         "apiLevel": api,
+        "abi": abi,
+        "fingerprint": fingerprint,
+        "imagePackage": "system-images;android-24;google_apis;x86_64",
         "profile": "Pixel 2",
         "imageSource": "google_apis",
+        "locale": locale,
+        "permissionControllerPackage": permission_package,
+        "permissionControllerRevision": permission_revision,
         "serial": "emulator-5554",
         "shards": 1,
     }
 
 
 def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
-    logs = sorted((attempt_root / "logs").glob("gradle-*.log"))
-    if not logs:
-        raise DeviceEvidenceError("GMD Gradle logs are missing")
-    text = "\n".join(path.read_text(encoding="utf-8", errors="strict") for path in logs)
-    device = lane["device"]
-    required_raw_markers = (
-        device["name"],
-        device["profile"],
-        str(device["apiLevel"]),
-        device["imageSource"],
-    )
-    if any(marker not in text for marker in required_raw_markers):
-        raise DeviceEvidenceError("AGP/UTP logs do not expose the exact GMD name/profile/API/image")
-    if not re.search(r"(?i)unified test platform|\bUTP\b|managed device", text):
-        raise DeviceEvidenceError("GMD logs do not contain an AGP/UTP managed-device receipt")
-    for task in lane["gradleTasks"]:
-        if task not in text:
-            raise DeviceEvidenceError(f"GMD log does not bind selected task: {task}")
+    receipts = parse_gmd_task_receipts(attempt_root, lane["gradleTasks"])
+    actual = receipts[0]["device"]
+    if any(receipt["device"] != actual for receipt in receipts[1:]):
+        raise DeviceEvidenceError("GMD task receipts conflict on actual device facts")
     return {
         "schemaVersion": 1,
         "source": "agp-utp",
         "lane": lane_name,
         "kind": "gmd",
-        "apiLevel": device["apiLevel"],
-        "profile": device["profile"],
-        "imageSource": device["imageSource"],
-        "serial": device["name"],
+        **actual,
         "shards": 1,
     }
+
+
+def derive_cleanup_status(attempt_root: Path, kind: str, tasks: list[str]) -> str:
+    if kind == "gmd":
+        receipts = parse_gmd_task_receipts(attempt_root, tasks)
+        cleanup = read_json_object(attempt_root / "raw/gmd-teardown.json", "GMD cleanup receipt")
+        if set(cleanup) != GMD_CLEANUP_FIELDS or cleanup["schemaVersion"] != 1 or cleanup["kind"] != "gmd":
+            raise DeviceEvidenceError("GMD cleanup receipt fields differ")
+        list_fields = ("baselinePids", "observedPids", "killedPids", "killFailures", "livePids")
+        if (
+            type(cleanup["timedOut"]) is not bool
+            or type(cleanup["adbExitCode"]) is not int
+            or not isinstance(cleanup["adbTargets"], list)
+            or any(not isinstance(value, str) or not value for value in cleanup["adbTargets"])
+            or any(not isinstance(cleanup[field], list) or any(type(pid) is not int or pid <= 1 for pid in cleanup[field]) for field in list_fields)
+        ):
+            raise DeviceEvidenceError("GMD cleanup observations are malformed")
+        baseline = set(cleanup["baselinePids"])
+        observed = set(cleanup["observedPids"])
+        killed = set(cleanup["killedPids"])
+        cleanup_passed = (
+            cleanup["timedOut"] is False
+            and cleanup["adbExitCode"] == 0
+            and cleanup["adbTargets"] == []
+            and cleanup["killFailures"] == []
+            and cleanup["livePids"] == []
+            and killed == observed - baseline
+        )
+        tasks_passed = all(
+            receipt["teardown"] == {"status": "SUCCESS", "timedOut": False}
+            for receipt in receipts
+        )
+        return "PASS" if cleanup_passed and tasks_passed else "FAIL"
+    if kind != "connected-avd":
+        raise DeviceEvidenceError(f"unknown cleanup kind: {kind}")
+    receipt = read_json_object(attempt_root / "raw/teardown.json", "connected teardown receipt")
+    if set(receipt) != CONNECTED_TEARDOWN_FIELDS or receipt["schemaVersion"] != 1 or receipt["kind"] != kind:
+        raise DeviceEvidenceError("connected teardown receipt fields differ")
+    expected_types = {
+        "timedOut": bool,
+        "logcatStopExitCode": int,
+        "emulatorKillExitCode": int,
+        "emulatorPidAlive": bool,
+        "serialPresent": bool,
+        "portsFree": bool,
+        "avdRemoved": bool,
+    }
+    if any(type(receipt[field]) is not expected for field, expected in expected_types.items()):
+        raise DeviceEvidenceError("connected teardown observations are malformed")
+    passed = (
+        receipt["timedOut"] is False
+        and receipt["logcatStopExitCode"] == 0
+        and receipt["emulatorKillExitCode"] == 0
+        and receipt["emulatorPidAlive"] is False
+        and receipt["serialPresent"] is False
+        and receipt["portsFree"] is True
+        and receipt["avdRemoved"] is True
+    )
+    return "PASS" if passed else "FAIL"
 
 
 def collect_lane(arguments: argparse.Namespace) -> int:
@@ -313,6 +456,13 @@ def complete(arguments: argparse.Namespace) -> int:
     if not isinstance(commands, list):
         raise DeviceEvidenceError("command receipt must be a JSON list")
     artifacts = auto_artifacts(attempt_root) if arguments.auto_artifacts else []
+    policy = load_policy(POLICY)
+    lane = policy["lanes"][attempt["lane"]]
+    cleanup_status = derive_cleanup_status(
+        attempt_root,
+        lane["device"]["kind"],
+        lane["gradleTasks"],
+    )
     for item in arguments.artifact:
         kind, separator, relative = item.partition(":")
         if not separator or not kind or not relative:
@@ -328,10 +478,20 @@ def complete(arguments: argparse.Namespace) -> int:
         "artifacts": artifacts,
         "postRunHead": head,
         "postRunStatus": status,
-        "cleanupStatus": arguments.cleanup_status,
+        "cleanupStatus": cleanup_status,
         "completedAt": now(),
     }
     atomic_json(attempt_root / "completion.json", receipt)
+    return 0
+
+
+def check_cleanup(arguments: argparse.Namespace) -> int:
+    attempt_root = require_attempt_root(arguments.attempt_root)
+    attempt = json.loads((attempt_root / "attempt.json").read_text(encoding="utf-8"))
+    lane = load_policy(POLICY)["lanes"][attempt["lane"]]
+    status = derive_cleanup_status(attempt_root, lane["device"]["kind"], lane["gradleTasks"])
+    if status != "PASS":
+        raise DeviceEvidenceError("raw teardown observations do not prove cleanup")
     return 0
 
 
@@ -373,10 +533,12 @@ def parser() -> argparse.ArgumentParser:
     finish = commands.add_parser("complete")
     finish.add_argument("--attempt-root", required=True)
     finish.add_argument("--commands", required=True)
-    finish.add_argument("--cleanup-status", choices=("PASS", "FAIL"), required=True)
     finish.add_argument("--artifact", action="append", default=[])
     finish.add_argument("--auto-artifacts", action="store_true")
     finish.set_defaults(handler=complete)
+    cleanup = commands.add_parser("check-cleanup")
+    cleanup.add_argument("--attempt-root", required=True)
+    cleanup.set_defaults(handler=check_cleanup)
     fail = commands.add_parser("terminal")
     fail.add_argument("--attempt-root", required=True)
     fail.add_argument("--reason", required=True)

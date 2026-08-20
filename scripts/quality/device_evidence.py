@@ -32,6 +32,7 @@ POLICY_FIELDS = {
     "quarantineOverlay",
     "schemaVersion",
 }
+PHASE_FIELDS = {"boot", "cleanup", "collection", "completion", "hostPreflight", "prepare", "provision", "receipt", "verify"}
 LANE_FIELDS = {
     "appFlavor",
     "apkRoots",
@@ -40,6 +41,7 @@ LANE_FIELDS = {
     "filter",
     "gradleTasks",
     "inventories",
+    "phaseSeconds",
     "reportOnly",
     "resultRoots",
     "retentionDays",
@@ -94,9 +96,15 @@ FACT_FIELDS = {
     "source",
     "lane",
     "kind",
+    "abi",
     "apiLevel",
+    "fingerprint",
+    "imagePackage",
     "profile",
     "imageSource",
+    "locale",
+    "permissionControllerPackage",
+    "permissionControllerRevision",
     "serial",
     "shards",
 }
@@ -113,6 +121,7 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 17, 20, 15, 0, 7, 4, 9, 80],
+        "phases": [300, 120, 120, 60, 30, 30, 660, 30, 90],
         "roots": [
             "app/build/outputs/androidTest-results/connected/debug/flavors/demo",
             "app/build/outputs/connected_android_test_additional_output/demoDebugAndroidTest/connected",
@@ -133,6 +142,7 @@ EXPECTED_LANES = {
         "reportOnly": True,
         "retention": 14,
         "budget": [8, 3, 25, 0, 0, 6, 4, 9, 55],
+        "phases": [0, 60, 120, 60, 150, 30, 0, 30, 90],
         "roots": [
             "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
             "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
@@ -153,6 +163,7 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 3, 28, 20, 0, 7, 4, 10, 80],
+        "phases": [0, 60, 150, 60, 150, 30, 0, 30, 120],
         "roots": [
             "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
             "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
@@ -177,6 +188,7 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 3, 28, 20, 15, 8, 4, 14, 100],
+        "phases": [0, 60, 180, 60, 150, 30, 0, 30, 150],
         "roots": [
             "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api36",
             "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
@@ -283,6 +295,7 @@ def validate_policy(policy: dict, *, today: str | None = None) -> None:
         lane = policy["lanes"][lane_name]
         _closed(lane, LANE_FIELDS, f"lane {lane_name}")
         _closed(lane["budgets"], BUDGET_FIELDS, f"lane {lane_name} budgets")
+        _closed(lane["phaseSeconds"], PHASE_FIELDS, f"lane {lane_name} executable phases")
         device_fields = CONNECTED_DEVICE_FIELDS if expected["kind"] == "connected-avd" else DEVICE_FIELDS
         _closed(lane["device"], device_fields, f"lane {lane_name} device")
         device = lane["device"]
@@ -315,6 +328,23 @@ def validate_policy(policy: dict, *, today: str | None = None) -> None:
         ]
         if actual_budget != expected["budget"]:
             raise DeviceEvidenceError(f"lane {lane_name} timeout budget drifted")
+        phases = lane["phaseSeconds"]
+        actual_phases = [phases[key] for key in sorted(PHASE_FIELDS)]
+        if actual_phases != expected["phases"]:
+            raise DeviceEvidenceError(f"lane {lane_name} executable phase budget drifted")
+        if any(type(value) is not int or value < 0 for value in phases.values()):
+            raise DeviceEvidenceError(f"lane {lane_name} executable phase budget is malformed")
+        if any(phases[key] <= 0 for key in ("prepare", "hostPreflight", "collection", "cleanup", "completion", "verify", "receipt")):
+            raise DeviceEvidenceError(f"lane {lane_name} has an unbounded active phase")
+        if phases["prepare"] + phases["hostPreflight"] + phases["provision"] + phases["boot"] != budget["preflightMinutes"] * 60:
+            raise DeviceEvidenceError(f"lane {lane_name} preflight phases do not close")
+        if sum(phases[key] for key in ("collection", "cleanup", "completion", "verify", "receipt")) != budget["completionMinutes"] * 60:
+            raise DeviceEvidenceError(f"lane {lane_name} completion phases do not close")
+        if expected["kind"] == "connected-avd":
+            if phases["provision"] <= 0 or phases["boot"] <= 0:
+                raise DeviceEvidenceError(f"lane {lane_name} connected provisioning is unbounded")
+        elif phases["provision"] != 0 or phases["boot"] != 0:
+            raise DeviceEvidenceError(f"lane {lane_name} GMD setup must remain inside its task bound")
         active = sum(actual_budget[:7])
         if active >= budget["outerMinutes"] or budget["reserveMinutes"] <= 0:
             raise DeviceEvidenceError(f"lane {lane_name} has no positive outer-timeout reserve")
@@ -486,15 +516,18 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
         raise DeviceEvidenceError("attempt result roots differ")
     _instant(attempt["startedAt"], "attempt start")
     _instant(completion["completedAt"], "completion time")
-    if completion["cleanupStatus"] != "PASS":
-        raise DeviceEvidenceError("bounded cleanup did not pass")
-
     commands = completion["commands"]
     if not isinstance(commands, list) or [entry.get("task") for entry in commands if isinstance(entry, dict)] != lane["gradleTasks"]:
         raise DeviceEvidenceError("completion command order differs")
     for entry in commands:
-        if set(entry) != {"task", "exitCode", "outcome"} or entry["exitCode"] != 0 or entry["outcome"] != "EXECUTED":
-            raise DeviceEvidenceError("command was nonzero, cached, skipped, or malformed")
+        if (
+            set(entry) != {"task", "exitCode", "outcome"}
+            or type(entry["exitCode"]) is not int
+            or entry["exitCode"] < 0
+            or entry["outcome"] != "EXECUTED"
+        ):
+            raise DeviceEvidenceError("command was cached, skipped, or malformed")
+    command_failed = any(entry["exitCode"] != 0 for entry in commands)
 
     artifacts = completion["artifacts"]
     if not isinstance(artifacts, list) or not artifacts:
@@ -528,6 +561,8 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
     ):
         if required not in kinds:
             raise DeviceEvidenceError(f"required artifact kind missing: {required}")
+    if (attempt_root / "raw/collection-failures.json").exists():
+        raise DeviceEvidenceError("device failure diagnostic collection was incomplete")
     if len(kinds["device-metadata"]) != 1 or len(kinds["command-receipt"]) != 1:
         raise DeviceEvidenceError("device metadata and command receipt must each be unique")
     try:
@@ -555,12 +590,28 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
     _closed(metadata, FACT_FIELDS, "device metadata")
     device = lane["device"]
     expected_source = "agp-utp" if device["kind"] == "gmd" else "adb"
+    # Reparse the completion-bound raw receipts. Metadata is only a derived
+    # convenience record and is never authoritative on its own.
+    from device.write_manifest import connected_metadata, derive_cleanup_status, gmd_metadata
+
+    raw_metadata = (
+        connected_metadata(attempt_root, lane_name)
+        if device["kind"] == "connected-avd"
+        else gmd_metadata(attempt_root, lane_name, lane)
+    )
+    if metadata != raw_metadata:
+        raise DeviceEvidenceError("derived device metadata differs from raw device receipts")
+    cleanup_status = derive_cleanup_status(attempt_root, device["kind"], lane["gradleTasks"])
+    if completion["cleanupStatus"] != cleanup_status or cleanup_status != "PASS":
+        raise DeviceEvidenceError("bounded cleanup status differs from raw teardown observations")
     if (
         metadata["schemaVersion"] != 1
         or metadata["source"] != expected_source
         or metadata["lane"] != lane_name
         or metadata["kind"] != device["kind"]
         or metadata["apiLevel"] != device["apiLevel"]
+        or metadata["abi"] != "x86_64"
+        or metadata["imagePackage"] != device["imagePackage"]
         or metadata["profile"] != device["profile"]
         or metadata["imageSource"] != device["imageSource"]
         or metadata["serial"] != device.get("serial", device["name"])
@@ -586,6 +637,8 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
     if skipped:
         raise DeviceEvidenceError(f"required tests skipped: {sorted(skipped)}")
     if errors:
+        if not command_failed:
+            raise DeviceEvidenceError("JUnit errors are not bound to a nonzero test command")
         status = "FAIL"
     elif failures:
         failed_app = [identity for identity in failures if identity.startswith("com.gasstation.") and ".core." not in identity]
@@ -633,7 +686,11 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
                     }
                 if selection["packageName"] not in packages or selection["resourceName"] not in resources:
                     raise DeviceEvidenceError("permission selection is outside the closed SDK table")
+        if not command_failed:
+            raise DeviceEvidenceError("JUnit failures are not bound to a nonzero test command")
         status = "FAIL"
+    elif command_failed:
+        raise DeviceEvidenceError("nonzero test command lacks matching collected JUnit failure")
     elif quarantine:
         status = "QUARANTINED"
     else:

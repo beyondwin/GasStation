@@ -28,6 +28,46 @@ device_timeout_command() {
   return 1
 }
 
+device_phase_seconds() {
+  local lane=$1
+  local phase=$2
+  local root
+  root=$(device_repo_root)
+  python3 - "$root/config/quality/device-evidence-policy.json" "$lane" "$phase" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+value = policy["lanes"][sys.argv[2]]["phaseSeconds"][sys.argv[3]]
+if not isinstance(value, int) or value <= 0:
+    raise SystemExit(f"phase {sys.argv[3]} is not active for lane {sys.argv[2]}")
+print(value)
+PY
+}
+
+run_device_phase() {
+  local lane=$1
+  local phase=$2
+  shift 2
+  local seconds timeout_command
+  seconds=$(device_phase_seconds "$lane" "$phase")
+  timeout_command=$(device_timeout_command)
+  "$timeout_command" --signal=TERM --kill-after=30s "${seconds}s" "$@"
+}
+
+run_device_seconds() {
+  local seconds=$1
+  shift
+  local timeout_command
+  timeout_command=$(device_timeout_command)
+  if (( seconds <= 0 )); then
+    printf '%s\n' "device command has no positive timeout" >&2
+    return 2
+  fi
+  "$timeout_command" --signal=TERM --kill-after=30s "${seconds}s" "$@"
+}
+
 require_regular_executable() {
   local path=$1
   test -f "$path"
@@ -65,7 +105,7 @@ prepare_device_attempt() {
   local expected_sha=${GITHUB_SHA:-${GASSTATION_DEVICE_EXPECTED_SHA:-}}
   local root
   root=$(device_repo_root)
-  python3 "$root/scripts/quality/device/write_manifest.py" prepare \
+  run_device_phase "$lane" prepare python3 "$root/scripts/quality/device/write_manifest.py" prepare \
     --lane "$lane" \
     --run-id "$run_id" \
     --attempt-number "$attempt" \
@@ -124,9 +164,10 @@ PY
 write_terminal_receipt() {
   local attempt_root=$1
   local reason=$2
+  local lane=$3
   local root
   root=$(device_repo_root)
-  python3 "$root/scripts/quality/device/write_manifest.py" terminal \
+  run_device_phase "$lane" receipt python3 "$root/scripts/quality/device/write_manifest.py" terminal \
     --attempt-root "$attempt_root" \
     --reason "$reason"
 }

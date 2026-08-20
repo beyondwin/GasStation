@@ -75,6 +75,17 @@
         "appFull",
         "roomMigrations"
       ],
+      "phaseSeconds": {
+        "boot": 300,
+        "cleanup": 120,
+        "collection": 120,
+        "completion": 60,
+        "hostPreflight": 30,
+        "prepare": 30,
+        "provision": 660,
+        "receipt": 30,
+        "verify": 90
+      },
       "reportOnly": false,
       "resultRoots": [
         "app/build/outputs/androidTest-results/connected/debug/flavors/demo",
@@ -119,6 +130,17 @@
       "inventories": [
         "appPrSmoke"
       ],
+      "phaseSeconds": {
+        "boot": 0,
+        "cleanup": 60,
+        "collection": 120,
+        "completion": 60,
+        "hostPreflight": 150,
+        "prepare": 30,
+        "provision": 0,
+        "receipt": 30,
+        "verify": 90
+      },
       "reportOnly": true,
       "resultRoots": [
         "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
@@ -163,6 +185,17 @@
         "appFull",
         "roomMigrations"
       ],
+      "phaseSeconds": {
+        "boot": 0,
+        "cleanup": 60,
+        "collection": 150,
+        "completion": 60,
+        "hostPreflight": 150,
+        "prepare": 30,
+        "provision": 0,
+        "receipt": 30,
+        "verify": 120
+      },
       "reportOnly": false,
       "resultRoots": [
         "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
@@ -213,6 +246,17 @@
         "roomMigrations",
         "locationGeocoder"
       ],
+      "phaseSeconds": {
+        "boot": 0,
+        "cleanup": 60,
+        "collection": 180,
+        "completion": 60,
+        "hostPreflight": 150,
+        "prepare": 30,
+        "provision": 0,
+        "receipt": 30,
+        "verify": 150
+      },
       "reportOnly": false,
       "resultRoots": [
         "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api36",

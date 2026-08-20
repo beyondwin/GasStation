@@ -57,6 +57,14 @@ class DeviceEvidencePolicyTest(unittest.TestCase):
         api24_gmd["lanes"]["api24-scheduled"]["device"]["kind"] = "gmd"
         mutations.append(api24_gmd)
 
+        unbounded_collection = copy.deepcopy(policy)
+        unbounded_collection["lanes"]["api28-pr-smoke"]["phaseSeconds"]["collection"] = 0
+        mutations.append(unbounded_collection)
+
+        phase_overrun = copy.deepcopy(policy)
+        phase_overrun["lanes"]["api24-scheduled"]["phaseSeconds"]["provision"] += 60
+        mutations.append(phase_overrun)
+
         for mutated in mutations:
             with self.subTest(mutated=mutated):
                 with self.assertRaises(DeviceEvidenceError):
@@ -218,6 +226,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
     def test_failed_app_test_requires_exact_attempt_bound_png_and_diagnostic(self):
         def fail_one(facts, completion, junit):
             junit["failed"] = {junit["tests"][0]}
+            completion["commands"][0]["exitCode"] = 1
 
         with self.assertRaises(DeviceEvidenceError):
             self._write_complete_attempt("api28-pr-smoke", mutator=fail_one)
@@ -229,6 +238,49 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             include_failure_artifacts=True,
         )
         self.assertEqual("FAIL", result["status"])
+
+    def test_real_nonzero_test_failure_distinguishes_transport_collection_failure(self):
+        def fail_one(facts, completion, junit):
+            junit["failed"] = {junit["tests"][0]}
+            completion["commands"][0]["exitCode"] = 1
+
+        with self.assertRaisesRegex(DeviceEvidenceError, "lacks exact pulled PNG/diagnostic"):
+            self._write_complete_attempt("api28-pr-smoke", mutator=fail_one)
+
+        self._reset_attempt_root()
+        result = self._write_complete_attempt(
+            "api28-pr-smoke",
+            mutator=fail_one,
+            include_failure_artifacts=True,
+        )
+        self.assertEqual("FAIL", result["status"])
+
+    def test_metadata_policy_echo_and_cleanup_assertion_without_raw_match_fail_closed(self):
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                file_mutator=lambda root: self._rewrite_json(
+                    root / "raw/device-metadata.json",
+                    lambda value: value.update(locale="policy-echo"),
+                ),
+            )
+
+        self._reset_attempt_root()
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                file_mutator=lambda root: (root / "raw/gmd-task-0.json").unlink(),
+            )
+
+        self._reset_attempt_root()
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api24-scheduled",
+                file_mutator=lambda root: self._rewrite_json(
+                    root / "raw/teardown.json",
+                    lambda value: value.update(emulatorPidAlive=True),
+                ),
+            )
 
     def _write_complete_attempt(
         self,
@@ -250,9 +302,19 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "source": "agp-utp" if lane_policy["device"]["kind"] == "gmd" else "adb",
             "lane": lane,
             "kind": lane_policy["device"]["kind"],
+            "abi": "x86_64",
             "apiLevel": lane_policy["device"]["apiLevel"],
+            "fingerprint": f"fixture/{lane_policy['device']['apiLevel']}",
+            "imagePackage": lane_policy["device"]["imagePackage"],
             "profile": lane_policy["device"]["profile"],
             "imageSource": lane_policy["device"]["imageSource"],
+            "locale": "ko-KR",
+            "permissionControllerPackage": (
+                "com.android.packageinstaller"
+                if lane_policy["device"]["apiLevel"] <= 28
+                else "com.android.permissioncontroller"
+            ),
+            "permissionControllerRevision": str(lane_policy["device"]["apiLevel"]),
             "serial": lane_policy["device"].get("serial", lane_policy["device"]["name"]),
             "shards": 1,
         }
@@ -306,7 +368,82 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         (self.attempt_root / "logs/gradle-app.log").write_text("task executed\n", encoding="utf-8")
         (self.attempt_root / "logs/logcat.txt").write_text("logcat\n", encoding="utf-8")
         self._write_json(self.attempt_root / "raw/commands.json", completion["commands"])
-        (self.attempt_root / "raw/utp-receipt.txt").write_text("raw device receipt\n", encoding="utf-8")
+        if lane_policy["device"]["kind"] == "gmd":
+            for index, task in enumerate(lane_policy["gradleTasks"]):
+                self._write_json(
+                    self.attempt_root / f"raw/gmd-task-{index}.json",
+                    {
+                        "schemaVersion": 1,
+                        "producer": "agp-utp",
+                        "task": task,
+                        "device": {
+                            key: facts[key]
+                            for key in (
+                                "abi",
+                                "apiLevel",
+                                "fingerprint",
+                                "imagePackage",
+                                "imageSource",
+                                "locale",
+                                "permissionControllerPackage",
+                                "permissionControllerRevision",
+                                "profile",
+                                "serial",
+                            )
+                        },
+                        "execution": {"shards": 1},
+                        "teardown": {"status": "SUCCESS", "timedOut": False},
+                    },
+                )
+            self._write_json(
+                self.attempt_root / "raw/gmd-teardown.json",
+                {
+                    "schemaVersion": 1,
+                    "kind": "gmd",
+                    "timedOut": False,
+                    "baselinePids": [],
+                    "observedPids": [],
+                    "killedPids": [],
+                    "killFailures": [],
+                    "livePids": [],
+                    "adbExitCode": 0,
+                    "adbTargets": [],
+                },
+            )
+        else:
+            (self.attempt_root / "raw/adb-devices.txt").write_text(
+                "List of devices attached\nemulator-5554 device product:sdk\n", encoding="utf-8"
+            )
+            (self.attempt_root / "raw/getprop.txt").write_text(
+                "[ro.build.version.sdk]: [24]\n"
+                "[ro.build.fingerprint]: [fixture/24]\n"
+                "[ro.product.cpu.abi]: [x86_64]\n"
+                "[persist.sys.locale]: [ko-KR]\n",
+                encoding="utf-8",
+            )
+            (self.attempt_root / "raw/avd-config.ini").write_text(
+                "hw.device.name = pixel_2\n"
+                "image.sysdir.1 = system-images/android-24/google_apis/x86_64/\n",
+                encoding="utf-8",
+            )
+            (self.attempt_root / "raw/permission-controller-package.txt").write_text(
+                "com.android.packageinstaller\n", encoding="utf-8"
+            )
+            (self.attempt_root / "raw/permission-controller-revision.txt").write_text("24\n", encoding="utf-8")
+            self._write_json(
+                self.attempt_root / "raw/teardown.json",
+                {
+                    "schemaVersion": 1,
+                    "kind": "connected-avd",
+                    "timedOut": False,
+                    "logcatStopExitCode": 0,
+                    "emulatorKillExitCode": 0,
+                    "emulatorPidAlive": False,
+                    "serialPresent": False,
+                    "portsFree": True,
+                    "avdRemoved": True,
+                },
+            )
         (self.attempt_root / "apks").mkdir(parents=True, exist_ok=True)
         (self.attempt_root / "apks/app.apk").write_bytes(b"app-apk")
         (self.attempt_root / "apks/test.apk").write_bytes(b"test-apk")
@@ -346,7 +483,6 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             ("logs/gradle-app.log", "gradle-log"),
             ("logs/logcat.txt", "logcat"),
             ("raw/commands.json", "command-receipt"),
-            ("raw/utp-receipt.txt", "raw-device"),
             ("apks/app.apk", "app-apk"),
             ("apks/test.apk", "test-apk"),
             *failure_artifacts,
@@ -356,6 +492,16 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 completion["artifacts"].append(
                     {"path": relative, "kind": kind, "sha256": sha256_file(path)}
                 )
+        for path in sorted((self.attempt_root / "raw").glob("*")):
+            relative = path.relative_to(self.attempt_root).as_posix()
+            if relative in {entry[0] for entry in (
+                ("raw/device-metadata.json", "device-metadata"),
+                ("raw/commands.json", "command-receipt"),
+            )}:
+                continue
+            completion["artifacts"].append(
+                {"path": relative, "kind": "raw-device", "sha256": sha256_file(path)}
+            )
         self._write_json(self.attempt_root / "completion.json", completion)
         return verify_attempt(self.policy_path, self.attempt_root, today=today)
 
@@ -382,6 +528,11 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
     def _write_json(self, path, value):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(canonical_json_bytes(value))
+
+    def _rewrite_json(self, path, mutator):
+        value = json.loads(path.read_text(encoding="utf-8"))
+        mutator(value)
+        self._write_json(path, value)
 
     def _reset_attempt_root(self):
         for child in sorted(self.attempt_root.rglob("*"), reverse=True):

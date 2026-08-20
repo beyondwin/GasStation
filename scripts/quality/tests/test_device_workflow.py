@@ -1,4 +1,5 @@
 import tempfile
+import shutil
 import sys
 import unittest
 from pathlib import Path
@@ -32,7 +33,18 @@ class DeviceWorkflowContractTest(unittest.TestCase):
             "echoed-kvm": workflow.replace("          test -c /dev/kvm", "          echo 'test -c /dev/kvm'", 1),
             "bad-upload": workflow.replace("          if-no-files-found: error", "          if-no-files-found: warn", 1),
             "missing-digest": workflow.replace("steps.upload.outputs.artifact-digest", "steps.upload.outputs.unknown", 1),
-            "wrong-step-timeout": workflow.replace("        timeout-minutes: 40", "        timeout-minutes: 39", 1),
+            "wrong-step-timeout": workflow.replace("        timeout-minutes: 34", "        timeout-minutes: 33", 1),
+            "missing-setup-timeout": workflow.replace("        timeout-minutes: 2\n", "", 1),
+            "missing-upload-timeout": workflow.replace(
+                "        timeout-minutes: 3\n        uses: actions/upload-artifact@v7",
+                "        uses: actions/upload-artifact@v7",
+                1,
+            ),
+            "missing-summary-timeout": workflow.replace(
+                "      - name: Record uploaded artifact identity\n        if: always()\n        timeout-minutes: 1\n",
+                "      - name: Record uploaded artifact identity\n        if: always()\n",
+                1,
+            ),
             "retry-pipe": workflow.replace(
                 "run: scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke",
                 "run: scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke || true",
@@ -62,6 +74,29 @@ class DeviceWorkflowContractTest(unittest.TestCase):
                         )
                     (root / "gradle.properties").write_text("", encoding="utf-8")
                     self.assertNotEqual([], check_device_contracts(root))
+
+    def test_executable_phase_bound_mutations_fail_closed(self):
+        mutations = {
+            "missing-provision-bound": ("run_api24_avd.sh", 'run_device_phase "$lane" provision'),
+            "missing-boot-bound": ("run_api24_avd.sh", 'run_device_phase "$lane" boot'),
+            "missing-command-bound": ("run_gmd_lane.sh", 'run_device_seconds "$seconds"'),
+            "missing-collection-bound": ("run_gmd_lane.sh", 'run_device_phase "$lane" collection'),
+            "missing-cleanup-bound": ("run_api24_avd.sh", 'run_device_phase "$lane" cleanup'),
+            "missing-completion-bound": ("run_gmd_lane.sh", 'run_device_phase "$lane" completion'),
+            "missing-verifier-bound": ("run_api24_avd.sh", 'run_device_phase "$lane" verify'),
+        }
+        for name, (filename, anchor) in mutations.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / ".github/workflows").mkdir(parents=True)
+                for workflow in ("device-evidence.yml", "android.yml"):
+                    shutil.copyfile(ROOT / f".github/workflows/{workflow}", root / f".github/workflows/{workflow}")
+                shutil.copytree(ROOT / "config/quality", root / "config/quality")
+                shutil.copytree(ROOT / "scripts/quality/device", root / "scripts/quality/device")
+                shutil.copyfile(ROOT / "gradle.properties", root / "gradle.properties")
+                path = root / "scripts/quality/device" / filename
+                path.write_text(path.read_text(encoding="utf-8").replace(anchor, "unbounded_phase", 1), encoding="utf-8")
+                self.assertNotEqual([], check_device_contracts(root))
 
 
 if __name__ == "__main__":
