@@ -7,10 +7,15 @@ internal fun ProviderFactory.strictBooleanGradleProperty(
     defaultValue: Boolean,
 ): Provider<Boolean> =
     gradleProperty(name)
-        .map { value ->
-            when (value) {
-                "true" -> true
-                "false" -> false
-                else -> throw GradleException("$name must be exactly true or false")
-            }
-        }.orElse(defaultValue)
+        .map { value -> parseStrictBooleanGradlePropertyValue(name, value) }
+        .orElse(defaultValue)
+
+internal fun parseStrictBooleanGradlePropertyValue(
+    name: String,
+    value: String,
+): Boolean =
+    when (value) {
+        "true" -> true
+        "false" -> false
+        else -> throw GradleException("$name must be exactly true or false")
+    }

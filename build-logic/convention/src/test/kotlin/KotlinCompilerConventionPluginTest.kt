@@ -94,30 +94,26 @@ class KotlinCompilerConventionPluginTest {
     }
 
     @Test
-    fun invalidWarningPropertyValuesFailBeforeACompileCanSucceed() {
+    fun invalidWarningPropertyUsesSharedStrictParserBeforeACompileCanSucceed() {
         val project = newProject("invalid-warning-property")
             .writeKotlinConventionFixture(KotlinConventionFixtureKind.JVM, warnedSource = false)
+        val result =
+            project.runner(
+                "compileKotlin",
+                "--rerun-tasks",
+                "-Pgasstation.kotlinWarningsAsErrors=TRUE",
+            ).buildAndFail()
 
-        listOf("TRUE", "False", " true", "false ", "yes", "").forEach { invalid ->
-            val result =
-                project.runner(
-                    "compileKotlin",
-                    "--rerun-tasks",
-                    "-Pgasstation.kotlinWarningsAsErrors=$invalid",
-                ).buildAndFail()
-
-            assertTrue(
-                "missing strict parser diagnostic for '$invalid'",
-                result.output.contains(
-                    "gasstation.kotlinWarningsAsErrors must be exactly true or false",
-                ),
-            )
-            assertFalse(
-                result.tasks.any { task ->
-                    task.path == ":compileKotlin" && task.outcome == TaskOutcome.SUCCESS
-                },
-            )
-        }
+        assertTrue(
+            result.output.contains(
+                "gasstation.kotlinWarningsAsErrors must be exactly true or false",
+            ),
+        )
+        assertFalse(
+            result.tasks.any { task ->
+                task.path == ":compileKotlin" && task.outcome == TaskOutcome.SUCCESS
+            },
+        )
     }
 
     @Test

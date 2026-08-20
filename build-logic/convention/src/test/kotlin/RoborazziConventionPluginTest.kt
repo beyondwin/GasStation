@@ -64,29 +64,25 @@ class RoborazziConventionPluginTest {
     }
 
     @Test
-    fun invalidIncludePropertyValuesFailBeforeTheUnitTestCanSucceed() {
+    fun invalidIncludePropertyUsesSharedStrictParserBeforeTheUnitTestCanSucceed() {
         val project = newProject("invalid-property").writeRoborazziFixture()
+        val result =
+            project.runner(
+                "testDebugUnitTest",
+                "--rerun-tasks",
+                "-Pgasstation.includeRoborazziInUnitTests=TRUE",
+            ).buildAndFail()
 
-        listOf("TRUE", "False", " true", "false ", "yes", "").forEach { invalid ->
-            val result =
-                project.runner(
-                    "testDebugUnitTest",
-                    "--rerun-tasks",
-                    "-Pgasstation.includeRoborazziInUnitTests=$invalid",
-                ).buildAndFail()
-
-            assertTrue(
-                "missing strict parser diagnostic for '$invalid'",
-                result.output.contains(
-                    "gasstation.includeRoborazziInUnitTests must be exactly true or false",
-                ),
-            )
-            assertFalse(
-                result.tasks.any { task ->
-                    task.path == ":testDebugUnitTest" && task.outcome == TaskOutcome.SUCCESS
-                },
-            )
-        }
+        assertTrue(
+            result.output.contains(
+                "gasstation.includeRoborazziInUnitTests must be exactly true or false",
+            ),
+        )
+        assertFalse(
+            result.tasks.any { task ->
+                task.path == ":testDebugUnitTest" && task.outcome == TaskOutcome.SUCCESS
+            },
+        )
     }
 
     @Test

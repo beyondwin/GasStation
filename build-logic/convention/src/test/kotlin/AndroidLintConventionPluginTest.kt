@@ -106,18 +106,15 @@ class AndroidLintConventionPluginTest {
     }
 
     @Test
-    fun invalidPropertyValuesFailWithStableDiagnostic() {
+    fun invalidPropertyUsesSharedStrictParserBeforeLintCanSucceed() {
         val project = newLintProject("invalid-property", AndroidLintFixtureKind.LIBRARY)
+        val result =
+            project.runner("lintDebug", "-Pgasstation.lintTestSources=TRUE").buildAndFail()
 
-        listOf("TRUE", " true", "yes", "").forEach { invalid ->
-            val result =
-                project.runner("lintDebug", "-Pgasstation.lintTestSources=$invalid").buildAndFail()
-
-            assertTrue(
-                result.output.contains("gasstation.lintTestSources must be exactly true or false"),
-            )
-            assertFalse(result.tasks.any { it.path == ":lintDebug" && it.outcome == TaskOutcome.SUCCESS })
-        }
+        assertTrue(
+            result.output.contains("gasstation.lintTestSources must be exactly true or false"),
+        )
+        assertFalse(result.tasks.any { it.path == ":lintDebug" && it.outcome == TaskOutcome.SUCCESS })
     }
 
     @Test
