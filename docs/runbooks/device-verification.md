@@ -32,11 +32,17 @@ scripts/quality/device/run_gmd_lane.sh --lane api36-scheduled
 
 API 24 wrapper는 host preflight 뒤 SDK/AVD를 설치하고 전용 `ANDROID_AVD_HOME`을 만들며, `emulator-5554`의 boot/API/fingerprint/ABI를 확인합니다. app과 Room 작업을 각각 bounded invocation으로 실행한 뒤 logcat을 멈추고 emulator를 종료하며 전용 AVD 디렉터리를 안전 조건 아래 제거합니다. trap, cleanup, completion receipt 중 하나라도 실패하면 `PASS`가 아닙니다. API 28/36 wrapper는 AGP/UTP가 관리하는 각 GMD 작업의 setup과 teardown을 해당 작업 timeout 안에서 소유합니다.
 
+정책의 `phaseSeconds`는 선언용 표가 아니라 wrapper가 직접 사용하는 실행 한도입니다. API 24의 17분 preflight는 prepare 30초 + host 30초 + SDK/AVD provision 660초 + boot/원시 adb 수집 300초로 닫히며, GMD는 prepare 30초 + host 150초 뒤 setup/boot/teardown을 각 Gradle task 한도에 포함합니다. 모든 lane의 collection, cleanup, completion, strict verify, terminal receipt도 각각 GNU `timeout`으로 제한됩니다. workflow는 checkout/Java/Gradle/KVM 8분, wrapper의 정책 합계, upload 3분 + summary 1분을 따로 제한하고 나머지 9/10/14분을 hard job timeout 전 reserve로 남깁니다.
+
 Repository, Gradle, shell, workflow retry와 shard는 금지합니다. polling은 동일한 emulator의 boot/종료 상태만 확인합니다. timeout, cached/up-to-date task, 필수 test skip, platform error, 불완전 cleanup은 모두 실패입니다.
 
 ## receipt와 artifact
 
 각 attempt는 `build/device-evidence/<lane>/<run-id>-<attempt>/` 아래에 시작 전 `attempt.json`, 실행 후 `completion.json`, `verification.json` 또는 실패 시 `terminal.json`을 둡니다. receipt는 checkout/event SHA, policy/wrapper/verifier hash, exact task/filter, command exit/outcome, device facts, canonical JUnit identity/counter, APK와 산출물의 상대 경로/SHA-256, cleanup을 결합합니다. 기존 result와 APK root는 실행 전에 지우며 기존 attempt root는 덮어쓰지 않습니다.
+
+GMD의 actual API/profile/image/package/serial/ABI/fingerprint/locale/permission-controller revision은 각 instrumentation task가 Test Storage로 쓴 device-originated JSON을 AGP/UTP가 host로 pull한 뒤 `raw/gmd-task-<index>.json` 하나로 결합한 값입니다. 정책 문자열이나 Gradle 로그 substring은 actual fact가 아닙니다. task 간 fact 충돌, field 누락, 추가 receipt는 실패합니다. API 24는 `raw/adb-devices.txt`, `getprop.txt`, AVD config, permission-controller package/revision을 다시 파싱하며 online/authorized `emulator-5554` 하나와 x86_64만 허용합니다.
+
+cleanup도 caller 문자열을 신뢰하지 않습니다. GMD는 task별 teardown과 baseline 이후 새 emulator PID/최종 adb target을 기록한 `raw/gmd-teardown.json`, API 24는 emu-kill/logcat exit, live PID/serial, 5554/5555 port, AVD 제거를 기록한 `raw/teardown.json`에서 `cleanupStatus`를 도출합니다. 영수증 누락, timeout, kill 실패, live process/serial, occupied port는 completion/PASS를 막습니다. 실제 테스트 실패로 Gradle이 nonzero여도 JUnit과 정확한 PNG/diagnostic이 모두 수집되면 `verification.json`은 구조화된 `FAIL`을 남기며, output 누락/불일치는 별도 collection failure입니다.
 
 원본 AGP 경로는 module별 `build/outputs/androidTest-results/{managedDevice,connected}`, `build/reports/androidTests/{managedDevice,connected}`, allowlisted APK root입니다. workflow artifact는 attempt root와 도달한 AGP root를 함께 올립니다. PR artifact 이름은 `device-api28-pr-<run-id>-<attempt>`이고 14일 보존합니다. scheduled artifact는 lane별 고유 이름으로 30일 보존합니다. upload step의 artifact ID, URL, archive digest는 job summary에 남고 member hash는 `completion.json`이 소유합니다. 파일이 없으면 upload도 실패합니다.
 
