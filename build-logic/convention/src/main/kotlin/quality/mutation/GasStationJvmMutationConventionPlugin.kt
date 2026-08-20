@@ -17,6 +17,7 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
+import org.gradle.process.JavaDebugOptions
 import java.math.BigDecimal
 import java.nio.charset.StandardCharsets
 
@@ -123,6 +124,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             workingDir(target.rootProject.layout.projectDirectory)
             environment.clear()
             environment(childEnvironment.get())
+            configureSealedDebugOptions(debugOptions)
             classpath(original.launchClasspath)
             dependsOn("verifyPitestConfiguration")
         }
@@ -169,6 +171,14 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             outputFile.disallowChanges()
         }
     }
+}
+
+internal fun configureSealedDebugOptions(options: JavaDebugOptions) {
+    options.enabled.set(false)
+    options.host.set("localhost")
+    options.port.set(5005)
+    options.server.set(true)
+    options.suspend.set(true)
 }
 
 internal fun requireSupportedMutationProject(projectPath: String) {

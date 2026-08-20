@@ -1,15 +1,32 @@
 package com.gasstation.buildlogic.quality
 
 import com.gasstation.buildlogic.quality.mutation.RejectDirectPitestAction
+import com.gasstation.buildlogic.quality.mutation.configureSealedDebugOptions
 import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProject
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
 import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
+import org.gradle.api.tasks.JavaExec
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GasStationJvmMutationConventionPluginTest {
+    @Test
+    fun sealedDebugOptionsHaveNoUnsetInheritedSurface() {
+        val task = ProjectBuilder.builder().build().tasks.create("sealedJava", JavaExec::class.java)
+
+        configureSealedDebugOptions(task.debugOptions)
+
+        assertFalse(task.debugOptions.enabled.get())
+        assertEquals("localhost", task.debugOptions.host.get())
+        assertEquals(5005, task.debugOptions.port.get())
+        assertTrue(task.debugOptions.server.get())
+        assertTrue(task.debugOptions.suspend.get())
+    }
+
     @Test
     fun exactProjectMappingAndEveryRealPitOptionAliasAreClosedInProcess() {
         listOf(":domain:station", ":domain:location", ":domain:settings")
