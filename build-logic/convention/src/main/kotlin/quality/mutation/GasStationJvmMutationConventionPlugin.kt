@@ -19,6 +19,7 @@ import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import java.math.BigDecimal
+import java.io.File
 import java.nio.charset.StandardCharsets
 
 private data class MutationModule(
@@ -119,6 +120,10 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             copyPitestPropertiesFrom(original)
             expectedChildEnvironment.set(childEnvironment)
             expectedRepositoryRoot.set(target.rootProject.layout.projectDirectory)
+            expectedSourceDirs.from(original.sourceDirs)
+            expectedAdditionalClasspath.from(original.additionalClasspath)
+            expectedMutableCodePaths.from(original.mutableCodePaths)
+            expectedLaunchClasspath.from(original.launchClasspath)
             module.blockingThreshold?.let(expectedMutationThreshold::set)
             javaLauncher.set(java21)
             executable(java21.get().executablePath.asFile.absolutePath)
@@ -128,6 +133,15 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             configureSealedInheritedJavaExecDefaults(this)
             classpath(original.launchClasspath)
             dependsOn("verifyPitestConfiguration")
+        }
+        target.afterEvaluate {
+            val task = verified.get()
+            val snapshot = task.effectivePitestSurface(target.rootProject.projectDir, resolveFiles = false).toMutableMap()
+            appendExtensionSurface(snapshot, extension)
+            validateCanonicalSurface(snapshot, module)
+            task.expectedEffectiveSurface.set(snapshot.toSortedMap())
+            task.expectedEffectiveSurface.finalizeValue()
+            task.expectedEffectiveSurface.disallowChanges()
         }
 
         target.tasks.register<VerifyPitestConfigurationTask>("verifyPitestConfiguration") {
@@ -139,31 +153,21 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             threads.set(verified.flatMap { it.threads })
             enforcementPhase.set("blocking")
             module.blockingThreshold?.let(mutationThreshold::set)
-            effectiveValues.set(
-                target.providers.provider {
-                    val task = verified.get()
-                    sortedMapOf(
-                        "addJUnitPlatformLauncher" to extension.addJUnitPlatformLauncher.get().toString(),
-                        "detectInlinedCode" to task.detectInlinedCode.get().toString(),
-                        "defaultCharacterEncoding" to task.defaultCharacterEncoding.orEmpty(),
-                        "enableDefaultIncrementalAnalysis" to task.enableDefaultIncrementalAnalysis.get().toString(),
-                        "failWhenNoMutations" to task.failWhenNoMutations.get().toString(),
-                        "fullMutationMatrix" to task.fullMutationMatrix.get().toString(),
-                        "inputCharset" to task.inputEncoding.get().name(),
-                        "mutationEngine" to task.mutationEngine.get(),
-                        "outputCharset" to task.outputEncoding.get().name(),
-                        "outputFormats" to task.outputFormats.get().sorted().joinToString(","),
-                        "skipFailingTests" to task.skipFailingTests.get().toString(),
-                        "timeoutConstInMillis" to task.timeoutConstInMillis.get().toString(),
-                        "timeoutFactor" to task.timeoutFactor.get().toPlainString(),
-                        "timestampedReports" to task.timestampedReports.get().toString(),
-                        "useClasspathFile" to task.useAdditionalClasspathFile.get().toString(),
-                        "useClasspathJar" to task.useClasspathJar.get().toString(),
-                        "verbose" to task.verbose.get().toString(),
-                        "verbosity" to task.verbosity.get(),
-                    )
-                },
-            )
+            effectiveValues.set(target.providers.provider {
+                verified.get().effectivePitestSurface(target.rootProject.projectDir, resolveFiles = false).toMutableMap().also {
+                    appendExtensionSurface(it, extension)
+                }.toSortedMap()
+            })
+            expectedEffectiveValues.set(verified.flatMap { it.expectedEffectiveSurface })
+            repositoryRoot.set(target.rootProject.layout.projectDirectory)
+            actualSourceDirs.from(verified.get().sourceDirs)
+            expectedSourceDirs.from(verified.get().expectedSourceDirs)
+            actualAdditionalClasspath.from(verified.get().additionalClasspath)
+            expectedAdditionalClasspath.from(verified.get().expectedAdditionalClasspath)
+            actualMutableCodePaths.from(verified.get().mutableCodePaths)
+            expectedMutableCodePaths.from(verified.get().expectedMutableCodePaths)
+            actualLaunchClasspath.from(verified.get().launchClasspath)
+            expectedLaunchClasspath.from(verified.get().expectedLaunchClasspath)
             directPitestGuardMarker.set("RejectDirectPitestAction:first")
             directPitestGuardMarker.disallowChanges()
             policyFile.set(target.rootProject.layout.projectDirectory.file("config/quality/mutation-policy.json"))
@@ -172,6 +176,113 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             outputFile.set(target.layout.buildDirectory.file("reports/quality/pitest-configuration.json"))
             outputFile.disallowChanges()
         }
+    }
+}
+
+private fun appendExtensionSurface(
+    surface: MutableMap<String, String>,
+    extension: PitestPluginExtension,
+) {
+    fun values(raw: Iterable<*>?): String = raw?.map { item ->
+        when (item) {
+            is org.gradle.api.tasks.SourceSet -> item.name
+            is File -> item.name
+            else -> item.toString()
+        }
+    }?.sorted()?.joinToString("\u001f") ?: "<null>"
+    fun value(raw: Any?): String = raw?.toString() ?: "<null>"
+    surface.putAll(
+        mapOf(
+            "extension.pitestVersion" to value(extension.pitestVersion.orNull),
+            "extension.testPlugin" to value(extension.testPlugin.orNull),
+            "extension.junit5PluginVersion" to value(extension.junit5PluginVersion.orNull),
+            "extension.mainSourceSets" to values(extension.mainSourceSets.orNull),
+            "extension.testSourceSets" to values(extension.testSourceSets.orNull),
+            "extension.additionalMutableCodePaths" to values(extension.additionalMutableCodePaths.orNull),
+            "extension.fileExtensionsToFilter" to values(extension.fileExtensionsToFilter.orNull),
+            "extension.addJUnitPlatformLauncher" to value(extension.addJUnitPlatformLauncher.orNull),
+        ),
+    )
+}
+
+private fun validateCanonicalSurface(surface: Map<String, String>, module: MutationModule) {
+    val expected = mapOf(
+        "extension.pitestVersion" to "1.25.7",
+        "extension.testPlugin" to "<null>",
+        "extension.junit5PluginVersion" to "<null>",
+        "extension.mainSourceSets" to "main",
+        "extension.testSourceSets" to "test",
+        "extension.additionalMutableCodePaths" to "",
+        "extension.fileExtensionsToFilter" to "dll\u001fdylib\u001fpom\u001fso",
+        "extension.addJUnitPlatformLauncher" to "false",
+        "pit.testPlugin" to "<null>",
+        "pit.targetClasses" to "${module.packageRoot}.*",
+        "pit.targetTests" to "${module.packageRoot}.*",
+        "pit.threads" to "2",
+        "pit.mutators" to "DEFAULTS",
+        "pit.excludedMethods" to "",
+        "pit.excludedClasses" to "",
+        "pit.excludedTestClasses" to "",
+        "pit.avoidCallsTo" to "",
+        "pit.verbose" to "false",
+        "pit.verbosity" to "NO_SPINNER",
+        "pit.timeoutFactor" to "1.25",
+        "pit.timeoutConstInMillis" to "4000",
+        "pit.childProcessJvmArgs" to "",
+        "pit.outputFormats" to "HTML\u001fXML",
+        "pit.failWhenNoMutations" to "true",
+        "pit.skipFailingTests" to "false",
+        "pit.includedGroups" to "",
+        "pit.excludedGroups" to "",
+        "pit.fullMutationMatrix" to "false",
+        "pit.includedTestMethods" to "",
+        "pit.detectInlinedCode" to "true",
+        "pit.timestampedReports" to "false",
+        "pit.useClasspathFile" to "true",
+        "pit.historyInputLocation" to "<null>",
+        "pit.historyOutputLocation" to "<null>",
+        "pit.enableDefaultIncrementalAnalysis" to "false",
+        "pit.mutationThreshold" to (module.blockingThreshold?.toString() ?: "<null>"),
+        "pit.coverageThreshold" to "<null>",
+        "pit.testStrengthThreshold" to "<null>",
+        "pit.mutationEngine" to "gregor",
+        "pit.exportLineCoverage" to "false",
+        "pit.jvmPath" to "<null>",
+        "pit.mainProcessJvmArgs" to "",
+        "pit.pluginConfiguration" to "",
+        "pit.maxSurviving" to "<null>",
+        "pit.useClasspathJar" to "false",
+        "pit.inputEncoding" to "UTF-8",
+        "pit.outputEncoding" to "UTF-8",
+        "pit.features" to "",
+        "cli.overriddenTargetTests" to "<null>",
+        "cli.additionalFeatures" to "<null>",
+        "cli.overriddenVerbose" to "<null>",
+        "java.args" to "",
+        "java.argumentProviderCount" to "0",
+        "java.jvmArgs" to "",
+        "java.jvmArguments" to "",
+        "java.jvmArgumentProviderCount" to "0",
+        "java.systemProperties" to "",
+        "java.minHeapSize" to "<null>",
+        "java.maxHeapSize" to "<null>",
+        "java.enableAssertions" to "false",
+        "java.debug" to "false",
+        "java.debug.enabled" to "false",
+        "java.debug.host" to "localhost",
+        "java.debug.port" to "5005",
+        "java.debug.server" to "true",
+        "java.debug.suspend" to "true",
+        "java.defaultCharacterEncoding" to "UTF-8",
+        "java.mainClass" to "org.pitest.mutationtest.commandline.MutationCoverageReport",
+        "java.mainModule" to "<null>",
+        "java.inferModulePath" to "false",
+        "java.ignoreExitValue" to "false",
+        "command.managedEncodingArguments" to "-Dfile.encoding=UTF-8",
+    )
+    val changed = expected.filter { (name, value) -> surface[name] != value }
+    if (changed.isNotEmpty()) {
+        throw GradleException("PIT canonical effective surface differs: ${changed.keys.sorted().joinToString(",")}")
     }
 }
 

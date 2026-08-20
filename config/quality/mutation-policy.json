@@ -35,10 +35,12 @@
   },
   "canonicalGradleFlags": ["--configuration-cache", "--configuration-cache-problems=fail", "--no-build-cache", "--rerun-tasks", "--no-parallel", "--warning-mode", "fail"],
   "capturePolicy": {
+    "baselineSchemaVersion": 2,
     "candidateForbiddenFields": ["baselineSha256", "candidateBaselineSha256", "candidateSha256", "captureReceiptHash", "captureReceiptSha256", "finalReceiptHash", "successorHash", "verificationReceiptHash"],
     "captureReceiptDirectory": "config/quality/mutation-captures",
     "initialPredecessorBaselineHash": null,
     "initialPredecessorVerificationReceiptHash": null,
+    "reviewedTransitionAxes": ["task7-spec-review-round1-corrections"],
     "schema": "acyclic-candidate-and-separate-receipt-v1",
     "transitionDirectory": "config/quality/mutation-transitions"
   },

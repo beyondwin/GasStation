@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import tempfile
 import unittest
@@ -21,6 +22,10 @@ from verify_pitest import (
     baseline_policy_identity_matches,
     host_neutral_mutation_identity,
     load_policy,
+    install_successor_atomically,
+    validate_baseline_schema,
+    validate_baseline_capture_receipt,
+    seal_verification,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -199,12 +204,14 @@ class LinuxObservedProfileTest(unittest.TestCase):
 class AcyclicCaptureTest(unittest.TestCase):
     def test_initial_capture_is_candidate_then_separate_receipt(self) -> None:
         components = {
-            "route": b"route\n",
-            "tasks": b"tasks\n",
-            "routeReceipt": b"route-receipt\n",
-            "attempt": b"attempt\n",
-            "completion": b"completion\n",
-            "verificationSummary": b"initial-summary\n",
+            name: f"{name}\n".encode()
+            for name in {
+                "policy", "sourceCommit", "route", "tasks", "routeReceipt", "attempt",
+                "configuration:location", "configuration:settings", "configuration:station",
+                "completion", "measurement", "xml:location", "xml:settings", "xml:station",
+                "semantic:location", "semantic:settings", "semantic:station",
+                "html:location", "html:settings", "html:station", "verificationSummary",
+            }
         }
         manifest = build_capture_evidence_manifest(
             components=components,
@@ -235,6 +242,36 @@ class AcyclicCaptureTest(unittest.TestCase):
         self.assertEqual(digest, capture_receipt["captureEvidenceDigest"])
         self.assertNotIn("captureReceiptSha256", capture_receipt)
 
+    def test_initial_manifest_requires_the_exact_full_component_set(self) -> None:
+        required = {
+            "policy", "sourceCommit", "route", "tasks", "routeReceipt", "attempt",
+            "configuration:location", "configuration:settings", "configuration:station",
+            "completion", "measurement", "xml:location", "xml:settings", "xml:station",
+            "semantic:location", "semantic:settings", "semantic:station",
+            "html:location", "html:settings", "html:station", "verificationSummary",
+        }
+        for missing in sorted(required):
+            with self.subTest(missing=missing), self.assertRaisesRegex(MutationPolicyError, "component set"):
+                build_capture_evidence_manifest(
+                    components={name: name.encode() for name in required - {missing}},
+                    policy_sha256="1" * 64,
+                    predecessor_baseline_sha256=None,
+                    predecessor_verification_receipt_sha256=None,
+                    source_commit="2" * 40,
+                    host_neutral_identity_sha256="3" * 64,
+                    per_run_provenance_sha256="4" * 64,
+                )
+        with self.assertRaisesRegex(MutationPolicyError, "component set"):
+            build_capture_evidence_manifest(
+                components={**{name: name.encode() for name in required}, "arbitrary": b"x"},
+                policy_sha256="1" * 64,
+                predecessor_baseline_sha256=None,
+                predecessor_verification_receipt_sha256=None,
+                source_commit="2" * 40,
+                host_neutral_identity_sha256="3" * 64,
+                per_run_provenance_sha256="4" * 64,
+            )
+
     def test_initial_capture_rejects_predecessors_and_candidate_self_links(self) -> None:
         with self.assertRaisesRegex(MutationPolicyError, "initial capture predecessors must both be null"):
             build_capture_evidence_manifest(
@@ -252,6 +289,126 @@ class AcyclicCaptureTest(unittest.TestCase):
                 predecessor_baseline_sha256=None,
                 capture_evidence_digest="4" * 64,
             )
+
+    def test_checked_baseline_receipt_rejects_a_minimal_forged_pair(self) -> None:
+        baseline = {"captureEvidenceDigest": "a" * 64, "predecessorBaselineHash": None}
+        baseline_raw = canonical_json_bytes(baseline)
+        candidate_hash = hashlib.sha256(baseline_raw).hexdigest()
+        forged_receipt = {
+            "schema": "pitest-capture-receipt-v1",
+            "candidateBaselineSha256": candidate_hash,
+            "predecessorBaselineHash": None,
+            "captureEvidenceDigest": "a" * 64,
+            "components": {"route": "b" * 64},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            receipt_root = Path(directory)
+            (receipt_root / f"{candidate_hash}.json").write_bytes(canonical_json_bytes(forged_receipt))
+            with mock.patch("verify_pitest.CAPTURE_RECEIPT_ROOT", receipt_root):
+                with self.assertRaisesRegex(MutationPolicyError, "baseline schema|evidence manifest"):
+                    validate_baseline_capture_receipt(baseline_raw, baseline)
+
+    def test_full_baseline_schema_rejects_top_level_complete_but_empty_inventories(self) -> None:
+        baseline = {
+            "schemaVersion": 2,
+            "sourceCommit": "1" * 40,
+            "policySha256": "2" * 64,
+            "observationGitConfig": {},
+            "toolchainIdentity": {},
+            "hostNeutralMutationIdentity": {},
+            "hostNeutralMutationIdentitySha256": "3" * 64,
+            "effectiveCommandPlan": {},
+            "executionEnvironmentIdentity": {},
+            "gitObjectViewIdentity": {},
+            "wrapperIdentity": {},
+            "moduleInventories": {name: {} for name in ("location", "settings", "station")},
+            "mutationInputIdentitySha256": "4" * 64,
+            "captureProfile": "darwin-arm64",
+            "profileHistory": {"linux-x86_64": {"state": "NOT_ESTABLISHED"}},
+            "reports": [{"module": name} for name in ("location", "settings", "station")],
+            "predecessorBaselineHash": None,
+            "predecessorVerificationReceiptHash": None,
+            "captureEvidenceDigest": "5" * 64,
+        }
+        with self.assertRaisesRegex(MutationPolicyError, "observation Git config schema"):
+            validate_baseline_schema(baseline)
+
+
+class ReceiptChainTest(unittest.TestCase):
+    def test_successor_install_is_atomic_on_a_mid_install_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            baseline = root / "baseline.json"
+            receipt = root / "captures" / "candidate.json"
+            transition = root / "transitions" / "transition.json"
+            predecessor = b"predecessor\n"
+            baseline.write_bytes(predecessor)
+            real_replace = os.replace
+            calls = 0
+
+            def fail_second(source: Path, target: Path) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("synthetic transition install failure")
+                real_replace(source, target)
+
+            with mock.patch("verify_pitest.os.replace", side_effect=fail_second):
+                with self.assertRaisesRegex(OSError, "synthetic transition install failure"):
+                    install_successor_atomically(
+                        baseline_path=baseline,
+                        predecessor_raw=predecessor,
+                        candidate_raw=b"candidate\n",
+                        receipt_path=receipt,
+                        receipt_raw=b"receipt\n",
+                        transition_path=transition,
+                        transition_raw=b"transition\n",
+                    )
+            self.assertEqual(predecessor, baseline.read_bytes())
+            self.assertFalse(receipt.exists())
+            self.assertFalse(transition.exists())
+            self.assertEqual([], list(root.rglob("*.tmp")))
+
+    def test_seal_rejects_arbitrary_attempt_completion_and_baseline_predecessors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {name: root / name for name in (
+                "route", "tasks", "route-receipt", "attempt", "completion", "baseline", "summary", "final",
+            )}
+            paths["route"].write_bytes(b"route")
+            paths["tasks"].write_bytes(b"tasks")
+            paths["route-receipt"].write_bytes(b"route-receipt")
+            paths["attempt"].write_bytes(b"TAMPERED ATTEMPT")
+            paths["completion"].write_bytes(b"TAMPERED COMPLETION")
+            paths["baseline"].write_bytes(b"TAMPERED BASELINE")
+            paths["summary"].write_bytes(canonical_json_bytes({
+                "status": "pass",
+                "hostNeutralMutationIdentitySha256": "c" * 64,
+                "perRunExecutionProvenanceSha256": "d" * 64,
+            }))
+            policy = {
+                "canonicalGradleFlags": ["--rerun-tasks"],
+                "executionEnvironmentPolicy": {"policyVersion": "pitest-sealed-v1"},
+                "gitObjectViewPolicy": {"policyVersion": "original-object-view-v1"},
+            }
+            route = {
+                "status": "selected", "sourceCommit": "e" * 40,
+                "selectedTasks": [":domain:station:pitestVerified"],
+                "bootstrap": {}, "hostNeutralMutationIdentity": {},
+                "hostNeutralMutationIdentitySha256": "f" * 64,
+                "perRunExecutionProvenance": {},
+            }
+            patches = {
+                "ROUTE_PATH": paths["route"], "TASKS_PATH": paths["tasks"],
+                "ROUTE_RECEIPT_PATH": paths["route-receipt"], "ATTEMPT_PATH": paths["attempt"],
+                "COMPLETION_PATH": paths["completion"], "BASELINE_PATH": paths["baseline"],
+                "SUMMARY_PATH": paths["summary"], "FINAL_RECEIPT_PATH": paths["final"],
+            }
+            with mock.patch("verify_pitest.validate_route", return_value=(policy, route, b"policy", "a" * 64)):
+                with mock.patch.multiple("verify_pitest", **patches):
+                    with self.assertRaisesRegex(MutationPolicyError, "invalid JSON|attempt differs"):
+                        seal_verification("/ignored")
+            self.assertFalse(paths["final"].exists())
 
 
 class LinuxComparatorStateTest(unittest.TestCase):

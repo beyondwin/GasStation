@@ -164,8 +164,11 @@ run_policy attempt
 run_policy complete
 
 if [[ -n "$capture_kind" ]]; then
-  [[ "$capture_kind" == "initial" ]] || fail "no reviewed successor capture transition is installed"
-  run_policy capture
+  case "$capture_kind" in
+    initial) run_policy capture ;;
+    recapture-transition) run_policy recapture-transition ;;
+    ordinary) fail "ordinary successor capture requires an independently reviewed source/test update" ;;
+  esac
 else
   run_policy verify
   run_policy seal-verification

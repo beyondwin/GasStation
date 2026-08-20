@@ -41,6 +41,29 @@ _SUCCESSOR_OR_SELF_NAMES = {
     "successorHash",
     "verificationReceiptHash",
 }
+_INITIAL_CAPTURE_COMPONENTS = {
+    "policy",
+    "sourceCommit",
+    "route",
+    "tasks",
+    "routeReceipt",
+    "attempt",
+    "configuration:location",
+    "configuration:settings",
+    "configuration:station",
+    "completion",
+    "measurement",
+    "xml:location",
+    "xml:settings",
+    "xml:station",
+    "semantic:location",
+    "semantic:settings",
+    "semantic:station",
+    "html:location",
+    "html:settings",
+    "html:station",
+    "verificationSummary",
+}
 
 
 def _require_sha256(value: object, label: str, *, nullable: bool = False) -> str | None:
@@ -180,16 +203,15 @@ def build_capture_evidence_manifest(
         raise MutationPolicyError("capture source commit must be an exact lowercase commit")
     if (predecessor_baseline_sha256 is None) != (predecessor_verification_receipt_sha256 is None):
         raise MutationPolicyError("initial capture predecessors must both be null; future capture predecessors must both exist")
-    required_initial = {
-        "route",
-        "tasks",
-        "routeReceipt",
-        "attempt",
-        "completion",
-        "verificationSummary",
-    }
-    if predecessor_baseline_sha256 is None and not required_initial.issubset(components):
-        raise MutationPolicyError("initial capture evidence component set is incomplete")
+    required = set(_INITIAL_CAPTURE_COMPONENTS)
+    if predecessor_baseline_sha256 is not None:
+        required.add("predecessorVerificationReceipt")
+    if set(components) != required:
+        missing = sorted(required - set(components))
+        extra = sorted(set(components) - required)
+        raise MutationPolicyError(
+            f"capture evidence component set differs: missing={missing} extra={extra}"
+        )
     if set(components) & _SUCCESSOR_OR_SELF_NAMES:
         raise MutationPolicyError("capture evidence contains a successor/self field")
     return {
@@ -240,7 +262,7 @@ def build_capture_receipt(
         "candidateBaselineSha256": hashlib.sha256(candidate_baseline).hexdigest(),
         "predecessorBaselineHash": evidence_manifest.get("predecessorBaselineHash"),
         "captureEvidenceDigest": manifest_digest,
-        "components": evidence_manifest.get("components"),
+        "evidenceManifest": dict(evidence_manifest),
     }
 
 

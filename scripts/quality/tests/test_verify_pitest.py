@@ -19,6 +19,7 @@ from pitest_policy import (
     parse_pitest_xml,
     route_changed_paths,
 )
+from verify_pitest import changed_packages_for_module, validate_module_inventory_evolution
 
 
 VALID_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -197,6 +198,60 @@ class PitestParserTest(unittest.TestCase):
                 class_lookup=lambda class_name: ("Thing.class", source_file_bytes("Other.kt", class_name)),
             )
 
+    def test_rejects_attributes_on_every_ordinary_child_and_nested_container(self) -> None:
+        for tag in (
+            "sourceFile", "mutatedClass", "mutatedMethod", "methodDescription", "lineNumber",
+            "mutator", "indexes", "blocks", "killingTest", "description",
+        ):
+            with self.subTest(tag=tag), self.assertRaisesRegex(MutationPolicyError, "attributes"):
+                parse_pitest_xml(
+                    VALID_XML.replace(f"<{tag}>".encode(), f'<{tag} unexpected="x">'.encode(), 1),
+                    module="station",
+                    package_root="com.gasstation.domain.station",
+                    source_lookup=lambda class_name, source_file: source_file,
+                    class_lookup=lambda class_name: ("Thing.class", source_file_bytes("Thing.kt", class_name)),
+                )
+
+    def test_jvm_descriptor_grammar_rejects_array_void_and_accepts_complete_valid_shapes(self) -> None:
+        valid = ("()V", "(I)I", "([I[[Ljava/lang/String;)Ljava/util/List;", "(J[D)[[B")
+        invalid = ("()[V", "([V)V", "(V)V", "()L;", "()Ljava.lang.String;", "()[", "(I)", "I)V")
+        for descriptor in valid:
+            with self.subTest(valid=descriptor):
+                parse_pitest_xml(
+                    VALID_XML.replace(b"()I", descriptor.encode(), 1),
+                    module="station",
+                    package_root="com.gasstation.domain.station",
+                    source_lookup=lambda class_name, source_file: source_file,
+                    class_lookup=lambda class_name: ("Thing.class", source_file_bytes("Thing.kt", class_name)),
+                )
+        for descriptor in invalid:
+            with self.subTest(invalid=descriptor), self.assertRaisesRegex(MutationPolicyError, "descriptor"):
+                parse_pitest_xml(
+                    VALID_XML.replace(b"()I", descriptor.encode(), 1),
+                    module="station",
+                    package_root="com.gasstation.domain.station",
+                    source_lookup=lambda class_name, source_file: source_file,
+                    class_lookup=lambda class_name: ("Thing.class", source_file_bytes("Thing.kt", class_name)),
+                )
+
+    def test_class_parser_rejects_out_of_range_and_wrong_kind_constant_pool_references(self) -> None:
+        good = source_file_bytes("Thing.kt", "com.gasstation.domain.station.Thing")
+        mutations = {
+            "this class out of range": good[:10 + 3 + len(b"com/gasstation/domain/station/Thing") + 3 + 3 + len(b"java/lang/Object") + 3 + 3 + len(b"SourceFile") + 3 + len(b"Thing.kt")] + good[0:0],
+            "class name wrong kind": good.replace(b"\x07\x00\x01", b"\x07\x00\x02", 1),
+            "source attribute wrong kind": good[:-2] + b"\x00\x02",
+        }
+        # Truncation and both reference-kind mutations must be rejected by the bounded parser.
+        for label, class_bytes in mutations.items():
+            with self.subTest(label=label), self.assertRaises(MutationPolicyError):
+                parse_pitest_xml(
+                    VALID_XML,
+                    module="station",
+                    package_root="com.gasstation.domain.station",
+                    source_lookup=lambda class_name, source_file: source_file,
+                    class_lookup=lambda class_name: ("Thing.class", class_bytes),
+                )
+
     def test_class_parser_accepts_strict_modified_utf8_and_rejects_malformed_forms(self) -> None:
         modified_utf8 = b"prefix\xc0\x80\xed\xa0\xbd\xed\xb8\x80suffix"
         parse_pitest_xml(
@@ -280,6 +335,67 @@ class ExactFloorAndRoutingTest(unittest.TestCase):
             ["com.gasstation.domain.settings.new NO_COVERAGE increased: baseline=0 current=1"],
             compare_no_coverage(baseline, {"com.gasstation.domain.settings.new": 1}, {"com.gasstation.domain.settings.new"}),
         )
+
+    def test_changed_package_selection_reads_both_sides_of_renames_and_falls_back_for_tests(self) -> None:
+        route = {
+            "event": "pull-request",
+            "mergeBase": "a" * 40,
+            "sourceCommit": "b" * 40,
+            "changes": [{
+                "status": "R",
+                "oldPath": "domain/station/src/main/kotlin/old/Thing.kt",
+                "newPath": "domain/station/src/main/kotlin/new/Thing.kt",
+            }],
+        }
+        blobs = {
+            ("a" * 40, "domain/station/src/main/kotlin/old/Thing.kt"): b"package com.gasstation.domain.station.old\n",
+            ("b" * 40, "domain/station/src/main/kotlin/new/Thing.kt"): b"package com.gasstation.domain.station.new\n",
+        }
+        self.assertEqual(
+            {"com.gasstation.domain.station.old", "com.gasstation.domain.station.new"},
+            changed_packages_for_module(
+                route,
+                "station",
+                {"com.gasstation.domain.station", "com.gasstation.domain.station.old", "com.gasstation.domain.station.new"},
+                lambda commit, path: blobs[(commit, path)],
+            ),
+        )
+        route["changes"] = [{
+            "status": "M",
+            "oldPath": "domain/station/src/test/kotlin/ThingTest.kt",
+            "newPath": "domain/station/src/test/kotlin/ThingTest.kt",
+        }]
+        self.assertEqual(
+            {"com.gasstation.domain.station", "com.gasstation.domain.station.old"},
+            changed_packages_for_module(
+                route,
+                "station",
+                {"com.gasstation.domain.station", "com.gasstation.domain.station.old"},
+                lambda _commit, _path: b"",
+            ),
+        )
+
+    def test_unchanged_authored_source_cannot_silently_lose_a_compiled_class(self) -> None:
+        shared = {
+            "authoredMain": {"count": 1, "records": [{"path": "Thing.kt"}], "sha256": "a"},
+            "authoredTest": {"count": 0, "records": [], "sha256": "b"},
+            "compiledTest": {"count": 0, "records": [], "sha256": "c"},
+            "effectiveSurface": {"fields": {}, "sha256": "d"},
+            "sourceDirs": "source", "mutableCodePaths": "mutable",
+            "additionalClasspath": "additional", "launchClasspath": "launch",
+        }
+        old = {
+            **shared,
+            "compiledMain": {"count": 1, "records": [{"path": "Thing.class", "sha256": "1" * 64}], "sha256": "e"},
+        }
+        new = {
+            **shared,
+            "compiledMain": {"count": 0, "records": [], "sha256": "f"},
+        }
+        with self.assertRaisesRegex(MutationPolicyError, "unchanged authored source lost compiled classes"):
+            validate_module_inventory_evolution(
+                "station", old, new, global_inputs_unchanged=False, toolchain_unchanged=True,
+            )
 
     def test_receipt_binds_exact_predecessor_bytes(self) -> None:
         first = b'{"schemaVersion":1}\n'

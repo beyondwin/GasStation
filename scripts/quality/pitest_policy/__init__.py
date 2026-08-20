@@ -293,6 +293,11 @@ def parse_pitest_xml(
         ]
         if [child.tag for child in children] != expected:
             raise MutationPolicyError("mutation child shape differs from the PIT 1.25.7 contract")
+        for child in children:
+            if child.attrib:
+                raise MutationPolicyError(f"PIT {child.tag} attributes are forbidden")
+            if child.tag not in {"indexes", "blocks"} and list(child):
+                raise MutationPolicyError(f"PIT {child.tag} must not contain child elements")
         values = {child.tag: (child.text or "") for child in children}
         status = node.attrib["status"]
         if status not in {"KILLED", "SURVIVED", "NO_COVERAGE"}:
@@ -422,19 +427,36 @@ def _nested_decimal_values(node: ET.Element, expected_tag: str) -> tuple[int, ..
 def _validate_descriptor(value: str) -> None:
     index = 0
 
-    def field(allow_void: bool = False) -> None:
+    def field(*, allow_void: bool = False) -> None:
         nonlocal index
+        dimensions = 0
         while index < len(value) and value[index] == "[":
             index += 1
+            dimensions += 1
+            if dimensions > 255:
+                raise MutationPolicyError("malformed JVM method descriptor")
         if index >= len(value):
             raise MutationPolicyError("malformed JVM method descriptor")
         code = value[index]
         index += 1
-        if code in "BCDFIJSZ" or (allow_void and code == "V"):
+        if code in "BCDFIJSZ":
             return
+        if code == "V":
+            if allow_void and dimensions == 0:
+                return
+            raise MutationPolicyError("malformed JVM method descriptor")
         if code == "L":
             end = value.find(";", index)
-            if end < index or end == index or "." in value[index:end] or "[" in value[index:end]:
+            internal = value[index:end] if end >= 0 else ""
+            if (
+                not internal
+                or "." in internal
+                or "[" in internal
+                or ";" in internal
+                or internal.startswith("/")
+                or internal.endswith("/")
+                or "//" in internal
+            ):
                 raise MutationPolicyError("malformed JVM method descriptor")
             index = end + 1
             return
@@ -460,12 +482,14 @@ def _parse_class_source_file(data: bytes) -> tuple[str, str]:
     count = int.from_bytes(data[offset:offset + 2], "big")
     offset += 2
     pool: list[object | None] = [None] * count
+    tags: list[int | None] = [None] * count
     index = 1
     while index < count:
         if offset >= len(data):
             raise MutationPolicyError("truncated class constant pool")
         tag = data[offset]
         offset += 1
+        tags[index] = tag
         if tag == 1:
             length, offset = _u2(data, offset)
             raw, offset = _take(data, offset, length)
@@ -482,30 +506,41 @@ def _parse_class_source_file(data: bytes) -> tuple[str, str]:
             second, offset = _u2(data, offset)
             pool[index] = (first, second)
         elif tag == 15:
-            _, offset = _take(data, offset, 3)
+            reference_kind = data[offset] if offset < len(data) else 0
+            reference_index, offset = _u2(data, offset + 1)
+            pool[index] = (reference_kind, reference_index)
         else:
             raise MutationPolicyError(f"unsupported class constant-pool tag: {tag}")
         index += 1
+    _validate_constant_pool(pool, tags)
     _, offset = _u2(data, offset)
     this_class, offset = _u2(data, offset)
-    _, offset = _u2(data, offset)
-    class_name_index = _pool_index(pool, this_class, int)
+    super_class, offset = _u2(data, offset)
+    class_name_index = _pool_index_tag(pool, tags, this_class, 7, int)
     internal_name = _pool_index(pool, class_name_index, str)
+    if super_class != 0:
+        _pool_index_tag(pool, tags, super_class, 7, int)
     interface_count, offset = _u2(data, offset)
-    _, offset = _take(data, offset, interface_count * 2)
+    for _ in range(interface_count):
+        interface_index, offset = _u2(data, offset)
+        _pool_index_tag(pool, tags, interface_index, 7, int)
     for _ in range(2):
         member_count, offset = _u2(data, offset)
         for _member in range(member_count):
-            _, offset = _take(data, offset, 6)
+            _, offset = _u2(data, offset)
+            name_index, offset = _u2(data, offset)
+            descriptor_index, offset = _u2(data, offset)
+            _pool_index_tag(pool, tags, name_index, 1, str)
+            _pool_index_tag(pool, tags, descriptor_index, 1, str)
             attribute_count, offset = _u2(data, offset)
-            offset = _skip_attributes(data, offset, attribute_count)
+            offset = _skip_attributes(data, offset, attribute_count, pool, tags)
     attribute_count, offset = _u2(data, offset)
     source_files: list[str] = []
     for _ in range(attribute_count):
         name_index, offset = _u2(data, offset)
         length, offset = _u4(data, offset)
         payload, offset = _take(data, offset, length)
-        name = _pool_index(pool, name_index, str)
+        name = _pool_index_tag(pool, tags, name_index, 1, str)
         if name == "SourceFile":
             if length != 2:
                 raise MutationPolicyError("malformed SourceFile attribute")
@@ -515,6 +550,34 @@ def _parse_class_source_file(data: bytes) -> tuple[str, str]:
     if len(source_files) != 1:
         raise MutationPolicyError("class file must contain exactly one SourceFile attribute")
     return internal_name, source_files[0]
+
+
+def _validate_constant_pool(pool: list[object | None], tags: list[int | None]) -> None:
+    for index in range(1, len(pool)):
+        tag = tags[index]
+        value = pool[index]
+        if tag is None:
+            continue
+        if tag in {7, 8, 16, 19, 20}:
+            _pool_index_tag(pool, tags, value, 1, str)
+        elif tag in {9, 10, 11}:
+            owner, name_and_type = value if isinstance(value, tuple) else (0, 0)
+            _pool_index_tag(pool, tags, owner, 7, int)
+            _pool_index_tag(pool, tags, name_and_type, 12, tuple)
+        elif tag == 12:
+            name, descriptor = value if isinstance(value, tuple) else (0, 0)
+            _pool_index_tag(pool, tags, name, 1, str)
+            _pool_index_tag(pool, tags, descriptor, 1, str)
+        elif tag in {17, 18}:
+            _, name_and_type = value if isinstance(value, tuple) else (0, 0)
+            _pool_index_tag(pool, tags, name_and_type, 12, tuple)
+        elif tag == 15:
+            reference_kind, reference_index = value if isinstance(value, tuple) else (0, 0)
+            if not isinstance(reference_kind, int) or not 1 <= reference_kind <= 9:
+                raise MutationPolicyError("invalid class constant-pool method-handle kind")
+            allowed = {9} if reference_kind == 9 else ({10, 11} if reference_kind in {5, 6, 7, 8} else {9})
+            if not isinstance(reference_index, int) or reference_index <= 0 or reference_index >= len(tags) or tags[reference_index] not in allowed:
+                raise MutationPolicyError("invalid class constant-pool method-handle reference")
 
 
 def _decode_modified_utf8(raw: bytes) -> str:
@@ -554,9 +617,16 @@ def _decode_modified_utf8(raw: bytes) -> str:
     return encoded.decode("utf-16-be", errors="surrogatepass")
 
 
-def _skip_attributes(data: bytes, offset: int, count: int) -> int:
+def _skip_attributes(
+    data: bytes,
+    offset: int,
+    count: int,
+    pool: list[object | None],
+    tags: list[int | None],
+) -> int:
     for _ in range(count):
-        _, offset = _u2(data, offset)
+        name_index, offset = _u2(data, offset)
+        _pool_index_tag(pool, tags, name_index, 1, str)
         length, offset = _u4(data, offset)
         _, offset = _take(data, offset, length)
     return offset
@@ -566,6 +636,18 @@ def _pool_index(pool: list[object | None], index: int, expected: type):
     if index <= 0 or index >= len(pool) or not isinstance(pool[index], expected):
         raise MutationPolicyError("invalid class constant-pool reference")
     return pool[index]
+
+
+def _pool_index_tag(
+    pool: list[object | None],
+    tags: list[int | None],
+    index: object,
+    expected_tag: int,
+    expected_type: type,
+):
+    if not isinstance(index, int) or index <= 0 or index >= len(pool) or tags[index] != expected_tag:
+        raise MutationPolicyError("invalid class constant-pool reference")
+    return _pool_index(pool, index, expected_type)
 
 
 def _take(data: bytes, offset: int, length: int) -> tuple[bytes, int]:

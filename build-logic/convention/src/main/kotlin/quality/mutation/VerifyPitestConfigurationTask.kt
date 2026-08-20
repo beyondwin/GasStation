@@ -2,14 +2,22 @@ package com.gasstation.buildlogic.quality.mutation
 
 import com.gasstation.buildlogic.quality.coverage.canonicalCoverageJson
 import com.gasstation.buildlogic.quality.mutation.blockingMutationThreshold
+import info.solidsoft.gradle.pitest.fileCollectionIdentity
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
@@ -23,6 +31,16 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
     @get:Input abstract val enforcementPhase: Property<String>
     @get:Input @get:Optional abstract val mutationThreshold: Property<Int>
     @get:Input abstract val effectiveValues: MapProperty<String, String>
+    @get:Input abstract val expectedEffectiveValues: MapProperty<String, String>
+    @get:Internal abstract val repositoryRoot: DirectoryProperty
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val actualSourceDirs: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val expectedSourceDirs: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val actualAdditionalClasspath: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val expectedAdditionalClasspath: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val actualMutableCodePaths: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val expectedMutableCodePaths: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val actualLaunchClasspath: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val expectedLaunchClasspath: ConfigurableFileCollection
     @get:Input abstract val directPitestGuardMarker: Property<String>
     @get:InputFile abstract val policyFile: RegularFileProperty
     @get:InputFile abstract val routeFile: RegularFileProperty
@@ -42,27 +60,31 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
             throw GradleException("Direct PIT guard marker differs from the closed contract")
         }
         val values = effectiveValues.get()
-        val expected = mapOf(
-            "addJUnitPlatformLauncher" to "false",
-            "defaultCharacterEncoding" to "UTF-8",
-            "detectInlinedCode" to "true",
-            "enableDefaultIncrementalAnalysis" to "false",
-            "failWhenNoMutations" to "true",
-            "fullMutationMatrix" to "false",
-            "inputCharset" to "UTF-8",
-            "mutationEngine" to "gregor",
-            "outputCharset" to "UTF-8",
-            "outputFormats" to "HTML,XML",
-            "skipFailingTests" to "false",
-            "timeoutConstInMillis" to "4000",
-            "timeoutFactor" to "1.25",
-            "timestampedReports" to "false",
-            "useClasspathFile" to "true",
-            "useClasspathJar" to "false",
-            "verbose" to "false",
-            "verbosity" to "NO_SPINNER",
-        )
+        val expected = expectedEffectiveValues.get()
         if (values != expected) throw GradleException("PIT effective values differ from the closed contract: $values")
+        val root = repositoryRoot.get().asFile
+        val collectionIdentities = sortedMapOf(
+            "pit.sourceDirs" to fileCollectionIdentity(actualSourceDirs, root),
+            "pit.additionalClasspath" to fileCollectionIdentity(actualAdditionalClasspath, root),
+            "pit.mutableCodePaths" to fileCollectionIdentity(actualMutableCodePaths, root),
+            "pit.launchClasspath" to fileCollectionIdentity(actualLaunchClasspath, root),
+        )
+        val expectedCollectionIdentities = sortedMapOf(
+            "pit.sourceDirs" to fileCollectionIdentity(expectedSourceDirs, root),
+            "pit.additionalClasspath" to fileCollectionIdentity(expectedAdditionalClasspath, root),
+            "pit.mutableCodePaths" to fileCollectionIdentity(expectedMutableCodePaths, root),
+            "pit.launchClasspath" to fileCollectionIdentity(expectedLaunchClasspath, root),
+        )
+        if (collectionIdentities != expectedCollectionIdentities) {
+            throw GradleException("PIT effective classpath/source surface differs from the closed contract")
+        }
+        val serializedSurface = values.toMutableMap().also { surface ->
+            surface.putAll(collectionIdentities)
+            surface["java.classpath"] = collectionIdentities.getValue("pit.launchClasspath")
+            surface["java.bootstrapClasspath"] = ""
+            surface["derivedCli.sourceDirs"] = collectionIdentities.getValue("pit.sourceDirs")
+            surface["derivedCli.mutableCodePaths"] = collectionIdentities.getValue("pit.mutableCodePaths")
+        }.toSortedMap()
         val policyBytes = policyFile.get().asFile.readBytes()
         val routeBytes = routeFile.get().asFile.readBytes()
         val routeReceiptBytes = routeReceiptFile.get().asFile.readBytes()
@@ -132,7 +154,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         val payload = sortedMapOf<String, Any?>(
             "addJUnitPlatformLauncher" to false,
             "directPitestGuard" to directPitestGuardMarker.get(),
-            "defaultCharacterEncoding" to values.getValue("defaultCharacterEncoding"),
+            "defaultCharacterEncoding" to values.getValue("java.defaultCharacterEncoding"),
             "enforcementPhase" to enforcementPhase.get(),
             "environmentPolicy" to "pitest-sealed-v1",
             "hostNeutralMutationIdentity" to hostNeutral,
@@ -149,7 +171,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
             "targetClasses" to listOf(targetGlob.get()),
             "targetTests" to listOf(targetGlob.get()),
             "threads" to threads.get(),
-            "values" to values.toSortedMap(),
+            "values" to serializedSurface,
         )
         val destination = outputFile.get().asFile
         destination.parentFile.mkdirs()
