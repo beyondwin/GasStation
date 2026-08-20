@@ -92,14 +92,22 @@ private fun writeDeviceEvidenceReceipt() {
         } ?: error("Permission controller package is not installed")
     val permissionInfo = packageManager.getPackageInfo(permissionPackage, 0)
     val permissionRevision =
-        if (Build.VERSION.SDK_INT >= 28) permissionInfo.longVersionCode.toString()
-        else @Suppress("DEPRECATION") permissionInfo.versionCode.toString()
+        if (Build.VERSION.SDK_INT >= 28) {
+            permissionInfo.longVersionCode.toString()
+        } else {
+            @Suppress("DEPRECATION")
+            permissionInfo.versionCode.toString()
+        }
     val googleServices =
         runCatching { packageManager.getPackageInfo("com.google.android.gms", 0) }.getOrNull()
     val googleServicesRevision =
         googleServices?.let {
-            if (Build.VERSION.SDK_INT >= 28) it.longVersionCode.toString()
-            else @Suppress("DEPRECATION") it.versionCode.toString()
+            if (Build.VERSION.SDK_INT >= 28) {
+                it.longVersionCode.toString()
+            } else {
+                @Suppress("DEPRECATION")
+                it.versionCode.toString()
+            }
         }
     val serial = readSystemProperty("ro.boot.qemu.avd_name")
     require(serial.isNotBlank()) { "GMD AVD name property is missing" }
@@ -131,15 +139,13 @@ private fun writeDeviceEvidenceReceipt() {
         .use { writer -> writer.write(receipt.toString()) }
 }
 
-private fun readSystemProperty(name: String): String =
-    ProcessBuilder("/system/bin/getprop", name)
-        .start()
-        .inputStream
-        .bufferedReader(Charsets.UTF_8)
-        .use { it.readText().trim() }
+private fun readSystemProperty(name: String): String = ProcessBuilder("/system/bin/getprop", name)
+    .start()
+    .inputStream
+    .bufferedReader(Charsets.UTF_8)
+    .use { it.readText().trim() }
 
-private fun profileFromAvdName(avdName: String): String =
-    when {
-        avdName.matches(Regex("gasstationPixel2Api(?:28|36)")) -> "Pixel 2"
-        else -> error("Unreviewed GMD AVD name: $avdName")
-    }
+private fun profileFromAvdName(avdName: String): String = when {
+    avdName.matches(Regex("gasstationPixel2Api(?:28|36)")) -> "Pixel 2"
+    else -> error("Unreviewed GMD AVD name: $avdName")
+}
