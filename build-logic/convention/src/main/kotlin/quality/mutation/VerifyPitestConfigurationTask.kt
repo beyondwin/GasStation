@@ -41,6 +41,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         val values = effectiveValues.get()
         val expected = mapOf(
             "addJUnitPlatformLauncher" to "false",
+            "defaultCharacterEncoding" to "UTF-8",
             "detectInlinedCode" to "true",
             "enableDefaultIncrementalAnalysis" to "false",
             "failWhenNoMutations" to "true",
@@ -127,6 +128,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         val payload = sortedMapOf<String, Any?>(
             "addJUnitPlatformLauncher" to false,
             "directPitestGuard" to directPitestGuardMarker.get(),
+            "defaultCharacterEncoding" to values.getValue("defaultCharacterEncoding"),
             "enforcementPhase" to enforcementPhase.get(),
             "environmentPolicy" to "pitest-sealed-v1",
             "hostNeutralMutationIdentity" to hostNeutral,

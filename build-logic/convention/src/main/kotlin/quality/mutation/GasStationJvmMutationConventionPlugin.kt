@@ -10,6 +10,7 @@ import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.plugins.JavaPluginExtension as JavaExtension
 import org.gradle.api.provider.HasConfigurableValue
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
@@ -17,7 +18,6 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
-import org.gradle.process.JavaDebugOptions
 import java.math.BigDecimal
 import java.nio.charset.StandardCharsets
 
@@ -124,7 +124,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             workingDir(target.rootProject.layout.projectDirectory)
             environment.clear()
             environment(childEnvironment.get())
-            configureSealedDebugOptions(debugOptions)
+            configureSealedInheritedJavaExecDefaults(this)
             classpath(original.launchClasspath)
             dependsOn("verifyPitestConfiguration")
         }
@@ -144,6 +144,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
                     sortedMapOf(
                         "addJUnitPlatformLauncher" to extension.addJUnitPlatformLauncher.get().toString(),
                         "detectInlinedCode" to task.detectInlinedCode.get().toString(),
+                        "defaultCharacterEncoding" to task.defaultCharacterEncoding.orEmpty(),
                         "enableDefaultIncrementalAnalysis" to task.enableDefaultIncrementalAnalysis.get().toString(),
                         "failWhenNoMutations" to task.failWhenNoMutations.get().toString(),
                         "fullMutationMatrix" to task.fullMutationMatrix.get().toString(),
@@ -173,12 +174,13 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
     }
 }
 
-internal fun configureSealedDebugOptions(options: JavaDebugOptions) {
-    options.enabled.set(false)
-    options.host.set("localhost")
-    options.port.set(5005)
-    options.server.set(true)
-    options.suspend.set(true)
+internal fun configureSealedInheritedJavaExecDefaults(task: JavaExec) {
+    task.defaultCharacterEncoding = "UTF-8"
+    task.debugOptions.enabled.set(false)
+    task.debugOptions.host.set("localhost")
+    task.debugOptions.port.set(5005)
+    task.debugOptions.server.set(true)
+    task.debugOptions.suspend.set(true)
 }
 
 internal fun requireSupportedMutationProject(projectPath: String) {

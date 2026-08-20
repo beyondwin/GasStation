@@ -80,7 +80,7 @@
   "noCoverageMode": "changed-package-nonincrease",
   "pitest": {
     "addJUnitPlatformLauncher": false, "additionalMutableCodePaths": [], "avoidCallsTo": [], "coverageThreshold": null, "detectInlinedCode": true,
-    "enableDefaultIncrementalAnalysis": false, "excludedClasses": [], "excludedGroups": [], "excludedMethods": [], "excludedTestClasses": [], "exportLineCoverage": false,
+    "defaultCharacterEncoding": "UTF-8", "enableDefaultIncrementalAnalysis": false, "excludedClasses": [], "excludedGroups": [], "excludedMethods": [], "excludedTestClasses": [], "exportLineCoverage": false,
     "failWhenNoMutations": true, "features": [], "fileExtensionsToFilter": ["pom", "so", "dll", "dylib"], "fullMutationMatrix": false,
     "historyInputLocation": null, "historyOutputLocation": null, "includedGroups": [], "includedTestMethods": [], "inputCharset": "UTF-8", "junit5PluginVersion": null,
     "jvmArgs": [], "jvmPath": null, "mainProcessJvmArgs": [], "mainSourceSets": ["main"], "maxSurviving": null, "mutationEngine": "gregor", "mutators": ["DEFAULTS"],

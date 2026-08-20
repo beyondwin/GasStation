@@ -16,7 +16,7 @@ from pitest_policy.contracts import (
     validate_identity_partition,
     validate_linux_profile,
 )
-from verify_pitest import _observe_java_home, load_policy
+from verify_pitest import _observe_java_home, host_neutral_mutation_identity, load_policy
 
 
 LINUX_PROFILE = {
@@ -51,6 +51,13 @@ LINUX_PROFILE = {
 
 
 class IdentityPartitionTest(unittest.TestCase):
+    def test_checked_policy_and_neutral_identity_bind_explicit_utf8(self) -> None:
+        policy, _, _ = load_policy()
+
+        self.assertEqual("UTF-8", policy["pitest"]["defaultCharacterEncoding"])
+        neutral = host_neutral_mutation_identity(policy)
+        self.assertEqual("UTF-8", neutral["reportGeneration"]["defaultCharacterEncoding"])
+
     def test_java_runtime_identity_ignores_nondeterministic_vm_layout_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             java = Path(temporary) / "bin/java"

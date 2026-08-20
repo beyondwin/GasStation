@@ -1,9 +1,10 @@
 package com.gasstation.buildlogic.quality
 
 import com.gasstation.buildlogic.quality.mutation.RejectDirectPitestAction
-import com.gasstation.buildlogic.quality.mutation.configureSealedDebugOptions
+import com.gasstation.buildlogic.quality.mutation.configureSealedInheritedJavaExecDefaults
 import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProject
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
+import info.solidsoft.gradle.pitest.validateSealedEncodingSurface
 import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import org.gradle.api.tasks.JavaExec
@@ -15,16 +16,64 @@ import org.junit.Test
 
 class GasStationJvmMutationConventionPluginTest {
     @Test
-    fun sealedDebugOptionsHaveNoUnsetInheritedSurface() {
+    fun sealedInheritedDefaultsExplicitlyOwnUtf8AndDebugSurface() {
         val task = ProjectBuilder.builder().build().tasks.create("sealedJava", JavaExec::class.java)
+        task.defaultCharacterEncoding = "UTF-16"
 
-        configureSealedDebugOptions(task.debugOptions)
+        configureSealedInheritedJavaExecDefaults(task)
 
+        assertEquals("UTF-8", task.defaultCharacterEncoding)
+        assertEquals(1, task.allJvmArgs.count { it == "-Dfile.encoding=UTF-8" })
         assertFalse(task.debugOptions.enabled.get())
         assertEquals("localhost", task.debugOptions.host.get())
         assertEquals(5005, task.debugOptions.port.get())
         assertTrue(task.debugOptions.server.get())
         assertTrue(task.debugOptions.suspend.get())
+    }
+
+    @Test
+    fun encodingSurfaceRejectsSameValueAlternateSourcesAndRequiresOneManagedArgument() {
+        validateSealedEncodingSurface(
+            defaultCharacterEncoding = "UTF-8",
+            explicitJvmArguments = emptyList(),
+            mutableSystemProperties = emptyMap<String, String>(),
+            effectiveJvmArguments = listOf("-Dfile.encoding=UTF-8", "-Duser.language=en"),
+        )
+
+        val mutations: List<() -> Unit> =
+            listOf(
+            { validateSealedEncodingSurface(null, emptyList(), emptyMap<String, String>(), listOf("-Dfile.encoding=UTF-8")) },
+            { validateSealedEncodingSurface("UTF-16", emptyList(), emptyMap<String, String>(), listOf("-Dfile.encoding=UTF-16")) },
+            {
+                validateSealedEncodingSurface(
+                    "UTF-8",
+                    listOf("-Dfile.encoding=UTF-8"),
+                    emptyMap<String, String>(),
+                    listOf("-Dfile.encoding=UTF-8", "-Dfile.encoding=UTF-8"),
+                )
+            },
+            {
+                validateSealedEncodingSurface(
+                    "UTF-8",
+                    emptyList(),
+                    mapOf("file.encoding" to "UTF-8"),
+                    listOf("-Dfile.encoding=UTF-8"),
+                )
+            },
+            { validateSealedEncodingSurface("UTF-8", emptyList(), emptyMap<String, String>(), emptyList()) },
+            {
+                validateSealedEncodingSurface(
+                    "UTF-8",
+                    emptyList(),
+                    emptyMap<String, String>(),
+                    listOf("-Dfile.encoding=UTF-8", "-Dfile.encoding=UTF-8"),
+                )
+            },
+        )
+        mutations.forEachIndexed { index, mutation ->
+            val failure = assertThrows("encoding mutation $index", GradleException::class.java, mutation)
+            assertTrue(failure.message, failure.message.orEmpty().contains("file.encoding"))
+        }
     }
 
     @Test

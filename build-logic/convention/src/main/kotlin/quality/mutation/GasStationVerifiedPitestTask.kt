@@ -34,6 +34,12 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         reject(jvmArguments.getOrElse(emptyList()).isNotEmpty(), "jvmArguments")
         reject(jvmArgumentProviders.isNotEmpty(), "jvmArgumentProviders")
         reject(systemProperties.isNotEmpty(), "systemProperties")
+        validateSealedEncodingSurface(
+            defaultCharacterEncoding,
+            jvmArgs.orEmpty(),
+            systemProperties,
+            allJvmArgs,
+        )
         reject(!bootstrapClasspath.isEmpty, "bootstrapClasspath")
         reject(minHeapSize != null, "minHeapSize")
         reject(maxHeapSize != null, "maxHeapSize")
@@ -44,7 +50,6 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         reject(debugOptions.port.get() != 5005, "debugOptions.port")
         reject(!debugOptions.server.get(), "debugOptions.server")
         reject(!debugOptions.suspend.get(), "debugOptions.suspend")
-        reject(defaultCharacterEncoding != null, "defaultCharacterEncoding")
         reject(mainModule.isPresent, "mainModule")
         reject(modularity.inferModulePath.getOrElse(false), "modularity.inferModulePath")
         reject(isIgnoreExitValue, "ignoreExitValue")
@@ -72,6 +77,30 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         reject(actualThreshold != expectedMutationThreshold.orNull, "mutationThreshold")
     }
 }
+
+internal fun validateSealedEncodingSurface(
+    defaultCharacterEncoding: String?,
+    explicitJvmArguments: List<String>,
+    mutableSystemProperties: Map<String, *>,
+    effectiveJvmArguments: List<String>,
+) {
+    if (defaultCharacterEncoding != "UTF-8") {
+        throw GradleException("Unsupported pitestVerified execution surface: file.encoding/defaultCharacterEncoding")
+    }
+    if (explicitJvmArguments.any(::isFileEncodingArgument)) {
+        throw GradleException("Unsupported pitestVerified execution surface: alternate file.encoding JVM argument")
+    }
+    if (mutableSystemProperties.containsKey("file.encoding")) {
+        throw GradleException("Unsupported pitestVerified execution surface: alternate file.encoding system property")
+    }
+    val managedEncodingArguments = effectiveJvmArguments.filter(::isFileEncodingArgument)
+    if (managedEncodingArguments != listOf("-Dfile.encoding=UTF-8")) {
+        throw GradleException("Unsupported pitestVerified execution surface: file.encoding must have one managed UTF-8 argument")
+    }
+}
+
+private fun isFileEncodingArgument(argument: String): Boolean =
+    argument == "-Dfile.encoding" || argument.startsWith("-Dfile.encoding=")
 
 internal fun validatePitestOptionOverrides(
     overriddenTargetTests: List<String>?,
