@@ -7,6 +7,7 @@ import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProjec
 import com.gasstation.buildlogic.quality.mutation.validateBlockingEnforcement
 import com.gasstation.buildlogic.testing.GradlePluginTestProject
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
+import info.solidsoft.gradle.pitest.canonicalIdentity
 import info.solidsoft.gradle.pitest.validateSealedExecutable
 import info.solidsoft.gradle.pitest.validateSealedEncodingSurface
 import info.solidsoft.gradle.pitest.validateEffectivePitestSurface
@@ -180,6 +181,22 @@ class GasStationJvmMutationConventionPluginTest {
             validateEffectivePitestSurface(expected, added)
         }
         assertTrue(failure.message, failure.message.orEmpty().contains("unknown.child.option"))
+    }
+
+    @Test
+    fun dedicatedGradleCacheDependenciesUseLocationNeutralContentIdentity() {
+        val root = temporaryFolder.newFolder("identity-root")
+        val dependency = File(
+            root,
+            "build/quality/pitest-runtime/gradle-user-home/caches/modules-2/files-2.1/example/dependency.jar",
+        )
+        dependency.parentFile.mkdirs()
+        dependency.writeBytes("stable dependency".toByteArray())
+
+        val identity = canonicalIdentity(dependency, root)
+
+        assertTrue(identity, identity.startsWith("external:dependency.jar:"))
+        assertFalse(identity, identity.contains("gradle-user-home"))
     }
 
     @Test

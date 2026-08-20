@@ -292,7 +292,10 @@ internal fun fileCollectionIdentity(files: FileCollection, repositoryRoot: File)
 internal fun canonicalIdentity(file: File, repositoryRoot: File): String {
     val canonicalRoot = repositoryRoot.canonicalFile
     val canonical = file.canonicalFile
-    val relative = canonical.toPath().takeIf { it.startsWith(canonicalRoot.toPath()) }
+    val dependencyCache = canonicalRoot.resolve("build/quality/pitest-runtime/gradle-user-home/caches").toPath()
+    val relative = canonical.toPath().takeIf {
+        it.startsWith(canonicalRoot.toPath()) && !it.startsWith(dependencyCache)
+    }
         ?.let { canonicalRoot.toPath().relativize(it).toString().replace(File.separatorChar, '/') }
     if (relative != null) return "repo:$relative:${if (canonical.isDirectory) "directory" else if (canonical.isFile) "file" else "missing"}"
     val digest = if (canonical.isFile) sha256(canonical.readBytes()) else "missing"

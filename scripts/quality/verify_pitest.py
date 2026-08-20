@@ -1931,7 +1931,13 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
     predecessor = read_strict_json(predecessor_raw)
     if not isinstance(predecessor, dict):
         raise MutationPolicyError("recapture-transition predecessor must be an object")
-    validate_legacy_predecessor(predecessor_raw, predecessor)
+    predecessor_schema = predecessor.get("schemaVersion")
+    if predecessor_schema == 1:
+        validate_legacy_predecessor(predecessor_raw, predecessor)
+    elif predecessor_schema == 2:
+        validate_baseline_capture_receipt(predecessor_raw, predecessor)
+    else:
+        raise MutationPolicyError("recapture-transition predecessor schema differs")
     predecessor_hash = sha256(predecessor_raw)
     measurement = measure(java_home)
     _, git = validate_bootstrap(policy, java_home)
@@ -1950,15 +1956,23 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
         violations.extend(compare_no_coverage(old_packages, new_packages, set(old_packages) | set(new_packages)))
         if old["semanticSha256"] != report["semanticSha256"] or old["records"] != report["records"] or old["classes"] != report["classes"]:
             violations.append(f"{name} evidence-schema transition changed mutant/class/status identity")
-        module_path = policy["modules"][name]["modulePath"].removeprefix(":").replace(":", "/")
-        inventory_delta[name] = build_legacy_transition_delta(
-            old,
-            report,
-            input_identity["moduleInventories"][name],
-            git,
-            predecessor["sourceCommit"],
-            module_path,
-        )
+        if predecessor_schema == 1:
+            module_path = policy["modules"][name]["modulePath"].removeprefix(":").replace(":", "/")
+            inventory_delta[name] = build_legacy_transition_delta(
+                old,
+                report,
+                input_identity["moduleInventories"][name],
+                git,
+                predecessor["sourceCommit"],
+                module_path,
+            )
+        else:
+            inventory_delta[name] = build_inventory_delta(
+                predecessor["moduleInventories"][name],
+                input_identity["moduleInventories"][name],
+                old,
+                report,
+            )
     summary = {
         "schemaVersion": 2,
         "verificationMode": "recapture-transition",
@@ -2047,6 +2061,10 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
         "oldInputIdentity": {
             "schemaVersion": predecessor["schemaVersion"],
             "hostNeutralMutationIdentitySha256": predecessor["hostNeutralMutationIdentitySha256"],
+            **(
+                {"mutationInputIdentitySha256": predecessor["mutationInputIdentitySha256"]}
+                if predecessor_schema == 2 else {}
+            ),
         },
         "newInputIdentity": {
             "schemaVersion": 2,
