@@ -304,8 +304,22 @@ def check_device_contracts(root: Path) -> list[str]:
         issues.append("scripts/quality/device/run_gmd_lane.sh:1: shared GMD baseline discovery differs")
     if gmd_task.count('gmd_processes.py" --output "$final_processes"') != 1 or "pgrep" in gmd_task:
         issues.append("scripts/quality/device/execute_gmd_task.sh:1: shared GMD task discovery differs")
-    if "from device.gmd_processes import discover_processes, introduced_processes, read_snapshot" not in gmd_cleanup:
+    if not all(
+        anchor in gmd_cleanup
+        for anchor in (
+            "from device.gmd_processes import (",
+            "discover_processes,",
+            "introduced_processes,",
+            "read_snapshot,",
+        )
+    ):
         issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup bypasses shared process identity")
+    if (
+        gmd_wrapper.count('  --lane "$lane" \\') != 1
+        or gmd_cleanup.count("avd_name=avd_name") != 5
+        or 'load_policy(ROOT / "config/quality/device-evidence-policy.json")' not in gmd_cleanup
+    ):
+        issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup process ownership is not AVD-bound")
     if gmd_task.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:
         issues.append("scripts/quality/device/execute_gmd_task.sh:1: GMD instrumentation lane identity missing")
     if connected_wrapper.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:

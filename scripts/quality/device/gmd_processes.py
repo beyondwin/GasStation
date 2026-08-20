@@ -7,12 +7,21 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
-from device_evidence import DeviceEvidenceError, canonical_json_bytes
+QUALITY = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(QUALITY))
+
+from device_evidence import DeviceEvidenceError, canonical_json_bytes  # noqa: E402
 
 MAX_PROCESS_BYTES = 2 * 1024 * 1024
-PROCESS_FIELDS = {"pid", "executable"}
+PROCESS_FIELDS = {"pid", "executable", "avdName"}
+
+
+def _avd_name(arguments: str) -> str | None:
+    match = re.search(r"(?:^|\s)-avd(?:\s+|=)([A-Za-z0-9._-]+)(?=\s|$)", arguments)
+    return match.group(1) if match else None
 
 
 def _is_emulator_process(executable: str, arguments: str) -> bool:
@@ -31,10 +40,16 @@ def parse_processes(text: str) -> list[dict]:
             continue
         pid = int(pieces[0])
         executable = Path(pieces[1]).name
-        if pid <= 1 or pid in seen or not _is_emulator_process(executable, pieces[2]):
+        avd_name = _avd_name(pieces[2])
+        if (
+            pid <= 1
+            or pid in seen
+            or not _is_emulator_process(executable, pieces[2])
+            or avd_name is None
+        ):
             continue
         seen.add(pid)
-        processes.append({"pid": pid, "executable": executable})
+        processes.append({"pid": pid, "executable": executable, "avdName": avd_name})
     return sorted(processes, key=lambda item: (item["pid"], item["executable"]))
 
 
@@ -69,6 +84,8 @@ def validate_processes(value: object) -> list[dict]:
             or not isinstance(item["executable"], str)
             or not item["executable"]
             or "/" in item["executable"]
+            or not isinstance(item["avdName"], str)
+            or not re.fullmatch(r"[A-Za-z0-9._-]+", item["avdName"])
         ):
             raise DeviceEvidenceError("process snapshot identity is malformed")
         identity = (item["pid"], item["executable"])
@@ -81,12 +98,15 @@ def validate_processes(value: object) -> list[dict]:
     return result
 
 
-def introduced_processes(baseline: list[dict], observed: list[dict]) -> list[dict]:
+def introduced_processes(
+    baseline: list[dict], observed: list[dict], *, avd_name: str | None = None
+) -> list[dict]:
     baseline_identities = {(item["pid"], item["executable"]) for item in validate_processes(baseline)}
     return [
         item
         for item in validate_processes(observed)
         if (item["pid"], item["executable"]) not in baseline_identities
+        and (avd_name is None or item["avdName"] == avd_name)
     ]
 
 

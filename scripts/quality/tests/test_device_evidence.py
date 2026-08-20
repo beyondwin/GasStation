@@ -50,6 +50,17 @@ class DeviceEvidencePolicyTest(unittest.TestCase):
         self.assertEqual(6, len(policy["inventories"]["roomMigrations"]))
         self.assertEqual(1, len(policy["inventories"]["locationGeocoder"]))
         self.assertEqual([], load_quarantine(POLICY, policy))
+        for lane_name in ("api28-pr-smoke", "api28-scheduled"):
+            lane = policy["lanes"][lane_name]
+            for task_index in range(len(lane["gradleTasks"])):
+                self.assertIn(
+                    "gasstationPixel2Api28",
+                    lane["resultRoots"][task_index * 3 + 1],
+                )
+                self.assertNotIn(
+                    "gasstationPixel2Api36",
+                    lane["resultRoots"][task_index * 3 + 1],
+                )
 
     def test_policy_rejects_unknown_fields_duplicate_inventory_and_budget_collision(self):
         policy = load_policy(POLICY)

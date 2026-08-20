@@ -144,7 +144,7 @@
       "reportOnly": true,
       "resultRoots": [
         "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
-        "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+        "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api28",
         "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28"
       ],
       "retentionDays": 14,
@@ -199,10 +199,10 @@
       "reportOnly": false,
       "resultRoots": [
         "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
-        "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+        "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api28",
         "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
         "core/database/build/outputs/androidTest-results/managedDevice/debug/gasstationPixel2Api28",
-        "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api36",
+        "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api28",
         "core/database/build/reports/androidTests/managedDevice/debug/gasstationPixel2Api28"
       ],
       "retentionDays": 30,

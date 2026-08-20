@@ -93,6 +93,7 @@ run_device_phase "$lane" collection python3 "$script_dir/write_manifest.py" \
 collection_status=$?
 run_device_phase "$lane" cleanup python3 "$script_dir/cleanup_gmd_lane.py" \
   --baseline-processes "$baseline_processes" \
+  --lane "$lane" \
   --adb "$ANDROID_SDK_ROOT/platform-tools/adb" \
   --output "$root/$attempt_root/raw/gmd-teardown.json"
 cleanup_status=$?

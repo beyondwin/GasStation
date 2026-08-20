@@ -18,6 +18,18 @@ DEVICE = ROOT / "scripts/quality/device"
 
 
 class DeviceScriptTest(unittest.TestCase):
+    def test_gmd_python_helpers_are_standalone_entrypoints(self):
+        for helper in ("gmd_processes.py", "cleanup_gmd_lane.py"):
+            with self.subTest(helper=helper):
+                result = subprocess.run(
+                    [sys.executable, str(DEVICE / helper), "--help"],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    env={"PATH": os.environ["PATH"]},
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+
     def test_process_discovery_is_shared_and_preserves_preexisting_launcher_and_qemu_child(self):
         from device.gmd_processes import introduced_processes, parse_processes
 
@@ -33,7 +45,7 @@ class DeviceScriptTest(unittest.TestCase):
         )
 
         self.assertEqual(
-            [{"pid": 201, "executable": "emulator"}],
+            [{"pid": 201, "executable": "emulator", "avdName": "task"}],
             introduced_processes(baseline, observed),
         )
 
@@ -41,18 +53,95 @@ class DeviceScriptTest(unittest.TestCase):
         from device import cleanup_gmd_lane
 
         baseline = [
-            {"pid": 101, "executable": "emulator"},
-            {"pid": 102, "executable": "qemu-system-x86_64"},
+            {"pid": 101, "executable": "emulator", "avdName": "old"},
+            {"pid": 102, "executable": "qemu-system-x86_64", "avdName": "old"},
         ]
-        observed = [*baseline, {"pid": 201, "executable": "emulator"}]
+        owned = {"pid": 201, "executable": "emulator", "avdName": "task"}
+        observed = [*baseline, owned]
         with mock.patch.object(cleanup_gmd_lane, "discover_processes", side_effect=[observed, observed, baseline]), \
              mock.patch.object(cleanup_gmd_lane.os, "kill") as kill:
-            snapshot, killed, failures, live = cleanup_gmd_lane.terminate_introduced(baseline, wait_seconds=0)
+            snapshot, killed, failures, live = cleanup_gmd_lane.terminate_introduced(
+                baseline, avd_name="task", wait_seconds=0
+            )
         kill.assert_called_once_with(201, cleanup_gmd_lane.signal.SIGTERM)
         self.assertEqual(observed, snapshot)
-        self.assertEqual([{"pid": 201, "executable": "emulator"}], killed)
+        self.assertEqual([owned], killed)
         self.assertEqual([], failures)
         self.assertEqual([], live)
+
+    def test_gmd_cleanup_does_not_signal_unrelated_process_started_after_baseline(self):
+        from device import cleanup_gmd_lane
+
+        unrelated = {"pid": 901, "executable": "emulator", "avdName": "personal_avd"}
+        owned = {"pid": 902, "executable": "emulator", "avdName": "gasstationPixel2Api28"}
+        observed = [unrelated, owned]
+        with mock.patch.object(
+            cleanup_gmd_lane,
+            "discover_processes",
+            side_effect=[observed, observed, [unrelated]],
+        ), mock.patch.object(cleanup_gmd_lane.os, "kill") as kill:
+            snapshot, killed, failures, live = cleanup_gmd_lane.terminate_introduced(
+                [], avd_name="gasstationPixel2Api28", wait_seconds=0
+            )
+        kill.assert_called_once_with(902, cleanup_gmd_lane.signal.SIGTERM)
+        self.assertEqual(observed, snapshot)
+        self.assertEqual([owned], killed)
+        self.assertEqual([], failures)
+        self.assertEqual([], live)
+
+    def test_gmd_cleanup_cli_with_fake_tools_preserves_post_baseline_other_avd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            baseline = root / "baseline.json"
+            output = root / "teardown.json"
+            baseline.write_text('{"processes":[],"schemaVersion":1}\n', encoding="utf-8")
+            child = subprocess.Popen(["sleep", "60"])
+            try:
+                fake_ps = root / "ps"
+                fake_ps.write_text(
+                    "#!/usr/bin/env bash\n"
+                    f"if kill -0 {child.pid} 2>/dev/null; then\n"
+                    f"  printf '%s\\n' '{child.pid} emulator /sdk/emulator/emulator -avd personal_avd'\n"
+                    "fi\n",
+                    encoding="utf-8",
+                )
+                fake_ps.chmod(0o755)
+                fake_adb = root / "adb"
+                fake_adb.write_text(
+                    "#!/usr/bin/env bash\nprintf 'List of devices attached\\n'\n",
+                    encoding="utf-8",
+                )
+                fake_adb.chmod(0o755)
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(DEVICE / "cleanup_gmd_lane.py"),
+                        "--baseline-processes",
+                        str(baseline),
+                        "--lane",
+                        "api28-pr-smoke",
+                        "--adb",
+                        str(fake_adb),
+                        "--output",
+                        str(output),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    env={
+                        "PATH": f"{root}{os.pathsep}{os.environ['PATH']}",
+                        "PYTHONDONTWRITEBYTECODE": "1",
+                    },
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertIsNone(child.poll(), "cleanup signalled the unrelated fake emulator")
+                receipt = json.loads(output.read_text(encoding="utf-8"))
+                self.assertEqual([], receipt["killedProcesses"])
+                self.assertEqual("personal_avd", receipt["observedProcesses"][0]["avdName"])
+            finally:
+                if child.poll() is None:
+                    child.terminate()
+                child.wait(timeout=5)
 
     def test_connected_cleanup_removes_validated_avd_without_emulator_pid(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -339,7 +428,7 @@ class DeviceScriptTest(unittest.TestCase):
             base = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("PASS", derive_cleanup_status(attempt, "gmd", [task]))
             cleanup = json.loads(cleanup_path.read_text(encoding="utf-8"))
-            process = {"pid": 4321, "executable": "emulator"}
+            process = {"pid": 4321, "executable": "emulator", "avdName": "gasstationPixel2Api28"}
             cleanup.update(observedProcesses=[process], killedProcesses=[process], liveProcesses=[process])
             cleanup_path.write_text(json.dumps(cleanup, sort_keys=True) + "\n", encoding="utf-8")
             self.assertEqual("FAIL", derive_cleanup_status(attempt, "gmd", [task]))

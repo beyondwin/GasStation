@@ -146,7 +146,7 @@ EXPECTED_LANES = {
         "phases": [0, 60, 120, 60, 150, 30, 0, 30, 90],
         "roots": [
             "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
-            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api28",
             "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
         ],
     },
@@ -167,10 +167,10 @@ EXPECTED_LANES = {
         "phases": [0, 60, 150, 60, 150, 30, 0, 30, 120],
         "roots": [
             "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
-            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api28",
             "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
             "core/database/build/outputs/androidTest-results/managedDevice/debug/gasstationPixel2Api28",
-            "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api36",
+            "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api28",
             "core/database/build/reports/androidTests/managedDevice/debug/gasstationPixel2Api28",
         ],
     },
