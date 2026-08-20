@@ -21,17 +21,17 @@ import org.gradle.kotlin.dsl.getByType
 internal data class ProductionDependencyRegistration(
     val activeModules: List<String>,
     val components: org.gradle.api.provider.SetProperty<String>,
-    val declarations: org.gradle.api.provider.SetProperty<String>,
+    val declarations: org.gradle.api.provider.ListProperty<String>,
     val graphShards: org.gradle.api.file.ConfigurableFileCollection,
-    val testedTargetEvidence: org.gradle.api.provider.SetProperty<String>,
+    val testedTargetEvidence: org.gradle.api.provider.ListProperty<String>,
 )
 
 internal fun registerProductionDependencies(root: Project): ProductionDependencyRegistration {
     val activeModules = readActiveModulePaths(root)
     val components = root.objects.setProperty(String::class.java).convention(emptySet())
-    val declarations = root.objects.setProperty(String::class.java).convention(emptySet())
+    val declarations = root.objects.listProperty(String::class.java).convention(emptyList())
     val graphShards = root.objects.fileCollection()
-    val testedTargetEvidence = root.objects.setProperty(String::class.java).convention(emptySet())
+    val testedTargetEvidence = root.objects.listProperty(String::class.java).convention(emptyList())
 
     root.subprojects.filter { it.path in activeModules }.forEach { module ->
         val moduleGraphRecords = module.objects.setProperty(String::class.java).convention(emptySet())
@@ -115,29 +115,44 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
                         .filterIsInstance<ProjectDependency>()
                         .map(ProjectDependency::getPath)
                         .sorted()
-                    val compileOnlyComponents = testedTargetClasspaths.mapNotNull { (component, compile, runtime) ->
-                        val compileTargets = projectDependencyTargets(compile)
-                        val runtimeTargets = projectDependencyTargets(runtime)
-                        component.takeIf { targets.any { it in compileTargets && it !in runtimeTargets } }
-                    }.sorted()
+                    val compileOnlyByComponent = testedTargetClasspaths.associate { (component, compile, runtime) ->
+                        component to compileOnlyProjectDependencies(compile, runtime)
+                    }.toSortedMap()
+                    val compileOnlyComponents = compileOnlyByComponent.filterValues { dependencies ->
+                        targets.any { target -> dependencies.any { it.path == target } }
+                    }.keys.toList()
                     val membership = when {
                         compileOnlyComponents.isEmpty() -> "absent"
                         compileOnlyComponents == componentNames -> "present"
                         else -> "mixed:${compileOnlyComponents.joinToString(",")}"
                     }
-                    if (targets.size == 1 && !membership.startsWith("mixed:")) {
+                    val exactCompileOnlyRelation =
+                        if (selfInstrumenting.get()) {
+                            compileOnlyByComponent.values.all(List<ProjectDependencyObservation>::isEmpty)
+                        } else {
+                            targets.size == 1 && compileOnlyByComponent.values.all { dependencies ->
+                                dependencies.size == 1 && dependencies.single().path == targets.single()
+                            }
+                        }
+                    val compileOnlyIdentities = compileOnlyByComponent.flatMap { (component, dependencies) ->
+                        dependencies.map { dependency -> "$component:${dependency.encoded}" }
+                    }
+                    if (targets.size == 1 && !membership.startsWith("mixed:") && exactCompileOnlyRelation) {
                         TestedTargetRelation(
                             consumer = module.path,
                             components = componentNames,
                             target = targets.single(),
                             selfInstrumenting = selfInstrumenting.get(),
                             compileOnlyMembership = membership,
+                            compileOnlyIdentities = compileOnlyIdentities,
                         ).encoded
                     } else {
                         "tested-target-observation|${module.path}|${componentNames.joinToString(",")}|" +
                             "targets=${targets.ifEmpty { listOf("-") }.joinToString(",")}|" +
                             "self-instrumenting=${selfInstrumenting.get()}|" +
-                            "compile-only-components=${compileOnlyComponents.ifEmpty { listOf("-") }.joinToString(",")}"
+                            "compile-only-components=${compileOnlyComponents.ifEmpty { listOf("-") }.joinToString(",")}|" +
+                            "target-configuration=${compileOnlyIdentities.ifEmpty { listOf("-") }.joinToString(",")}|" +
+                            "multiplicity=${compileOnlyByComponent.entries.joinToString(",") { (component, dependencies) -> "$component:${dependencies.size}" }}"
                     }
                 },
             )
@@ -153,16 +168,38 @@ internal fun registerProductionDependencies(root: Project): ProductionDependency
     )
 }
 
-private fun projectDependencyTargets(configuration: Configuration): Set<String> =
-    configuration.hierarchy
-        .flatMap { it.dependencies.filterIsInstance<ProjectDependency>().map(ProjectDependency::getPath) }
-        .toSet()
+private data class ProjectDependencyObservation(
+    val path: String,
+    val declarationConfiguration: String,
+    val targetConfiguration: String,
+) {
+    val encoded: String get() = "$declarationConfiguration->$path@targetConfiguration=$targetConfiguration"
+}
+
+private fun compileOnlyProjectDependencies(
+    compileConfiguration: Configuration,
+    runtimeConfiguration: Configuration,
+): List<ProjectDependencyObservation> {
+    val runtimeHierarchy = runtimeConfiguration.hierarchy.toSet()
+    return compileConfiguration.hierarchy
+        .filter { it !in runtimeHierarchy }
+        .sortedBy(Configuration::getName)
+        .flatMap { bucket ->
+            bucket.dependencies.filterIsInstance<ProjectDependency>().map { dependency ->
+                ProjectDependencyObservation(
+                    path = dependency.path,
+                    declarationConfiguration = bucket.name,
+                    targetConfiguration = dependency.targetConfiguration ?: "default",
+                )
+            }
+        }.sortedBy(ProjectDependencyObservation::encoded)
+}
 
 private fun <VariantT : Variant> registerAndroidProductionComponents(
     module: Project,
     android: AndroidComponentsExtension<*, *, VariantT>,
     components: org.gradle.api.provider.SetProperty<String>,
-    declarations: org.gradle.api.provider.SetProperty<String>,
+    declarations: org.gradle.api.provider.ListProperty<String>,
     graphRecords: org.gradle.api.provider.SetProperty<String>,
 ) {
     android.onVariants(android.selector().all()) { variant ->
@@ -184,7 +221,7 @@ private fun registerProductionComponent(
     compileConfiguration: Configuration,
     runtimeConfiguration: Configuration,
     components: org.gradle.api.provider.SetProperty<String>,
-    declarations: org.gradle.api.provider.SetProperty<String>,
+    declarations: org.gradle.api.provider.ListProperty<String>,
     graphRecords: org.gradle.api.provider.SetProperty<String>,
 ) {
     components.add("${module.path}|$componentName")
@@ -199,30 +236,38 @@ private fun captureDeclarations(
     componentName: String,
     classpathKind: String,
     configuration: Configuration,
-    declarations: org.gradle.api.provider.SetProperty<String>,
+    declarations: org.gradle.api.provider.ListProperty<String>,
 ) {
     declarations.addAll(
         module.provider {
             configuration.hierarchy.sortedBy(Configuration::getName).flatMap { bucket ->
                 bucket.dependencies.map { dependency ->
-                    val (kind, target) = dependencyIdentity(dependency)
-                    "${module.path}|$componentName|$classpathKind|$kind|$target|${bucket.name}"
+                    val identity = dependencyIdentity(dependency)
+                    "${module.path}|$componentName|$classpathKind|${identity.kind}|${identity.target}|" +
+                        "${bucket.name}|${identity.detail}"
                 }
             }
         },
     )
 }
 
-private fun dependencyIdentity(dependency: Dependency): Pair<String, String> =
+private data class DirectDependencyIdentity(val kind: String, val target: String, val detail: String)
+
+private fun dependencyIdentity(dependency: Dependency): DirectDependencyIdentity =
     when (dependency) {
-        is ProjectDependency -> "project" to dependency.path
+        is ProjectDependency ->
+            DirectDependencyIdentity(
+                "project",
+                dependency.path,
+                "targetConfiguration=${dependency.targetConfiguration ?: "default"}",
+            )
         else -> {
             val group = dependency.group
             val name = dependency.name
             if (group.isNullOrBlank() || name.isBlank()) {
-                "unsupported" to dependency.javaClass.name
+                DirectDependencyIdentity("unsupported", dependency.javaClass.name, "-")
             } else {
-                "external" to "$group:$name"
+                DirectDependencyIdentity("external", "$group:$name", "-")
             }
         }
     }

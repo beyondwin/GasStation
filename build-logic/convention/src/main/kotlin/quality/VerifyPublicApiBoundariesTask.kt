@@ -11,6 +11,7 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
@@ -46,6 +47,10 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
     @get:Input
     abstract val scannerSchema: org.gradle.api.provider.Property<String>
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val signaturePolicyFile: RegularFileProperty
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val dumpFiles: ConfigurableFileCollection
@@ -69,6 +74,7 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                     buildString {
                         append("{\"schemaVersion\":1,\"scannerSchema\":${jsonString(scannerSchema.get())},")
                         append("\"modules\":${jsonArray(moduleMappings.get().sorted())},")
+                        append("\"signaturePolicySha256\":\"unavailable\",\"signatureExpectations\":[],")
                         append("\"dumpIdentities\":[],\"classIdentities\":[],")
                         append("\"selectedClassCount\":0,\"selectedMemberCount\":0,")
                         append("\"descriptorLocationCount\":0,\"signatureLocationCount\":0,")
@@ -91,6 +97,8 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                     "classRoots=${rootsByModule.keys.toList()}",
             )
         }
+        val signaturePolicyBytes = signaturePolicyFile.get().asFile.readBytes()
+        val signatureExpectations = decodeSignaturePolicy(signaturePolicyBytes, mappings)
         val expectedPaths = mappings.map(Mapping::dumpPath).toSortedSet()
         val dumpsByPath = linkedMapOf<String, File>()
         dumpFiles.files.filter(File::isFile).forEach { file ->
@@ -128,6 +136,19 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             } catch (failure: KotlinAbiFormatException) {
                 throw GradleException("invalid ABI dump ${mapping.dumpPath}: ${failure.message}", failure)
             }
+            val memberKeys = dump.classes.flatMap { abiClass ->
+                abiClass.members.map { member ->
+                    SignatureKey(mapping.module, abiClass.internalName, member.kind, member.name, member.descriptor)
+                }
+            }.toSet()
+            val unknownSignatureExpectations = signatureExpectations.keys.filter { key ->
+                key.module == mapping.module && key !in memberKeys
+            }
+            if (unknownSignatureExpectations.isNotEmpty()) {
+                throw GradleException(
+                    "signature expectation does not select an ABI member: ${unknownSignatureExpectations.sortedBy(SignatureKey::encoded)}",
+                )
+            }
             dumpIdentities += "${mapping.dumpPath}|bytes=${dumpBytes.size}|sha256=${sha256(dumpBytes)}"
             dump.classes.forEach { abiClass ->
                 val relativeClass = "${abiClass.internalName}.class"
@@ -144,10 +165,16 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                 classIdentities +=
                     "${mapping.module}|$relativeClass|root=${relativeToRoot(selectedRoot)}|" +
                         "bytes=${classBytes.size}|sha256=${sha256(classBytes)}"
-                val scan = scanClass(abiClass, classBytes)
+                val requiredSignatures = signatureExpectations.filterKeys { key ->
+                    key.module == mapping.module && key.className == abiClass.internalName
+                }.mapKeys { (key, _) -> key.memberKey }
+                val scan = scanClass(abiClass, classBytes, requiredSignatures)
                 selectedMembers += scan.selectedMembers
                 descriptorLocations += scan.descriptorTypes.size
                 signatureLocations += scan.signatureTypes.size
+                scan.signatureViolations.forEach { violation ->
+                    violations += "${mapping.module}|${mapping.dumpPath}:$violation|$relativeClass"
+                }
                 scan.missingMembers.forEach { missing ->
                     val member = abiClass.members.single { "${it.line}|${it.kind} ${it.name} ${it.descriptor}" == missing }
                     val inherited = resolveInheritedMember(abiClass, member, classBytes, moduleRoots)
@@ -167,6 +194,9 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                                 if (forbiddenFamilies.get().any(token.className::startsWith)) {
                                     violations += forbiddenViolation(mapping, token, relativeClass)
                                 }
+                            }
+                            inherited.scan.signatureViolations.forEach { violation ->
+                                violations += "${mapping.module}|${mapping.dumpPath}:$violation|$relativeClass"
                             }
                             inherited.scan.signatureTypes.forEach { token ->
                                 if (forbiddenFamilies.get().any(token.className::startsWith)) {
@@ -188,6 +218,8 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             buildString {
                 append("{\"schemaVersion\":1,\"scannerSchema\":${jsonString(scannerSchema.get())},")
                 append("\"modules\":${jsonArray(mappings.map(Mapping::encoded))},")
+                append("\"signaturePolicySha256\":${jsonString(sha256(signaturePolicyBytes))},")
+                append("\"signatureExpectations\":${jsonArray(signatureExpectations.entries.map { (key, value) -> "${key.encoded}|$value" }.sorted())},")
                 append("\"dumpIdentities\":${jsonArray(dumpIdentities.sorted())},")
                 append("\"classIdentities\":${jsonArray(classIdentities)},")
                 append("\"selectedClassCount\":$selectedClasses,\"selectedMemberCount\":$selectedMembers,")
@@ -209,11 +241,16 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         )
     }
 
-    private fun scanClass(abiClass: KotlinAbiClass, bytes: ByteArray): ClassScan {
+    private fun scanClass(
+        abiClass: KotlinAbiClass,
+        bytes: ByteArray,
+        requiredSignatures: Map<String, String> = emptyMap(),
+    ): ClassScan {
         val expected = abiClass.members.associateBy { "${it.kind}|${it.name}|${it.descriptor}" }
         val found = mutableSetOf<String>()
         val descriptorTypes = mutableListOf<ScannedType>()
         val signatureTypes = mutableListOf<ScannedType>()
+        val signatureViolations = mutableListOf<String>()
         val reader = try {
             ClassReader(bytes)
         } catch (failure: IllegalArgumentException) {
@@ -261,6 +298,13 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                     signature?.let {
                         collectSignature(it, "field-signature", selected.line, name, signatureTypes, typeSignature = true)
                     }
+                    verifyRequiredSignature(
+                        requiredSignatures[key],
+                        signature,
+                        "field",
+                        selected,
+                        signatureViolations,
+                    )
                     return object : FieldVisitor(Opcodes.ASM9) {
                         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
                             annotationVisitor("field-annotation", descriptor, selected.line, name, descriptorTypes)
@@ -287,6 +331,13 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
                     found += key
                     addDescriptorTypes(descriptor, "method-descriptor", selected, descriptorTypes)
                     signature?.let { collectSignature(it, "method-signature", selected.line, name, signatureTypes) }
+                    verifyRequiredSignature(
+                        requiredSignatures[key],
+                        signature,
+                        "method",
+                        selected,
+                        signatureViolations,
+                    )
                     exceptions.orEmpty().forEach { exception ->
                         descriptorTypes += ScannedType("method-exception", exception.replace('/', '.'), selected.line, name)
                     }
@@ -317,7 +368,28 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
             missingMembers = expected.filterKeys { it !in found }.values.map { "${it.line}|${it.kind} ${it.name} ${it.descriptor}" },
             descriptorTypes = descriptorTypes,
             signatureTypes = signatureTypes,
+            signatureViolations = signatureViolations,
         )
+    }
+
+    private fun verifyRequiredSignature(
+        expected: String?,
+        actual: String?,
+        memberKind: String,
+        member: KotlinAbiMember,
+        violations: MutableList<String>,
+    ) {
+        if (expected == null) return
+        when {
+            actual == null ->
+                violations +=
+                    "${member.line}|${member.kind} ${member.name} ${member.descriptor}|" +
+                        "missing required $memberKind Signature expected=$expected"
+            actual != expected ->
+                violations +=
+                    "${member.line}|${member.kind} ${member.name} ${member.descriptor}|" +
+                        "required $memberKind Signature mismatch expected=$expected actual=$actual"
+        }
     }
 
     private fun resolveInheritedMember(
@@ -429,6 +501,48 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
         return Mapping(fields[0], fields[1], fields[2])
     }
 
+    private fun decodeSignaturePolicy(
+        bytes: ByteArray,
+        mappings: List<Mapping>,
+    ): Map<SignatureKey, String> {
+        val text = decodeUtf8(bytes, "config/quality/public-api-signatures.txt")
+        if ('\r' in text || !text.endsWith('\n')) {
+            throw GradleException("signature policy must use UTF-8/LF with one trailing LF")
+        }
+        val lines = text.dropLast(1).split('\n')
+        if (lines.firstOrNull() != "schema-version=1" || lines.drop(1).any(String::isBlank)) {
+            throw GradleException("invalid public API signature policy header or blank row")
+        }
+        val mappingByModule = mappings.associateBy(Mapping::module)
+        val entries = lines.drop(1).map { encoded ->
+            val fields = encoded.split('|')
+            if (fields.size != 6) throw GradleException("invalid public API signature expectation: $encoded")
+            val key = SignatureKey(fields[0], fields[1], fields[2], fields[3], fields[4])
+            val mapping = mappingByModule[key.module]
+                ?: throw GradleException("signature expectation has unmapped module: $encoded")
+            val dottedClass = key.className.replace('/', '.')
+            if (dottedClass != mapping.packageRoot && !dottedClass.startsWith("${mapping.packageRoot}.")) {
+                throw GradleException("signature expectation class is outside mapped package: $encoded")
+            }
+            when (key.kind) {
+                "field" -> {
+                    JvmDescriptorGrammar.requireFieldDescriptor(key.descriptor)
+                    JvmSignatureGrammar.requireSignature(fields[5], typeSignature = true)
+                }
+                "fun" -> {
+                    JvmDescriptorGrammar.requireMethodDescriptor(key.descriptor)
+                    JvmSignatureGrammar.requireSignature(fields[5], typeSignature = false)
+                }
+                else -> throw GradleException("invalid signature expectation member kind: $encoded")
+            }
+            key to fields[5]
+        }
+        if (lines.drop(1) != lines.drop(1).sorted() || entries.size != entries.toSet().size) {
+            throw GradleException("public API signature expectations must be sorted and unique")
+        }
+        return entries.toMap()
+    }
+
     private fun decodeClassRoots(encodedRoots: List<String>): Map<String, List<File>> {
         val decoded = encodedRoots.sorted().map { encoded ->
             val fields = encoded.split('|')
@@ -461,11 +575,23 @@ abstract class VerifyPublicApiBoundariesTask : DefaultTask() {
 
     private data class ScannedType(val location: String, val className: String, val dumpLine: Int, val entry: String)
 
+    private data class SignatureKey(
+        val module: String,
+        val className: String,
+        val kind: String,
+        val name: String,
+        val descriptor: String,
+    ) {
+        val memberKey: String get() = "$kind|$name|$descriptor"
+        val encoded: String get() = "$module|$className|$kind|$name|$descriptor"
+    }
+
     private data class ClassScan(
         val selectedMembers: Int,
         val missingMembers: List<String>,
         val descriptorTypes: List<ScannedType>,
         val signatureTypes: List<ScannedType>,
+        val signatureViolations: List<String>,
     )
 
     private data class InheritedResolution(val owners: List<String>, val scan: ClassScan?)

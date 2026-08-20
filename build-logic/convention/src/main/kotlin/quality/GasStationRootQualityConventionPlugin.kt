@@ -86,6 +86,11 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                         repositoryRoot.set(target.layout.projectDirectory)
                         forbiddenFamilies.set(FORBIDDEN_PUBLIC_API_FAMILIES)
                         scannerSchema.set("kotlin-abi-2.4.10+asm-9.9.1")
+                        signaturePolicyFile.set(
+                            target.layout.projectDirectory.file(
+                                "config/quality/public-api-signatures.txt",
+                            ),
+                        )
                         contractApiModules.forEach { module ->
                             dumpFiles.from(
                                 target.fileTree(target.layout.projectDirectory.dir(module.dumpPath.substringBeforeLast('/'))) {
@@ -102,6 +107,7 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
                         repositoryRoot.lock()
                         forbiddenFamilies.lock()
                         scannerSchema.lock()
+                        signaturePolicyFile.lock()
                         dumpFiles.lock()
                         reportFile.lock()
                     },
@@ -109,6 +115,17 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
         contractApiModules.forEach { contractModule ->
             val module = target.findProject(contractModule.projectPath) ?: return@forEach
                 module.pluginManager.withPlugin("gasstation.jvm.library") {
+                    val updateTaskPath = "${module.path}:updateKotlinAbi"
+                    val explicitlyRequested = updateTaskPath in target.gradle.startParameter.taskNames
+                    module.tasks.named("updateKotlinAbi").configure {
+                        doFirst {
+                            if (!explicitlyRequested) {
+                                throw GradleException(
+                                    "updateKotlinAbi automation is forbidden; request $updateTaskPath explicitly for reviewed baseline generation",
+                                )
+                            }
+                        }
+                    }
                     val main =
                         module.extensions
                             .getByType<JavaPluginExtension>()

@@ -1,0 +1,4 @@
+schema-version=1
+:domain:settings|com/gasstation/domain/settings/SettingsRepository|fun|updateUserPreferences|(Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;|(Lkotlin/jvm/functions/Function1<-Lcom/gasstation/domain/settings/model/UserPreferences;Lcom/gasstation/domain/settings/model/UserPreferences;>;Lkotlin/coroutines/Continuation<-Lcom/gasstation/domain/settings/model/UserPreferences;>;)Ljava/lang/Object;
+:domain:station|com/gasstation/domain/station/StationRepository|fun|refreshNearbyStations|(Lcom/gasstation/domain/station/model/StationQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;|(Lcom/gasstation/domain/station/model/StationQuery;Lkotlin/coroutines/Continuation<-Lkotlin/Unit;>;)Ljava/lang/Object;
+:domain:station|com/gasstation/domain/station/model/StationSearchResult|fun|getStations|()Ljava/util/List;|()Ljava/util/List<Lcom/gasstation/domain/station/model/StationListEntry;>;

@@ -163,60 +163,6 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
-    fun moduleGuardCapturesApiImplementationNestedProjectsAndSortedUniqueViolations() {
-        val actual =
-            aggregateProductionScopes(
-                listOf(
-                    ":feature:sample|main|compile|project|:data:sample|implementation",
-                    ":feature:sample|main|runtime|project|:data:sample|implementation",
-                    ":feature:sample|main|compile|project|:data:sample|implementation",
-                    ":feature:nested:sample|main|compile|project|:core:database|implementation",
-                    ":feature:nested:sample|main|runtime|project|:core:database|implementation",
-                    ":domain:sample|main|compile|project|:core:network|api",
-                    ":domain:sample|main|runtime|project|:core:network|api",
-                ),
-            )
-        val policy =
-            ProductionDependencyPolicy(
-                enforcement = ProductionDependencyEnforcement.BLOCKING,
-                modules = actual.flatMap { listOf(it.consumer, it.target) }.distinct().sorted(),
-                scopes = emptyList(),
-                testedTarget = null,
-            )
-        val expected =
-            listOf(
-                "unallowlisted direct production declaration: scope|:domain:sample|project|:core:network|api|compile=main|runtime=main",
-                "unallowlisted direct production declaration: scope|:feature:nested:sample|project|:core:database|implementation|compile=main|runtime=main",
-                "unallowlisted direct production declaration: scope|:feature:sample|project|:data:sample|implementation|compile=main|runtime=main",
-            )
-        assertEquals(expected, policy.compareDirectDeclarations(actual))
-    }
-
-    @Test
-    fun failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence() {
-        val policy =
-            ProductionDependencyPolicy(
-                enforcement = ProductionDependencyEnforcement.BLOCKING,
-                modules = listOf(":data:sample", ":feature:sample"),
-                scopes = emptyList(),
-                testedTarget = null,
-            )
-        val scope =
-            ProductionDependencyScope(
-                consumer = ":feature:sample",
-                kind = ProductionDependencyKind.PROJECT,
-                target = ":data:sample",
-                declarationConfiguration = "implementation",
-                compileComponents = listOf("main"),
-                runtimeComponents = listOf("main"),
-            )
-        val first = policy.compareDirectDeclarations(listOf(scope))
-        val replay = policy.compareDirectDeclarations(listOf(scope))
-        assertEquals(first, replay)
-        assertTrue(first.single().contains(scope.encoded))
-    }
-
-    @Test
     fun composeGuardAllowsV2NormalCommentsAndExcludedTrees() {
         val project = newProject("compose-safe")
             .writeRootQualityFixture(

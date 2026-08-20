@@ -144,6 +144,15 @@ class VerifyPublicApiBoundariesTaskTest {
         task.classDirectories.from(classRoots.values)
         task.scannerSchema.set("test-asm-9.9.1")
         task.reportFile.set(project.layout.buildDirectory.file("reports/quality/public-api.json"))
+        val signaturePolicy = root.resolve("config/quality/public-api-signatures.txt").apply {
+            parentFile.mkdirs()
+            writeText(
+                "schema-version=1\n" +
+                    ":domain:station|fixture/station/Marker|fun|generic|()Ljava/util/List;|" +
+                    "()Ljava/util/List<Ljava/lang/String;>;\n",
+            )
+        }
+        task.signaturePolicyFile.set(signaturePolicy)
 
         task.forbiddenFamilies.set(emptyList())
         task.verify()
@@ -159,6 +168,12 @@ class VerifyPublicApiBoundariesTaskTest {
 
         val stationClass = classRoots.getValue(":domain:station").resolve("fixture/station/Marker.class")
         val validStation = stationClass.readBytes()
+        stationClass.writeBytes(withMethodSignature(validStation, "generic", null))
+        task.forbiddenFamilies.set(emptyList())
+        val missing = assertThrows(GradleException::class.java, task::verify)
+        assertTrue(missing.message.orEmpty().contains("missing required method Signature"))
+
+        stationClass.writeBytes(validStation)
         stationClass.writeBytes(withMalformedClassSignature(validStation, "generic"))
         assertEquals(
             "()Ljava/util/List<Landroid/location/Location;>",
@@ -184,6 +199,14 @@ class VerifyPublicApiBoundariesTaskTest {
     }
 
     private fun withMalformedClassSignature(bytes: ByteArray, selectedName: String): ByteArray {
+        return withMethodSignature(
+            bytes,
+            selectedName,
+            "()Ljava/util/List<Landroid/location/Location;>",
+        )
+    }
+
+    private fun withMethodSignature(bytes: ByteArray, selectedName: String, replacement: String?): ByteArray {
         val writer = ClassWriter(0)
         ClassReader(bytes).accept(
             object : ClassVisitor(Opcodes.ASM9, writer) {
@@ -197,7 +220,7 @@ class VerifyPublicApiBoundariesTaskTest {
                     access,
                     name,
                     descriptor,
-                    if (name == selectedName) "()Ljava/util/List<Landroid/location/Location;>" else signature,
+                    if (name == selectedName) replacement else signature,
                     exceptions,
                 )
             },

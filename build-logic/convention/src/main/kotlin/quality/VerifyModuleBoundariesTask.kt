@@ -115,7 +115,7 @@ internal fun aggregateProductionScopes(records: List<String>): List<ProductionDe
     val grouped = linkedMapOf<Key, Membership>()
     records.sorted().forEach { encoded ->
         val fields = encoded.split('|')
-        if (fields.size != 6) throw GradleException("invalid production dependency evidence: $encoded")
+        if (fields.size !in 6..7) throw GradleException("invalid production dependency evidence: $encoded")
         val kind = ProductionDependencyKind.entries.singleOrNull { it.value == fields[3] }
             ?: throw GradleException("invalid production dependency kind: $encoded")
         val key = Key(fields[0], kind, fields[4], fields[5])

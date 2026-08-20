@@ -37,11 +37,13 @@ internal data class TestedTargetRelation(
     val target: String,
     val selfInstrumenting: Boolean,
     val compileOnlyMembership: String,
+    val compileOnlyIdentities: List<String> = emptyList(),
 ) {
     val encoded: String
         get() =
             "tested-target|$consumer|${components.joinToString(",")}|$target|" +
-                "self-instrumenting=$selfInstrumenting|compile-only-membership=$compileOnlyMembership"
+                "self-instrumenting=$selfInstrumenting|compile-only-membership=$compileOnlyMembership|" +
+                "compile-only-identities=${compileOnlyIdentities.ifEmpty { listOf("-") }.joinToString(",")}"
 }
 
 internal data class ProductionDependencyPolicy(
@@ -181,7 +183,7 @@ internal data class ProductionDependencyPolicy(
 
         private fun parseTestedTarget(line: String): TestedTargetRelation {
             val fields = line.split('|')
-            if (fields.size != 6) throw ProductionDependencyPolicyException("malformed tested-target record: $line")
+            if (fields.size != 7) throw ProductionDependencyPolicyException("malformed tested-target record: $line")
             val components = fields[2].split(',').map { requireIdentifier(it, "tested-target component") }
             if (components != components.sorted() || components.size != components.toSet().size) {
                 throw ProductionDependencyPolicyException("tested-target components must be unique and sorted")
@@ -195,12 +197,31 @@ internal data class ProductionDependencyPolicy(
             if (membership !in setOf("absent", "present")) {
                 throw ProductionDependencyPolicyException("invalid tested-target compile-only membership")
             }
+            if (!fields[6].startsWith("compile-only-identities=")) {
+                throw ProductionDependencyPolicyException("missing tested-target compile-only identities")
+            }
+            val rawIdentities = fields[6].removePrefix("compile-only-identities=")
+            val identities = if (rawIdentities == "-") emptyList() else rawIdentities.split(',')
+            if (
+                identities != identities.sorted() ||
+                identities.any { identity ->
+                    !identity.matches(
+                        Regex("[A-Za-z][A-Za-z0-9_-]*:[A-Za-z][A-Za-z0-9_-]*->:[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*@targetConfiguration=[A-Za-z][A-Za-z0-9_-]*"),
+                    )
+                }
+            ) {
+                throw ProductionDependencyPolicyException("invalid tested-target compile-only identities")
+            }
+            if ((membership == "absent") != identities.isEmpty()) {
+                throw ProductionDependencyPolicyException("tested-target compile-only membership and identities disagree")
+            }
             return TestedTargetRelation(
                 consumer = requireProjectPath(fields[1], "tested-target consumer"),
                 components = components,
                 target = requireProjectPath(fields[3], "tested-target project"),
                 selfInstrumenting = self,
                 compileOnlyMembership = membership,
+                compileOnlyIdentities = identities,
             )
         }
 

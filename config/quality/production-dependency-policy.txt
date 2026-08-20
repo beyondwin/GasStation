@@ -169,4 +169,4 @@ scope|:tools:demo-seed|external|org.jetbrains.kotlinx:kotlinx-coroutines-core|im
 scope|:tools:demo-seed|project|:core:model|implementation|compile=main|runtime=main
 scope|:tools:demo-seed|project|:core:network|implementation|compile=main|runtime=main
 scope|:tools:demo-seed|project|:domain:station|implementation|compile=main|runtime=main
-tested-target|:benchmark|benchmark,debug|:app|self-instrumenting=true|compile-only-membership=absent
+tested-target|:benchmark|benchmark,debug|:app|self-instrumenting=true|compile-only-membership=absent|compile-only-identities=-

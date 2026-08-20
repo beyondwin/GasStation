@@ -11,6 +11,10 @@ enum class TestedTargetMutation {
     MISSING,
     CHANGED,
     UNRESOLVED,
+    COMPILE_ONLY_EXTRA,
+    COMPILE_ONLY_MISSING,
+    COMPILE_ONLY_DUPLICATE,
+    COMPILE_ONLY_CHANGED,
     ALL_INVALID,
 }
 
@@ -31,7 +35,6 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             Triple(":feature:sample", "implementation", ":data:sample"),
             Triple(":feature:nested:sample", "implementation", ":core:database"),
             Triple(":domain:sample", "api", ":core:network"),
-            Triple(":feature:sample", "implementation", ":data:sample"),
         )
     val violationModules = violationDependencies.flatMap { listOf(it.first, it.third) }.distinct()
     val benchmarkMutations =
@@ -41,6 +44,10 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                 ":benchmark-missing" to TestedTargetMutation.MISSING,
                 ":benchmark-valid-true" to TestedTargetMutation.VALID_TRUE,
                 ":benchmark-valid-false" to TestedTargetMutation.VALID_FALSE,
+                ":benchmark-compile-extra" to TestedTargetMutation.COMPILE_ONLY_EXTRA,
+                ":benchmark-compile-missing" to TestedTargetMutation.COMPILE_ONLY_MISSING,
+                ":benchmark-compile-duplicate" to TestedTargetMutation.COMPILE_ONLY_DUPLICATE,
+                ":benchmark-compile-changed" to TestedTargetMutation.COMPILE_ONLY_CHANGED,
             )
         } else {
             linkedMapOf(":benchmark" to mutation)
@@ -49,7 +56,13 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
         buildList {
             addAll(listOf(":app", ":library"))
             addAll(benchmarkMutations.keys)
-            if (mutation in setOf(TestedTargetMutation.CHANGED, TestedTargetMutation.ALL_INVALID)) add(":other-app")
+            if (
+                mutation in setOf(
+                    TestedTargetMutation.CHANGED,
+                    TestedTargetMutation.COMPILE_ONLY_CHANGED,
+                    TestedTargetMutation.ALL_INVALID,
+                )
+            ) add(":other-app")
         }
     val modules = (androidModules + contractModules + graphModules + violationModules).sorted()
     writeSettings(
@@ -92,8 +105,14 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
         plugins {
             id("gasstation.root.quality")
         }
+
+        tasks.register("wiredUpdateMutation") {
+            dependsOn(":core:model:updateKotlinAbi")
+        }
+
         """.trimIndent(),
     )
+    writeFile("config/quality/public-api-signatures.txt", "schema-version=1\n")
     listOf(":app", ":other-app").filter { it in modules }.forEach { module ->
         val directory = module.removePrefix(":")
         writeFile(
@@ -121,6 +140,25 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             namespace = "fixture.library"
             compileSdk = 37
             defaultConfig { minSdk = 24 }
+            flavorDimensions += "mode"
+            productFlavors {
+                create("demo") { dimension = "mode" }
+                create("prod") { dimension = "mode" }
+            }
+        }
+        configurations.create("ksp")
+        dependencies {
+            add("demoImplementation", project(":core:model"))
+            add("debugImplementation", project(":core:observability"))
+            add("testImplementation", project(":data:sample"))
+            add("androidTestImplementation", project(":data:sample"))
+            add("ksp", project(":data:sample"))
+        }
+        afterEvaluate {
+            dependencies.add(
+                "demoDebugImplementation",
+                dependencies.project(mapOf("path" to ":domain:location")),
+            )
         }
         """.trimIndent(),
     )
@@ -134,7 +172,13 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             } else {
                 ":app"
             }
-        val selfInstrumenting = benchmarkMutation != TestedTargetMutation.VALID_FALSE
+        val selfInstrumenting = benchmarkMutation !in setOf(
+            TestedTargetMutation.VALID_FALSE,
+            TestedTargetMutation.COMPILE_ONLY_EXTRA,
+            TestedTargetMutation.COMPILE_ONLY_MISSING,
+            TestedTargetMutation.COMPILE_ONLY_DUPLICATE,
+            TestedTargetMutation.COMPILE_ONLY_CHANGED,
+        )
         val dependencyMutation =
             when (benchmarkMutation) {
                 TestedTargetMutation.EXTRA ->
@@ -147,6 +191,19 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                         "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":app\", " +
                         "\"configuration\" to \"default\"))); " +
                         "dependencies.add(project.dependencies.project(mapOf(\"path\" to \":core:model\")))"
+                else -> ""
+            }
+        val compileOnlyMutation =
+            when (benchmarkMutation) {
+                TestedTargetMutation.COMPILE_ONLY_EXTRA ->
+                    "add(project.dependencies.project(mapOf(\"path\" to \":core:model\")))"
+                TestedTargetMutation.COMPILE_ONLY_MISSING ->
+                    "removeAll { it is org.gradle.api.artifacts.ProjectDependency && it.path == \":app\" }"
+                TestedTargetMutation.COMPILE_ONLY_DUPLICATE ->
+                    "add(project.dependencies.project(mapOf(\"path\" to \":app\", \"configuration\" to \"default\")))"
+                TestedTargetMutation.COMPILE_ONLY_CHANGED ->
+                    "removeAll { it is org.gradle.api.artifacts.ProjectDependency && it.path == \":app\" }; " +
+                        "add(project.dependencies.project(mapOf(\"path\" to \":other-app\", \"configuration\" to \"default\")))"
                 else -> ""
             }
         writeFile(
@@ -166,6 +223,13 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                     ""
                 } else {
                     "afterEvaluate { configurations.getByName(\"testedApks\").run { $dependencyMutation } }"
+                }
+            }
+            ${
+                if (compileOnlyMutation.isBlank()) {
+                    ""
+                } else {
+                    "afterEvaluate { configurations.getByName(\"compileOnly\").dependencies.run { $compileOnlyMutation } }"
                 }
             }
             """.trimIndent(),
@@ -193,7 +257,13 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                     appendLine("}")
                 }
                 if (module == ":domain:station") {
-                    appendLine("dependencies { api(\"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2\") }")
+                    appendLine("dependencies {")
+                    appendLine("    api(\"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2\")")
+                    appendLine("    compileOnly(\"com.google.android:android:4.1.1.4\")")
+                    appendLine("}")
+                }
+                if (module == ":core:model") {
+                    appendLine("tasks.named(\"checkKotlinAbi\") { mustRunAfter(tasks.named(\"updateKotlinAbi\")) }")
                 }
             },
         )
@@ -204,9 +274,27 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             "$directory/src/main/kotlin/${packageName.replace('.', '/')}/Marker.kt",
             "package $packageName\n\npublic class Marker",
         )
+        val abi =
+            buildString {
+                append("public final class $internalName {\n\tpublic fun <init> ()V\n}\n")
+                if (module == ":domain:station") {
+                    append(
+                        "\npublic abstract interface class " +
+                            "com/gasstation/domain/station/PublicSignatureContract {\n" +
+                            "\tpublic abstract fun transform " +
+                            "(Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)" +
+                            "Ljava/lang/Object;\n}\n",
+                    )
+                    append(
+                        "\npublic abstract interface class " +
+                            "com/gasstation/domain/station/RequiredGenericContract {\n" +
+                            "\tpublic abstract fun required ()Ljava/util/List;\n}\n",
+                    )
+                }
+            }
         writeFile(
             "$directory/api/${module.substringAfterLast(':')}.api",
-            "public final class $internalName {\n\tpublic fun <init> ()V\n}\n",
+            abi,
         )
         projectDir.resolve("$directory/api/${module.substringAfterLast(':')}.api").appendText("\n")
     }
@@ -215,14 +303,49 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
         """
         package com.gasstation.domain.station
 
-        import com.gasstation.core.model.Marker as ModelMarker
         import kotlinx.coroutines.flow.Flow
+        import com.gasstation.core.model.Marker as ModelMarker
 
         internal class KotlinConsumer(
             private val marker: ModelMarker,
             private val stream: Flow<ModelMarker>,
         )
         """.trimIndent(),
+    )
+    writeFile(
+        "domain/station/src/main/kotlin/com/gasstation/domain/station/PublicSignatureContract.kt",
+        """
+        package com.gasstation.domain.station
+
+        import android.os.Parcelable
+
+        public interface PublicSignatureContract {
+            public suspend fun transform(
+                block: (List<Parcelable>) -> Parcelable,
+            ): List<Parcelable>
+        }
+        """.trimIndent(),
+    )
+    writeFile(
+        "domain/station/src/main/kotlin/com/gasstation/domain/station/RequiredGenericContract.kt",
+        """
+        package com.gasstation.domain.station
+
+        public interface RequiredGenericContract {
+            public fun required(): List<String>
+        }
+        """.trimIndent(),
+    )
+    writeFile(
+        "config/quality/public-api-signatures.txt",
+        "schema-version=1\n" +
+            ":domain:station|com/gasstation/domain/station/PublicSignatureContract|fun|transform|" +
+            "(Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;|" +
+            "(Lkotlin/jvm/functions/Function1<-Ljava/util/List<+Landroid/os/Parcelable;>;" +
+            "+Landroid/os/Parcelable;>;Lkotlin/coroutines/Continuation<" +
+            "-Ljava/util/List<+Landroid/os/Parcelable;>;>;)Ljava/lang/Object;\n" +
+            ":domain:station|com/gasstation/domain/station/RequiredGenericContract|fun|required|" +
+                "()Ljava/util/List;|()Ljava/util/List<Ljava/lang/String;>;\n",
     )
     writeFile(
         "domain/station/src/main/java/com/gasstation/domain/station/JavaConsumer.java",
@@ -258,6 +381,16 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                     dependencies.forEach { (_, bucket, target) -> appendLine("    $bucket(project(\"$target\"))") }
                     appendLine("}")
                 }
+                if (module == ":feature:sample") {
+                    appendLine("configurations.create(\"ksp\")")
+                    appendLine("dependencies {")
+                    appendLine("    compileOnly(project(\":core:database\"))")
+                    appendLine("    compileOnlyApi(project(\":core:network\"))")
+                    appendLine("    runtimeOnly(project(\":domain:sample\"))")
+                    appendLine("    testImplementation(project(\":data:sample\"))")
+                    appendLine("    add(\"ksp\", project(\":data:sample\"))")
+                    appendLine("}")
+                }
             },
         )
     }
@@ -270,7 +403,11 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             val scopes = mutableListOf<String>()
             androidModules.sorted().forEach { consumer ->
                 if (consumer in modules) {
-                    val components = if (consumer.startsWith(":benchmark")) "benchmark,debug" else "debug,release"
+                    val components = when {
+                        consumer.startsWith(":benchmark") -> "benchmark,debug"
+                        consumer == ":library" -> "demoDebug,demoRelease,prodDebug,prodRelease"
+                        else -> "debug,release"
+                    }
                     scopes +=
                         "scope|$consumer|external|org.jetbrains.kotlin:kotlin-stdlib|api|" +
                             "compile=$components|runtime=$components"
@@ -284,6 +421,9 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             scopes +=
                 "scope|:domain:station|external|org.jetbrains.kotlinx:kotlinx-coroutines-core|api|" +
                     "compile=main|runtime=main"
+            scopes +=
+                "scope|:domain:station|external|com.google.android:android|compileOnly|" +
+                    "compile=main|runtime=-"
             if (mutation == TestedTargetMutation.VALID_FALSE) {
                 scopes +=
                     "scope|:benchmark|project|:app|compileOnly|" +
@@ -292,7 +432,38 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
                 scopes +=
                     "scope|:benchmark-valid-false|project|:app|compileOnly|" +
                         "compile=benchmark,debug|runtime=-"
+                benchmarkMutations.forEach { (consumer, benchmarkMutation) ->
+                    if (
+                        benchmarkMutation !in
+                            setOf(
+                                TestedTargetMutation.COMPILE_ONLY_EXTRA,
+                                TestedTargetMutation.COMPILE_ONLY_DUPLICATE,
+                                TestedTargetMutation.COMPILE_ONLY_CHANGED,
+                            )
+                    ) return@forEach
+                    val targets = when (benchmarkMutation) {
+                        TestedTargetMutation.COMPILE_ONLY_EXTRA -> listOf(":app", ":core:model")
+                        TestedTargetMutation.COMPILE_ONLY_CHANGED -> listOf(":other-app")
+                        else -> listOf(":app")
+                    }
+                    targets.forEach { target ->
+                        scopes +=
+                            "scope|$consumer|project|$target|compileOnly|" +
+                                "compile=benchmark,debug|runtime=-"
+                    }
+                }
             }
+            scopes +=
+                "scope|:graph:unresolved|external|invalid.example:never-resolve|implementation|" +
+                    "compile=main|runtime=main"
+            scopes += listOf(
+                "scope|:feature:sample|project|:core:database|compileOnly|compile=main|runtime=-",
+                "scope|:feature:sample|project|:core:network|compileOnlyApi|compile=main|runtime=-",
+                "scope|:feature:sample|project|:domain:sample|runtimeOnly|compile=-|runtime=main",
+                "scope|:library|project|:core:model|demoImplementation|compile=demoDebug,demoRelease|runtime=demoDebug,demoRelease",
+                "scope|:library|project|:core:observability|debugImplementation|compile=demoDebug,prodDebug|runtime=demoDebug,prodDebug",
+                "scope|:library|project|:domain:location|demoDebugImplementation|compile=demoDebug|runtime=demoDebug",
+            )
             contractDependencies.toSortedMap().forEach { (consumer, targets) ->
                 targets.forEach { target ->
                     scopes += "scope|$consumer|project|$target|api|compile=main|runtime=main"
@@ -308,12 +479,21 @@ fun GradlePluginTestProject.writeProductionDependencyAndroidFixture(
             appendLine(
                 "tested-target|$expectedConsumer|benchmark,debug|:app|" +
                     "self-instrumenting=$expectedSelfInstrumenting|" +
-                    "compile-only-membership=${if (expectedSelfInstrumenting) "absent" else "present"}",
+                    "compile-only-membership=${if (expectedSelfInstrumenting) "absent" else "present"}|" +
+                    "compile-only-identities=${
+                        if (expectedSelfInstrumenting) {
+                            "-"
+                        } else {
+                            "benchmark:compileOnly->:app@targetConfiguration=default," +
+                                "debug:compileOnly->:app@targetConfiguration=default"
+                        }
+                    }",
             )
         },
     )
     return this
 }
+
 
 private fun productionFixtureAndroidSdk(): String {
     sequenceOf("ANDROID_HOME", "ANDROID_SDK_ROOT")
