@@ -23,7 +23,10 @@ import json
 import sys
 from pathlib import Path
 
-print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["attemptId"])
+path = Path(sys.argv[1])
+if not 0 < path.stat().st_size <= 2 * 1024 * 1024:
+    raise SystemExit("attempt receipt size invalid")
+print(json.loads(path.read_text(encoding="utf-8"))["attemptId"])
 PY
 )
 finalized=0
@@ -39,7 +42,7 @@ on_exit() {
 trap on_exit EXIT
 require_device_environment >/dev/null
 mkdir -p "$root/$attempt_root/logs" "$root/$attempt_root/raw"
-baseline_processes="$root/$attempt_root/raw/gmd-baseline-processes.txt"
+baseline_processes="$root/$attempt_root/raw/gmd-baseline-processes.json"
 run_device_phase "$lane" hostPreflight bash -euo pipefail -c '
   script_dir=$1
   lane=$2
@@ -47,11 +50,7 @@ run_device_phase "$lane" hostPreflight bash -euo pipefail -c '
   source "$script_dir/common.sh"
   "$script_dir/verify_host.sh" --lane "$lane"
   clear_lane_result_roots "$lane"
-  set +e
-  pgrep -af "(^|/)emulator( |$)" >"$baseline_processes"
-  baseline_status=$?
-  set -e
-  (( baseline_status <= 1 ))
+  python3 "$script_dir/gmd_processes.py" --output "$baseline_processes"
 ' _ "$script_dir" "$lane" "$baseline_processes"
 commands="$root/$attempt_root/raw/commands.json"
 printf '[]\n' > "$commands"

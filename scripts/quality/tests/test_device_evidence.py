@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -11,8 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from device_evidence import (
     DeviceEvidenceError,
     canonical_json_bytes,
+    classify_lane_artifact,
     load_policy,
     load_quarantine,
+    instrumentation_receipt_required,
     sha256_file,
     validate_policy,
     verify_attempt,
@@ -24,6 +27,17 @@ POLICY = ROOT / "config/quality/device-evidence-policy.json"
 
 
 class DeviceEvidencePolicyTest(unittest.TestCase):
+    def test_closed_instrumentation_identity_allows_api24_app_and_room_without_gmd_receipt(self):
+        self.assertFalse(instrumentation_receipt_required("api24-scheduled", "app", 24, "gasstation_api24"))
+        self.assertFalse(instrumentation_receipt_required("api24-scheduled", "core:database", 24, "gasstation_api24"))
+        self.assertTrue(instrumentation_receipt_required("api28-pr-smoke", "app", 28, "gasstationPixel2Api28"))
+        for mutation in (
+            ("api24-scheduled", "app", 28, "gasstation_api24"),
+            ("api24-scheduled", "app", 24, "gasstationPixel2Api28"),
+            ("api24-scheduled", "core:location", 24, "gasstation_api24"),
+        ):
+            with self.assertRaises(DeviceEvidenceError):
+                instrumentation_receipt_required(*mutation)
     def test_checked_in_policy_is_closed_and_exact(self):
         policy = load_policy(POLICY)
 
@@ -111,6 +125,14 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self._write_json(self.policy_path, self.policy)
         self.overlay_path = self.root / "config/quality/device-evidence-quarantine.json"
         self._write_json(self.overlay_path, {"schemaVersion": 1, "entries": []})
+        for relative in (
+            "scripts/quality/device/run_api24_avd.sh",
+            "scripts/quality/device/run_gmd_lane.sh",
+            "scripts/quality/verify_device_evidence.py",
+        ):
+            destination = self.root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, destination)
         self.attempt_root = self.root / "attempt"
         self.attempt_root.mkdir()
 
@@ -123,6 +145,28 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self.assertEqual("PASS", result["status"])
         self.assertEqual(5, result["counters"]["tests"])
         self.assertEqual(0, result["counters"]["skipped"])
+
+    def test_exact_api24_app_and_room_attempt_passes_without_gmd_receipts(self):
+        result = self._write_complete_attempt("api24-scheduled")
+
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual(16, result["counters"]["tests"])
+        self.assertFalse(any(path.name.startswith("gmd-task-") for path in (self.attempt_root / "raw").iterdir()))
+
+    def test_each_selected_task_requires_own_log_junit_html_apk_and_raw_receipt(self):
+        mutators = (
+            lambda root: (root / "logs/gradle-1.log").unlink(),
+            lambda root: self._junit_path("api28-scheduled", 1).unlink(),
+            lambda root: self._html_path("api28-scheduled", 1).unlink(),
+            lambda root: self._apk_path("api28-scheduled", 2).unlink(),
+            lambda root: (root / "raw/gmd-task-1.json").unlink(),
+            lambda root: (root / "raw/gmd-task-1-processes.json").unlink(),
+        )
+        for mutator in mutators:
+            with self.subTest(mutator=mutator):
+                self._reset_attempt_root()
+                with self.assertRaises(DeviceEvidenceError):
+                    self._write_complete_attempt("api28-scheduled", file_mutator=mutator)
 
     def test_mutations_fail_closed(self):
         mutators = {
@@ -167,14 +211,14 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         with self.assertRaises(DeviceEvidenceError):
             self._write_complete_attempt(
                 "api28-pr-smoke",
-                file_mutator=lambda root: (root / "results/app.xml").write_bytes(b"\xff"),
+                file_mutator=lambda root: self._junit_path("api28-pr-smoke").write_bytes(b"\xff"),
             )
 
         self._reset_attempt_root()
         with self.assertRaises(DeviceEvidenceError):
             self._write_complete_attempt(
                 "api28-pr-smoke",
-                file_mutator=lambda root: (root / "logs/gradle-app.log").write_text(
+                file_mutator=lambda root: (root / "logs/gradle-0.log").write_text(
                     "Unified Test Platform error\n", encoding="utf-8"
                 ),
             )
@@ -194,7 +238,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
 
     def test_completion_hash_change_and_symlink_escape_fail_closed(self):
         self._write_complete_attempt("api28-pr-smoke")
-        log = self.attempt_root / "logs/gradle-app.log"
+        log = self.attempt_root / "logs/gradle-0.log"
         log.write_text("changed after completion\n", encoding="utf-8")
         with self.assertRaises(DeviceEvidenceError):
             verify_attempt(self.policy_path, self.attempt_root)
@@ -202,10 +246,42 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self._reset_attempt_root()
         outside = self.root / "outside.xml"
         outside.write_text("outside\n", encoding="utf-8")
-        (self.attempt_root / "results").mkdir(parents=True)
-        os.symlink(outside, self.attempt_root / "results/app.xml")
+        junit_path = self._junit_path("api28-pr-smoke")
+        junit_path.parent.mkdir(parents=True)
+        os.symlink(outside, junit_path)
         with self.assertRaises(DeviceEvidenceError):
             self._write_complete_attempt("api28-pr-smoke", preserve_junit=True)
+
+    def test_tool_hashes_are_bound_to_current_selected_wrapper_and_verifier(self):
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                attempt_mutator=lambda attempt: attempt.update(wrapperSha256="2" * 64),
+            )
+
+    def test_empty_and_arbitrary_artifacts_fail_closed(self):
+        mutations = (
+            lambda root: (root / "logs/gradle-0.log").write_bytes(b""),
+            lambda root: self._html_path("api28-pr-smoke").write_bytes(b""),
+            lambda root: self._apk_path("api28-pr-smoke", 0).write_bytes(b""),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self._reset_attempt_root()
+                with self.assertRaises(DeviceEvidenceError):
+                    self._write_complete_attempt("api28-pr-smoke", file_mutator=mutation)
+
+        self._reset_attempt_root()
+        result = self._write_complete_attempt("api28-pr-smoke")
+        completion_path = self.attempt_root / "completion.json"
+        completion = json.loads(completion_path.read_text(encoding="utf-8"))
+        arbitrary = self.attempt_root / "arbitrary.xml"
+        arbitrary.write_text("<testsuite><testcase classname=\"com.gasstation.Fake\" name=\"fake\"/></testsuite>\n", encoding="utf-8")
+        completion["artifacts"].append({"path": "arbitrary.xml", "kind": "junit", "sha256": sha256_file(arbitrary)})
+        self._write_json(completion_path, completion)
+        with self.assertRaises(DeviceEvidenceError):
+            verify_attempt(self.policy_path, self.attempt_root)
+        self.assertEqual("PASS", result["status"])
 
     def test_active_quarantine_is_quarantined_and_nonpass(self):
         entries = [
@@ -360,8 +436,11 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "checkoutStatus": "",
             "eventSha": "1" * 40,
             "policySha256": sha256_file(self.policy_path),
-            "wrapperSha256": "2" * 64,
-            "verifierSha256": "3" * 64,
+            "wrapperSha256": sha256_file(
+                self.root / "scripts/quality/device" /
+                ("run_api24_avd.sh" if lane_policy["device"]["kind"] == "connected-avd" else "run_gmd_lane.sh")
+            ),
+            "verifierSha256": sha256_file(self.root / "scripts/quality/verify_device_evidence.py"),
             "lane": lane,
             "runId": "fixture-run",
             "attemptNumber": "1",
@@ -378,15 +457,36 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         completion["attemptSha256"] = sha256_file(self.attempt_root / "attempt.json")
 
         if not preserve_junit:
-            self._write_junit(self.attempt_root / "results/app.xml", junit)
+            remaining = list(junit["tests"])
+            for index, inventory_name in enumerate(lane_policy["inventories"]):
+                canonical = set(self.policy["inventories"][inventory_name])
+                identities = [identity for identity in remaining if identity in canonical]
+                if index == 0:
+                    identities.extend(identity for identity in remaining if identity not in {
+                        item for name in lane_policy["inventories"] for item in self.policy["inventories"][name]
+                    })
+                task_junit = {
+                    "tests": identities,
+                    "skipped": junit["skipped"].intersection(identities),
+                    "failed": junit["failed"].intersection(identities),
+                    "errors": junit["errors"].intersection(identities),
+                }
+                self._write_junit(self._junit_path(lane, index), task_junit)
         self._write_json(self.attempt_root / "raw/device-metadata.json", facts)
-        (self.attempt_root / "reports/app").mkdir(parents=True, exist_ok=True)
-        (self.attempt_root / "reports/app/index.html").write_text("<html>fixture</html>\n", encoding="utf-8")
         (self.attempt_root / "logs").mkdir(parents=True, exist_ok=True)
-        (self.attempt_root / "logs/gradle-app.log").write_text("task executed\n", encoding="utf-8")
-        (self.attempt_root / "logs/logcat.txt").write_text("logcat\n", encoding="utf-8")
+        for index in range(len(lane_policy["gradleTasks"])):
+            html_path = self._html_path(lane, index)
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            html_path.write_text("<html>fixture</html>\n", encoding="utf-8")
+            (self.attempt_root / f"logs/gradle-{index}.log").write_text("task executed\n", encoding="utf-8")
+        if lane_policy["device"]["kind"] == "connected-avd":
+            (self.attempt_root / "logs/logcat.txt").write_text("logcat\n", encoding="utf-8")
         self._write_json(self.attempt_root / "raw/commands.json", completion["commands"])
         if lane_policy["device"]["kind"] == "gmd":
+            self._write_json(
+                self.attempt_root / "raw/gmd-baseline-processes.json",
+                {"schemaVersion": 1, "processes": []},
+            )
             for index, task in enumerate(lane_policy["gradleTasks"]):
                 source_path = self.attempt_root / f"collected/{lane_policy['resultRoots'][index * 3]}/device-evidence-device.json"
                 self._write_json(
@@ -421,17 +521,24 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                         "teardown": {"status": "SUCCESS", "timedOut": False},
                     },
                 )
+                self._write_json(
+                    self.attempt_root / f"raw/gmd-task-{index}-processes.json",
+                    {"schemaVersion": 1, "processes": []},
+                )
+                (self.attempt_root / f"raw/gmd-task-{index}-adb-devices.txt").write_text(
+                    "List of devices attached\n", encoding="utf-8"
+                )
             self._write_json(
                 self.attempt_root / "raw/gmd-teardown.json",
                 {
                     "schemaVersion": 1,
                     "kind": "gmd",
                     "timedOut": False,
-                    "baselinePids": [],
-                    "observedPids": [],
-                    "killedPids": [],
+                    "baselineProcesses": [],
+                    "observedProcesses": [],
+                    "killedProcesses": [],
                     "killFailures": [],
-                    "livePids": [],
+                    "liveProcesses": [],
                     "adbExitCode": 0,
                     "adbTargets": [],
                 },
@@ -444,6 +551,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 "[ro.build.version.sdk]: [24]\n"
                 "[ro.build.fingerprint]: [fixture/24]\n"
                 "[ro.product.cpu.abi]: [x86_64]\n"
+                "[ro.boot.qemu.avd_name]: [gasstation_api24]\n"
                 "[persist.sys.locale]: [ko-KR]\n",
                 encoding="utf-8",
             )
@@ -456,6 +564,13 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 "com.android.packageinstaller\n", encoding="utf-8"
             )
             (self.attempt_root / "raw/permission-controller-revision.txt").write_text("24\n", encoding="utf-8")
+            (self.attempt_root / "raw/cleanup-adb-devices.txt").write_text(
+                "List of devices attached\n", encoding="utf-8"
+            )
+            (self.attempt_root / "raw/disk.txt").write_text("fixture disk\n", encoding="utf-8")
+            (self.attempt_root / "raw/meminfo.txt").write_text("fixture meminfo\n", encoding="utf-8")
+            (self.attempt_root / "raw/emulator.pid").write_text("4321\n", encoding="utf-8")
+            (self.attempt_root / "raw/logcat.pid").write_text("4322\n", encoding="utf-8")
             self._write_json(
                 self.attempt_root / "raw/teardown.json",
                 {
@@ -470,9 +585,10 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                     "avdRemoved": True,
                 },
             )
-        (self.attempt_root / "apks").mkdir(parents=True, exist_ok=True)
-        (self.attempt_root / "apks/app.apk").write_bytes(b"app-apk")
-        (self.attempt_root / "apks/test.apk").write_bytes(b"test-apk")
+        for index in range(len(lane_policy["apkRoots"])):
+            apk_path = self._apk_path(lane, index)
+            apk_path.parent.mkdir(parents=True, exist_ok=True)
+            apk_path.write_bytes(b"PK\x03\x04fixture-apk")
 
         if file_mutator:
             file_mutator(self.attempt_root)
@@ -484,9 +600,16 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 safe_class = "".join(character if character.isalnum() or character in "_-" else "_" for character in class_name)
                 safe_method = "".join(character if character.isalnum() or character in "_-" else "_" for character in method_name)
                 stem = f"failure-fixture-run-1-{safe_class}-{safe_method}-api{facts['apiLevel']}"
-                (self.attempt_root / f"results/{stem}.png").write_bytes(b"fixture-png")
+                owner = next(
+                    index for index, name in enumerate(lane_policy["inventories"])
+                    if identity in self.policy["inventories"][name]
+                )
+                additional_root = lane_policy["resultRoots"][owner * 3 + 1]
+                failure_root = self.attempt_root / "collected" / additional_root
+                failure_root.mkdir(parents=True, exist_ok=True)
+                (failure_root / f"{stem}.png").write_bytes(b"\x89PNG\r\n\x1a\nfixture")
                 self._write_json(
-                    self.attempt_root / f"results/{stem}.txt",
+                    failure_root / f"{stem}.txt",
                     {
                         "apiLevel": facts["apiLevel"],
                         "attemptId": "fixture-run-1",
@@ -497,41 +620,19 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 )
                 failure_artifacts.extend(
                     (
-                        (f"results/{stem}.png", "failure-png"),
-                        (f"results/{stem}.txt", "failure-diagnostic"),
+                        ((failure_root / f"{stem}.png").relative_to(self.attempt_root).as_posix(), "failure-png"),
+                        ((failure_root / f"{stem}.txt").relative_to(self.attempt_root).as_posix(), "failure-diagnostic"),
                     )
                 )
 
-        for relative, kind in (
-            ("results/app.xml", "junit"),
-            ("raw/device-metadata.json", "device-metadata"),
-            ("reports/app/index.html", "html"),
-            ("logs/gradle-app.log", "gradle-log"),
-            ("logs/logcat.txt", "logcat"),
-            ("raw/commands.json", "command-receipt"),
-            ("apks/app.apk", "app-apk"),
-            ("apks/test.apk", "test-apk"),
-            *failure_artifacts,
-        ):
-            path = self.attempt_root / relative
-            if path.exists() or path.is_symlink():
-                completion["artifacts"].append(
-                    {"path": relative, "kind": kind, "sha256": sha256_file(path)}
-                )
-        for path in sorted((self.attempt_root / "raw").glob("*")):
-            relative = path.relative_to(self.attempt_root).as_posix()
-            if relative in {entry[0] for entry in (
-                ("raw/device-metadata.json", "device-metadata"),
-                ("raw/commands.json", "command-receipt"),
-            )}:
+        for path in sorted(self.attempt_root.rglob("*")):
+            if not path.is_file() or path.name in {"attempt.json", "completion.json"}:
                 continue
-            completion["artifacts"].append(
-                {"path": relative, "kind": "raw-device", "sha256": sha256_file(path)}
-            )
-        for path in sorted(self.attempt_root.rglob("device-evidence-device.json")):
             relative = path.relative_to(self.attempt_root).as_posix()
+            kind = classify_lane_artifact(lane_policy, relative)
+            self.assertIsNotNone(kind, relative)
             completion["artifacts"].append(
-                {"path": relative, "kind": "raw-device", "sha256": sha256_file(path)}
+                {"path": relative, "kind": kind, "sha256": sha256_file(path)}
             )
         self._write_json(self.attempt_root / "completion.json", completion)
         return verify_attempt(self.policy_path, self.attempt_root, today=today)
@@ -558,6 +659,18 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "".join(cases) + "</testsuite>\n",
             encoding="utf-8",
         )
+
+    def _junit_path(self, lane, index=0):
+        lane_policy = self.policy["lanes"][lane]
+        return self.attempt_root / "collected" / lane_policy["resultRoots"][index * 3] / "TEST-fixture.xml"
+
+    def _html_path(self, lane, index=0):
+        lane_policy = self.policy["lanes"][lane]
+        return self.attempt_root / "collected" / lane_policy["resultRoots"][index * 3 + 2] / "index.html"
+
+    def _apk_path(self, lane, index):
+        lane_policy = self.policy["lanes"][lane]
+        return self.attempt_root / "collected" / lane_policy["apkRoots"][index] / f"fixture-{index}.apk"
 
     def _write_json(self, path, value):
         path.parent.mkdir(parents=True, exist_ok=True)

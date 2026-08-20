@@ -38,7 +38,10 @@ import json
 import sys
 from pathlib import Path
 
-policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+path = Path(sys.argv[1])
+if not 0 < path.stat().st_size <= 2 * 1024 * 1024:
+    raise SystemExit("policy size invalid")
+policy = json.loads(path.read_text(encoding="utf-8"))
 value = policy["lanes"][sys.argv[2]]["phaseSeconds"][sys.argv[3]]
 if not isinstance(value, int) or value <= 0:
     raise SystemExit(f"phase {sys.argv[3]} is not active for lane {sys.argv[2]}")
@@ -131,7 +134,10 @@ from pathlib import Path
 
 root = Path(sys.argv[1]).resolve()
 lane = sys.argv[2]
-policy = json.loads((root / "config/quality/device-evidence-policy.json").read_text(encoding="utf-8"))
+path = root / "config/quality/device-evidence-policy.json"
+if not 0 < path.stat().st_size <= 2 * 1024 * 1024:
+    raise SystemExit("policy size invalid")
+policy = json.loads(path.read_text(encoding="utf-8"))
 for relative in [
     *policy["lanes"][lane]["resultRoots"],
     *policy["lanes"][lane]["apkRoots"],
@@ -156,7 +162,10 @@ import json
 import sys
 from pathlib import Path
 
-policy = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+path = Path(sys.argv[1])
+if not 0 < path.stat().st_size <= 2 * 1024 * 1024:
+    raise SystemExit("policy size invalid")
+policy = json.loads(path.read_text(encoding="utf-8"))
 lane = policy["lanes"][sys.argv[2]]
 print(lane["budgets"]["appMinutes"] * 60)
 print(lane["budgets"]["roomMinutes"] * 60)

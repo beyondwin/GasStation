@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -17,6 +18,72 @@ DEVICE = ROOT / "scripts/quality/device"
 
 
 class DeviceScriptTest(unittest.TestCase):
+    def test_process_discovery_is_shared_and_preserves_preexisting_launcher_and_qemu_child(self):
+        from device.gmd_processes import introduced_processes, parse_processes
+
+        baseline = parse_processes(
+            "101 emulator /sdk/emulator/emulator -avd old\n"
+            "102 qemu-system-x86_64 /sdk/emulator/qemu/linux-x86_64/qemu-system-x86_64 -avd old\n"
+        )
+        observed = parse_processes(
+            "101 emulator /sdk/emulator/emulator -avd old\n"
+            "102 qemu-system-x86_64 /sdk/emulator/qemu/linux-x86_64/qemu-system-x86_64 -avd old\n"
+            "201 emulator /sdk/emulator/emulator -avd task\n"
+            "999 unrelated /tmp/emulator-helper\n"
+        )
+
+        self.assertEqual(
+            [{"pid": 201, "executable": "emulator"}],
+            introduced_processes(baseline, observed),
+        )
+
+    def test_gmd_cleanup_signals_only_task_introduced_stable_process_identity(self):
+        from device import cleanup_gmd_lane
+
+        baseline = [
+            {"pid": 101, "executable": "emulator"},
+            {"pid": 102, "executable": "qemu-system-x86_64"},
+        ]
+        observed = [*baseline, {"pid": 201, "executable": "emulator"}]
+        with mock.patch.object(cleanup_gmd_lane, "discover_processes", side_effect=[observed, observed, baseline]), \
+             mock.patch.object(cleanup_gmd_lane.os, "kill") as kill:
+            snapshot, killed, failures, live = cleanup_gmd_lane.terminate_introduced(baseline, wait_seconds=0)
+        kill.assert_called_once_with(201, cleanup_gmd_lane.signal.SIGTERM)
+        self.assertEqual(observed, snapshot)
+        self.assertEqual([{"pid": 201, "executable": "emulator"}], killed)
+        self.assertEqual([], failures)
+        self.assertEqual([], live)
+
+    def test_connected_cleanup_removes_validated_avd_without_emulator_pid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runner_temp = root / "runner"
+            avd_home = runner_temp / "gasstation-device-fixture-1"
+            attempt = root / "attempt"
+            (attempt / "raw").mkdir(parents=True)
+            avd_home.mkdir(parents=True)
+            fake_adb = root / "adb"
+            fake_adb.write_text("#!/usr/bin/env bash\nprintf 'List of devices attached\\n'\n", encoding="utf-8")
+            fake_adb.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(DEVICE / "cleanup_connected_avd.sh"), str(attempt), str(fake_adb), str(avd_home), "0", "0"],
+                env={"PATH": os.environ["PATH"], "RUNNER_TEMP": str(runner_temp)},
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertFalse(avd_home.exists())
+            self.assertTrue((attempt / "raw/teardown.json").is_file())
+
+    def test_manifest_rejects_oversized_raw_json_before_decode(self):
+        from device.write_manifest import read_json_object
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.json"
+            path.write_bytes(b'{"padding":"' + b"x" * (2 * 1024 * 1024) + b'"}')
+            with self.assertRaises(DeviceEvidenceError):
+                read_json_object(path, "oversized fixture")
+
     def test_wrappers_reject_unknown_lane_before_touching_host(self):
         cases = (
             (DEVICE / "run_gmd_lane.sh", ["--lane", "api24-scheduled"]),
@@ -90,6 +157,7 @@ class DeviceScriptTest(unittest.TestCase):
                 "[ro.build.version.sdk]: [24]\n"
                 "[ro.build.fingerprint]: [fixture/fingerprint]\n"
                 "[ro.product.cpu.abi]: [x86_64]\n"
+                "[ro.boot.qemu.avd_name]: [gasstation_api24]\n"
                 "[persist.sys.locale]: [ko-KR]\n",
                 encoding="utf-8",
             )
@@ -113,6 +181,7 @@ class DeviceScriptTest(unittest.TestCase):
                 "[ro.build.version.sdk]: [28]\n"
                 "[ro.build.fingerprint]: [fixture/fingerprint]\n"
                 "[ro.product.cpu.abi]: [x86_64]\n"
+                "[ro.boot.qemu.avd_name]: [gasstation_api24]\n"
                 "[persist.sys.locale]: [ko-KR]\n",
                 encoding="utf-8",
             )
@@ -140,6 +209,7 @@ class DeviceScriptTest(unittest.TestCase):
                     "[ro.build.version.sdk]: [24]\n"
                     "[ro.build.fingerprint]: [fixture/fingerprint]\n"
                     f"[ro.product.cpu.abi]: [{abi}]\n"
+                    "[ro.boot.qemu.avd_name]: [gasstation_api24]\n"
                     "[persist.sys.locale]: [ko-KR]\n",
                     encoding="utf-8",
                 )
@@ -252,11 +322,11 @@ class DeviceScriptTest(unittest.TestCase):
                         "schemaVersion": 1,
                         "kind": "gmd",
                         "timedOut": False,
-                        "baselinePids": [],
-                        "observedPids": [],
-                        "killedPids": [],
+                        "baselineProcesses": [],
+                        "observedProcesses": [],
+                        "killedProcesses": [],
                         "killFailures": [],
-                        "livePids": [],
+                        "liveProcesses": [],
                         "adbExitCode": 0,
                         "adbTargets": [],
                     },
@@ -269,10 +339,11 @@ class DeviceScriptTest(unittest.TestCase):
             base = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("PASS", derive_cleanup_status(attempt, "gmd", [task]))
             cleanup = json.loads(cleanup_path.read_text(encoding="utf-8"))
-            cleanup.update(observedPids=[4321], killedPids=[4321], livePids=[4321])
+            process = {"pid": 4321, "executable": "emulator"}
+            cleanup.update(observedProcesses=[process], killedProcesses=[process], liveProcesses=[process])
             cleanup_path.write_text(json.dumps(cleanup, sort_keys=True) + "\n", encoding="utf-8")
             self.assertEqual("FAIL", derive_cleanup_status(attempt, "gmd", [task]))
-            cleanup.update(observedPids=[], killedPids=[], livePids=[])
+            cleanup.update(observedProcesses=[], killedProcesses=[], liveProcesses=[])
             cleanup_path.write_text(json.dumps(cleanup, sort_keys=True) + "\n", encoding="utf-8")
             cleanup_path.unlink()
             with self.assertRaises(DeviceEvidenceError):

@@ -21,7 +21,11 @@ sys.path.insert(0, str(QUALITY))
 from device_evidence import (  # noqa: E402
     DeviceEvidenceError,
     canonical_json_bytes,
+    classify_lane_artifact,
+    instrumentation_receipt_required,
     load_policy,
+    read_json_value,
+    read_text,
     sha256_file,
 )
 
@@ -153,7 +157,7 @@ def copy_tree(source_root: Path, attempt_root: Path) -> int:
 
 def parse_getprop(path: Path) -> dict[str, str]:
     result: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8", errors="strict").splitlines():
+    for line in read_text(path, name="connected getprop").splitlines():
         match = re.fullmatch(r"\[([^]]+)\]: \[(.*)]", line)
         if match:
             result[match.group(1)] = match.group(2)
@@ -193,11 +197,11 @@ GMD_CLEANUP_FIELDS = {
     "schemaVersion",
     "kind",
     "timedOut",
-    "baselinePids",
-    "observedPids",
-    "killedPids",
+    "baselineProcesses",
+    "observedProcesses",
+    "killedProcesses",
     "killFailures",
-    "livePids",
+    "liveProcesses",
     "adbExitCode",
     "adbTargets",
 }
@@ -206,10 +210,7 @@ GMD_CLEANUP_FIELDS = {
 def read_json_object(path: Path, name: str) -> dict:
     if path.is_symlink() or not path.is_file():
         raise DeviceEvidenceError(f"{name} missing: {path.name}")
-    try:
-        value = json.loads(path.read_text(encoding="utf-8", errors="strict"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DeviceEvidenceError(f"invalid {name}: {path.name}") from error
+    value = read_json_value(path, name=name)
     if not isinstance(value, dict):
         raise DeviceEvidenceError(f"{name} must be a JSON object: {path.name}")
     return value
@@ -224,7 +225,11 @@ def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
     if len(matching_lanes) != 1:
         raise DeviceEvidenceError("GMD receipt task inventory does not identify one reviewed lane")
     result_roots = matching_lanes[0]["resultRoots"]
-    paths = sorted((attempt_root / "raw").glob("gmd-task-*.json"))
+    paths = sorted(
+        path
+        for path in (attempt_root / "raw").glob("gmd-task-*.json")
+        if re.fullmatch(r"gmd-task-[0-9]+\.json", path.name)
+    )
     expected_paths = [attempt_root / "raw" / f"gmd-task-{index}.json" for index in range(len(tasks))]
     if paths != expected_paths:
         raise DeviceEvidenceError("GMD requires exactly one indexed raw AGP/UTP receipt per selected task")
@@ -318,8 +323,8 @@ def connected_metadata(attempt_root: Path, lane_name: str) -> dict:
         if path.is_symlink() or not path.is_file():
             raise DeviceEvidenceError(f"connected raw metadata missing: {path.name}")
     properties = parse_getprop(getprop_path)
-    devices = devices_path.read_text(encoding="utf-8", errors="strict")
-    avd = avd_path.read_text(encoding="utf-8", errors="strict")
+    devices = read_text(devices_path, name="connected adb devices")
+    avd = read_text(avd_path, name="connected AVD config")
     device_lines = [line for line in devices.splitlines()[1:] if line.strip()]
     if len(device_lines) != 1 or not re.fullmatch(r"emulator-5554\s+device(?:\s+.*)?", device_lines[0]):
         raise DeviceEvidenceError("connected metadata requires exactly one online authorized emulator-5554 target")
@@ -331,11 +336,15 @@ def connected_metadata(attempt_root: Path, lane_name: str) -> dict:
         raise DeviceEvidenceError("connected getprop lacks a numeric SDK") from error
     fingerprint = properties.get("ro.build.fingerprint", "")
     abi = properties.get("ro.product.cpu.abi", "")
+    avd_name = properties.get("ro.boot.qemu.avd_name", "")
     locale = properties.get("persist.sys.locale") or properties.get("ro.product.locale", "")
-    permission_package = package_path.read_text(encoding="utf-8", errors="strict").strip()
-    permission_revision = revision_path.read_text(encoding="utf-8", errors="strict").strip()
+    permission_package = read_text(package_path, name="permission controller package").strip()
+    permission_revision = read_text(revision_path, name="permission controller revision").strip()
     if not fingerprint or abi != "x86_64" or not locale or not permission_package or not permission_revision.isdigit():
         raise DeviceEvidenceError("connected raw adb facts lack exact ABI/fingerprint/locale/permission package revision")
+    for module in ("app", "core:database"):
+        if instrumentation_receipt_required(lane_name, module, api, avd_name):
+            raise DeviceEvidenceError("connected lane unexpectedly requires a GMD device receipt")
     return {
         "schemaVersion": 1,
         "source": "adb",
@@ -360,6 +369,12 @@ def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
     actual = receipts[0]["derivedDevice"]
     if any(receipt["derivedDevice"] != actual for receipt in receipts[1:]):
         raise DeviceEvidenceError("GMD task receipts conflict on actual device facts")
+    for task in lane["gradleTasks"]:
+        module = task.split(":", 2)[1] if task.startswith(":") else ""
+        if module == "core":
+            module = ":".join(task.split(":", 3)[1:3])
+        if not instrumentation_receipt_required(lane_name, module, actual["apiLevel"], actual["serial"]):
+            raise DeviceEvidenceError("GMD lane unexpectedly skips its device receipt")
     return {
         "schemaVersion": 1,
         "source": "agp-utp",
@@ -372,29 +387,34 @@ def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
 
 def derive_cleanup_status(attempt_root: Path, kind: str, tasks: list[str]) -> str:
     if kind == "gmd":
+        from device.gmd_processes import introduced_processes, validate_processes
+
         receipts = parse_gmd_task_receipts(attempt_root, tasks)
         cleanup = read_json_object(attempt_root / "raw/gmd-teardown.json", "GMD cleanup receipt")
         if set(cleanup) != GMD_CLEANUP_FIELDS or cleanup["schemaVersion"] != 1 or cleanup["kind"] != "gmd":
             raise DeviceEvidenceError("GMD cleanup receipt fields differ")
-        list_fields = ("baselinePids", "observedPids", "killedPids", "killFailures", "livePids")
         if (
             type(cleanup["timedOut"]) is not bool
             or type(cleanup["adbExitCode"]) is not int
             or not isinstance(cleanup["adbTargets"], list)
             or any(not isinstance(value, str) or not value for value in cleanup["adbTargets"])
-            or any(not isinstance(cleanup[field], list) or any(type(pid) is not int or pid <= 1 for pid in cleanup[field]) for field in list_fields)
         ):
             raise DeviceEvidenceError("GMD cleanup observations are malformed")
-        baseline = set(cleanup["baselinePids"])
-        observed = set(cleanup["observedPids"])
-        killed = set(cleanup["killedPids"])
+        try:
+            baseline = validate_processes(cleanup["baselineProcesses"])
+            observed = validate_processes(cleanup["observedProcesses"])
+            killed = validate_processes(cleanup["killedProcesses"])
+            failures = validate_processes(cleanup["killFailures"])
+            live = validate_processes(cleanup["liveProcesses"])
+        except (KeyError, TypeError) as error:
+            raise DeviceEvidenceError("GMD cleanup process observations are malformed") from error
         cleanup_passed = (
             cleanup["timedOut"] is False
             and cleanup["adbExitCode"] == 0
             and cleanup["adbTargets"] == []
-            and cleanup["killFailures"] == []
-            and cleanup["livePids"] == []
-            and killed == observed - baseline
+            and failures == []
+            and live == []
+            and killed == introduced_processes(baseline, observed)
         )
         tasks_passed = all(
             receipt["teardown"] == {"status": "SUCCESS", "timedOut": False}
@@ -431,7 +451,7 @@ def derive_cleanup_status(attempt_root: Path, kind: str, tasks: list[str]) -> st
 
 def collect_lane(arguments: argparse.Namespace) -> int:
     attempt_root = require_attempt_root(arguments.attempt_root)
-    attempt = json.loads((attempt_root / "attempt.json").read_text(encoding="utf-8"))
+    attempt = read_json_object(attempt_root / "attempt.json", "attempt receipt")
     policy = load_policy(POLICY)
     lane = policy["lanes"][attempt["lane"]]
     copied = 0
@@ -452,33 +472,7 @@ def collect_lane(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def classify_artifact(attempt_root: Path, path: Path) -> str | None:
-    relative = path.relative_to(attempt_root).as_posix()
-    name = path.name.lower()
-    if relative == "raw/commands.json":
-        return "command-receipt"
-    if relative == "raw/device-metadata.json":
-        return "device-metadata"
-    if relative.startswith("logs/gradle-") and name.endswith(".log"):
-        return "gradle-log"
-    if "logcat" in name:
-        return "logcat"
-    if relative.startswith("collected/") and path.name.startswith("TEST-") and name.endswith(".xml"):
-        return "junit"
-    if relative.startswith("collected/") and name == "index.html":
-        return "html"
-    if name.endswith(".apk"):
-        return "app-apk" if "/app/build/outputs/apk/demo/debug/" in f"/{relative}" else "test-apk"
-    if "failure" in name and name.endswith(".png"):
-        return "failure-png"
-    if "failure" in name and name.endswith(".txt"):
-        return "failure-diagnostic"
-    if relative.startswith(("raw/", "collected/")):
-        return "raw-device"
-    return None
-
-
-def auto_artifacts(attempt_root: Path) -> list[dict]:
+def auto_artifacts(attempt_root: Path, lane: dict) -> list[dict]:
     artifacts: list[dict] = []
     for path in sorted(attempt_root.rglob("*")):
         if path.is_dir() and not path.is_symlink():
@@ -488,15 +482,16 @@ def auto_artifacts(attempt_root: Path) -> list[dict]:
         relative = path.relative_to(attempt_root).as_posix()
         if relative in {"attempt.json", "completion.json", "terminal.json", "verification.json"} or relative.endswith(".tmp"):
             continue
-        kind = classify_artifact(attempt_root, path)
-        if kind:
-            artifacts.append({"path": relative, "kind": kind, "sha256": sha256_file(path)})
+        kind = classify_lane_artifact(lane, relative)
+        if kind is None:
+            raise DeviceEvidenceError(f"attempt artifact is outside selected lane inventory: {relative}")
+        artifacts.append({"path": relative, "kind": kind, "sha256": sha256_file(path)})
     return artifacts
 
 
 def collect(arguments: argparse.Namespace) -> int:
     attempt_root = (ROOT / arguments.attempt_root).resolve()
-    attempt = json.loads((attempt_root / "attempt.json").read_text(encoding="utf-8"))
+    attempt = read_json_object(attempt_root / "attempt.json", "attempt receipt")
     policy = load_policy(POLICY)
     lane = policy["lanes"][attempt["lane"]]
     source = safe_source(arguments.source, lane["resultRoots"])
@@ -511,14 +506,14 @@ def collect(arguments: argparse.Namespace) -> int:
 
 def complete(arguments: argparse.Namespace) -> int:
     attempt_root = require_attempt_root(arguments.attempt_root)
-    attempt = json.loads((attempt_root / "attempt.json").read_text(encoding="utf-8"))
+    attempt = read_json_object(attempt_root / "attempt.json", "attempt receipt")
     head, status = require_clean_checkout(attempt["eventSha"])
-    commands = json.loads((attempt_root / arguments.commands).read_text(encoding="utf-8"))
+    commands = read_json_value(attempt_root / arguments.commands, name="command receipt")
     if not isinstance(commands, list):
         raise DeviceEvidenceError("command receipt must be a JSON list")
-    artifacts = auto_artifacts(attempt_root) if arguments.auto_artifacts else []
     policy = load_policy(POLICY)
     lane = policy["lanes"][attempt["lane"]]
+    artifacts = auto_artifacts(attempt_root, lane) if arguments.auto_artifacts else []
     cleanup_status = derive_cleanup_status(
         attempt_root,
         lane["device"]["kind"],
@@ -529,7 +524,10 @@ def complete(arguments: argparse.Namespace) -> int:
         if not separator or not kind or not relative:
             raise DeviceEvidenceError("artifact must use kind:relative-path")
         path = attempt_root / relative
-        artifacts.append({"path": relative, "kind": kind, "sha256": sha256_file(path)})
+        derived_kind = classify_lane_artifact(lane, relative)
+        if derived_kind is None or kind != derived_kind:
+            raise DeviceEvidenceError("caller artifact path/kind is outside selected lane inventory")
+        artifacts.append({"path": relative, "kind": derived_kind, "sha256": sha256_file(path)})
     receipt = {
         "schemaVersion": 1,
         "attemptSha256": sha256_file(attempt_root / "attempt.json"),
@@ -548,7 +546,7 @@ def complete(arguments: argparse.Namespace) -> int:
 
 def check_cleanup(arguments: argparse.Namespace) -> int:
     attempt_root = require_attempt_root(arguments.attempt_root)
-    attempt = json.loads((attempt_root / "attempt.json").read_text(encoding="utf-8"))
+    attempt = read_json_object(attempt_root / "attempt.json", "attempt receipt")
     lane = load_policy(POLICY)["lanes"][attempt["lane"]]
     status = derive_cleanup_status(attempt_root, lane["device"]["kind"], lane["gradleTasks"])
     if status != "PASS":

@@ -10,6 +10,9 @@ import socket
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from device_evidence import read_text  # noqa: E402
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -22,13 +25,16 @@ def main() -> int:
     arguments = parser.parse_args()
     if arguments.output.exists() or arguments.output.is_symlink():
         raise ValueError("teardown receipt already exists")
-    lines = [line.strip() for line in arguments.adb_devices.read_text(encoding="utf-8", errors="strict").splitlines()]
+    lines = [line.strip() for line in read_text(arguments.adb_devices, name="cleanup adb devices").splitlines()]
     serial_present = any(line.startswith("emulator-5554") for line in lines)
-    try:
-        os.kill(arguments.emulator_pid, 0)
-        pid_alive = True
-    except ProcessLookupError:
+    if arguments.emulator_pid <= 1:
         pid_alive = False
+    else:
+        try:
+            os.kill(arguments.emulator_pid, 0)
+            pid_alive = True
+        except ProcessLookupError:
+            pid_alive = False
     ports_free = True
     for port in (5554, 5555):
         probe = socket.socket()

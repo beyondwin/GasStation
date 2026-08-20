@@ -16,7 +16,10 @@ import json
 import sys
 from pathlib import Path
 
-print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["attemptId"])
+path = Path(sys.argv[1])
+if not 0 < path.stat().st_size <= 2 * 1024 * 1024:
+    raise SystemExit("attempt receipt size invalid")
+print(json.loads(path.read_text(encoding="utf-8"))["attemptId"])
 PY
 )
 adb=
@@ -24,7 +27,7 @@ sdkmanager=
 avdmanager=
 emulator=
 avd_home=
-emulator_pid=
+emulator_pid=0
 logcat_pid=0
 cleanup_done=0
 cleanup_status=1
@@ -35,7 +38,7 @@ cleanup() {
     return
   fi
   cleanup_status=1
-  if [[ -n ${adb:-} && -n ${avd_home:-} && ${emulator_pid:-} =~ ^[0-9]+$ ]] && (( emulator_pid > 1 )); then
+  if [[ -n ${adb:-} && -n ${avd_home:-} && ${emulator_pid:-} =~ ^[0-9]+$ ]]; then
     set +e
     run_device_phase "$lane" cleanup "$script_dir/cleanup_connected_avd.sh" \
       "$root/$attempt_root" "$adb" "$avd_home" "$emulator_pid" "$logcat_pid"
@@ -162,6 +165,7 @@ for index in "${!tasks[@]}"; do
     "$root/gradlew" "$task" --warning-mode fail --no-parallel --max-workers=1 \
     --rerun-tasks --configuration-cache \
     "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=$attempt_id" \
+    "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane" \
     >"$log" 2>&1
   status=$?
   set -e

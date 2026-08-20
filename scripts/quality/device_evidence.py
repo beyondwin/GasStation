@@ -22,6 +22,7 @@ IDENTITY = re.compile(r"[A-Za-z_][A-Za-z0-9_.$]*#[A-Za-z_][A-Za-z0-9_$]*")
 ATTEMPT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_XML_BYTES = 8 * 1024 * 1024
+MAX_TEXT_BYTES = 8 * 1024 * 1024
 
 POLICY_FIELDS = {
     "artifactRoots",
@@ -203,6 +204,24 @@ EXPECTED_LANES = {
     },
 }
 
+INSTRUMENTATION_LANE_IDENTITIES = {
+    "api24-scheduled": (24, "gasstation_api24", False, {"app", "core:database"}),
+    "api28-pr-smoke": (28, "gasstationPixel2Api28", True, {"app"}),
+    "api28-scheduled": (28, "gasstationPixel2Api28", True, {"app", "core:database"}),
+    "api36-scheduled": (36, "gasstationPixel2Api36", True, {"app", "core:database", "core:location"}),
+}
+
+
+def instrumentation_receipt_required(lane: str, module: str, api: int, avd_name: str) -> bool:
+    """Host-testable closed identity contract mirrored by Android TestWatcher rules."""
+    expected = INSTRUMENTATION_LANE_IDENTITIES.get(lane)
+    if expected is None:
+        raise DeviceEvidenceError(f"unreviewed instrumentation lane: {lane}")
+    expected_api, expected_avd, receipt_required, modules = expected
+    if module not in modules or api != expected_api or avd_name != expected_avd:
+        raise DeviceEvidenceError(f"instrumentation device identity differs for {lane}/{module}")
+    return receipt_required
+
 
 def canonical_json_bytes(value: object) -> bytes:
     return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
@@ -219,18 +238,37 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _read_json(path: Path, *, max_bytes: int = MAX_JSON_BYTES) -> dict:
+def read_bytes(path: Path, *, name: str, max_bytes: int = MAX_TEXT_BYTES) -> bytes:
     path = Path(path)
     if path.is_symlink() or not path.is_file():
-        raise DeviceEvidenceError(f"JSON evidence must be a regular non-symlink file: {path}")
-    raw = path.read_bytes()
+        raise DeviceEvidenceError(f"{name} must be a regular non-symlink file: {path}")
+    size = path.stat().st_size
+    if size <= 0 or size > max_bytes:
+        raise DeviceEvidenceError(f"{name} size is invalid: {path}")
+    with path.open("rb") as source:
+        raw = source.read(max_bytes + 1)
     if not raw or len(raw) > max_bytes:
-        raise DeviceEvidenceError(f"JSON evidence size is invalid: {path}")
+        raise DeviceEvidenceError(f"{name} size is invalid: {path}")
+    return raw
+
+
+def read_text(path: Path, *, name: str, max_bytes: int = MAX_TEXT_BYTES) -> str:
+    raw = read_bytes(path, name=name, max_bytes=max_bytes)
     try:
-        text = raw.decode("utf-8", errors="strict")
-        value = json.loads(text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DeviceEvidenceError(f"invalid UTF-8 JSON evidence {path}: {error}") from error
+        return raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise DeviceEvidenceError(f"{name} is not UTF-8: {path}") from error
+
+
+def read_json_value(path: Path, *, name: str = "JSON evidence", max_bytes: int = MAX_JSON_BYTES) -> object:
+    try:
+        return json.loads(read_text(path, name=name, max_bytes=max_bytes))
+    except json.JSONDecodeError as error:
+        raise DeviceEvidenceError(f"invalid {name} {path}: {error}") from error
+
+
+def _read_json(path: Path, *, max_bytes: int = MAX_JSON_BYTES) -> dict:
+    value = read_json_value(path, max_bytes=max_bytes)
     if not isinstance(value, dict):
         raise DeviceEvidenceError(f"JSON evidence must be an object: {path}")
     return value
@@ -425,9 +463,7 @@ def _artifact_path(attempt_root: Path, relative: str) -> Path:
 
 
 def _parse_junit(path: Path) -> tuple[list[str], set[str], set[str], set[str]]:
-    raw = path.read_bytes()
-    if not raw or len(raw) > MAX_XML_BYTES:
-        raise DeviceEvidenceError(f"JUnit XML size invalid: {path}")
+    raw = read_bytes(path, name="JUnit XML", max_bytes=MAX_XML_BYTES)
     try:
         raw.decode("utf-8", errors="strict")
         root = ElementTree.fromstring(raw)
@@ -465,6 +501,157 @@ def _failure_artifact_names(identity: str, attempt_id: str, api: int) -> tuple[s
     return f"{stem}.png", f"{stem}.txt"
 
 
+def _under(relative: str, root: str) -> bool:
+    return relative == root or relative.startswith(root.rstrip("/") + "/")
+
+
+def classify_lane_artifact(lane: dict, relative: str) -> str | None:
+    """Return the policy-derived kind for one canonical attempt-relative path."""
+    _safe_relative(relative, "artifact path")
+    if relative == "raw/commands.json":
+        return "command-receipt"
+    if relative == "raw/device-metadata.json":
+        return "device-metadata"
+    if relative == "logs/logcat.txt" and lane["device"]["kind"] == "connected-avd":
+        return "logcat"
+    if relative in {f"logs/gradle-{index}.log" for index in range(len(lane["gradleTasks"]))}:
+        return "gradle-log"
+    if lane["device"]["kind"] == "connected-avd" and relative in {
+        "logs/sdkmanager.log", "logs/avdmanager.log", "logs/emulator.log"
+    }:
+        return "setup-log"
+
+    connected_raw = {
+        "raw/adb-devices.txt", "raw/getprop.txt", "raw/avd-config.ini",
+        "raw/permission-controller-package.txt", "raw/permission-controller-revision.txt",
+        "raw/teardown.json", "raw/cleanup-adb-devices.txt", "raw/disk.txt", "raw/meminfo.txt",
+        "raw/emulator.pid", "raw/logcat.pid", "raw/final-failure.png", "raw/bugreport.zip",
+        "raw/collection-failures.json",
+    }
+    if lane["device"]["kind"] == "connected-avd" and relative in connected_raw:
+        return "raw-device"
+    if lane["device"]["kind"] == "gmd":
+        gmd_raw = {"raw/gmd-baseline-processes.json", "raw/gmd-teardown.json"}
+        for index in range(len(lane["gradleTasks"])):
+            gmd_raw.update({
+                f"raw/gmd-task-{index}.json",
+                f"raw/gmd-task-{index}-processes.json",
+                f"raw/gmd-task-{index}-adb-devices.txt",
+            })
+        if relative in gmd_raw:
+            return "raw-device"
+
+    for index in range(len(lane["gradleTasks"])):
+        result_root, additional_root, report_root = lane["resultRoots"][index * 3:index * 3 + 3]
+        result_prefix = f"collected/{result_root}"
+        additional_prefix = f"collected/{additional_root}"
+        report_prefix = f"collected/{report_root}"
+        name = Path(relative).name
+        lower = name.lower()
+        if _under(relative, result_prefix):
+            if name.startswith("TEST-") and lower.endswith(".xml"):
+                return "junit"
+            return "test-result"
+        if _under(relative, additional_prefix):
+            if name.startswith("failure-") and lower.endswith(".png"):
+                return "failure-png"
+            if name.startswith("failure-") and lower.endswith(".txt"):
+                return "failure-diagnostic"
+            return "raw-device"
+        if _under(relative, report_prefix):
+            return "html" if lower.endswith(".html") else "report-asset"
+
+    for index, apk_root in enumerate(lane["apkRoots"]):
+        if _under(relative, f"collected/{apk_root}") and relative.lower().endswith(".apk"):
+            return "app-apk" if index == 0 else "test-apk"
+    return None
+
+
+def _repository_root(policy_path: Path) -> Path:
+    resolved = policy_path.resolve()
+    if resolved.parent.name != "quality" or resolved.parent.parent.name != "config":
+        raise DeviceEvidenceError("policy must use the canonical config/quality path")
+    return resolved.parents[2]
+
+
+def _validate_artifact_content(path: Path, kind: str) -> None:
+    if kind in {"app-apk", "test-apk"}:
+        size = path.stat().st_size
+        if size <= 4 or size > 1024 * 1024 * 1024:
+            raise DeviceEvidenceError(f"APK artifact size is invalid: {path}")
+        with path.open("rb") as source:
+            magic = source.read(4)
+        if magic not in {b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"}:
+            raise DeviceEvidenceError(f"APK artifact has invalid ZIP magic: {path}")
+        return
+    if kind == "failure-png" or path.name == "final-failure.png":
+        if not read_bytes(path, name="PNG artifact", max_bytes=64 * 1024 * 1024).startswith(b"\x89PNG\r\n\x1a\n"):
+            raise DeviceEvidenceError(f"PNG artifact has invalid magic: {path}")
+        return
+    if path.name == "bugreport.zip":
+        if not 2 < path.stat().st_size <= 1024 * 1024 * 1024:
+            raise DeviceEvidenceError("bugreport ZIP size is invalid")
+        with path.open("rb") as source:
+            magic = source.read(2)
+        if magic != b"PK":
+            raise DeviceEvidenceError("bugreport ZIP has invalid magic")
+        return
+    if kind in {"gradle-log", "logcat", "setup-log", "html", "report-asset", "test-result"}:
+        raw = read_bytes(path, name=f"{kind} artifact")
+        if kind == "html" and path.suffix.lower() == ".html" and b"<html" not in raw.lower():
+            raise DeviceEvidenceError(f"HTML artifact is malformed: {path}")
+        return
+    if kind in {"raw-device", "failure-diagnostic", "command-receipt", "device-metadata"}:
+        if path.suffix.lower() == ".json" or kind in {"failure-diagnostic", "command-receipt", "device-metadata"}:
+            read_json_value(path, name=f"{kind} JSON")
+        else:
+            read_bytes(path, name=f"{kind} artifact")
+
+
+def _required_task_artifacts(attempt_root: Path, lane: dict, policy: dict, seen_paths: set[str]) -> None:
+    for index, inventory in enumerate(lane["inventories"]):
+        result_root, _additional_root, report_root = lane["resultRoots"][index * 3:index * 3 + 3]
+        junit_prefix = f"collected/{result_root}/"
+        junit_paths = sorted(path for path in seen_paths if path.startswith(junit_prefix) and path.endswith(".xml") and Path(path).name.startswith("TEST-"))
+        if not junit_paths:
+            raise DeviceEvidenceError(f"task {index} is missing its own JUnit artifact")
+        task_tests: list[str] = []
+        for relative in junit_paths:
+            tests, _, _, _ = _parse_junit(attempt_root / relative)
+            task_tests.extend(tests)
+        if sorted(task_tests) != sorted(policy["inventories"][inventory]):
+            raise DeviceEvidenceError(f"task {index} JUnit inventory differs")
+        html_prefix = f"collected/{report_root}/"
+        if f"{html_prefix}index.html" not in seen_paths:
+            raise DeviceEvidenceError(f"task {index} is missing its own HTML report")
+        if f"logs/gradle-{index}.log" not in seen_paths:
+            raise DeviceEvidenceError(f"task {index} is missing its own Gradle log")
+        if lane["device"]["kind"] == "gmd" and f"raw/gmd-task-{index}.json" not in seen_paths:
+            raise DeviceEvidenceError(f"task {index} is missing its own raw GMD receipt")
+    for index, apk_root in enumerate(lane["apkRoots"]):
+        prefix = f"collected/{apk_root}/"
+        if not any(path.startswith(prefix) and path.endswith(".apk") for path in seen_paths):
+            raise DeviceEvidenceError(f"APK root {index} is missing its own APK artifact")
+    if lane["device"]["kind"] == "gmd":
+        required_raw = {"raw/gmd-baseline-processes.json", "raw/gmd-teardown.json"}
+        for index in range(len(lane["gradleTasks"])):
+            required_raw.update({
+                f"raw/gmd-task-{index}.json",
+                f"raw/gmd-task-{index}-processes.json",
+                f"raw/gmd-task-{index}-adb-devices.txt",
+            })
+    else:
+        required_raw = {
+            "raw/adb-devices.txt", "raw/getprop.txt", "raw/avd-config.ini",
+            "raw/permission-controller-package.txt", "raw/permission-controller-revision.txt",
+            "raw/teardown.json", "raw/cleanup-adb-devices.txt", "raw/disk.txt", "raw/meminfo.txt",
+            "raw/emulator.pid", "raw/logcat.pid",
+        }
+    missing_raw = required_raw - seen_paths
+    if missing_raw:
+        raise DeviceEvidenceError(f"selected lane raw artifact inventory is incomplete: {sorted(missing_raw)}")
+
+
 def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None = None) -> dict:
     policy_path = Path(policy_path)
     attempt_root = Path(attempt_root)
@@ -498,8 +685,12 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
         or completion["postRunStatus"] != ""
     ):
         raise DeviceEvidenceError("checkout/policy/attempt completion binding differs")
-    if not SHA256.fullmatch(attempt["wrapperSha256"] or "") or not SHA256.fullmatch(attempt["verifierSha256"] or ""):
-        raise DeviceEvidenceError("wrapper/verifier hash is malformed")
+    repository_root = _repository_root(policy_path)
+    wrapper_name = "run_api24_avd.sh" if lane["device"]["kind"] == "connected-avd" else "run_gmd_lane.sh"
+    expected_wrapper_hash = sha256_file(repository_root / "scripts/quality/device" / wrapper_name)
+    expected_verifier_hash = sha256_file(repository_root / "scripts/quality/verify_device_evidence.py")
+    if attempt["wrapperSha256"] != expected_wrapper_hash or attempt["verifierSha256"] != expected_verifier_hash:
+        raise DeviceEvidenceError("wrapper/verifier hash differs from the current selected implementation")
     if not ATTEMPT_ID.fullmatch(attempt["attemptId"] or ""):
         raise DeviceEvidenceError("attempt ID is malformed")
     if (
@@ -543,17 +734,20 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
             raise DeviceEvidenceError("duplicate artifact path")
         seen_paths.add(relative)
         path = _artifact_path(attempt_root, relative)
+        derived_kind = classify_lane_artifact(lane, relative)
+        if derived_kind is None or entry["kind"] != derived_kind:
+            raise DeviceEvidenceError(f"artifact path/kind is outside the selected lane contract: {relative}")
         actual_hash = sha256_file(path)
         if entry["sha256"] != actual_hash:
             raise DeviceEvidenceError(f"completion-bound artifact changed: {relative}")
-        kinds.setdefault(entry["kind"], []).append(path)
+        _validate_artifact_content(path, derived_kind)
+        kinds.setdefault(derived_kind, []).append(path)
         artifact_records.append({"path": relative, "kind": entry["kind"], "sha256": actual_hash})
     for required in (
         "junit",
         "device-metadata",
         "html",
         "gradle-log",
-        "logcat",
         "app-apk",
         "test-apk",
         "command-receipt",
@@ -561,15 +755,25 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
     ):
         if required not in kinds:
             raise DeviceEvidenceError(f"required artifact kind missing: {required}")
+    if lane["device"]["kind"] == "connected-avd" and "logcat" not in kinds:
+        raise DeviceEvidenceError("connected lane logcat artifact missing")
+    evidence_files = {
+        path.relative_to(attempt_root).as_posix()
+        for path in attempt_root.rglob("*")
+        if path.is_file() and path.name not in {"attempt.json", "completion.json", "terminal.json", "verification.json"}
+    }
+    if evidence_files != seen_paths:
+        raise DeviceEvidenceError(
+            f"completion artifact inventory differs: missing={sorted(evidence_files - seen_paths)}, stale={sorted(seen_paths - evidence_files)}"
+        )
+    _required_task_artifacts(attempt_root, lane, policy, seen_paths)
     if (attempt_root / "raw/collection-failures.json").exists():
         raise DeviceEvidenceError("device failure diagnostic collection was incomplete")
     if len(kinds["device-metadata"]) != 1 or len(kinds["command-receipt"]) != 1:
         raise DeviceEvidenceError("device metadata and command receipt must each be unique")
     try:
-        command_receipt = json.loads(
-            kinds["command-receipt"][0].read_text(encoding="utf-8", errors="strict")
-        )
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        command_receipt = read_json_value(kinds["command-receipt"][0], name="command receipt")
+    except DeviceEvidenceError as error:
         raise DeviceEvidenceError(f"invalid command receipt: {error}") from error
     if command_receipt != commands:
         raise DeviceEvidenceError("raw command receipt differs from completion commands")
@@ -581,8 +785,8 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
         "Unified Test Platform error",
         "Emulator terminated before test completion",
     )
-    for log in [*kinds["gradle-log"], *kinds["logcat"]]:
-        text = log.read_text(encoding="utf-8", errors="strict")
+    for log in [*kinds["gradle-log"], *kinds.get("logcat", [])]:
+        text = read_text(log, name="platform diagnostic log")
         if any(marker in text for marker in platform_markers):
             raise DeviceEvidenceError(f"platform/UTP failure marker in {log.name}")
 

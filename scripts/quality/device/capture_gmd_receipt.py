@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -13,7 +12,8 @@ QUALITY = Path(__file__).resolve().parents[1]
 ROOT = QUALITY.parents[1]
 sys.path.insert(0, str(QUALITY))
 
-from device_evidence import DeviceEvidenceError, canonical_json_bytes, load_policy  # noqa: E402
+from device_evidence import DeviceEvidenceError, canonical_json_bytes, load_policy, read_text, sha256_file  # noqa: E402
+from device.gmd_processes import introduced_processes, read_snapshot  # noqa: E402
 
 
 DEVICE_FIELDS = {
@@ -38,7 +38,7 @@ DEVICE_FIELDS = {
 def read_lines(path: Path) -> list[str]:
     if path.is_symlink() or not path.is_file():
         raise DeviceEvidenceError(f"GMD teardown observation missing: {path.name}")
-    return [line.strip() for line in path.read_text(encoding="utf-8", errors="strict").splitlines() if line.strip()]
+    return [line.strip() for line in read_text(path, name="GMD teardown observation").splitlines() if line.strip()]
 
 
 def main() -> int:
@@ -73,7 +73,7 @@ def main() -> int:
             if path.is_symlink() or not path.is_file():
                 raise DeviceEvidenceError("GMD device receipt is not a regular file")
             try:
-                value = json.loads(path.read_text(encoding="utf-8", errors="strict"))
+                value = json.loads(read_text(path, name="pulled GMD device receipt"))
             except (UnicodeDecodeError, json.JSONDecodeError) as error:
                 raise DeviceEvidenceError(f"invalid pulled GMD device receipt: {path}") from error
             if not isinstance(value, dict) or set(value) != DEVICE_FIELDS:
@@ -84,18 +84,18 @@ def main() -> int:
     source_path = candidates[0][0]
     relative = Path("collected") / source_path.relative_to(ROOT)
 
-    baseline = set(read_lines(arguments.baseline_processes))
-    final = set(read_lines(arguments.final_processes))
+    baseline = read_snapshot(arguments.baseline_processes)
+    final = read_snapshot(arguments.final_processes)
     adb_lines = read_lines(arguments.final_adb_devices)
     adb_targets = [line for line in adb_lines if line != "List of devices attached"]
     timed_out = arguments.exit_code in {124, 137}
-    teardown_passed = not timed_out and not (final - baseline) and not adb_targets
+    teardown_passed = not timed_out and not introduced_processes(baseline, final) and not adb_targets
     receipt = {
         "schemaVersion": 1,
         "producer": "gasstation-gmd-observation",
         "deviceSource": {
             "path": relative.as_posix(),
-            "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+            "sha256": sha256_file(source_path),
         },
         "teardown": {"status": "SUCCESS" if teardown_passed else "FAILED", "timedOut": timed_out},
     }

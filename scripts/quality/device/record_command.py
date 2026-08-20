@@ -6,6 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from device_evidence import read_json_value, read_text  # noqa: E402
 
 
 def main() -> int:
@@ -15,7 +19,7 @@ def main() -> int:
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--log", type=Path, required=True)
     arguments = parser.parse_args()
-    text = arguments.log.read_text(encoding="utf-8", errors="strict")
+    text = read_text(arguments.log, name="Gradle command log")
     terminal = None
     for outcome in ("UP-TO-DATE", "FROM-CACHE", "NO-SOURCE", "SKIPPED"):
         if f"> Task {arguments.task} {outcome}" in text:
@@ -27,7 +31,7 @@ def main() -> int:
         terminal = "MISSING"
     records = []
     if arguments.output.exists():
-        records = json.loads(arguments.output.read_text(encoding="utf-8"))
+        records = read_json_value(arguments.output, name="command receipt")
     records.append({"task": arguments.task, "exitCode": arguments.exit_code, "outcome": terminal})
     arguments.output.write_text(
         json.dumps(records, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",

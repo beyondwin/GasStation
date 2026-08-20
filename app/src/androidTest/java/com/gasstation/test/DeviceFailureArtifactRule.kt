@@ -11,6 +11,7 @@ import org.junit.runner.Description
 import java.util.Locale
 
 private const val ATTEMPT_ARGUMENT = "deviceEvidenceAttemptId"
+private const val LANE_ARGUMENT = "deviceEvidenceLane"
 
 internal object DeviceFailureContext {
     private var permissionSelection: PermissionUiResource? = null
@@ -29,7 +30,9 @@ internal object DeviceFailureContext {
 class DeviceFailureArtifactRule : TestWatcher() {
     override fun starting(description: Description) {
         DeviceFailureContext.reset()
-        writeDeviceEvidenceReceipt()
+        if (requireGmdReceiptForSelectedLane()) {
+            writeDeviceEvidenceReceipt()
+        }
     }
 
     override fun failed(throwable: Throwable, description: Description) {
@@ -77,6 +80,22 @@ class DeviceFailureArtifactRule : TestWatcher() {
         screenshotFailure?.let { throwable.addSuppressed(it) }
         diagnosticFailure?.let { throwable.addSuppressed(it) }
     }
+}
+
+private fun requireGmdReceiptForSelectedLane(): Boolean {
+    val arguments = InstrumentationRegistry.getArguments()
+    val lane = requireNotNull(arguments.getString(LANE_ARGUMENT)) { "Missing $LANE_ARGUMENT instrumentation argument" }
+    val avdName = readSystemProperty("ro.boot.qemu.avd_name")
+    val expected =
+        when (lane) {
+            "api24-scheduled" -> Triple(24, "gasstation_api24", false)
+            "api28-pr-smoke", "api28-scheduled" -> Triple(28, "gasstationPixel2Api28", true)
+            "api36-scheduled" -> Triple(36, "gasstationPixel2Api36", true)
+            else -> error("Unreviewed device evidence lane: $lane")
+        }
+    require(Build.VERSION.SDK_INT == expected.first) { "Device API does not match selected lane: $lane" }
+    require(avdName == expected.second) { "AVD name does not match selected lane: $lane" }
+    return expected.third
 }
 
 private fun writeDeviceEvidenceReceipt() {

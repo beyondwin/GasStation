@@ -10,6 +10,7 @@ import java.util.Locale
 
 class DeviceEvidenceReceiptRule : TestWatcher() {
     override fun starting(description: Description) {
+        if (!requireGmdReceiptForSelectedLane()) return
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val packageManager = context.packageManager
         val candidates =
@@ -63,6 +64,23 @@ class DeviceEvidenceReceiptRule : TestWatcher() {
         PlatformTestStorageRegistry.getInstance().openOutputFile("device-evidence-device.json")
             .bufferedWriter(Charsets.UTF_8).use { it.write(receipt.toString()) }
     }
+}
+
+private fun requireGmdReceiptForSelectedLane(): Boolean {
+    val lane = requireNotNull(InstrumentationRegistry.getArguments().getString("deviceEvidenceLane")) {
+        "Missing deviceEvidenceLane instrumentation argument"
+    }
+    val avdName = readSystemProperty("ro.boot.qemu.avd_name")
+    val expected =
+        when (lane) {
+            "api24-scheduled" -> Triple(24, "gasstation_api24", false)
+            "api28-scheduled" -> Triple(28, "gasstationPixel2Api28", true)
+            "api36-scheduled" -> Triple(36, "gasstationPixel2Api36", true)
+            else -> error("Unreviewed database device evidence lane: $lane")
+        }
+    require(Build.VERSION.SDK_INT == expected.first) { "Device API does not match selected lane: $lane" }
+    require(avdName == expected.second) { "AVD name does not match selected lane: $lane" }
+    return expected.third
 }
 
 private fun readSystemProperty(name: String): String = ProcessBuilder("/system/bin/getprop", name).start().inputStream

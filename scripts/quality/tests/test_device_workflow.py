@@ -123,6 +123,34 @@ class DeviceWorkflowContractTest(unittest.TestCase):
                 path.write_text(mutated, encoding="utf-8")
                 self.assertNotEqual([], check_device_contracts(root))
 
+    def test_behavioral_lifecycle_contract_mutations_fail_closed(self):
+        mutations = {
+            "narrow-baseline": ("run_gmd_lane.sh", 'python3 "$script_dir/gmd_processes.py" --output "$baseline_processes"', 'pgrep -af "(^|/)emulator( |$)" >"$baseline_processes"'),
+            "narrow-final": ("execute_gmd_task.sh", 'python3 "$script_dir/gmd_processes.py" --output "$final_processes"', "pgrep -af '(^|/)emulator( |$)' >\"$final_processes\""),
+            "missing-gmd-lane": ("execute_gmd_task.sh", '  "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane"\n', ""),
+            "missing-api24-lane": ("run_api24_avd.sh", '    "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane" \\\n', ""),
+            "pid-gated-cleanup": (
+                "run_api24_avd.sh",
+                '[[ -n ${adb:-} && -n ${avd_home:-} && ${emulator_pid:-} =~ ^[0-9]+$ ]]',
+                '[[ -n ${adb:-} && -n ${avd_home:-} && ${emulator_pid:-} =~ ^[0-9]+$ ]] && (( emulator_pid > 1 ))',
+            ),
+        }
+        for name, (filename, anchor, replacement) in mutations.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / ".github/workflows").mkdir(parents=True)
+                for workflow in ("device-evidence.yml", "android.yml"):
+                    shutil.copyfile(ROOT / f".github/workflows/{workflow}", root / f".github/workflows/{workflow}")
+                shutil.copytree(ROOT / "config/quality", root / "config/quality")
+                shutil.copytree(ROOT / "scripts/quality/device", root / "scripts/quality/device")
+                shutil.copyfile(ROOT / "gradle.properties", root / "gradle.properties")
+                path = root / "scripts/quality/device" / filename
+                original = path.read_text(encoding="utf-8")
+                mutated = original.replace(anchor, replacement, 1)
+                self.assertNotEqual(original, mutated)
+                path.write_text(mutated, encoding="utf-8")
+                self.assertNotEqual([], check_device_contracts(root))
+
 
 if __name__ == "__main__":
     unittest.main()

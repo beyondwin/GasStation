@@ -29,6 +29,7 @@ arguments=(
   --configuration-cache
   --info
   "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=$attempt_id"
+  "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane"
 )
 if [[ -n $filter ]]; then
   arguments+=("-Pandroid.testInstrumentationRunnerArguments.annotation=$filter")
@@ -41,15 +42,9 @@ set -e
 python3 "$script_dir/record_command.py" \
   --output "$commands" --task "$task" --exit-code "$gradle_status" --log "$log"
 
-final_processes="$root/$attempt_root/raw/gmd-task-$index-processes.txt"
+final_processes="$root/$attempt_root/raw/gmd-task-$index-processes.json"
 final_devices="$root/$attempt_root/raw/gmd-task-$index-adb-devices.txt"
-set +e
-pgrep -af '(^|/)emulator( |$)' >"$final_processes"
-pgrep_status=$?
-set -e
-if (( pgrep_status > 1 )); then
-  exit "$pgrep_status"
-fi
+python3 "$script_dir/gmd_processes.py" --output "$final_processes"
 "$adb" devices -l >"$final_devices"
 
 set +e

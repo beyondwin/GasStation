@@ -42,6 +42,9 @@ if [[ $emulator_pid =~ ^[0-9]+$ ]] && (( emulator_pid > 1 )); then
     set -e
   fi
 fi
+if [[ $emulator_pid == 0 ]]; then
+  emulator_kill_status=0
+fi
 
 if [[ -d $avd_home && ! -L $avd_home && $avd_home == "${RUNNER_TEMP:?}"/gasstation-device-* ]]; then
   rm -rf -- "$avd_home"

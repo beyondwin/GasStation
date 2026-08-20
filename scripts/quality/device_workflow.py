@@ -282,6 +282,7 @@ def check_device_contracts(root: Path) -> list[str]:
             issues.append("scripts/quality/device/common.sh:1: timeout phase lacks positive command window")
     for helper in (
         "execute_gmd_task.sh",
+        "gmd_processes.py",
         "capture_gmd_receipt.py",
         "cleanup_gmd_lane.py",
         "cleanup_connected_avd.sh",
@@ -289,4 +290,27 @@ def check_device_contracts(root: Path) -> list[str]:
     ):
         if not (device_dir / helper).is_file():
             issues.append(f"scripts/quality/device/{helper}:1: raw device phase helper missing")
+    lifecycle_paths = {
+        name: device_dir / name
+        for name in ("run_gmd_lane.sh", "execute_gmd_task.sh", "cleanup_gmd_lane.py", "run_api24_avd.sh")
+    }
+    if not all(path.is_file() for path in lifecycle_paths.values()):
+        return issues
+    gmd_wrapper = lifecycle_paths["run_gmd_lane.sh"].read_text(encoding="utf-8", errors="strict")
+    gmd_task = lifecycle_paths["execute_gmd_task.sh"].read_text(encoding="utf-8", errors="strict")
+    gmd_cleanup = lifecycle_paths["cleanup_gmd_lane.py"].read_text(encoding="utf-8", errors="strict")
+    connected_wrapper = lifecycle_paths["run_api24_avd.sh"].read_text(encoding="utf-8", errors="strict")
+    if gmd_wrapper.count('gmd_processes.py" --output "$baseline_processes"') != 1 or "pgrep" in gmd_wrapper:
+        issues.append("scripts/quality/device/run_gmd_lane.sh:1: shared GMD baseline discovery differs")
+    if gmd_task.count('gmd_processes.py" --output "$final_processes"') != 1 or "pgrep" in gmd_task:
+        issues.append("scripts/quality/device/execute_gmd_task.sh:1: shared GMD task discovery differs")
+    if "from device.gmd_processes import discover_processes, introduced_processes, read_snapshot" not in gmd_cleanup:
+        issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup bypasses shared process identity")
+    if gmd_task.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:
+        issues.append("scripts/quality/device/execute_gmd_task.sh:1: GMD instrumentation lane identity missing")
+    if connected_wrapper.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:
+        issues.append("scripts/quality/device/run_api24_avd.sh:1: connected instrumentation lane identity missing")
+    cleanup_guard = '[[ -n ${adb:-} && -n ${avd_home:-} && ${emulator_pid:-} =~ ^[0-9]+$ ]]'
+    if connected_wrapper.count(f"  if {cleanup_guard}; then") != 1:
+        issues.append("scripts/quality/device/run_api24_avd.sh:1: PID-independent AVD cleanup guard differs")
     return issues
