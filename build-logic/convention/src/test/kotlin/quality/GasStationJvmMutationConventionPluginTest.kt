@@ -4,6 +4,7 @@ import com.gasstation.buildlogic.quality.mutation.RejectDirectPitestAction
 import com.gasstation.buildlogic.quality.mutation.configureSealedInheritedJavaExecDefaults
 import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProject
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
+import info.solidsoft.gradle.pitest.validateSealedExecutable
 import info.solidsoft.gradle.pitest.validateSealedEncodingSurface
 import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
@@ -13,6 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class GasStationJvmMutationConventionPluginTest {
     @Test
@@ -75,6 +77,20 @@ class GasStationJvmMutationConventionPluginTest {
         mutations.forEachIndexed { index, mutation ->
             val failure = assertThrows("encoding mutation $index", GradleException::class.java, mutation)
             assertTrue(failure.message, failure.message.orEmpty().contains("file.encoding"))
+        }
+    }
+
+    @Test
+    fun executableSurfaceRequiresTheExactLauncherExecutableAndRejectsAbsence() {
+        val launcher = File(System.getProperty("java.home"), "bin/java").canonicalFile
+
+        validateSealedExecutable(launcher.absolutePath, launcher)
+        listOf(null, File(launcher.parentFile, "alternate-java").absolutePath).forEach { executable ->
+            val failure =
+                assertThrows(GradleException::class.java) {
+                    validateSealedExecutable(executable, launcher)
+                }
+            assertTrue(failure.message, failure.message.orEmpty().contains("executable/javaLauncher"))
         }
     }
 

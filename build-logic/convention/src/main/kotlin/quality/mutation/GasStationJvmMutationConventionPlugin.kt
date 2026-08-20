@@ -121,6 +121,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             expectedRepositoryRoot.set(target.rootProject.layout.projectDirectory)
             module.observationThreshold?.let(expectedMutationThreshold::set)
             javaLauncher.set(java21)
+            executable(java21.map { it.executablePath.asFile.absolutePath })
             workingDir(target.rootProject.layout.projectDirectory)
             environment.clear()
             environment(childEnvironment.get())

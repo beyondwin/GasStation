@@ -60,7 +60,7 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
             launcher.metadata.vendor.lowercase().let { "adoptium" !in it && "temurin" !in it },
             "javaLauncher.vendor",
         )
-        reject(File(executable).canonicalFile != launcher.executablePath.asFile.canonicalFile, "executable/javaLauncher")
+        validateSealedExecutable(executable, launcher.executablePath.asFile)
         reject(workingDir.canonicalFile != expectedRepositoryRoot.get().asFile.canonicalFile, "workingDir")
         reject(environment != expectedChildEnvironment.get(), "environment")
         reject(classpath.files != launchClasspath.files, "classpath")
@@ -101,6 +101,12 @@ internal fun validateSealedEncodingSurface(
 
 private fun isFileEncodingArgument(argument: String): Boolean =
     argument == "-Dfile.encoding" || argument.startsWith("-Dfile.encoding=")
+
+internal fun validateSealedExecutable(executable: String?, launcherExecutable: File) {
+    if (executable == null || File(executable).canonicalFile != launcherExecutable.canonicalFile) {
+        throw GradleException("Unsupported pitestVerified execution surface: executable/javaLauncher")
+    }
+}
 
 internal fun validatePitestOptionOverrides(
     overriddenTargetTests: List<String>?,
