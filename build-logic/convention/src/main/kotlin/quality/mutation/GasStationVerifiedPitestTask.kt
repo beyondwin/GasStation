@@ -104,7 +104,10 @@ private fun isFileEncodingArgument(argument: String): Boolean =
 
 internal fun validateSealedExecutable(executable: String?, launcherExecutable: File) {
     if (executable == null || File(executable).canonicalFile != launcherExecutable.canonicalFile) {
-        throw GradleException("Unsupported pitestVerified execution surface: executable/javaLauncher")
+        throw GradleException(
+            "Unsupported pitestVerified execution surface: executable/javaLauncher " +
+                "(executable=${executable?.let { File(it).canonicalFile }}, launcher=${launcherExecutable.canonicalFile})",
+        )
     }
 }
 
