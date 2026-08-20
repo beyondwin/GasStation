@@ -35,6 +35,15 @@ class GasStationJvmMutationConventionPluginTest {
         temporaryFolder.newFolder("mutation-gradle-user-home")
     }
 
+    private val cleanMutationCheckoutRoot by lazy {
+        val root = temporaryFolder.newFolder("clean-parent-without-pit-reports")
+        val policy = root.resolve("config/quality/mutation-policy.json")
+        require(policy.parentFile.mkdirs())
+        val repositoryRoot = File(System.getProperty("user.dir")).resolve("../..").canonicalFile
+        policy.writeText(repositoryRoot.resolve("config/quality/mutation-policy.json").readText())
+        root
+    }
+
     @Test
     fun blockingPhaseUsesExactNativeFloorsAndKeepsSettingsScoreReportOnly() {
         assertEquals(45, blockingMutationThreshold(":domain:station"))
@@ -204,8 +213,12 @@ class GasStationJvmMutationConventionPluginTest {
     }
 
     @Test
-    fun realTestKitRejectsThreePitAliasesArgsAndDebugJvmBeforePitExecution() {
+    fun realSelfContainedTestKitRejectsPitAliasesLateMutationsAndStaleRouteEvidence() {
+        assertFalse(cleanMutationCheckoutRoot.resolve("build/reports/pitest/route.json").exists())
+        assertFalse(cleanMutationCheckoutRoot.resolve("build/reports/pitest/route-receipt.json").exists())
         val project = mutationProject("real-options")
+        assertTrue(File(project.projectDir, "build/reports/pitest/route.json").isFile)
+        assertTrue(File(project.projectDir, "build/reports/pitest/route-receipt.json").isFile)
         val cases = listOf(
             listOf("--targetTests", "fixture.TargetTest") to "--targetTests",
             listOf("--additionalFeatures", "+fixture") to "--additionalFeatures",
@@ -353,21 +366,6 @@ class GasStationJvmMutationConventionPluginTest {
         ).buildAndFail()
         assertTrue("canonical non-zero PIT launch was unexpectedly ignored: ${nonZero.output}", nonZero.output.contains("PIT"))
         assertFalse("canonical non-zero PIT launch reported success", nonZero.output.contains("BUILD SUCCESSFUL"))
-    }
-
-    @Test
-    fun mutationFixtureOwnsItsRouteEvidenceAndRejectsAStaleLocalRoute() {
-        val repositoryRoot = File(System.getProperty("user.dir")).resolve("../..").canonicalFile
-        val cleanCheckout = temporaryFolder.newFolder("clean-parent-without-pit-reports")
-        val cleanPolicy = cleanCheckout.resolve("config/quality/mutation-policy.json")
-        assertTrue(cleanPolicy.parentFile.mkdirs())
-        cleanPolicy.writeText(repositoryRoot.resolve("config/quality/mutation-policy.json").readText())
-        assertFalse(cleanCheckout.resolve("build/reports/pitest/route.json").exists())
-        assertFalse(cleanCheckout.resolve("build/reports/pitest/route-receipt.json").exists())
-
-        val project = mutationProject("self-contained-route", cleanCheckout)
-        val success = project.runner(":domain:station:verifyPitestConfiguration").build()
-        assertTrue(success.output, success.output.contains("BUILD SUCCESSFUL"))
 
         val route = File(project.projectDir, "build/reports/pitest/route.json")
         val current = route.readText()
@@ -397,10 +395,7 @@ class GasStationJvmMutationConventionPluginTest {
         )
     }
 
-    private fun mutationProject(
-        name: String,
-        checkoutRoot: File = File(System.getProperty("user.dir")).resolve("../..").canonicalFile,
-    ): GradlePluginTestProject {
+    private fun mutationProject(name: String): GradlePluginTestProject {
         val project = GradlePluginTestProject.create(temporaryFolder.newFolder(name), sharedGradleUserHome)
         project.writeSettings(
             """
@@ -420,7 +415,7 @@ class GasStationJvmMutationConventionPluginTest {
             """.trimIndent(),
         )
         val policyText =
-            checkoutRoot
+            cleanMutationCheckoutRoot
                 .resolve("config/quality/mutation-policy.json")
                 .canonicalFile
                 .readText()
