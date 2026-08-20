@@ -19,11 +19,13 @@ class GasStationJvmMutationConventionPluginTest {
     fun sealedInheritedDefaultsExplicitlyOwnUtf8AndDebugSurface() {
         val task = ProjectBuilder.builder().build().tasks.create("sealedJava", JavaExec::class.java)
         task.defaultCharacterEncoding = "UTF-16"
+        task.modularity.inferModulePath.set(true)
 
         configureSealedInheritedJavaExecDefaults(task)
 
         assertEquals("UTF-8", task.defaultCharacterEncoding)
         assertEquals(1, task.allJvmArgs.count { it == "-Dfile.encoding=UTF-8" })
+        assertFalse(task.modularity.inferModulePath.get())
         assertFalse(task.debugOptions.enabled.get())
         assertEquals("localhost", task.debugOptions.host.get())
         assertEquals(5005, task.debugOptions.port.get())

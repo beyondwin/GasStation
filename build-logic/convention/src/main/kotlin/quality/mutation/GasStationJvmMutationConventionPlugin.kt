@@ -176,6 +176,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
 
 internal fun configureSealedInheritedJavaExecDefaults(task: JavaExec) {
     task.defaultCharacterEncoding = "UTF-8"
+    task.modularity.inferModulePath.set(false)
     task.debugOptions.enabled.set(false)
     task.debugOptions.host.set("localhost")
     task.debugOptions.port.set(5005)
