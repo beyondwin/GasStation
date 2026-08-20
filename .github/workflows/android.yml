@@ -37,6 +37,57 @@ jobs:
           scripts/agent/check-contracts.sh --ci
           python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks
 
+  build-inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # Observation phase: collect source-bound evidence without blocking sibling/release jobs yet.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
+      - name: Verify reviewed build inputs
+        run: python3 scripts/quality/verify_build_inputs.py verify --policy config/quality/build-inputs.json
+      - name: Run closed strict dependency matrices
+        run: |
+          python3 scripts/quality/verify_build_inputs.py strict-matrix \
+            --policy config/quality/build-inputs.json --group complete
+          python3 scripts/quality/verify_build_inputs.py strict-matrix \
+            --policy config/quality/build-inputs.json --group product-regressions
+          python3 scripts/quality/verify_build_inputs.py configuration-cache \
+            --policy config/quality/build-inputs.json
+      - name: Reproduce unsigned prod release
+        run: |
+          python3 scripts/quality/verify_build_inputs.py reproduce \
+            --policy config/quality/build-inputs.json \
+            --source-commit "$GITHUB_SHA" \
+            --output build/reports/build-inputs/reproducible-build.json
+      - name: Capture build-input receipt
+        run: |
+          python3 scripts/quality/verify_build_inputs.py capture \
+            --policy config/quality/build-inputs.json \
+            --source-commit "$GITHUB_SHA" \
+            --evidence build/reports/build-inputs/reproducible-build.json \
+            --output build/reports/build-inputs/build-input-receipt.json
+      - name: Upload build-input evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-input-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: build/reports/build-inputs/**
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload source-bound reproducibility receipt
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reproducible-prod-release-receipt-${{ github.sha }}
+          path: build/reports/build-inputs/reproducible-prod-release-receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
   static-analysis:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

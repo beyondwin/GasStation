@@ -10,6 +10,22 @@ from .contracts import BuildInputError, HEX40
 USES = re.compile(r"^(?P<indent>\s*)-?\s*uses:\s*(?P<value>[^\s#]+)(?:\s+#\s*(?P<label>v\d+))?\s*$")
 
 
+def _job_block(workflow: str, name: str) -> str:
+    match = re.search(
+        rf"(?ms)^  {re.escape(name)}:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        workflow,
+    )
+    if match is None:
+        raise BuildInputError(f"android workflow is missing {name} job")
+    return match.group(0)
+
+
+def _require_fragments(block: str, fragments: tuple[str, ...], *, owner: str) -> None:
+    missing = [fragment for fragment in fragments if fragment not in block]
+    if missing:
+        raise BuildInputError(f"{owner} contract is incomplete: missing={missing}")
+
+
 def _remote_uses(root: Path) -> list[tuple[str, int, str, str | None]]:
     rows: list[tuple[str, int, str, str | None]] = []
     paths = [
@@ -82,11 +98,44 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
     if any(value not in action for value in required_action_inputs):
         raise BuildInputError("verified build-input action has incomplete setup-gradle inputs")
     android = (root / ".github/workflows/android.yml").read_text(encoding="utf-8")
-    observation = "  build-inputs:\n" in android and "    continue-on-error: true\n" in android
-    if promoted is True and observation:
-        raise BuildInputError("blocking build-inputs job may not continue on error")
-    if promoted is False and not observation:
-        raise BuildInputError("observation build-inputs job must be present and report-only")
+    if promoted is not None:
+        build_inputs = _job_block(android, "build-inputs")
+        _require_fragments(
+            build_inputs,
+            (
+                "    runs-on: ubuntu-24.04\n",
+                "    timeout-minutes: 60\n",
+                "          fetch-depth: 0\n",
+                "          persist-credentials: false\n",
+                "      - uses: ./.github/actions/setup-build-inputs\n",
+                "verify_build_inputs.py verify --policy config/quality/build-inputs.json",
+                "verify_build_inputs.py strict-matrix",
+                "--policy config/quality/build-inputs.json --group complete",
+                "--policy config/quality/build-inputs.json --group product-regressions",
+                "verify_build_inputs.py configuration-cache",
+                "verify_build_inputs.py reproduce",
+                "--source-commit \"$GITHUB_SHA\"",
+                "--output build/reports/build-inputs/reproducible-build.json",
+                "verify_build_inputs.py capture",
+                "--evidence build/reports/build-inputs/reproducible-build.json",
+                "--output build/reports/build-inputs/build-input-receipt.json",
+                "      - name: Upload build-input evidence\n        if: always()\n",
+                "name: build-input-evidence-${{ github.sha }}-${{ github.run_attempt }}",
+                "path: build/reports/build-inputs/**",
+                "if-no-files-found: warn",
+                "      - name: Upload source-bound reproducibility receipt\n        if: success()\n",
+                "name: reproducible-prod-release-receipt-${{ github.sha }}",
+                "path: build/reports/build-inputs/reproducible-prod-release-receipt.json",
+            ),
+            owner="build-inputs job",
+        )
+        report_only = "    continue-on-error: true\n" in build_inputs
+        if build_inputs.count("continue-on-error:") != (1 if report_only else 0):
+            raise BuildInputError("build-inputs may only use the job-level report-only allowance")
+        if promoted is True and report_only:
+            raise BuildInputError("blocking build-inputs job may not continue on error")
+        if promoted is False and not report_only:
+            raise BuildInputError("observation build-inputs job must be present and report-only")
 
 
 def _without_comments(text: str) -> str:

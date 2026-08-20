@@ -33,6 +33,8 @@ Codecov upload는 선택적·비차단이다. action full SHA만으로 충분하
 
 Receipt는 current source commit, policy hash, wrapper/JDK/action/SDK/metadata identity, component·artifact·checksum count와 XML hash, opaque runner identity, 실행 결과만 allowlist로 기록한다. 절대 사용자 경로, 전체 environment, token/secret 값은 기록하지 않는다. canonical JSON duplicate key, symlink, stale source/event, dirty tree, duplicate evidence path는 거부한다. CI artifact는 source SHA가 포함된 exact name으로 업로드하고 release asset으로 공개하지 않는다.
 
+현재 observation phase에서 `build-inputs` job만 job-level `continue-on-error: true`를 사용한다. strict matrix, configuration-cache 재사용, two-copy probe, receipt capture는 실제로 모두 실행하고 source-bound artifact를 남기지만 아직 sibling 또는 release job의 prerequisite는 아니다. step-level 실패 완화, 대체 command, latest artifact 이름은 허용하지 않는다.
+
 Governed evidence session은 정책의 정확한 네 명령만 받으며 suffix나 fifth command를 허용하지 않는다.
 
 1. `python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks`

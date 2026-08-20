@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import tarfile
 import tempfile
 import threading
@@ -372,7 +373,28 @@ class VerifiedDownloadTest(unittest.TestCase):
 
 class WorkflowContractTest(unittest.TestCase):
     def test_checked_in_workflows_match_full_sha_and_closed_jdk_contract(self) -> None:
-        verify_repository_workflows(ROOT, load_policy(POLICY, root=ROOT), promoted=None)
+        verify_repository_workflows(ROOT, load_policy(POLICY, root=ROOT), promoted=False)
+
+    def test_report_only_workflow_rejects_closed_matrix_and_artifact_mutations(self) -> None:
+        policy = load_policy(POLICY, root=ROOT)
+        workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+        mutations = (
+            ("    continue-on-error: true\n", ""),
+            ("--group complete", "--group incomplete"),
+            (
+                "reproducible-prod-release-receipt-${{ github.sha }}",
+                "reproducible-prod-release-receipt-latest",
+            ),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                shutil.copytree(ROOT / ".github", root / ".github")
+                candidate = workflow.replace(old, new, 1)
+                self.assertNotEqual(workflow, candidate)
+                (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
+                with self.assertRaises(BuildInputError):
+                    verify_repository_workflows(root, policy, promoted=False)
 
     def test_policy_static_source_hashes_match_current_bytes(self) -> None:
         policy = load_policy(POLICY, root=ROOT)

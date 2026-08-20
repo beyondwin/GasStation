@@ -720,6 +720,8 @@ python3 scripts/quality/verify_build_inputs.py capture \
   --output build/reports/build-inputs/build-input-receipt.json
 ```
 
+Workflow observation phase는 위 strict matrix, configuration-cache, probe, capture를 `ubuntu-24.04`의 독립 `build-inputs` job에서 실행한다. job-level `continue-on-error: true`만 허용하며 release prerequisite 연결은 blocking 승격 commit에서만 추가한다.
+
 Release candidate는 upload/publish 전에 source-bound probe receipt와 다시 묶는다.
 
 ```bash
