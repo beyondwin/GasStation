@@ -34,7 +34,8 @@ mkdir -p \
   "$fixture/repo/benchmark" \
   "$fixture/repo/build-logic/convention/src/main/kotlin" \
   "$fixture/repo/config/quality" \
-  "$fixture/repo/scripts/agent"
+  "$fixture/repo/scripts/agent" \
+  "$fixture/repo/scripts/quality"
 cat > "$fixture/repo/app/build.gradle.kts" <<'EOF'
 android {
     compileSdk = 37
@@ -75,6 +76,7 @@ printf '# Device verification fixture\n' > "$fixture/repo/docs/runbooks/device-v
 cp "$repo_root/.github/workflows/device-evidence.yml" "$fixture/repo/.github/workflows/device-evidence.yml"
 cp "$repo_root/config/quality/device-evidence-policy.json" "$fixture/repo/config/quality/device-evidence-policy.json"
 cp "$repo_root/config/quality/device-evidence-quarantine.json" "$fixture/repo/config/quality/device-evidence-quarantine.json"
+cp -R "$repo_root/scripts/quality/device" "$fixture/repo/scripts/quality/device"
 printf '\n' > "$fixture/repo/gradle.properties"
 cat > "$fixture/repo/docs/module-contracts.md" <<'EOF'
 # Module contracts
