@@ -23,6 +23,42 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
         val selectedContractModules = productionDependencies.activeModules.filter { active ->
             contractApiModules.any { it.projectPath == active }
         }
+        val exactAbiUpdateOperatorVector =
+            contractApiModules.map { module -> "${module.projectPath}:updateKotlinAbi" }
+        val requestedTaskVector = target.gradle.startParameter.taskNames.toList()
+        val directlyRequestsAbiUpdate =
+            requestedTaskVector.any { requested ->
+                requested == "updateKotlinAbi" || requested.endsWith(":updateKotlinAbi")
+            }
+        if (directlyRequestsAbiUpdate && requestedTaskVector != exactAbiUpdateOperatorVector) {
+            throw GradleException(
+                abiUpdateRequestViolation(exactAbiUpdateOperatorVector, requestedTaskVector),
+            )
+        }
+        if (requestedTaskVector == exactAbiUpdateOperatorVector) {
+            val selectedModuleChecks =
+                contractApiModules.map { module -> "${module.projectPath}:check" }.toSet()
+            target.gradle.taskGraph.whenReady(
+                Action<org.gradle.api.execution.TaskExecutionGraph> {
+                    val forbiddenVerificationTasks =
+                        allTasks
+                            .filter { task ->
+                                task.name == "checkKotlinAbi" ||
+                                    task.path in selectedModuleChecks ||
+                                    (task.project == target && task.group == "verification")
+                            }
+                            .map { task -> task.path }
+                            .distinct()
+                            .sorted()
+                    if (forbiddenVerificationTasks.isNotEmpty()) {
+                        throw GradleException(
+                            "updateKotlinAbi operator protocol violation: verification tasks are forbidden " +
+                                "in the update graph: ${forbiddenVerificationTasks.joinToString(",")}",
+                        )
+                    }
+                },
+            )
+        }
 
         val inspectedModulePaths = target.subprojects.map(Project::getPath).sorted()
         target.tasks.register(
@@ -115,13 +151,14 @@ class GasStationRootQualityConventionPlugin : Plugin<Project> {
         contractApiModules.forEach { contractModule ->
             val module = target.findProject(contractModule.projectPath) ?: return@forEach
                 module.pluginManager.withPlugin("gasstation.jvm.library") {
-                    val updateTaskPath = "${module.path}:updateKotlinAbi"
-                    val explicitlyRequested = updateTaskPath in target.gradle.startParameter.taskNames
                     module.tasks.named("updateKotlinAbi").configure {
                         doFirst {
-                            if (!explicitlyRequested) {
+                            if (requestedTaskVector != exactAbiUpdateOperatorVector) {
                                 throw GradleException(
-                                    "updateKotlinAbi automation is forbidden; request $updateTaskPath explicitly for reviewed baseline generation",
+                                    abiUpdateRequestViolation(
+                                        exactAbiUpdateOperatorVector,
+                                        requestedTaskVector,
+                                    ),
                                 )
                             }
                         }
@@ -197,6 +234,13 @@ private const val COMPOSE_TEST_DESCRIPTION =
     "Fails when deprecated Compose v1 test-environment APIs are imported."
 private const val CI_RUNTIME_DESCRIPTION =
     "Fails when the CI Java runtime cannot execute the configured Robolectric SDK."
+
+private fun abiUpdateRequestViolation(
+    expected: List<String>,
+    actual: List<String>,
+): String =
+    "updateKotlinAbi operator protocol violation: exact requested task vector required; " +
+        "expected=${expected.joinToString(",")};actual=${actual.joinToString(",").ifEmpty { "-" }}"
 
 private val FORBIDDEN_COMPOSE_IMPORTS =
     listOf(

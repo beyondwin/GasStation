@@ -155,6 +155,16 @@ fun GradlePluginTestProject.writeRootQualityFixture(
                     appendLine("    api(\"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2\")")
                     appendLine("}")
                 }
+                if (fixture.contractApiFixture) {
+                    appendLine()
+                    appendLine("tasks.named(\"updateKotlinAbi\") {")
+                    appendLine("    doFirst {")
+                    appendLine("        check(rootProject.file(\".fixture-allow-abi-update\").isFile) {")
+                    appendLine("            \"fixture updater write blocked before ABI baseline mutation\"")
+                    appendLine("        }")
+                    appendLine("    }")
+                    appendLine("}")
+                }
             }
         writeFile(module.toFixtureDirectory().resolveFixture("build.gradle.kts"), buildScript)
     }

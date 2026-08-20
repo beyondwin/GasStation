@@ -355,6 +355,135 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
+    fun abiUpdaterRequiresExactOperatorVectorAndRejectsVerificationGraphBeforeDumpWrites() {
+        val project = newProject("abi-update-operator")
+            .writeRootQualityFixture(
+                RootQualityFixture(
+                    modules = CONTRACT_API_MODULES,
+                    contractApiFixture = true,
+                ),
+            )
+        val dumpPaths =
+            listOf(
+                "core/model/api/model.api",
+                "core/observability/api/observability.api",
+                "domain/location/api/location.api",
+                "domain/settings/api/settings.api",
+                "domain/station/api/station.api",
+            )
+        val exactOperatorVector =
+            listOf(
+                ":core:model:updateKotlinAbi",
+                ":core:observability:updateKotlinAbi",
+                ":domain:location:updateKotlinAbi",
+                ":domain:settings:updateKotlinAbi",
+                ":domain:station:updateKotlinAbi",
+            )
+        val initialDumpBytes = dumpPaths.associateWith { project.projectDir.resolve(it).readBytes() }
+        val invalidRequests =
+            listOf(
+                "partial" to listOf(":core:model:updateKotlinAbi"),
+                "mixed" to listOf(":core:model:updateKotlinAbi", "verifyPublicApiBoundaries"),
+                "duplicate" to exactOperatorVector + ":domain:station:updateKotlinAbi",
+                "reordered" to exactOperatorVector.reversed(),
+                "extra" to exactOperatorVector + "verifyModuleBoundaries",
+                "shorthand" to listOf("updateKotlinAbi"),
+                "other-updater" to listOf(":core:network:updateKotlinAbi"),
+            )
+
+        invalidRequests.forEach { (name, requestedTasks) ->
+            val result =
+                project.runner(*requestedTasks.toTypedArray())
+                    .buildAndFail()
+
+            assertTrue(
+                "$name request did not hit the exact operator-vector guard: ${result.output}",
+                result.output.contains("updateKotlinAbi operator protocol violation") &&
+                    result.output.contains("exact requested task vector"),
+            )
+            assertFalse(
+                result.tasks.any {
+                    it.path.endsWith(":updateKotlinAbi") && it.outcome == TaskOutcome.SUCCESS
+                },
+            )
+            dumpPaths.forEach { path ->
+                assertArrayEquals(
+                    "$name request changed $path",
+                    initialDumpBytes.getValue(path),
+                    project.projectDir.resolve(path).readBytes(),
+                )
+            }
+        }
+
+        val staleBytes = "stale fixture ABI\n".toByteArray()
+        dumpPaths.forEach { path -> project.projectDir.resolve(path).writeBytes(staleBytes) }
+        project.projectDir.resolve(".fixture-allow-abi-update").writeText("fixture-only\n")
+        val exact =
+            project.runner(
+                *(exactOperatorVector + "--rerun-tasks").toTypedArray(),
+            ).build()
+
+        exactOperatorVector.forEach { path -> exact.assertTaskOutcome(path, TaskOutcome.SUCCESS) }
+        assertFalse(exact.tasks.any { it.path.endsWith(":checkKotlinAbi") })
+        assertFalse(
+            exact.tasks.any {
+                it.path in CONTRACT_API_MODULES.map { module -> "$module:check" }
+            },
+        )
+        dumpPaths.forEach { path ->
+            assertFalse(
+                "exact operator command did not update $path",
+                project.projectDir.resolve(path).readBytes().contentEquals(staleBytes),
+            )
+        }
+
+        assertTrue(project.projectDir.resolve(".fixture-allow-abi-update").delete())
+        val reviewedDumpBytes = dumpPaths.associateWith { project.projectDir.resolve(it).readBytes() }
+        project.projectDir.resolve("build.gradle.kts").appendText(
+            """
+
+            tasks.register("verifyFixtureEvidence") { group = "verification" }
+            gradle.projectsEvaluated {
+                project(":core:model").tasks.named("updateKotlinAbi") {
+                    dependsOn(project(":core:model").tasks.named("check"))
+                    dependsOn(rootProject.tasks.named("verifyModuleBoundaries"))
+                    dependsOn(rootProject.tasks.named("verifyPublicApiBoundaries"))
+                    dependsOn(rootProject.tasks.named("verifyCoverageReport"))
+                    dependsOn(rootProject.tasks.named("verifyFixtureEvidence"))
+                }
+            }
+            """.trimIndent(),
+        )
+        val forbiddenGraph =
+            project.runner(*exactOperatorVector.toTypedArray())
+                .buildAndFail()
+
+        assertTrue(
+            forbiddenGraph.output,
+            forbiddenGraph.output.contains("updateKotlinAbi operator protocol violation"),
+        )
+        assertTrue(
+            forbiddenGraph.output,
+            forbiddenGraph.output.contains("verification tasks are forbidden in the update graph"),
+        )
+        listOf(
+            ":core:model:check",
+            ":core:model:checkKotlinAbi",
+            ":verifyCoverageReport",
+            ":verifyFixtureEvidence",
+            ":verifyModuleBoundaries",
+            ":verifyPublicApiBoundaries",
+        ).forEach { path -> assertTrue(forbiddenGraph.output, forbiddenGraph.output.contains(path)) }
+        dumpPaths.forEach { path ->
+            assertArrayEquals(
+                "forbidden graph changed $path",
+                reviewedDumpBytes.getValue(path),
+                project.projectDir.resolve(path).readBytes(),
+            )
+        }
+    }
+
+    @Test
     fun equivalentFixturesRelocateWithoutAbsoluteSuccessOrFailureEvidence() {
         listOf("relocation-a", "relocation-b").forEach { name ->
             val project = newProject(name)
@@ -453,6 +582,15 @@ class GasStationRootQualityConventionPluginTest {
                 "import androidx.compose.ui.test.runAndroidComposeUiTest",
                 "import androidx.compose.ui.test.runComposeUiTest",
                 "import androidx.compose.ui.test.runEmptyComposeUiTest",
+            )
+
+        private val CONTRACT_API_MODULES =
+            listOf(
+                ":core:model",
+                ":core:observability",
+                ":domain:location",
+                ":domain:settings",
+                ":domain:station",
             )
     }
 }

@@ -84,7 +84,8 @@ class ProductionDependencyBoundaryTest {
         assertContractAbiOutcomes(result)
         result.assertConfigurationCacheStored()
         result.assertTaskOutcome(":core:model:updateKotlinAbi", TaskOutcome.FAILED)
-        assertTrue(result.output, result.output.contains("updateKotlinAbi automation is forbidden"))
+        assertTrue(result.output, result.output.contains("updateKotlinAbi operator protocol violation"))
+        assertTrue(result.output, result.output.contains("exact requested task vector"))
         assertEquals(
             listOf(":core:model:updateKotlinAbi"),
             result.tasks.map { it.path }.filter { it.endsWith(":updateKotlinAbi") },
