@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import tempfile
@@ -8,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from pitest_policy import MutationPolicyError, canonical_json_bytes
+from pitest_policy import GitCommand, MutationPolicyError, canonical_json_bytes
 from pitest_policy.contracts import (
     build_capture_candidate,
     build_capture_evidence_manifest,
@@ -18,6 +19,8 @@ from pitest_policy.contracts import (
     validate_linux_profile,
 )
 from verify_pitest import (
+    _checked_blob,
+    _capture_receipt_link,
     _observe_java_home,
     baseline_policy_identity_matches,
     host_neutral_mutation_identity,
@@ -202,6 +205,39 @@ class LinuxObservedProfileTest(unittest.TestCase):
 
 
 class AcyclicCaptureTest(unittest.TestCase):
+    def test_transition_chain_successor_requires_the_full_capture_schema(self) -> None:
+        candidate = "1" * 64
+        minimal = canonical_json_bytes({
+            "schema": "pitest-capture-receipt-v1",
+            "candidateBaselineSha256": candidate,
+            "predecessorBaselineHash": "2" * 64,
+            "captureEvidenceDigest": "3" * 64,
+        })
+        with self.assertRaisesRegex(MutationPolicyError, "closed schema"):
+            _capture_receipt_link(minimal, f"config/quality/mutation-captures/{candidate}.json")
+
+    def test_policy_authorizes_only_the_reviewed_round2_successor_axis(self) -> None:
+        policy, _, _ = load_policy()
+        self.assertEqual(
+            ["task7-spec-review-round2-corrections"],
+            policy["capturePolicy"]["reviewedTransitionAxes"],
+        )
+
+    def test_checked_capture_artifact_must_be_append_only_from_its_introduction(self) -> None:
+        path = next((ROOT / "config/quality/mutation-captures").glob("*.json"))
+        raw = path.read_bytes()
+
+        class ModifiedHistoryGit:
+            def bytes(self, command: GitCommand, *arguments: str) -> bytes:
+                if command is GitCommand.SHOW:
+                    return raw
+                if command is GitCommand.LOG:
+                    return ("1" * 40 + "\n" + "2" * 40 + "\n").encode("ascii")
+                raise AssertionError((command, arguments))
+
+        with self.assertRaisesRegex(MutationPolicyError, "append-only history"):
+            _checked_blob(ModifiedHistoryGit(), path, "capture receipt")  # type: ignore[arg-type]
+
     def test_initial_capture_is_candidate_then_separate_receipt(self) -> None:
         components = {
             name: f"{name}\n".encode()
@@ -333,6 +369,37 @@ class AcyclicCaptureTest(unittest.TestCase):
         with self.assertRaisesRegex(MutationPolicyError, "observation Git config schema"):
             validate_baseline_schema(baseline)
 
+    def test_complete_resigned_manifest_cannot_replace_a_checked_capture(self) -> None:
+        baseline_path = ROOT / "config/quality/mutation-baseline.json"
+        real = json.loads(baseline_path.read_text())
+        real_receipt_path = ROOT / "config/quality/mutation-captures" / f"{hashlib.sha256(baseline_path.read_bytes()).hexdigest()}.json"
+        manifest = json.loads(real_receipt_path.read_text())["evidenceManifest"]
+        forged_manifest = {**manifest, "components": {**manifest["components"], "attempt": "f" * 64}}
+        forged_digest = hashlib.sha256(canonical_json_bytes(forged_manifest)).hexdigest()
+        forged_baseline = {**real, "captureEvidenceDigest": forged_digest}
+        forged_baseline_raw = canonical_json_bytes(forged_baseline)
+        forged_receipt = build_capture_receipt(
+            candidate_baseline=forged_baseline_raw,
+            evidence_manifest=forged_manifest,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            receipt_root = Path(directory)
+            candidate_hash = hashlib.sha256(forged_baseline_raw).hexdigest()
+            (receipt_root / f"{candidate_hash}.json").write_bytes(canonical_json_bytes(forged_receipt))
+            with mock.patch("verify_pitest.CAPTURE_RECEIPT_ROOT", receipt_root):
+                with self.assertRaisesRegex(MutationPolicyError, "checked Git|trusted capture"):
+                    validate_baseline_capture_receipt(forged_baseline_raw, forged_baseline)
+
+    def test_current_successor_requires_the_complete_checked_transition_chain(self) -> None:
+        baseline_path = ROOT / "config/quality/mutation-baseline.json"
+        baseline_raw = baseline_path.read_bytes()
+        baseline = json.loads(baseline_raw)
+        with tempfile.TemporaryDirectory(dir=ROOT / "config/quality") as directory:
+            with mock.patch("verify_pitest.TRANSITION_ROOT", Path(directory)):
+                with self.assertRaisesRegex(MutationPolicyError, "disconnected from current baseline"):
+                    validate_baseline_capture_receipt(baseline_raw, baseline)
+
 
 class ReceiptChainTest(unittest.TestCase):
     def test_successor_install_is_atomic_on_a_mid_install_failure(self) -> None:
@@ -409,6 +476,52 @@ class ReceiptChainTest(unittest.TestCase):
                     with self.assertRaisesRegex(MutationPolicyError, "invalid JSON|attempt differs"):
                         seal_verification("/ignored")
             self.assertFalse(paths["final"].exists())
+
+    def test_seal_binds_the_single_validated_baseline_snapshot_if_the_path_is_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {name: root / name for name in (
+                "route", "tasks", "route-receipt", "attempt", "completion", "baseline", "summary", "final",
+            )}
+            for name in ("route", "tasks", "route-receipt", "attempt", "completion"):
+                paths[name].write_bytes(name.encode())
+            validated_baseline = canonical_json_bytes({"validated": True})
+            tampered_baseline = canonical_json_bytes({"tampered": True})
+            paths["baseline"].write_bytes(validated_baseline)
+            summary = {
+                "status": "pass",
+                "hostNeutralMutationIdentitySha256": "c" * 64,
+                "perRunExecutionProvenanceSha256": "d" * 64,
+            }
+            paths["summary"].write_bytes(canonical_json_bytes(summary))
+            policy = {"modules": {}}
+            route = {"status": "selected", "sourceCommit": "e" * 40}
+
+            def replace_after_validation(*, observation: bool, java_home: str, baseline_snapshot=None):
+                self.assertEqual(validated_baseline, baseline_snapshot.raw)
+                paths["baseline"].write_bytes(tampered_baseline)
+                return summary
+
+            patches = {
+                "ROUTE_PATH": paths["route"], "TASKS_PATH": paths["tasks"],
+                "ROUTE_RECEIPT_PATH": paths["route-receipt"], "ATTEMPT_PATH": paths["attempt"],
+                "COMPLETION_PATH": paths["completion"], "BASELINE_PATH": paths["baseline"],
+                "SUMMARY_PATH": paths["summary"], "FINAL_RECEIPT_PATH": paths["final"],
+            }
+            with mock.patch("verify_pitest.validate_route", return_value=(policy, route, b"policy", "a" * 64)):
+                with mock.patch("verify_pitest.verify", side_effect=replace_after_validation):
+                    with mock.patch("verify_pitest.validate_completion_value", return_value=({"reports": []}, b"completion")):
+                        with mock.patch.multiple("verify_pitest", **patches):
+                            sealed = seal_verification("/ignored")
+
+            self.assertEqual(
+                hashlib.sha256(validated_baseline).hexdigest(),
+                sealed["predecessors"]["baseline"],
+            )
+            self.assertNotEqual(
+                hashlib.sha256(tampered_baseline).hexdigest(),
+                sealed["predecessors"]["baseline"],
+            )
 
 
 class LinuxComparatorStateTest(unittest.TestCase):

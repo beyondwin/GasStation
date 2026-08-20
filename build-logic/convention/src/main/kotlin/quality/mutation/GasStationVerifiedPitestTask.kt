@@ -27,6 +27,15 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
     @get:InputFiles @get:Classpath
     abstract val expectedLaunchClasspath: org.gradle.api.file.ConfigurableFileCollection
 
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val observedOriginalSourceDirs: org.gradle.api.file.ConfigurableFileCollection
+    @get:InputFiles @get:Classpath
+    abstract val observedOriginalAdditionalClasspath: org.gradle.api.file.ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val observedOriginalMutableCodePaths: org.gradle.api.file.ConfigurableFileCollection
+    @get:InputFiles @get:Classpath
+    abstract val observedOriginalLaunchClasspath: org.gradle.api.file.ConfigurableFileCollection
+
     @get:Input
     abstract val expectedChildEnvironment: org.gradle.api.provider.MapProperty<String, String>
 
@@ -111,6 +120,26 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         validateEffectivePitestSurface(
             expectedEffectivePitestSurface().filterKeys { !it.startsWith("extension.") },
             effectivePitestSurface(expectedRepositoryRoot.get().asFile),
+        )
+        val repositoryRoot = expectedRepositoryRoot.get().asFile
+        val expectedCollections = mapOf(
+            "sourceDirs" to fileCollectionIdentity(expectedSourceDirs, repositoryRoot),
+            "additionalClasspath" to fileCollectionIdentity(expectedAdditionalClasspath, repositoryRoot),
+            "mutableCodePaths" to fileCollectionIdentity(expectedMutableCodePaths, repositoryRoot),
+            "launchClasspath" to fileCollectionIdentity(expectedLaunchClasspath, repositoryRoot),
+        )
+        val originalCollections = mapOf(
+            "sourceDirs" to fileCollectionIdentity(observedOriginalSourceDirs, repositoryRoot),
+            "additionalClasspath" to fileCollectionIdentity(observedOriginalAdditionalClasspath, repositoryRoot),
+            "mutableCodePaths" to fileCollectionIdentity(observedOriginalMutableCodePaths, repositoryRoot),
+            "launchClasspath" to fileCollectionIdentity(observedOriginalLaunchClasspath, repositoryRoot),
+        )
+        val changedOriginal = expectedCollections.keys.sorted().filter {
+            expectedCollections[it] != originalCollections[it]
+        }
+        reject(
+            changedOriginal.isNotEmpty(),
+            changedOriginal.joinToString(",") { "original.pit.$it" },
         )
     }
 
@@ -227,7 +256,10 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
             "java.inferModulePath" to modularity.inferModulePath.getOrElse(false).toString(),
             "java.ignoreExitValue" to isIgnoreExitValue.toString(),
             "java.workingDir" to location(workingDir),
-            "java.environment" to environment.toSortedMap().entries.joinToString("\u001f") { "${it.key}=${normalizeEnvironmentValue(it.key, it.value.toString(), repositoryRoot)}" },
+            "java.environment" to canonicalEnvironmentIdentity(
+                environment.mapValues { it.value.toString() },
+                repositoryRoot,
+            ),
             "java.classpath" to files(classpath),
             "java.executable" to path(executable?.let(::File)),
             "command.managedEncodingArguments" to managedEncodingArguments,
@@ -285,6 +317,11 @@ internal fun validateEffectivePitestSurface(expected: Map<String, String>, actua
 
 private fun normalizeEnvironmentValue(name: String, value: String, repositoryRoot: File): String =
     if (name in setOf("HOME", "TMPDIR")) canonicalIdentity(File(value), repositoryRoot) else value
+
+internal fun canonicalEnvironmentIdentity(environment: Map<String, String>, repositoryRoot: File): String =
+    environment.toSortedMap().entries.joinToString("\u001f") {
+        "${it.key}=${normalizeEnvironmentValue(it.key, it.value, repositoryRoot)}"
+    }
 
 internal fun fileCollectionIdentity(files: FileCollection, repositoryRoot: File): String =
     files.files.map { canonicalIdentity(it, repositoryRoot) }.sorted().joinToString("\u001f")

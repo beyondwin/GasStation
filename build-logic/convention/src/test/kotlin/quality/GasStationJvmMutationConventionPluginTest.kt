@@ -218,7 +218,67 @@ class GasStationJvmMutationConventionPluginTest {
             assertTrue("case $index missing $diagnostic: ${result.output}", result.output.contains(diagnostic))
             assertFalse("case $index unexpectedly reached PIT", result.output.contains("PIT >>"))
         }
+        project.writeFile(
+            "original-collection.init.gradle",
+            """
+            gradle.beforeProject { candidate ->
+                if (candidate.path == ":domain:station") {
+                    candidate.afterEvaluate {
+                        candidate.tasks.named("pitest").configure { task ->
+                            task.additionalClasspath.from(candidate.rootProject.file("README.md"))
+                        }
+                    }
+                }
+            }
+            """.trimIndent(),
+        )
+        val originalCollectionInit = File(project.projectDir, "original-collection.init.gradle")
+        val originalCollection = project.runner(
+            ":domain:station:verifyPitestConfiguration",
+            "--init-script", originalCollectionInit.absolutePath,
+        ).buildAndFail()
+        assertTrue(
+            "late original collection mutation passed configuration: ${originalCollection.output}",
+            originalCollection.output.contains("pit.additionalClasspath"),
+        )
+
+        project.writeFile(
+            "environment.init.gradle",
+            """
+            gradle.beforeProject { candidate ->
+                if (candidate.path == ":domain:station") {
+                    candidate.afterEvaluate {
+                        candidate.tasks.named("pitestVerified").configure { task ->
+                            task.environment("SECRET_TOKEN", "must-not-serialize")
+                        }
+                    }
+                }
+            }
+            """.trimIndent(),
+        )
+        val environmentInit = File(project.projectDir, "environment.init.gradle")
+        val environment = project.runner(
+            ":domain:station:verifyPitestConfiguration",
+            "--init-script", environmentInit.absolutePath,
+        ).buildAndFail()
+        assertTrue(
+            "late verified environment passed configuration: ${environment.output}",
+            environment.output.contains("java.environment"),
+        )
+        val configuration = File(project.projectDir, "domain/station/build/reports/quality/pitest-configuration.json")
+        val configurationText = configuration.takeIf { it.isFile }?.readText().orEmpty()
+        assertFalse(
+            "configuration evidence serialized an injected secret",
+            configurationText.contains("SECRET_TOKEN") || configurationText.contains("must-not-serialize"),
+        )
         val lateMutations = listOf(
+            """
+            gradle.projectsEvaluated {
+                tasks.named("pitest") {
+                    (this as info.solidsoft.gradle.pitest.PitestTask).additionalClasspath.from(layout.projectDirectory.file("late-original.jar"))
+                }
+            }
+            """.trimIndent() to "original.pit.additionalClasspath",
             """
             tasks.named<JavaExec>("pitestVerified") {
                 argumentProviders.add(org.gradle.process.CommandLineArgumentProvider { throw GradleException("PROVIDER_INVOKED") })
@@ -237,7 +297,7 @@ class GasStationJvmMutationConventionPluginTest {
             """.trimIndent() to "java.defaultCharacterEncoding",
             """
             tasks.named<JavaExec>("pitestVerified") { environment("SECRET_TOKEN", "must-not-serialize") }
-            """.trimIndent() to "execution surface: environment",
+            """.trimIndent() to "java.environment",
             """
             tasks.named("pitestVerified") {
                 (this as info.solidsoft.gradle.pitest.PitestTask).mutators.set(setOf("EMPTY_RETURNS"))
@@ -309,6 +369,18 @@ class GasStationJvmMutationConventionPluginTest {
             [libraries]
             kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
             """.trimIndent(),
+        )
+        project.writeFile(
+            "config/quality/mutation-policy.json",
+            File(System.getProperty("user.dir")).resolve("../../config/quality/mutation-policy.json").canonicalFile.readText(),
+        )
+        project.writeFile(
+            "build/reports/pitest/route.json",
+            File(System.getProperty("user.dir")).resolve("../../build/reports/pitest/route.json").canonicalFile.readText(),
+        )
+        project.writeFile(
+            "build/reports/pitest/route-receipt.json",
+            File(System.getProperty("user.dir")).resolve("../../build/reports/pitest/route-receipt.json").canonicalFile.readText(),
         )
         listOf("station", "location", "settings").forEach { module ->
             project.writeFile(

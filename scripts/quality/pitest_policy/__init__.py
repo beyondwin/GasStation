@@ -29,6 +29,7 @@ class GitCommand(Enum):
     CAT_FILE = "cat-file"
     STATUS = "status"
     SHOW = "show"
+    LOG = "log"
     CONFIG = "config"
 
 
@@ -575,7 +576,12 @@ def _validate_constant_pool(pool: list[object | None], tags: list[int | None]) -
             reference_kind, reference_index = value if isinstance(value, tuple) else (0, 0)
             if not isinstance(reference_kind, int) or not 1 <= reference_kind <= 9:
                 raise MutationPolicyError("invalid class constant-pool method-handle kind")
-            allowed = {9} if reference_kind == 9 else ({10, 11} if reference_kind in {5, 6, 7, 8} else {9})
+            allowed = (
+                {9} if reference_kind in {1, 2, 3, 4}
+                else {10} if reference_kind in {5, 8}
+                else {10, 11} if reference_kind in {6, 7}
+                else {11}
+            )
             if not isinstance(reference_index, int) or reference_index <= 0 or reference_index >= len(tags) or tags[reference_index] not in allowed:
                 raise MutationPolicyError("invalid class constant-pool method-handle reference")
 

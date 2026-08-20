@@ -3,6 +3,7 @@ package com.gasstation.buildlogic.quality.mutation
 import info.solidsoft.gradle.pitest.GasStationVerifiedPitestTask
 import info.solidsoft.gradle.pitest.PitestPluginExtension
 import info.solidsoft.gradle.pitest.PitestTask
+import info.solidsoft.gradle.pitest.canonicalEnvironmentIdentity
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -95,6 +96,13 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
         original.apply {
             actions.add(0, RejectDirectPitestAction("${target.path}:pitestVerified"))
         }
+        // Snapshot the collection source set now. A FileCollection created with
+        // `from(original.collection)` is another live view and lets a later
+        // mutation move both the expected and actual surfaces together.
+        val canonicalSourceDirs = original.sourceDirs.from.toSet()
+        val canonicalAdditionalClasspath = original.additionalClasspath.from.toSet()
+        val canonicalMutableCodePaths = original.mutableCodePaths.from.toSet()
+        val canonicalLaunchClasspath = original.launchClasspath.from.toSet()
 
         val childHome = target.rootProject.layout.buildDirectory.dir("quality/pitest-runtime/pit-child-home")
         val childTmp = target.rootProject.layout.buildDirectory.dir("quality/pitest-runtime/pit-child-tmp")
@@ -118,13 +126,21 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             group = "verification"
             description = "Runs PIT through the sealed GasStation execution surface."
             copyPitestPropertiesFrom(original)
+            sourceDirs.setFrom(canonicalSourceDirs)
+            additionalClasspath.setFrom(canonicalAdditionalClasspath)
+            mutableCodePaths.setFrom(canonicalMutableCodePaths)
+            launchClasspath.setFrom(canonicalLaunchClasspath)
             expectedChildEnvironment.set(childEnvironment)
             expectedRepositoryRoot.set(target.rootProject.layout.projectDirectory)
             expectedBuildDirectory.set(target.layout.buildDirectory)
-            expectedSourceDirs.from(original.sourceDirs)
-            expectedAdditionalClasspath.from(original.additionalClasspath)
-            expectedMutableCodePaths.from(original.mutableCodePaths)
-            expectedLaunchClasspath.from(original.launchClasspath)
+            expectedSourceDirs.setFrom(canonicalSourceDirs)
+            expectedAdditionalClasspath.setFrom(canonicalAdditionalClasspath)
+            expectedMutableCodePaths.setFrom(canonicalMutableCodePaths)
+            expectedLaunchClasspath.setFrom(canonicalLaunchClasspath)
+            observedOriginalSourceDirs.from(original.sourceDirs)
+            observedOriginalAdditionalClasspath.from(original.additionalClasspath)
+            observedOriginalMutableCodePaths.from(original.mutableCodePaths)
+            observedOriginalLaunchClasspath.from(original.launchClasspath)
             module.blockingThreshold?.let(expectedMutationThreshold::set)
             javaLauncher.set(java21)
             executable(java21.get().executablePath.asFile.absolutePath)
@@ -132,14 +148,18 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             environment.clear()
             environment(childEnvironment.get())
             configureSealedInheritedJavaExecDefaults(this)
-            classpath(original.launchClasspath)
+            classpath(canonicalLaunchClasspath)
             dependsOn("verifyPitestConfiguration")
         }
         target.afterEvaluate {
             val task = verified.get()
             val snapshot = task.effectivePitestSurface(target.rootProject.projectDir, resolveFiles = false).toMutableMap()
             appendExtensionSurface(snapshot, extension)
-            validateCanonicalSurface(snapshot, module)
+            validateCanonicalSurface(
+                snapshot,
+                module,
+                canonicalEnvironmentIdentity(childEnvironment.get(), target.rootProject.projectDir),
+            )
             task.expectedEffectiveSurface.set(snapshot.toSortedMap())
             task.expectedEffectiveSurface.finalizeValue()
             task.expectedEffectiveSurface.disallowChanges()
@@ -169,6 +189,10 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             expectedMutableCodePaths.from(verified.get().expectedMutableCodePaths)
             actualLaunchClasspath.from(verified.get().launchClasspath)
             expectedLaunchClasspath.from(verified.get().expectedLaunchClasspath)
+            originalSourceDirs.from(original.sourceDirs)
+            originalAdditionalClasspath.from(original.additionalClasspath)
+            originalMutableCodePaths.from(original.mutableCodePaths)
+            originalLaunchClasspath.from(original.launchClasspath)
             directPitestGuardMarker.set("RejectDirectPitestAction:first")
             directPitestGuardMarker.disallowChanges()
             policyFile.set(target.rootProject.layout.projectDirectory.file("config/quality/mutation-policy.json"))
@@ -206,7 +230,11 @@ private fun appendExtensionSurface(
     )
 }
 
-private fun validateCanonicalSurface(surface: Map<String, String>, module: MutationModule) {
+private fun validateCanonicalSurface(
+    surface: Map<String, String>,
+    module: MutationModule,
+    expectedEnvironment: String,
+) {
     val expected = mapOf(
         "extension.pitestVersion" to "1.25.7",
         "extension.testPlugin" to "<null>",
@@ -279,13 +307,55 @@ private fun validateCanonicalSurface(surface: Map<String, String>, module: Mutat
         "java.mainModule" to "<null>",
         "java.inferModulePath" to "false",
         "java.ignoreExitValue" to "false",
+        "java.environment" to expectedEnvironment,
         "command.managedEncodingArguments" to "-Dfile.encoding=UTF-8",
     )
-    val changed = expected.filter { (name, value) -> surface[name] != value }
+    val changed = expected.filter { (name, value) -> surface[name] != value }.keys.toMutableSet()
+    changed += canonicalEffectiveSurfaceKeys.subtract(surface.keys)
+    changed += surface.keys.subtract(canonicalEffectiveSurfaceKeys)
     if (changed.isNotEmpty()) {
-        throw GradleException("PIT canonical effective surface differs: ${changed.keys.sorted().joinToString(",")}")
+        throw GradleException("PIT canonical effective surface differs: ${changed.sorted().joinToString(",")}")
     }
 }
+
+private val canonicalEffectiveSurfaceKeys = setOf(
+    "extension.pitestVersion", "extension.testPlugin", "extension.junit5PluginVersion",
+    "extension.mainSourceSets", "extension.testSourceSets", "extension.additionalMutableCodePaths",
+    "extension.fileExtensionsToFilter", "extension.addJUnitPlatformLauncher",
+    "pit.testPlugin", "pit.reportDir", "pit.targetClasses", "pit.targetTests", "pit.threads",
+    "pit.mutators", "pit.excludedMethods", "pit.excludedClasses", "pit.excludedTestClasses",
+    "pit.avoidCallsTo", "pit.verbose", "pit.verbosity", "pit.timeoutFactor",
+    "pit.timeoutConstInMillis", "pit.childProcessJvmArgs", "pit.outputFormats",
+    "pit.failWhenNoMutations", "pit.skipFailingTests", "pit.includedGroups", "pit.excludedGroups",
+    "pit.fullMutationMatrix", "pit.includedTestMethods", "pit.sourceDirs", "pit.detectInlinedCode",
+    "pit.timestampedReports", "pit.additionalClasspath", "pit.useClasspathFile",
+    "pit.additionalClasspathFile", "pit.mutableCodePaths", "pit.historyInputLocation",
+    "pit.historyOutputLocation", "pit.enableDefaultIncrementalAnalysis", "pit.defaultFileForHistoryData",
+    "pit.mutationThreshold", "pit.coverageThreshold", "pit.testStrengthThreshold", "pit.mutationEngine",
+    "pit.exportLineCoverage", "pit.jvmPath", "pit.mainProcessJvmArgs", "pit.launchClasspath",
+    "pit.pluginConfiguration", "pit.maxSurviving", "pit.useClasspathJar", "pit.inputEncoding",
+    "pit.outputEncoding", "pit.features",
+    "cli.overriddenTargetTests", "cli.additionalFeatures", "cli.overriddenVerbose",
+    "java.args", "java.argumentProviderCount", "java.jvmArgs", "java.jvmArguments",
+    "java.jvmArgumentProviderCount", "java.systemProperties", "java.bootstrapClasspath",
+    "java.minHeapSize", "java.maxHeapSize", "java.enableAssertions", "java.debug",
+    "java.debug.enabled", "java.debug.host", "java.debug.port", "java.debug.server",
+    "java.debug.suspend", "java.defaultCharacterEncoding", "java.mainClass", "java.mainModule",
+    "java.inferModulePath", "java.ignoreExitValue", "java.workingDir", "java.environment",
+    "java.classpath", "java.executable", "command.managedEncodingArguments",
+    "derivedCli.targetClasses", "derivedCli.targetTests", "derivedCli.threads", "derivedCli.mutators",
+    "derivedCli.excludedMethods", "derivedCli.excludedClasses", "derivedCli.excludedTestClasses",
+    "derivedCli.avoidCallsTo", "derivedCli.verbose", "derivedCli.verbosity", "derivedCli.timeoutFactor",
+    "derivedCli.timeoutConst", "derivedCli.jvmArgs", "derivedCli.outputFormats",
+    "derivedCli.failWhenNoMutations", "derivedCli.skipFailingTests", "derivedCli.includedGroups",
+    "derivedCli.excludedGroups", "derivedCli.fullMutationMatrix", "derivedCli.includedTestMethods",
+    "derivedCli.sourceDirs", "derivedCli.detectInlinedCode", "derivedCli.timestampedReports",
+    "derivedCli.mutableCodePaths", "derivedCli.mutationThreshold", "derivedCli.coverageThreshold",
+    "derivedCli.testStrengthThreshold", "derivedCli.mutationEngine", "derivedCli.exportLineCoverage",
+    "derivedCli.jvmPath", "derivedCli.maxSurviving", "derivedCli.useClasspathJar",
+    "derivedCli.inputEncoding", "derivedCli.outputEncoding", "derivedCli.features",
+    "derivedCli.classPathFile", "derivedCli.pluginConfiguration",
+)
 
 internal fun configureSealedInheritedJavaExecDefaults(task: JavaExec) {
     task.defaultCharacterEncoding = "UTF-8"

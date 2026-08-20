@@ -3,6 +3,7 @@ package com.gasstation.buildlogic.quality.mutation
 import com.gasstation.buildlogic.quality.coverage.canonicalCoverageJson
 import com.gasstation.buildlogic.quality.mutation.blockingMutationThreshold
 import info.solidsoft.gradle.pitest.fileCollectionIdentity
+import info.solidsoft.gradle.pitest.validateEffectivePitestSurface
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -41,6 +42,10 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
     @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val expectedMutableCodePaths: ConfigurableFileCollection
     @get:InputFiles @get:Classpath abstract val actualLaunchClasspath: ConfigurableFileCollection
     @get:InputFiles @get:Classpath abstract val expectedLaunchClasspath: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val originalSourceDirs: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val originalAdditionalClasspath: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val originalMutableCodePaths: ConfigurableFileCollection
+    @get:InputFiles @get:Classpath abstract val originalLaunchClasspath: ConfigurableFileCollection
     @get:Input abstract val directPitestGuardMarker: Property<String>
     @get:InputFile abstract val policyFile: RegularFileProperty
     @get:InputFile abstract val routeFile: RegularFileProperty
@@ -61,7 +66,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         }
         val values = effectiveValues.get()
         val expected = expectedEffectiveValues.get()
-        if (values != expected) throw GradleException("PIT effective values differ from the closed contract: $values")
+        validateEffectivePitestSurface(expected, values)
         val root = repositoryRoot.get().asFile
         val collectionIdentities = sortedMapOf(
             "pit.sourceDirs" to fileCollectionIdentity(actualSourceDirs, root),
@@ -77,6 +82,20 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         )
         if (collectionIdentities != expectedCollectionIdentities) {
             throw GradleException("PIT effective classpath/source surface differs from the closed contract")
+        }
+        val originalCollectionIdentities = sortedMapOf(
+            "pit.sourceDirs" to fileCollectionIdentity(originalSourceDirs, root),
+            "pit.additionalClasspath" to fileCollectionIdentity(originalAdditionalClasspath, root),
+            "pit.mutableCodePaths" to fileCollectionIdentity(originalMutableCodePaths, root),
+            "pit.launchClasspath" to fileCollectionIdentity(originalLaunchClasspath, root),
+        )
+        val changedOriginal = expectedCollectionIdentities.keys.filter {
+            expectedCollectionIdentities[it] != originalCollectionIdentities[it]
+        }
+        if (changedOriginal.isNotEmpty()) {
+            throw GradleException(
+                "PIT original effective classpath/source surface differs: ${changedOriginal.sorted().joinToString(",")}",
+            )
         }
         val serializedSurface = values.toMutableMap().also { surface ->
             surface.putAll(collectionIdentities)

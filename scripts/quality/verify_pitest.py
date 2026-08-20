@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -54,7 +55,15 @@ SUMMARY_PATH = REPORT_ROOT / "verification-summary.json"
 FINAL_RECEIPT_PATH = REPORT_ROOT / "verification-receipt.json"
 CAPTURE_RECEIPT_ROOT = REPOSITORY_ROOT / "config/quality/mutation-captures"
 TRANSITION_ROOT = REPOSITORY_ROOT / "config/quality/mutation-transitions"
+REVIEWED_TRANSITION_AXIS = "task7-spec-review-round2-corrections"
 BOOTSTRAP_MARKER = "sealed-v1"
+
+
+@dataclass(frozen=True)
+class BaselineSnapshot:
+    raw: bytes
+    value: dict[str, Any]
+    sha256: str
 
 
 def sha256(data: bytes) -> str:
@@ -66,6 +75,19 @@ def read_bytes(path: Path) -> bytes:
         return path.read_bytes()
     except OSError as error:
         raise MutationPolicyError(f"required evidence is missing: {relative(path)}") from error
+
+
+def read_baseline_snapshot() -> BaselineSnapshot | None:
+    try:
+        raw = BASELINE_PATH.read_bytes()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise MutationPolicyError(f"required evidence is unreadable: {relative(BASELINE_PATH)}") from error
+    value = read_strict_json(raw)
+    if not isinstance(value, dict):
+        raise MutationPolicyError("mutation baseline is malformed")
+    return BaselineSnapshot(raw=raw, value=value, sha256=sha256(raw))
 
 
 def relative(path: Path) -> str:
@@ -1027,10 +1049,286 @@ def capture(java_home: str) -> dict[str, Any]:
         raise MutationPolicyError("candidate baseline re-read differs")
     if read_strict_json(read_bytes(receipt_path)) != capture_receipt:
         raise MutationPolicyError("separate capture receipt re-read differs")
+    validate_baseline_capture_receipt(
+        candidate_raw,
+        candidate,
+        trusted_components=components,
+        validate_transition_chain=False,
+    )
     return candidate
 
 
-def validate_baseline_capture_receipt(baseline_raw: bytes, baseline: dict[str, Any]) -> dict[str, Any]:
+def _capture_trust_git() -> GitExecutor:
+    policy, _, _ = load_policy()
+    profile_name = {
+        ("Darwin", "arm64"): "darwin-arm64",
+        ("Linux", "x86_64"): "linux-x86_64",
+    }.get((platform.system(), platform.machine()))
+    profile = policy["bootstrapProfiles"].get(profile_name) if profile_name is not None else None
+    if not isinstance(profile, dict):
+        raise MutationPolicyError("trusted capture has no checked Git profile")
+    git = GitExecutor(
+        REPOSITORY_ROOT,
+        git_path=Path(profile["tools"]["git"]["path"]),
+        home=Path(os.environ.get("HOME", str(REPOSITORY_ROOT))),
+        tmpdir=Path(os.environ.get("TMPDIR", "/tmp")),
+    )
+    git.assert_original_full_history()
+    return git
+
+
+def _checked_tree_paths(git: GitExecutor, root: Path, label: str) -> list[str]:
+    try:
+        root_name = relative(root)
+    except MutationPolicyError as error:
+        raise MutationPolicyError(f"checked {label} root is not repository-owned") from error
+    raw = git.bytes(GitCommand.LS_TREE, "-rz", "--name-only", "HEAD", "--", root_name)
+    try:
+        paths = [item.decode("utf-8", errors="strict") for item in raw.split(b"\0") if item]
+    except UnicodeDecodeError as error:
+        raise MutationPolicyError(f"checked {label} path is not UTF-8") from error
+    return sorted(paths)
+
+
+def _checked_blob(git: GitExecutor, path: Path, label: str) -> bytes:
+    try:
+        name = relative(path)
+    except MutationPolicyError as error:
+        raise MutationPolicyError(f"trusted {label} must be repository-owned") from error
+    history_raw = git.bytes(GitCommand.LOG, "--format=%H", "--", name)
+    try:
+        history = [line.decode("ascii", errors="strict") for line in history_raw.splitlines() if line]
+    except UnicodeDecodeError as error:
+        raise MutationPolicyError(f"trusted {label} append-only history is not ASCII") from error
+    if len(history) != 1 or re.fullmatch(r"[0-9a-f]{40}", history[0]) is None:
+        raise MutationPolicyError(f"trusted {label} must have one append-only history introduction")
+    introduced = git.bytes(GitCommand.SHOW, f"{history[0]}:{name}")
+    checked = git.bytes(GitCommand.SHOW, f"HEAD:{name}")
+    if introduced != checked:
+        raise MutationPolicyError(f"trusted {label} differs from its append-only history introduction")
+    working = read_bytes(path)
+    if working != checked:
+        raise MutationPolicyError(f"trusted {label} differs from its checked Git blob")
+    return checked
+
+
+def _capture_receipt_link(raw: bytes, path: str) -> tuple[str, str | None, dict[str, Any]]:
+    value = read_strict_json(raw)
+    if not isinstance(value, dict) or value.get("schema") != "pitest-capture-receipt-v1":
+        raise MutationPolicyError(f"transition chain capture receipt schema differs: {path}")
+    candidate = value.get("candidateBaselineSha256")
+    predecessor = value.get("predecessorBaselineHash")
+    if not isinstance(candidate, str) or re.fullmatch(r"[0-9a-f]{64}", candidate) is None:
+        raise MutationPolicyError(f"transition chain candidate hash differs: {path}")
+    if predecessor is not None and (not isinstance(predecessor, str) or re.fullmatch(r"[0-9a-f]{64}", predecessor) is None):
+        raise MutationPolicyError(f"transition chain predecessor hash differs: {path}")
+    if Path(path).name != f"{candidate}.json":
+        raise MutationPolicyError(f"transition chain capture filename differs: {path}")
+    receipt_keys = {
+        "schema", "candidateBaselineSha256", "predecessorBaselineHash",
+        "captureEvidenceDigest", "evidenceManifest",
+    }
+    legacy_keys = (receipt_keys - {"evidenceManifest"}) | {"components"}
+    evidence_digest = value.get("captureEvidenceDigest")
+    if not isinstance(evidence_digest, str) or re.fullmatch(r"[0-9a-f]{64}", evidence_digest) is None:
+        raise MutationPolicyError(f"transition chain capture evidence digest differs: {path}")
+    if set(value) == legacy_keys:
+        if predecessor is not None:
+            raise MutationPolicyError(f"transition chain legacy capture predecessor differs: {path}")
+        components = value.get("components")
+        expected_components = {
+            "policy", "route", "tasks", "routeReceipt", "attempt", "completion", "measurement",
+            "configuration:location", "configuration:settings", "configuration:station",
+            "xml:location", "xml:settings", "xml:station",
+            "semantic:location", "semantic:settings", "semantic:station", "verificationSummary",
+        }
+        if not isinstance(components, dict) or set(components) != expected_components:
+            raise MutationPolicyError(f"transition chain legacy component set differs: {path}")
+    elif set(value) == receipt_keys:
+        manifest = value.get("evidenceManifest")
+        manifest_keys = {
+            "schema", "sourceCommit", "policySha256", "predecessorBaselineHash",
+            "predecessorVerificationReceiptHash", "hostNeutralMutationIdentitySha256",
+            "perRunExecutionProvenanceSha256", "components",
+        }
+        if (
+            not isinstance(manifest, dict)
+            or set(manifest) != manifest_keys
+            or manifest.get("schema") != "pitest-capture-evidence-manifest-v1"
+            or manifest.get("predecessorBaselineHash") != predecessor
+            or sha256(canonical_json_bytes(manifest)) != evidence_digest
+        ):
+            raise MutationPolicyError(f"transition chain capture manifest differs: {path}")
+        components = manifest.get("components")
+        expected_components = {
+            "policy", "sourceCommit", "route", "tasks", "routeReceipt", "attempt", "completion",
+            "measurement", "configuration:location", "configuration:settings", "configuration:station",
+            "xml:location", "xml:settings", "xml:station", "semantic:location", "semantic:settings",
+            "semantic:station", "html:location", "html:settings", "html:station", "verificationSummary",
+        }
+        if predecessor is not None:
+            expected_components.add("predecessorVerificationReceipt")
+        if not isinstance(components, dict) or set(components) != expected_components:
+            raise MutationPolicyError(f"transition chain capture component set differs: {path}")
+    else:
+        raise MutationPolicyError(f"transition chain capture receipt closed schema differs: {path}")
+    if any(not isinstance(item, str) or re.fullmatch(r"[0-9a-f]{64}", item) is None for item in components.values()):
+        raise MutationPolicyError(f"transition chain capture component digest differs: {path}")
+    return candidate, predecessor, value
+
+
+def validate_capture_transition_chain(current_baseline_sha256: str, git: GitExecutor) -> None:
+    capture_paths = _checked_tree_paths(git, CAPTURE_RECEIPT_ROOT, "capture receipt")
+    transition_paths = _checked_tree_paths(git, TRANSITION_ROOT, "transition chain")
+    try:
+        actual_captures = sorted(relative(path) for path in CAPTURE_RECEIPT_ROOT.glob("*.json"))
+        actual_transitions = sorted(relative(path) for path in TRANSITION_ROOT.glob("*.json"))
+    except MutationPolicyError as error:
+        raise MutationPolicyError("checked transition chain root is not repository-owned") from error
+    if actual_captures != capture_paths or actual_transitions != transition_paths:
+        raise MutationPolicyError("checked transition chain file inventory differs")
+    if not capture_paths:
+        raise MutationPolicyError("checked transition chain has no capture root")
+
+    receipts: dict[str, tuple[str | None, dict[str, Any], bytes]] = {}
+    for name in capture_paths:
+        path = REPOSITORY_ROOT / name
+        raw = _checked_blob(git, path, "capture receipt")
+        candidate, predecessor, value = _capture_receipt_link(raw, name)
+        if candidate in receipts:
+            raise MutationPolicyError("checked transition chain has duplicate capture candidates")
+        receipts[candidate] = (predecessor, value, raw)
+
+    transition_keys = {
+        "schema", "axis", "sourceCommit", "policySha256", "predecessorBaselineSha256",
+        "candidateBaselineSha256", "captureReceiptSha256", "predecessorVerificationReceiptSha256",
+        "routeSha256", "completionSha256", "oldInputIdentity", "newInputIdentity", "inventoryDelta",
+    }
+    transitions: dict[str, tuple[str, dict[str, Any]]] = {}
+    for name in transition_paths:
+        raw = _checked_blob(git, REPOSITORY_ROOT / name, "transition record")
+        value = read_strict_json(raw)
+        if not isinstance(value, dict) or set(value) != transition_keys or value.get("schema") != "pitest-recapture-transition-v1":
+            raise MutationPolicyError(f"checked transition chain record schema differs: {name}")
+        predecessor = value.get("predecessorBaselineSha256")
+        candidate = value.get("candidateBaselineSha256")
+        old_identity = value.get("oldInputIdentity")
+        new_identity = value.get("newInputIdentity")
+        digest_fields = (
+            "policySha256", "predecessorBaselineSha256", "candidateBaselineSha256",
+            "captureReceiptSha256", "predecessorVerificationReceiptSha256",
+            "routeSha256", "completionSha256",
+        )
+        if any(
+            not isinstance(value.get(field), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value[field]) is None
+            for field in digest_fields
+        ):
+            raise MutationPolicyError(f"checked transition chain digest differs: {name}")
+        if (
+            not isinstance(value.get("sourceCommit"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", value["sourceCommit"]) is None
+            or value.get("axis") not in {
+                "task7-spec-review-round1-corrections", REVIEWED_TRANSITION_AXIS,
+            }
+            or not isinstance(old_identity, dict)
+            or not isinstance(new_identity, dict)
+            or not isinstance(value.get("inventoryDelta"), dict)
+            or set(value["inventoryDelta"]) != {"location", "settings", "station"}
+        ):
+            raise MutationPolicyError(f"checked transition chain link differs: {name}")
+        old_schema = old_identity.get("schemaVersion")
+        expected_old_keys = {"schemaVersion", "hostNeutralMutationIdentitySha256"}
+        if old_schema == 2:
+            expected_old_keys.add("mutationInputIdentitySha256")
+        if old_schema not in {1, 2} or set(old_identity) != expected_old_keys:
+            raise MutationPolicyError(f"checked transition chain old input identity differs: {name}")
+        if set(new_identity) != {
+            "schemaVersion", "mutationInputIdentitySha256", "hostNeutralMutationIdentitySha256",
+        } or new_identity.get("schemaVersion") != 2:
+            raise MutationPolicyError(f"checked transition chain new input identity differs: {name}")
+        for identity, fields in (
+            (old_identity, set(old_identity) - {"schemaVersion"}),
+            (new_identity, set(new_identity) - {"schemaVersion"}),
+        ):
+            if any(
+                not isinstance(identity.get(field), str)
+                or re.fullmatch(r"[0-9a-f]{64}", identity[field]) is None
+                for field in fields
+            ):
+                raise MutationPolicyError(f"checked transition chain input identity digest differs: {name}")
+        input_identity = new_identity.get("mutationInputIdentitySha256")
+        if Path(name).name != f"{predecessor}-to-{input_identity}.json":
+            raise MutationPolicyError(f"checked transition chain filename differs: {name}")
+        if predecessor in transitions:
+            raise MutationPolicyError("checked transition chain branches from one predecessor")
+        transitions[predecessor] = (candidate, value)
+
+    roots = sorted(candidate for candidate, (predecessor, _, _) in receipts.items() if predecessor is None)
+    if len(roots) != 1:
+        raise MutationPolicyError("checked transition chain must have one null-predecessor root")
+    cursor = roots[0]
+    visited_receipts = {cursor}
+    visited_transitions: set[str] = set()
+    while cursor != current_baseline_sha256:
+        edge = transitions.get(cursor)
+        if edge is None:
+            raise MutationPolicyError("checked transition chain is disconnected from current baseline")
+        candidate, transition = edge
+        candidate_receipt = receipts.get(candidate)
+        if candidate_receipt is None:
+            raise MutationPolicyError("checked transition chain candidate receipt is missing")
+        predecessor, receipt_value, receipt_raw = candidate_receipt
+        if predecessor != cursor:
+            raise MutationPolicyError("checked transition chain receipt predecessor differs")
+        if transition["captureReceiptSha256"] != sha256(receipt_raw):
+            raise MutationPolicyError("checked transition chain capture receipt hash differs")
+        manifest = receipt_value.get("evidenceManifest")
+        if not isinstance(manifest, dict):
+            raise MutationPolicyError("checked transition chain successor manifest is missing")
+        if manifest.get("predecessorBaselineHash") != cursor:
+            raise MutationPolicyError("checked transition chain manifest predecessor differs")
+        if manifest.get("predecessorVerificationReceiptHash") != transition["predecessorVerificationReceiptSha256"]:
+            raise MutationPolicyError("checked transition chain predecessor receipt link differs")
+        components = manifest.get("components")
+        if not isinstance(components, dict):
+            raise MutationPolicyError("checked transition chain successor components are missing")
+        if (
+            transition["candidateBaselineSha256"] != candidate
+            or transition["sourceCommit"] != manifest.get("sourceCommit")
+            or transition["policySha256"] != manifest.get("policySha256")
+            or transition["routeSha256"] != components.get("route")
+            or transition["completionSha256"] != components.get("completion")
+            or transition["predecessorVerificationReceiptSha256"]
+            != components.get("predecessorVerificationReceipt")
+            or transition["newInputIdentity"]["hostNeutralMutationIdentitySha256"]
+            != manifest.get("hostNeutralMutationIdentitySha256")
+        ):
+            raise MutationPolicyError("checked transition chain typed successor link differs")
+        old_receipt = receipts[cursor][1]
+        old_manifest = old_receipt.get("evidenceManifest")
+        if isinstance(old_manifest, dict) and (
+            transition["oldInputIdentity"]["hostNeutralMutationIdentitySha256"]
+            != old_manifest.get("hostNeutralMutationIdentitySha256")
+        ):
+            raise MutationPolicyError("checked transition chain typed predecessor link differs")
+        if candidate in visited_receipts:
+            raise MutationPolicyError("checked transition chain contains a cycle")
+        visited_transitions.add(cursor)
+        visited_receipts.add(candidate)
+        cursor = candidate
+    if visited_receipts != set(receipts) or visited_transitions != set(transitions):
+        raise MutationPolicyError("checked transition chain contains disconnected or successor evidence")
+
+
+def validate_baseline_capture_receipt(
+    baseline_raw: bytes,
+    baseline: dict[str, Any],
+    *,
+    git: GitExecutor | None = None,
+    trusted_components: dict[str, bytes] | None = None,
+    validate_transition_chain: bool = True,
+) -> dict[str, Any]:
     validate_baseline_schema(baseline)
     if canonical_json_bytes(baseline) != baseline_raw:
         raise MutationPolicyError("mutation baseline bytes are not canonical JSON")
@@ -1082,6 +1380,43 @@ def validate_baseline_capture_receipt(baseline_raw: bytes, baseline: dict[str, A
     for name, digest in components.items():
         if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
             raise MutationPolicyError(f"mutation capture component hash is invalid: {name}")
+    baseline_component_bindings = {
+        "policy": baseline["policySha256"],
+        "sourceCommit": sha256((baseline["sourceCommit"] + "\n").encode("ascii")),
+    }
+    for report in baseline["reports"]:
+        name = report["module"]
+        baseline_component_bindings[f"configuration:{name}"] = report["configurationSha256"]
+        baseline_component_bindings[f"xml:{name}"] = report["rawSha256"]
+        baseline_component_bindings[f"semantic:{name}"] = sha256(
+            canonical_json_bytes({"semanticSha256": report["semanticSha256"]}),
+        )
+        baseline_component_bindings[f"html:{name}"] = sha256(canonical_json_bytes(report["html"]))
+    if baseline["predecessorVerificationReceiptHash"] is not None:
+        baseline_component_bindings["predecessorVerificationReceipt"] = baseline[
+            "predecessorVerificationReceiptHash"
+        ]
+    for name, digest in baseline_component_bindings.items():
+        if components.get(name) != digest:
+            raise MutationPolicyError(f"mutation capture component differs from typed baseline: {name}")
+    trust_git = git
+    if trusted_components is not None:
+        if set(trusted_components) != set(components):
+            raise MutationPolicyError("trusted capture component byte set differs")
+        for name, digest in components.items():
+            if sha256(trusted_components[name]) != digest:
+                raise MutationPolicyError(f"trusted capture component bytes differ: {name}")
+    else:
+        trust_git = trust_git or _capture_trust_git()
+        checked_receipt_raw = _checked_blob(trust_git, receipt_path, "capture receipt")
+        checked_receipt = read_strict_json(checked_receipt_raw)
+        checked_manifest = checked_receipt.get("evidenceManifest") if isinstance(checked_receipt, dict) else None
+        checked_components = checked_manifest.get("components") if isinstance(checked_manifest, dict) else None
+        if not isinstance(checked_components, dict):
+            raise MutationPolicyError("trusted capture receipt has no checked component manifest")
+        for name, digest in components.items():
+            if checked_components.get(name) != digest:
+                raise MutationPolicyError(f"trusted capture component differs from checked Git: {name}")
     if manifest["sourceCommit"] != baseline["sourceCommit"]:
         raise MutationPolicyError("mutation capture evidence source commit differs")
     if manifest["policySha256"] != baseline["policySha256"]:
@@ -1102,6 +1437,9 @@ def validate_baseline_capture_receipt(baseline_raw: bytes, baseline: dict[str, A
     }
     if set(value) & forbidden or set(baseline) & forbidden:
         raise MutationPolicyError("mutation baseline/capture receipt contains a self or successor hash")
+    if validate_transition_chain:
+        trust_git = trust_git or _capture_trust_git()
+        validate_capture_transition_chain(candidate_hash, trust_git)
     return value
 
 
@@ -1456,7 +1794,11 @@ def validate_legacy_predecessor(baseline_raw: bytes, baseline: dict[str, Any]) -
     return value
 
 
-def verify(observation: bool, java_home: str) -> dict[str, Any]:
+def verify(
+    observation: bool,
+    java_home: str,
+    baseline_snapshot: BaselineSnapshot | None = None,
+) -> dict[str, Any]:
     policy, route_value, policy_raw, policy_hash = validate_route(java_home)
     if observation and policy["enforcementPhase"] != "observe":
         raise MutationPolicyError("observe rejects blocking-phase effective configuration")
@@ -1482,8 +1824,9 @@ def verify(observation: bool, java_home: str) -> dict[str, Any]:
         write_atomic(SUMMARY_PATH, value)
         return value
     completion, completion_raw = validate_completion_value(policy, route_value, policy_raw)
-    baseline_raw = read_bytes(BASELINE_PATH) if BASELINE_PATH.exists() else None
-    baseline = read_strict_json(baseline_raw) if baseline_raw is not None else None
+    snapshot = baseline_snapshot if baseline_snapshot is not None else read_baseline_snapshot()
+    baseline_raw = snapshot.raw if snapshot is not None else None
+    baseline = snapshot.value if snapshot is not None else None
     if not isinstance(completion, dict):
         raise MutationPolicyError("completion is malformed")
     violations: list[str] = []
@@ -1491,8 +1834,8 @@ def verify(observation: bool, java_home: str) -> dict[str, Any]:
     if baseline is not None:
         if not isinstance(baseline, dict):
             raise MutationPolicyError("mutation baseline is malformed")
-        validate_baseline_capture_receipt(baseline_raw, baseline)
         _, git = validate_bootstrap(policy, java_home)
+        validate_baseline_capture_receipt(baseline_raw, baseline, git=git)
         if git.text(GitCommand.MERGE_BASE, "--is-ancestor", baseline["sourceCommit"], route_value["sourceCommit"]) != "":
             raise MutationPolicyError("mutation baseline source is not an ancestor")
         if not baseline_policy_identity_matches(baseline.get("policySha256"), policy_raw, policy["enforcementPhase"]):
@@ -1830,11 +2173,18 @@ def seal_verification(java_home: str) -> dict[str, Any]:
         raise MutationPolicyError("only a successful summary can be sealed")
     if summary.get("verificationMode") == "initial-capture":
         raise MutationPolicyError("initial-capture summary cannot be sealed as an ordinary receipt")
-    revalidated = verify(observation=False, java_home=java_home)
+    selected = route_value["status"] == "selected"
+    baseline_snapshot = read_baseline_snapshot() if selected else None
+    if selected and baseline_snapshot is None:
+        raise MutationPolicyError("blocking verification requires mutation baseline")
+    revalidated = verify(
+        observation=False,
+        java_home=java_home,
+        baseline_snapshot=baseline_snapshot,
+    )
     current_summary_raw = read_bytes(SUMMARY_PATH)
     if summary != revalidated or summary_raw != current_summary_raw:
         raise MutationPolicyError("verification summary differs after typed predecessor revalidation")
-    selected = route_value["status"] == "selected"
     predecessors = {
         "policy": policy_raw,
         "route": read_bytes(ROUTE_PATH),
@@ -1846,7 +2196,9 @@ def seal_verification(java_home: str) -> dict[str, Any]:
         completion, completion_raw = validate_completion_value(policy, route_value, policy_raw)
         predecessors["attempt"] = read_bytes(ATTEMPT_PATH)
         predecessors["completion"] = completion_raw
-        predecessors["baseline"] = read_bytes(BASELINE_PATH) if BASELINE_PATH.exists() else b""
+        if baseline_snapshot is None:
+            raise MutationPolicyError("selected verification lost its baseline snapshot")
+        predecessors["baseline"] = baseline_snapshot.raw
         for report in completion["reports"]:
             name = report["module"]
             module = policy["modules"][name]
@@ -1922,7 +2274,7 @@ def install_successor_atomically(
 def recapture_transition(java_home: str) -> dict[str, Any]:
     policy, route_value, policy_raw, policy_hash = validate_route(java_home)
     transition_axes = policy.get("capturePolicy", {}).get("reviewedTransitionAxes")
-    if transition_axes != ["task7-spec-review-round1-corrections"]:
+    if transition_axes != [REVIEWED_TRANSITION_AXIS]:
         raise MutationPolicyError("recapture-transition reviewed axis differs")
     if route_value.get("event") != "local-all" or route_value.get("selectedModules") != ["location", "settings", "station"]:
         raise MutationPolicyError("recapture-transition requires a local-all three-module route")
@@ -1976,7 +2328,7 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
     summary = {
         "schemaVersion": 2,
         "verificationMode": "recapture-transition",
-        "transitionAxis": "task7-spec-review-round1-corrections",
+        "transitionAxis": REVIEWED_TRANSITION_AXIS,
         "status": "pass" if not violations else "fail",
         "sourceCommit": route_value["sourceCommit"],
         "policySha256": policy_hash,
@@ -2049,7 +2401,7 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
     transition_path = TRANSITION_ROOT / f"{predecessor_hash}-to-{input_identity['sha256']}.json"
     transition = {
         "schema": "pitest-recapture-transition-v1",
-        "axis": "task7-spec-review-round1-corrections",
+        "axis": REVIEWED_TRANSITION_AXIS,
         "sourceCommit": route_value["sourceCommit"],
         "policySha256": policy_hash,
         "predecessorBaselineSha256": predecessor_hash,
@@ -2083,7 +2435,12 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
         transition_path=transition_path,
         transition_raw=canonical_json_bytes(transition),
     )
-    validate_baseline_capture_receipt(read_bytes(BASELINE_PATH), candidate)
+    validate_baseline_capture_receipt(
+        read_bytes(BASELINE_PATH),
+        candidate,
+        trusted_components=components,
+        validate_transition_chain=False,
+    )
     return candidate
 
 

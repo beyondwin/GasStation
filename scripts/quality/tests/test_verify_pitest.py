@@ -252,6 +252,33 @@ class PitestParserTest(unittest.TestCase):
                     class_lookup=lambda class_name: ("Thing.class", class_bytes),
                 )
 
+    def test_java17_method_handle_reference_kind_matrix_is_exact(self) -> None:
+        valid = {
+            1: {9}, 2: {9}, 3: {9}, 4: {9},
+            5: {10}, 6: {10, 11}, 7: {10, 11}, 8: {10}, 9: {11},
+        }
+        for reference_kind, allowed_tags in valid.items():
+            for reference_tag in (9, 10, 11):
+                class_bytes = source_file_bytes_with_method_handle(reference_kind, reference_tag)
+                if reference_tag in allowed_tags:
+                    parse_pitest_xml(
+                        VALID_XML,
+                        module="station",
+                        package_root="com.gasstation.domain.station",
+                        source_lookup=lambda class_name, source_file: source_file,
+                        class_lookup=lambda class_name, data=class_bytes: ("Thing.class", data),
+                    )
+                else:
+                    with self.subTest(reference_kind=reference_kind, reference_tag=reference_tag):
+                        with self.assertRaisesRegex(MutationPolicyError, "method-handle reference"):
+                            parse_pitest_xml(
+                                VALID_XML,
+                                module="station",
+                                package_root="com.gasstation.domain.station",
+                                source_lookup=lambda class_name, source_file: source_file,
+                                class_lookup=lambda class_name, data=class_bytes: ("Thing.class", data),
+                            )
+
     def test_class_parser_accepts_strict_modified_utf8_and_rejects_malformed_forms(self) -> None:
         modified_utf8 = b"prefix\xc0\x80\xed\xa0\xbd\xed\xb8\x80suffix"
         parse_pitest_xml(
@@ -493,6 +520,34 @@ def source_file_bytes(source_file: str, class_name: str, *, extra_utf8: bytes | 
     ]
     if extra_utf8 is not None:
         pool.append(utf8(extra_utf8))
+    return (
+        b"\xca\xfe\xba\xbe"
+        + (0).to_bytes(2, "big")
+        + (61).to_bytes(2, "big")
+        + (len(pool) + 1).to_bytes(2, "big")
+        + b"".join(pool)
+        + b"\x00\x21\x00\x02\x00\x04"
+        + b"\x00\x00\x00\x00\x00\x00"
+        + b"\x00\x01\x00\x05\x00\x00\x00\x02\x00\x06"
+    )
+
+
+def source_file_bytes_with_method_handle(reference_kind: int, reference_tag: int) -> bytes:
+    internal = b"com/gasstation/domain/station/Thing"
+    utf8 = lambda value: b"\x01" + len(value).to_bytes(2, "big") + value
+    pool = [
+        utf8(internal),             # 1
+        b"\x07\x00\x01",          # 2 Class
+        utf8(b"java/lang/Object"), # 3
+        b"\x07\x00\x03",          # 4 Class
+        utf8(b"SourceFile"),       # 5
+        utf8(b"Thing.kt"),         # 6
+        utf8(b"member"),           # 7
+        utf8(b"()V"),              # 8
+        b"\x0c\x00\x07\x00\x08",  # 9 NameAndType
+        bytes((reference_tag,)) + b"\x00\x02\x00\x09", # 10 member reference
+        b"\x0f" + bytes((reference_kind,)) + b"\x00\x0a", # 11 MethodHandle
+    ]
     return (
         b"\xca\xfe\xba\xbe"
         + (0).to_bytes(2, "big")

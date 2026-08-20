@@ -40,7 +40,7 @@
     "captureReceiptDirectory": "config/quality/mutation-captures",
     "initialPredecessorBaselineHash": null,
     "initialPredecessorVerificationReceiptHash": null,
-    "reviewedTransitionAxes": ["task7-spec-review-round1-corrections"],
+    "reviewedTransitionAxes": ["task7-spec-review-round2-corrections"],
     "schema": "acyclic-candidate-and-separate-receipt-v1",
     "transitionDirectory": "config/quality/mutation-transitions"
   },
