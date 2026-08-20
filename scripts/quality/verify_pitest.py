@@ -920,7 +920,7 @@ def verify(observation: bool, java_home: str) -> dict[str, Any]:
         _, git = validate_bootstrap(policy, java_home)
         if git.text(GitCommand.MERGE_BASE, "--is-ancestor", baseline["sourceCommit"], route_value["sourceCommit"]) != "":
             raise MutationPolicyError("mutation baseline source is not an ancestor")
-        if baseline.get("policySha256") != policy_hash:
+        if not baseline_policy_identity_matches(baseline.get("policySha256"), policy_raw, policy["enforcementPhase"]):
             raise MutationPolicyError("mutation baseline policy identity differs")
         if baseline.get("hostNeutralMutationIdentitySha256") != completion.get("hostNeutralMutationIdentitySha256"):
             raise MutationPolicyError("host-neutral mutation identity differs; reviewed recapture required")
@@ -967,6 +967,22 @@ def verify(observation: bool, java_home: str) -> dict[str, Any]:
     if violations:
         raise MutationPolicyError("; ".join(sorted(violations)))
     return value
+
+
+def baseline_policy_identity_matches(baseline_hash: object, current_raw: bytes, phase: str) -> bool:
+    if not isinstance(baseline_hash, str):
+        return False
+    if sha256(current_raw) == baseline_hash:
+        return True
+    marker = b'"enforcementPhase": "blocking"'
+    if phase != "blocking" or current_raw.count(marker) != 1:
+        marker = b'"enforcementPhase":"blocking"'
+        if phase != "blocking" or current_raw.count(marker) != 1:
+            return False
+        observation_raw = current_raw.replace(marker, b'"enforcementPhase":"observe"', 1)
+    else:
+        observation_raw = current_raw.replace(marker, b'"enforcementPhase": "observe"', 1)
+    return sha256(observation_raw) == baseline_hash
 
 
 def seal_verification(java_home: str) -> dict[str, Any]:

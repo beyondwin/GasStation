@@ -55,7 +55,7 @@ gh release view vX.Y.Z --json url,assets
 
 `v*` tag push는 GitHub Actions에서 PR 범위 검증에 더해 `:app:assembleProdRelease`를 실행하고, coverage report와 ratchet evidence도 tagged SHA에서 다시 생성합니다. `release-publish`는 모든 선행 blocking job 성공 후 `docs/release-notes/*-vX.Y.Z.md`를 body로 사용해 GitHub Release를 게시합니다. tag와 `versionName`이 다르거나 release note가 정확히 하나가 아니거나 APK가 두 개가 아니면 발행 전에 실패합니다.
 
-현재 Commit B의 JVM mutation job은 report-only observation 단계이므로 아직 `release-publish.needs`에 포함되지 않습니다. 세 domain module의 integrity/상태/no-coverage delta와 station/location floor 결과를 모두 기록·업로드하지만 release prerequisite 승격은 Commit C에서 strict verifier와 station 45/location 75 native floor를 함께 켤 때만 이뤄집니다. settings는 승격 뒤에도 score floor는 report-only이고 malformed/status/source/no-coverage 위반은 차단합니다.
+JVM mutation job은 `release-publish.needs`의 unconditional tag prerequisite입니다. strict verifier와 station 45/location 75 native floor를 함께 적용하고 모든 증거를 업로드합니다. settings는 score floor만 report-only이며 malformed/status/source/no-coverage 위반은 차단합니다.
 
 Mutation job은 exact `ubuntu-24.04`에서 `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`과 reviewed runner-images release identity를 먼저 검사합니다. Linux env/Bash/Python/Git의 type, executable mode, content와 version은 그 실행에서 관측될 뿐 고정 executable provenance가 아닙니다. 공식 release의 `internal.ubuntu24.json`은 SBOM이나 immutable VM/binary digest가 아니며, 관측 receipt도 signed attestation이 아닙니다. image rotation은 fail closed 후 reviewed recapture가 필요하고 최종 binary supply-chain remediation는 Task 9 범위입니다.
 

@@ -143,7 +143,7 @@ done < "$repository_root/build/reports/pitest/tasks.txt"
 
 if [[ "${#pitest_tasks[@]}" -eq 0 ]]; then
   [[ -z "$capture_kind" ]] || fail "a capture cannot use a not-applicable route"
-  run_policy observe
+  run_policy verify
   run_policy seal-verification
   exit 0
 fi
@@ -167,6 +167,6 @@ if [[ -n "$capture_kind" ]]; then
   [[ "$capture_kind" == "initial" ]] || fail "no reviewed successor capture transition is installed"
   run_policy capture
 else
-  run_policy observe
+  run_policy verify
   run_policy seal-verification
 fi

@@ -24,13 +24,13 @@ import java.nio.charset.StandardCharsets
 private data class MutationModule(
     val projectPath: String,
     val packageRoot: String,
-    val observationThreshold: Int?,
+    val blockingThreshold: Int?,
 )
 
 private val mutationModules =
     listOf(
-        MutationModule(":domain:station", "com.gasstation.domain.station", 40),
-        MutationModule(":domain:location", "com.gasstation.domain.location", null),
+        MutationModule(":domain:station", "com.gasstation.domain.station", 45),
+        MutationModule(":domain:location", "com.gasstation.domain.location", 75),
         MutationModule(":domain:settings", "com.gasstation.domain.settings", null),
     )
 
@@ -86,7 +86,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             mainProcessJvmArgs.set(emptyList())
             exportLineCoverage.set(false)
             reportDir.set(target.layout.buildDirectory.dir("reports/pitest"))
-            module.observationThreshold?.let(mutationThreshold::set)
+            module.blockingThreshold?.let(mutationThreshold::set)
         }
         lockExtension(extension)
 
@@ -119,7 +119,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             copyPitestPropertiesFrom(original)
             expectedChildEnvironment.set(childEnvironment)
             expectedRepositoryRoot.set(target.rootProject.layout.projectDirectory)
-            module.observationThreshold?.let(expectedMutationThreshold::set)
+            module.blockingThreshold?.let(expectedMutationThreshold::set)
             javaLauncher.set(java21)
             executable(java21.get().executablePath.asFile.absolutePath)
             workingDir(target.rootProject.layout.projectDirectory)
@@ -137,8 +137,8 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             targetGlob.set(verified.flatMap { it.targetClasses }.map { it.single() })
             pitestVersion.set(extension.pitestVersion)
             threads.set(verified.flatMap { it.threads })
-            enforcementPhase.set("observe")
-            module.observationThreshold?.let(mutationThreshold::set)
+            enforcementPhase.set("blocking")
+            module.blockingThreshold?.let(mutationThreshold::set)
             effectiveValues.set(
                 target.providers.provider {
                     val task = verified.get()
@@ -192,6 +192,12 @@ internal fun requireSupportedMutationProject(projectPath: String) {
                 mutationModules.joinToString(",") { it.projectPath },
         )
     }
+}
+
+internal fun blockingMutationThreshold(projectPath: String): Int? {
+    val module = mutationModules.singleOrNull { it.projectPath == projectPath }
+        ?: throw GradleException("Unsupported mutation project: $projectPath")
+    return module.blockingThreshold
 }
 
 private fun GasStationVerifiedPitestTask.copyPitestPropertiesFrom(original: PitestTask) {

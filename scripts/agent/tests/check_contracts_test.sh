@@ -1730,9 +1730,9 @@ assert check_mutation_workflow_contracts(target)
 target = copy_contract()
 policy_path = target / "config/quality/mutation-policy.json"
 policy = json.loads(policy_path.read_text())
-policy["enforcementPhase"] = "blocking"
+policy["enforcementPhase"] = "observe"
 policy_path.write_text(json.dumps(policy))
-assert check_mutation_workflow_contracts(target), "blocking phase accepted a report-only release graph"
+assert check_mutation_workflow_contracts(target), "observation phase accepted a blocking release graph"
 PY
 
 echo "check_contracts_test: PASS"

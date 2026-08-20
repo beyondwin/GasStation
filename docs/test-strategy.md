@@ -171,13 +171,13 @@ PIT 1.25.7은 Android/기기 경로가 아니라 JVM-only `domain:station`, `dom
 
 | 모듈 | KILLED | SURVIVED | NO_COVERAGE | 점수 상태 |
 | --- | ---: | ---: | ---: | --- |
-| station | 36/66 | 3 | 27 | observation에서 기존 native 40 유지, 최종 floor 45 |
-| location | 53/68 | 12 | 3 | 최종 floor 75 |
+| station | 36/66 | 3 | 27 | blocking floor 45 |
+| location | 53/68 | 12 | 3 | blocking floor 75 |
 | settings | 8/13 | 5 | 0 | score report-only |
 
 점수는 반올림 표시가 아니라 `killed * 100 >= floor * total`의 정수 교차곱으로 판정합니다. settings도 malformed XML, 허용되지 않은 status, source/class identity와 changed-package `NO_COVERAGE` non-increase는 차단하며 점수 floor만 없습니다. 세 모듈 모두 `KILLED`, `SURVIVED`, `NO_COVERAGE` 외 status를 거부합니다.
 
-현재 Commit B의 CI job은 report-only observation 단계입니다. floor/no-coverage delta를 증거에 기록하지만 아직 tag release prerequisite는 아닙니다. blocking 승격은 별도 Commit C에서 station 45/location 75 native threshold, strict `verify`, tag prerequisite를 함께 전환합니다.
+최종 CI job은 station 45/location 75 native threshold와 strict `verify`를 사용하고 `v*` tag의 unconditional release prerequisite입니다. settings는 계속 score report-only이지만 malformed/status/source identity와 changed-package no-coverage 위반은 job을 실패시킵니다. 최종 source에는 observation으로 돌아가는 property/task/CLI switch가 없고 `observe` subcommand는 blocking configuration을 거부합니다.
 
 Baseline provenance는 순환하지 않습니다. candidate baseline은 predecessor hash(초기값 null)와 `captureEvidenceDigest`만 가지며 자기 hash나 receipt hash를 포함하지 않습니다. candidate를 쓴 뒤 `config/quality/mutation-captures/<candidate-sha256>.json`이라는 별도 append-only receipt가 candidate와 pre-baseline component hash를 묶습니다. 갱신은 CI/agent가 아닌 수동 canonical capture만 허용하며 predecessor baseline과 predecessor verification receipt를 정확히 이어야 합니다.
 

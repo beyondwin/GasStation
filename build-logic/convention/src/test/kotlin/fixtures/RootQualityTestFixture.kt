@@ -292,7 +292,10 @@ private fun GradlePluginTestProject.writeMutationRouteFixture() {
             )
         }
     val pitest = mapOf("pitestVersion" to "1.25.7", "pluginVersion" to "1.19.0")
-    val policy = canonicalCoverageJson(mapOf("modules" to targets, "pitest" to pitest)) + byteArrayOf('\n'.code.toByte())
+    val policy =
+        canonicalCoverageJson(
+            mapOf("enforcementPhase" to "blocking", "modules" to targets, "pitest" to pitest),
+        ) + byteArrayOf('\n'.code.toByte())
     writeFile("config/quality/mutation-policy.json", policy.toString(Charsets.UTF_8))
     val neutral =
         mapOf(

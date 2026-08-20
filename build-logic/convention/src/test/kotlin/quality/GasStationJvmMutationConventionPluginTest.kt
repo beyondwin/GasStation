@@ -2,7 +2,9 @@ package com.gasstation.buildlogic.quality
 
 import com.gasstation.buildlogic.quality.mutation.RejectDirectPitestAction
 import com.gasstation.buildlogic.quality.mutation.configureSealedInheritedJavaExecDefaults
+import com.gasstation.buildlogic.quality.mutation.blockingMutationThreshold
 import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProject
+import com.gasstation.buildlogic.quality.mutation.validateBlockingEnforcement
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
 import info.solidsoft.gradle.pitest.validateSealedExecutable
 import info.solidsoft.gradle.pitest.validateSealedEncodingSurface
@@ -17,6 +19,21 @@ import org.junit.Test
 import java.io.File
 
 class GasStationJvmMutationConventionPluginTest {
+    @Test
+    fun blockingPhaseUsesExactNativeFloorsAndKeepsSettingsScoreReportOnly() {
+        assertEquals(45, blockingMutationThreshold(":domain:station"))
+        assertEquals(75, blockingMutationThreshold(":domain:location"))
+        assertEquals(null, blockingMutationThreshold(":domain:settings"))
+
+        validateBlockingEnforcement("blocking", "blocking")
+        listOf("observe" to "blocking", "blocking" to "observe").forEach { (taskPhase, policyPhase) ->
+            val failure = assertThrows(GradleException::class.java) {
+                validateBlockingEnforcement(taskPhase, policyPhase)
+            }
+            assertTrue(failure.message, failure.message.orEmpty().contains("blocking"))
+        }
+    }
+
     @Test
     fun sealedInheritedDefaultsExplicitlyOwnUtf8AndDebugSurface() {
         val task = ProjectBuilder.builder().build().tasks.create("sealedJava", JavaExec::class.java)

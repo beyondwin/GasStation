@@ -16,7 +16,14 @@ from pitest_policy.contracts import (
     validate_identity_partition,
     validate_linux_profile,
 )
-from verify_pitest import _observe_java_home, host_neutral_mutation_identity, load_policy
+from verify_pitest import (
+    _observe_java_home,
+    baseline_policy_identity_matches,
+    host_neutral_mutation_identity,
+    load_policy,
+)
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 LINUX_PROFILE = {
@@ -51,6 +58,23 @@ LINUX_PROFILE = {
 
 
 class IdentityPartitionTest(unittest.TestCase):
+    def test_blocking_runner_and_one_time_policy_phase_transition_are_exact(self) -> None:
+        runner = (ROOT / "scripts/quality/run_pitest.sh").read_text()
+        self.assertNotIn("run_policy observe", runner)
+        self.assertEqual(2, runner.count("run_policy verify"))
+
+        observation = b'{"enforcementPhase":"observe","schemaVersion":1}\n'
+        blocking = b'{"enforcementPhase":"blocking","schemaVersion":1}\n'
+        observation_hash = hashlib.sha256(observation).hexdigest()
+        self.assertTrue(baseline_policy_identity_matches(observation_hash, blocking, "blocking"))
+        self.assertFalse(
+            baseline_policy_identity_matches(
+                observation_hash,
+                b'{"enforcementPhase":"blocking","schemaVersion":2}\n',
+                "blocking",
+            ),
+        )
+
     def test_checked_policy_and_neutral_identity_bind_explicit_utf8(self) -> None:
         policy, _, _ = load_policy()
 

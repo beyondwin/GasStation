@@ -42,7 +42,7 @@
     "schema": "acyclic-candidate-and-separate-receipt-v1",
     "transitionDirectory": "config/quality/mutation-transitions"
   },
-  "enforcementPhase": "observe",
+  "enforcementPhase": "blocking",
   "executionEnvironmentPolicy": {
     "allowedEvidenceNames": ["CI", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_SYSTEM", "GIT_NO_REPLACE_OBJECTS", "GIT_OPTIONAL_LOCKS", "GIT_PAGER", "GIT_TERMINAL_PROMPT", "HOME", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE", "TERM", "TMPDIR", "TZ"],
     "allowedPitChildNames": ["CI", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "TZ"],

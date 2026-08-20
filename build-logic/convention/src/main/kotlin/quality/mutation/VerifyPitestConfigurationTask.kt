@@ -1,6 +1,7 @@
 package com.gasstation.buildlogic.quality.mutation
 
 import com.gasstation.buildlogic.quality.coverage.canonicalCoverageJson
+import com.gasstation.buildlogic.quality.mutation.blockingMutationThreshold
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -34,7 +35,9 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         if (targetGlob.get() != expectedTarget) throw GradleException("PIT target package differs from closed module mapping")
         if (pitestVersion.get() != "1.25.7") throw GradleException("PIT engine must be 1.25.7")
         if (threads.get() != 2) throw GradleException("PIT threads must be exactly 2")
-        if (enforcementPhase.get() != "observe") throw GradleException("Commit A must remain observation-only")
+        if (mutationThreshold.orNull != blockingMutationThreshold(projectPathInput.get())) {
+            throw GradleException("PIT native mutation threshold differs from the blocking contract")
+        }
         if (directPitestGuardMarker.get() != "RejectDirectPitestAction:first") {
             throw GradleException("Direct PIT guard marker differs from the closed contract")
         }
@@ -66,6 +69,7 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val policy = JsonSlurper().parse(policyBytes) as? Map<String, Any?>
             ?: throw GradleException("PIT policy must be an object")
+        validateBlockingEnforcement(enforcementPhase.get(), policy["enforcementPhase"] as? String)
         @Suppress("UNCHECKED_CAST")
         val route = JsonSlurper().parse(routeBytes) as? Map<String, Any?>
             ?: throw GradleException("PIT route evidence must be an object")
@@ -156,4 +160,10 @@ abstract class VerifyPitestConfigurationTask : DefaultTask() {
         MessageDigest.getInstance("SHA-256")
             .digest(bytes)
             .joinToString("") { byte -> "%02x".format(byte) }
+}
+
+internal fun validateBlockingEnforcement(taskPhase: String, policyPhase: String?) {
+    if (taskPhase != "blocking" || policyPhase != "blocking") {
+        throw GradleException("PIT task and policy must both use the blocking enforcement phase")
+    }
 }

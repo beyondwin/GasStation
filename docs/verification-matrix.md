@@ -424,7 +424,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 ## 검증 깊이 측정
 
-JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 현재 observation commit에서는 결과를 CI evidence로 수집하되 release prerequisite 승격은 별도 blocking commit이 소유합니다.
+JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 최종 blocking commit에서는 station 45/location 75 floor와 settings integrity/no-coverage 판정을 수행하고 tag release prerequisite로 동작합니다.
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
@@ -637,7 +637,7 @@ Do not add this command to the default PR gate. It depends on a connected physic
   --event local-all --java-home "$JAVA_HOME"
 ```
 
-현재 Commit B는 `observe` phase라 final verification receipt 대신 report-only observation 결과를 만듭니다. Commit C의 blocking phase에서는 동일 command가 `verify`와 `build/reports/pitest/verification-receipt.json`까지 요구합니다. PR은 `--event pull-request --base <immutable-base-sha>`로 변경된 domain module만 선택하고, main/tag/schedule/local-all은 세 모듈을 모두 선택합니다.
+최종 blocking phase의 동일 command는 `verify`와 `build/reports/pitest/verification-receipt.json`까지 요구합니다. `observe`는 blocking-phase configuration을 명시적으로 거부합니다. PR은 `--event pull-request --base <immutable-base-sha>`로 변경된 domain module만 선택하고, main/tag/schedule/local-all은 세 모듈을 모두 선택합니다.
 
 주요 증거 경로:
 
