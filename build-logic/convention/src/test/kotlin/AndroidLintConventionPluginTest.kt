@@ -4,6 +4,9 @@ import com.gasstation.buildlogic.testing.AndroidLintFixtureKind
 import com.gasstation.buildlogic.testing.GradlePluginTestProject
 import com.gasstation.buildlogic.testing.LintIssue
 import com.gasstation.buildlogic.testing.assertTaskOutcome
+import com.gasstation.buildlogic.testing.assertConfigurationCacheReused
+import com.gasstation.buildlogic.testing.assertConfigurationCacheStored
+import com.gasstation.buildlogic.testing.assertOutputKeyValueExactlyOnce
 import com.gasstation.buildlogic.testing.readLintIssues
 import com.gasstation.buildlogic.testing.writeAndroidLintFixture
 import com.gasstation.buildlogic.testing.writeAndroidLintMultiProjectFixture
@@ -127,6 +130,25 @@ class AndroidLintConventionPluginTest {
     }
 
     @Test
+    fun applicationAndLibraryExposeOnlyTheReviewedManagedDevicesAndReuseConfigurationCache() {
+        val project = newLintMultiProject("managed-devices")
+        val arguments =
+            arrayOf(
+                ":application:tasks",
+                ":library:tasks",
+                "--group=verification",
+            )
+
+        val first = project.configurationCacheRunner(*arguments).build()
+        first.assertConfigurationCacheStored()
+        assertManagedDeviceContract(first.output)
+
+        val second = project.configurationCacheRunner(*arguments).build()
+        second.assertConfigurationCacheReused()
+        assertManagedDeviceTasks(second.output)
+    }
+
+    @Test
     fun warningPromotionFailsForApplicationAndLibrary() {
         val project =
             newTestProject("warning-matrix").writeAndroidLintMultiProjectFixture(
@@ -243,6 +265,23 @@ class AndroidLintConventionPluginTest {
         listOf("xml", "txt", "html", "sarif").forEach { extension ->
             assertTrue("missing lint $extension report", project.lintReport(extension, kind).isFile)
         }
+    }
+
+    private fun assertManagedDeviceContract(output: String) {
+        val expected =
+            "gasstationPixel2Api28|Pixel 2|28|aosp," +
+                "gasstationPixel2Api36|Pixel 2|36|google"
+        assertEquals(2, Regex("(?m)^MANAGED_DEVICES=").findAll(output).count())
+        assertEquals(2, Regex("(?m)^MANAGED_GROUPS=$").findAll(output).count())
+        assertEquals(2, Regex("(?m)^MANAGED_DEVICES=${Regex.escape(expected)}$").findAll(output).count())
+        assertManagedDeviceTasks(output)
+    }
+
+    private fun assertManagedDeviceTasks(output: String) {
+        assertTrue(output.contains("gasstationPixel2Api28DebugAndroidTest"))
+        assertTrue(output.contains("gasstationPixel2Api36DebugAndroidTest"))
+        assertFalse(output.contains("gasstationPixel2Api24"))
+        assertFalse(output.contains("managedDeviceGroup"))
     }
 
     private fun assertReviewedBaselineApplied(project: GradlePluginTestProject): List<LintIssue> {

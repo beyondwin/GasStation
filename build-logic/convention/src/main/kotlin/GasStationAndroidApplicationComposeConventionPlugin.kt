@@ -55,6 +55,7 @@ class GasStationAndroidApplicationComposeConventionPlugin : Plugin<Project> {
                     it.jvmArgs("--enable-native-access=ALL-UNNAMED")
                 }
             }
+            configureGasStationManagedDevices()
 
             lint {
                 configureGasStationAndroidLint(this, checkDependencies = true)

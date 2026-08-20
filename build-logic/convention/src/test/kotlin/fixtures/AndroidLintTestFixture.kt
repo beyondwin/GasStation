@@ -91,6 +91,17 @@ fun GradlePluginTestProject.writeAndroidLintMultiProjectFixture(
                 namespace = "fixture.$module"
                 ${if (kind == AndroidLintFixtureKind.APPLICATION) "defaultConfig { applicationId = \"fixture.application\" }" else ""}
             }
+
+            val managedDeviceSummary = android.testOptions.managedDevices.localDevices
+                .map { device ->
+                    listOf(device.name, device.device, device.apiLevel.toString(), device.systemImageSource)
+                        .joinToString("|")
+                }
+                .sorted()
+                .joinToString(",")
+            val managedDeviceGroups = android.testOptions.managedDevices.groups.names.sorted().joinToString(",")
+            println("MANAGED_DEVICES=${'$'}managedDeviceSummary")
+            println("MANAGED_GROUPS=${'$'}managedDeviceGroups")
             """.trimIndent(),
         )
         writeFile("$module/src/main/AndroidManifest.xml", "<manifest />")

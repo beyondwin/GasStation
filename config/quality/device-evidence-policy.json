@@ -1,0 +1,228 @@
+{
+  "artifactRoots": {
+    "attempt": "build/device-evidence",
+    "connectedHtml": "build/reports/androidTests/connected",
+    "connectedResults": "build/outputs/androidTest-results/connected",
+    "managedHtml": "build/reports/androidTests/managedDevice",
+    "managedResults": "build/outputs/androidTest-results/managedDevice"
+  },
+  "inventories": {
+    "appFull": [
+      "com.gasstation.DemoLocationHookIntegrationTest#demoGraph_wiresLocationOverrideIntoForegroundProvider",
+      "com.gasstation.DemoPermissionFlowTest#a_deniedDemoFirstEntry_staysOnPermissionGuidanceWithoutOpeningAndroidPermissionUi",
+      "com.gasstation.DemoPermissionFlowTest#b_denyingExplicitPermissionRequest_keepsGuidanceWithoutNearbyContent",
+      "com.gasstation.DemoPermissionFlowTest#c_grantingExplicitPermissionRequest_revealsFixedDemoNearbyContent",
+      "com.gasstation.StationPortfolioFlowTest#demoFilterMenu_dismissesWithInAppOutsideTap_keepsNearbyActive",
+      "com.gasstation.StationPortfolioFlowTest#demoFilterMenu_dismissesWithSystemBack_keepsNearbyActive",
+      "com.gasstation.StationPortfolioFlowTest#demoFlow_can_watch_station_and_open_watchlist",
+      "com.gasstation.StationPortfolioFlowTest#demoMapSelection_isConsumedByNearbyHandoff",
+      "com.gasstation.StationPortfolioFlowTest#demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation",
+      "com.gasstation.StationPortfolioFlowTest#demoWatchlist_keepsSavedRowAndUsesSelectedFuelContext"
+    ],
+    "appPrSmoke": [
+      "com.gasstation.DemoLocationHookIntegrationTest#demoGraph_wiresLocationOverrideIntoForegroundProvider",
+      "com.gasstation.DemoPermissionFlowTest#a_deniedDemoFirstEntry_staysOnPermissionGuidanceWithoutOpeningAndroidPermissionUi",
+      "com.gasstation.DemoPermissionFlowTest#b_denyingExplicitPermissionRequest_keepsGuidanceWithoutNearbyContent",
+      "com.gasstation.DemoPermissionFlowTest#c_grantingExplicitPermissionRequest_revealsFixedDemoNearbyContent",
+      "com.gasstation.StationPortfolioFlowTest#demoFlow_can_watch_station_and_open_watchlist"
+    ],
+    "locationGeocoder": [
+      "com.gasstation.core.location.AndroidAddressResolverDeviceTest#api33GeocoderCallbackPathReturnsTerminalResult"
+    ],
+    "roomMigrations": [
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version1To5PreservesCacheAndDerivesSnapshotAtMaximumTimestamp",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version2To3IntentionallyResetsHistoryWhilePreservingCacheAndWatch",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version2To5PreservesCacheAndWatchButIntentionallyResetsPreFuelHistory",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version3To5PreservesFuelScopedHistoryCacheAndWatch",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version4To5PreservesCacheWatchHistoryAndSnapshot",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version4To5PreservesSuccessfulEmptySnapshotMarker"
+    ]
+  },
+  "lanes": {
+    "api24-scheduled": {
+      "appFlavor": "demo",
+      "apkRoots": [
+        "app/build/outputs/apk/demo/debug",
+        "app/build/outputs/apk/androidTest/demo/debug",
+        "core/database/build/outputs/apk/androidTest/debug"
+      ],
+      "budgets": {
+        "appMinutes": 20,
+        "completionMinutes": 7,
+        "locationMinutes": 0,
+        "outerMinutes": 80,
+        "preflightMinutes": 17,
+        "reserveMinutes": 9,
+        "roomMinutes": 15,
+        "setupMinutes": 8,
+        "uploadMinutes": 4
+      },
+      "device": {
+        "apiLevel": 24,
+        "imagePackage": "system-images;android-24;google_apis;x86_64",
+        "imageSource": "google_apis",
+        "kind": "connected-avd",
+        "name": "gasstation_api24",
+        "profile": "Pixel 2",
+        "serial": "emulator-5554"
+      },
+      "filter": null,
+      "gradleTasks": [
+        ":app:connectedDemoDebugAndroidTest",
+        ":core:database:connectedDebugAndroidTest"
+      ],
+      "inventories": [
+        "appFull",
+        "roomMigrations"
+      ],
+      "reportOnly": false,
+      "resultRoots": [
+        "app/build/outputs/androidTest-results/connected",
+        "app/build/reports/androidTests/connected",
+        "core/database/build/outputs/androidTest-results/connected",
+        "core/database/build/reports/androidTests/connected"
+      ],
+      "retentionDays": 30,
+      "uiFailureArtifactsRequired": true
+    },
+    "api28-pr-smoke": {
+      "appFlavor": "demo",
+      "apkRoots": [
+        "app/build/outputs/apk/demo/debug",
+        "app/build/outputs/apk/androidTest/demo/debug"
+      ],
+      "budgets": {
+        "appMinutes": 25,
+        "completionMinutes": 6,
+        "locationMinutes": 0,
+        "outerMinutes": 55,
+        "preflightMinutes": 3,
+        "reserveMinutes": 9,
+        "roomMinutes": 0,
+        "setupMinutes": 8,
+        "uploadMinutes": 4
+      },
+      "device": {
+        "apiLevel": 28,
+        "imagePackage": "system-images;android-28;aosp;x86_64",
+        "imageSource": "aosp",
+        "kind": "gmd",
+        "name": "gasstationPixel2Api28",
+        "profile": "Pixel 2"
+      },
+      "filter": "com.gasstation.test.DevicePrSmoke",
+      "gradleTasks": [
+        ":app:gasstationPixel2Api28DemoDebugAndroidTest"
+      ],
+      "inventories": [
+        "appPrSmoke"
+      ],
+      "reportOnly": true,
+      "resultRoots": [
+        "app/build/outputs/androidTest-results/managedDevice",
+        "app/build/reports/androidTests/managedDevice"
+      ],
+      "retentionDays": 14,
+      "uiFailureArtifactsRequired": true
+    },
+    "api28-scheduled": {
+      "appFlavor": "demo",
+      "apkRoots": [
+        "app/build/outputs/apk/demo/debug",
+        "app/build/outputs/apk/androidTest/demo/debug",
+        "core/database/build/outputs/apk/androidTest/debug"
+      ],
+      "budgets": {
+        "appMinutes": 28,
+        "completionMinutes": 7,
+        "locationMinutes": 0,
+        "outerMinutes": 80,
+        "preflightMinutes": 3,
+        "reserveMinutes": 10,
+        "roomMinutes": 20,
+        "setupMinutes": 8,
+        "uploadMinutes": 4
+      },
+      "device": {
+        "apiLevel": 28,
+        "imagePackage": "system-images;android-28;aosp;x86_64",
+        "imageSource": "aosp",
+        "kind": "gmd",
+        "name": "gasstationPixel2Api28",
+        "profile": "Pixel 2"
+      },
+      "filter": null,
+      "gradleTasks": [
+        ":app:gasstationPixel2Api28DemoDebugAndroidTest",
+        ":core:database:gasstationPixel2Api28DebugAndroidTest"
+      ],
+      "inventories": [
+        "appFull",
+        "roomMigrations"
+      ],
+      "reportOnly": false,
+      "resultRoots": [
+        "app/build/outputs/androidTest-results/managedDevice",
+        "app/build/reports/androidTests/managedDevice",
+        "core/database/build/outputs/androidTest-results/managedDevice",
+        "core/database/build/reports/androidTests/managedDevice"
+      ],
+      "retentionDays": 30,
+      "uiFailureArtifactsRequired": true
+    },
+    "api36-scheduled": {
+      "appFlavor": "demo",
+      "apkRoots": [
+        "app/build/outputs/apk/demo/debug",
+        "app/build/outputs/apk/androidTest/demo/debug",
+        "core/database/build/outputs/apk/androidTest/debug",
+        "core/location/build/outputs/apk/androidTest/debug"
+      ],
+      "budgets": {
+        "appMinutes": 28,
+        "completionMinutes": 8,
+        "locationMinutes": 15,
+        "outerMinutes": 100,
+        "preflightMinutes": 3,
+        "reserveMinutes": 14,
+        "roomMinutes": 20,
+        "setupMinutes": 8,
+        "uploadMinutes": 4
+      },
+      "device": {
+        "apiLevel": 36,
+        "imagePackage": "system-images;android-36;google;x86_64",
+        "imageSource": "google",
+        "kind": "gmd",
+        "name": "gasstationPixel2Api36",
+        "profile": "Pixel 2"
+      },
+      "filter": null,
+      "gradleTasks": [
+        ":app:gasstationPixel2Api36DemoDebugAndroidTest",
+        ":core:database:gasstationPixel2Api36DebugAndroidTest",
+        ":core:location:gasstationPixel2Api36DebugAndroidTest"
+      ],
+      "inventories": [
+        "appFull",
+        "roomMigrations",
+        "locationGeocoder"
+      ],
+      "reportOnly": false,
+      "resultRoots": [
+        "app/build/outputs/androidTest-results/managedDevice",
+        "app/build/reports/androidTests/managedDevice",
+        "core/database/build/outputs/androidTest-results/managedDevice",
+        "core/database/build/reports/androidTests/managedDevice",
+        "core/location/build/outputs/androidTest-results/managedDevice",
+        "core/location/build/reports/androidTests/managedDevice"
+      ],
+      "retentionDays": 30,
+      "uiFailureArtifactsRequired": true
+    }
+  },
+  "noRepositoryRetry": true,
+  "noShards": true,
+  "quarantineOverlay": "config/quality/device-evidence-quarantine.json",
+  "schemaVersion": 1
+}
