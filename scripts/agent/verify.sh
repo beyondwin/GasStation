@@ -149,9 +149,6 @@ if ((${#gradle_tasks[@]} == 0)); then
     exit 0
   fi
   "$repo_root/scripts/agent/check-contracts.sh"
-  if [[ "$scope" == docs && -x "$repo_root/gradlew" ]]; then
-    python3 "$repo_root/scripts/quality/build_inputs/docs_gradle_validation_bridge.py" --check-gradle-tasks
-  fi
   exit 0
 fi
 

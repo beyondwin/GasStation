@@ -52,6 +52,10 @@ from scripts.quality.build_inputs.workflow import (  # noqa: E402
     build_inputs_is_promoted,
     verify_repository_workflows,
 )
+from scripts.quality.build_inputs.generate_policy import (  # noqa: E402
+    docs_parent_edges,
+    evidence_entrypoints,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -144,6 +148,42 @@ def _metadata_counts(policy: Mapping[str, Any]) -> dict[str, int | str]:
 def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
     verify_wrapper(ROOT, policy)
     _verify_static_hashes(policy)
+    actual_entrypoints = policy.get("evidenceGradleEntrypoints")
+    expected_entrypoints = evidence_entrypoints()
+    if actual_entrypoints != expected_entrypoints:
+        actual_ids = {
+            row.get("id") for row in actual_entrypoints or [] if isinstance(row, dict)
+        }
+        expected_ids = {row["id"] for row in expected_entrypoints}
+        raise BuildInputError(
+            "entrypoint inventory mismatch: "
+            f"missing={sorted(expected_ids - actual_ids)} "
+            f"extra={sorted(actual_ids - expected_ids)}",
+        )
+    for row in expected_entrypoints:
+        source = (ROOT / str(row["owner"])).read_text(encoding="utf-8")
+        argv = row["argv"]
+        assert isinstance(argv, list)
+        executable = argv[0]
+        if executable == "python3":
+            signature = argv[1]
+        elif executable == "GradleRunner.withArguments":
+            signature = (
+                ".adversarialRunner"
+                if row["id"] == "testkit/adversarial"
+                else ".withArguments"
+            )
+        elif executable in {"./gradlew", "verify_build_inputs.py"}:
+            signature = argv[1]
+        else:
+            signature = executable
+        if signature not in source:
+            raise BuildInputError(
+                f"entrypoint inventory source signature missing: {row['id']} ({signature})",
+            )
+    docs = policy.get("docsValidation")
+    if not isinstance(docs, dict) or docs.get("parentEdges") != docs_parent_edges():
+        raise BuildInputError("docs bridge parent inventory mismatch")
     bypasses = scan_dependency_verification_bypasses(ROOT)
     if bypasses:
         raise BuildInputError(bypasses[0])

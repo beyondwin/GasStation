@@ -578,6 +578,10 @@ _BYPASS_PATTERNS = (
     re.compile(r"--dependency-verification(?:\s+|=)(?:off|lenient)\b", re.IGNORECASE),
     re.compile(r"(?:^|[\s'\"])(?:-I[^\s'\",)]+|--init-script(?:\s+|=)\S+)", re.MULTILINE),
 )
+_REGISTERED_TESTKIT_CONSTRUCTOR = (
+    "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
+)
+_TESTKIT_CONSTRUCTION = re.compile(r"(?:GradleRunner\s*\.\s*create|\.\s*withArguments)\s*\(")
 
 
 def _active_source_paths(root: Path) -> list[Path]:
@@ -586,7 +590,7 @@ def _active_source_paths(root: Path) -> list[Path]:
         if not path.is_file() or path.is_symlink():
             continue
         relative = path.relative_to(root)
-        if any(part in _EXCLUDED_SOURCE_PARTS or part.startswith("test") for part in relative.parts[:-1]):
+        if any(part in _EXCLUDED_SOURCE_PARTS for part in relative.parts[:-1]):
             continue
         if path.name in {"gradlew", "gradlew.bat"} or path.suffix in _ACTIVE_SOURCE_SUFFIXES:
             paths.append(path)
@@ -614,6 +618,83 @@ def _without_comment_only_lines(text: str) -> str:
     return "".join(output)
 
 
+def _without_c_like_literals_and_comments(text: str) -> str:
+    """Mask Kotlin/Java/Groovy literals while retaining lines and executable code."""
+
+    output = list(text)
+    index = 0
+    state = "code"
+    quote = ""
+    while index < len(text):
+        if state == "code":
+            if text.startswith("//", index):
+                output[index:index + 2] = "  "
+                index += 2
+                state = "line-comment"
+                continue
+            if text.startswith("/*", index):
+                output[index:index + 2] = "  "
+                index += 2
+                state = "block-comment"
+                continue
+            if text.startswith('"""', index):
+                output[index:index + 3] = "   "
+                index += 3
+                state = "triple-string"
+                continue
+            if text[index] in {'"', "'"}:
+                quote = text[index]
+                output[index] = " "
+                index += 1
+                state = "string"
+                continue
+            index += 1
+            continue
+        if state == "line-comment":
+            if text[index] == "\n":
+                state = "code"
+            else:
+                output[index] = " "
+            index += 1
+            continue
+        if state == "block-comment":
+            if text.startswith("*/", index):
+                output[index:index + 2] = "  "
+                index += 2
+                state = "code"
+            else:
+                if text[index] != "\n":
+                    output[index] = " "
+                index += 1
+            continue
+        if state == "triple-string":
+            if text.startswith('"""', index):
+                output[index:index + 3] = "   "
+                index += 3
+                state = "code"
+            else:
+                if text[index] != "\n":
+                    output[index] = " "
+                index += 1
+            continue
+        if state == "string":
+            if text[index] == "\\" and index + 1 < len(text):
+                output[index] = " "
+                if text[index + 1] != "\n":
+                    output[index + 1] = " "
+                index += 2
+                continue
+            if text[index] == quote:
+                output[index] = " "
+                index += 1
+                state = "code"
+                continue
+            if text[index] != "\n":
+                output[index] = " "
+            index += 1
+    return "".join(output)
+
+
 def scan_dependency_verification_bypasses(root: Path) -> list[str]:
     issues: list[str] = []
     for path in _active_source_paths(root):
@@ -621,7 +702,20 @@ def scan_dependency_verification_bypasses(root: Path) -> list[str]:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        executable = _without_comment_only_lines(text)
+        if path.suffix in {".gradle", ".groovy", ".java", ".kt", ".kts"}:
+            executable = _without_c_like_literals_and_comments(text)
+        else:
+            executable = _without_comment_only_lines(text)
+        relative = path.relative_to(root).as_posix()
+        if (
+            relative != _REGISTERED_TESTKIT_CONSTRUCTOR
+            and (testkit := _TESTKIT_CONSTRUCTION.search(executable)) is not None
+        ):
+            line = executable.count("\n", 0, testkit.start()) + 1
+            issues.append(
+                f"{relative}:{line}: unregistered GradleRunner construction is forbidden",
+            )
+            continue
         matches = [match for pattern in _BYPASS_PATTERNS for match in pattern.finditer(executable)]
         if matches:
             first = min(matches, key=lambda match: match.start())

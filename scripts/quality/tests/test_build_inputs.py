@@ -9,6 +9,7 @@ import tarfile
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -36,7 +37,8 @@ from scripts.quality.build_inputs.receipts import (
 )
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
-from scripts.quality.verify_build_inputs import _apply_reviewed_metadata_superset
+from scripts.quality.verify_build_inputs import _apply_reviewed_metadata_superset, verify_repository
+from scripts.agent.check_contracts import check_documentation_contracts
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -120,6 +122,30 @@ class CanonicalPolicyTest(unittest.TestCase):
                     "reviewed exact identity",
                 ):
                     load_policy(candidate, root=ROOT)
+
+    def test_repository_verification_rejects_deleted_or_reclassified_entrypoint_rows(self) -> None:
+        baseline = load_policy(POLICY, root=ROOT)
+        mutations = []
+        deleted = json.loads(json.dumps(baseline))
+        deleted["evidenceGradleEntrypoints"] = [
+            row
+            for row in deleted["evidenceGradleEntrypoints"]
+            if row["id"] != "device-scheduled-api36/gmd"
+        ]
+        mutations.append(deleted)
+        reclassified = json.loads(json.dumps(baseline))
+        row = next(
+            row
+            for row in reclassified["evidenceGradleEntrypoints"]
+            if row["id"] == "android/unit-tests/room-schema-child"
+        )
+        row["relationship"] = "direct"
+        mutations.append(reclassified)
+
+        for mutation in mutations:
+            with self.subTest(rows=len(mutation["evidenceGradleEntrypoints"])):
+                with self.assertRaisesRegex(BuildInputError, "entrypoint inventory mismatch"):
+                    verify_repository(mutation)
 
 
 class WrapperAndInvocationTest(unittest.TestCase):
@@ -215,6 +241,40 @@ class WrapperAndInvocationTest(unittest.TestCase):
                 ["gradle/libs.versions.toml:2: dynamic dependency selector: 1.+"],
                 scan_dynamic_dependency_selectors(fixture),
             )
+
+    def test_scanner_checks_active_src_test_code_but_ignores_fixture_literals(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            source = fixture / "build-logic/convention/src/test/kotlin/ActiveEscape.kt"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                'val fixtureText = "disableDependencyVerification()"\n'
+                "fun active(configurations: ConfigurationContainer) {\n"
+                "  configurations.all { resolutionStrategy.disableDependencyVerification() }\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                [
+                    "build-logic/convention/src/test/kotlin/ActiveEscape.kt:3: "
+                    "dependency verification bypass is forbidden",
+                ],
+                scan_dependency_verification_bypasses(fixture),
+            )
+
+    def test_scanner_rejects_unregistered_testkit_process_construction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            source = fixture / "build-logic/convention/src/test/kotlin/DirectRunner.kt"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                'fun escape() = GradleRunner.create().withArguments("help").build()\n',
+                encoding="utf-8",
+            )
+            issues = scan_dependency_verification_bypasses(fixture)
+            self.assertEqual(1, len(issues), issues)
+            self.assertIn("unregistered GradleRunner construction", issues[0])
 
 
 class SafeArchiveTest(unittest.TestCase):
@@ -402,6 +462,72 @@ class WorkflowContractTest(unittest.TestCase):
                 with self.assertRaises(BuildInputError):
                     verify_repository_workflows(root, policy, promoted=True)
 
+    def test_workflow_rejects_environment_file_shadows_and_broad_codecov_secret(self) -> None:
+        policy = load_policy(POLICY, root=ROOT)
+        workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+        mutations = (
+            workflow.replace(
+                "      - name: Verify reviewed build inputs\n",
+                "      - name: Shadow Java\n"
+                "        run: echo 'JAVA_HOME=/tmp/unreviewed' >> \"$GITHUB_ENV\"\n"
+                "      - name: Verify reviewed build inputs\n",
+                1,
+            ),
+            workflow.replace(
+                "  coverage:\n",
+                "  coverage:\n    env:\n      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}\n",
+                1,
+            ),
+        )
+        for candidate in mutations:
+            with self.subTest(), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                shutil.copytree(ROOT / ".github", root / ".github")
+                (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
+                with self.assertRaises(BuildInputError):
+                    verify_repository_workflows(root, policy, promoted=True)
+
+    def test_workflow_rejects_extra_governed_process_edge(self) -> None:
+        policy = load_policy(POLICY, root=ROOT)
+        workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+        candidate = workflow.replace(
+            "      - name: Verify reviewed build inputs\n",
+            "      - name: Undeclared Gradle child\n"
+            "        run: scripts/quality/build_inputs/run_gradle.sh help\n"
+            "      - name: Verify reviewed build inputs\n",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / ".github", root / ".github")
+            (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
+            with self.assertRaisesRegex(BuildInputError, "process inventory mismatch"):
+                verify_repository_workflows(root, policy, promoted=True)
+
+    def test_build_input_evidence_upload_is_fail_closed(self) -> None:
+        policy = load_policy(POLICY, root=ROOT)
+        workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+        build_inputs = workflow.split("  build-inputs:\n", 1)[1].split("\n  static-analysis:\n", 1)[0]
+        self.assertIn(
+            "      - name: Upload build-input evidence\n"
+            "        if: always()\n",
+            build_inputs,
+        )
+        self.assertIn("          if-no-files-found: error\n", build_inputs)
+        candidate = workflow.replace(
+            "          path: build/reports/build-inputs/**\n"
+            "          if-no-files-found: error\n",
+            "          path: build/reports/build-inputs/**\n"
+            "          if-no-files-found: warn\n",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / ".github", root / ".github")
+            (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
+            with self.assertRaises(BuildInputError):
+                verify_repository_workflows(root, policy, promoted=True)
+
     def test_policy_static_source_hashes_match_current_bytes(self) -> None:
         policy = load_policy(POLICY, root=ROOT)
         for row in policy["staticSourceHashes"]:
@@ -415,6 +541,40 @@ class DocumentationImportBoundaryTest(unittest.TestCase):
         with self.assertRaisesRegex(BridgeError, "non-docs module"):
             with _guarded_docs_runtime():
                 from scripts.quality import build_inputs as _forbidden  # noqa: F401
+
+    def test_governed_contract_checker_routes_docs_through_stable_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs").mkdir()
+            (root / "docs/documentation-catalog.json").write_text("{}\n", encoding="utf-8")
+            (root / "config/quality").mkdir(parents=True)
+            (root / "config/quality/build-inputs.json").write_text("{}\n", encoding="utf-8")
+            facade = root / "scripts/docs/validate.py"
+            facade.parent.mkdir(parents=True)
+            facade.write_text(
+                "from pathlib import Path\nPath('direct-facade-ran').write_text('bad')\n",
+                encoding="utf-8",
+            )
+            bridge = root / "scripts/quality/build_inputs/docs_gradle_validation_bridge.py"
+            bridge.parent.mkdir(parents=True)
+            bridge.write_text(
+                "from pathlib import Path\nPath('stable-bridge-ran').write_text('ok')\n",
+                encoding="utf-8",
+            )
+
+            previous = Path.cwd()
+            os.chdir(root)
+            try:
+                with mock.patch.dict(
+                    os.environ,
+                    {"GASSTATION_BUILD_INPUT_EVIDENCE": "sealed-v1"},
+                    clear=False,
+                ):
+                    self.assertEqual([], check_documentation_contracts(root))
+            finally:
+                os.chdir(previous)
+            self.assertTrue((root / "stable-bridge-ran").is_file())
+            self.assertFalse((root / "direct-facade-ran").exists())
 
 
 class ReceiptAndReproducibilityTest(unittest.TestCase):

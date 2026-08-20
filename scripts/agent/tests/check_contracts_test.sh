@@ -265,7 +265,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GASSTATION_COVERAGE_EVENT: ${{ github.event_name == 'pull_request' && 'pull-request' || startsWith(github.ref, 'refs/tags/v') && 'tag' || 'main' }}
       GASSTATION_COVERAGE_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.ref == 'refs/heads/main' && github.event.before) || '' }}
     steps:
@@ -317,11 +316,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload to Codecov
-        if: ${{ env.CODECOV_TOKEN != '' }}
         continue-on-error: true
         uses: codecov/codecov-action@v7
         with:
-          token: ${{ env.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: "**/build/reports/coverage/*/report.xml"
   release-publish:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -506,7 +504,8 @@ git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
 ci_base=$(git -C "$fixture/repo" rev-parse HEAD^)
 
-assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks"
+assert_contains "$(cat "$repo_root/scripts/agent/check_contracts.py")" "GASSTATION_BUILD_INPUT_EVIDENCE"
+assert_contains "$(cat "$repo_root/scripts/agent/check_contracts.py")" "docs_gradle_validation_bridge.py"
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci

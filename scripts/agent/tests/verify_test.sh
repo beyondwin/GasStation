@@ -161,6 +161,6 @@ chmod +x "$fixture/docs-scope/scripts/agent/check-contracts.sh" "$fixture/docs-s
 "$fixture/docs-scope/scripts/agent/verify.sh" docs
 docs_calls=$(cat "$fixture/docs-scope/calls.log")
 assert_contains "$docs_calls" "contracts:"
-assert_contains "$docs_calls" "docs:--check-gradle-tasks"
+assert_not_contains "$docs_calls" "docs:--check-gradle-tasks"
 
 echo "verify_test: PASS"

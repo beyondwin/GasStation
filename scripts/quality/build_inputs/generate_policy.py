@@ -92,7 +92,8 @@ def evidence_entrypoints() -> list[dict[str, object]]:
     fixture = "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
     adversarial = "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt"
     rows = [
-        entrypoint("android/agent-contracts/docs-task-discovery", android, "direct", ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"], "job-fresh"),
+        entrypoint("android/agent-contracts/contracts", android, "direct", ["scripts/agent/check-contracts.sh", "--ci"], "job-fresh"),
+        entrypoint("agent/check-contracts/docs-bridge", "scripts/agent/check_contracts.py", "nested", ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"], "job-fresh"),
         entrypoint("android/static-analysis/quality", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", "spotlessCheck", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", ":core:model:checkKotlinAbi", ":core:observability:checkKotlinAbi", ":domain:location:checkKotlinAbi", ":domain:settings:checkKotlinAbi", ":domain:station:checkKotlinAbi", "verifyPublicApiBoundaries", "verifyModuleBoundaries", "productionDependencyInventory", "verifyNoDeprecatedComposeTestApis", "verifyCiRobolectricRuntime", "-Pgasstation.lintTestSources=false", "--warning-mode", "fail", "--continue"], "job-fresh"),
         entrypoint("android/static-analysis/convention-testkit", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":build-logic:convention:test", "--warning-mode", "fail"], "job-fresh"),
         entrypoint("android/lint-tests/test-sources", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", "-Pgasstation.lintTestSources=true", "--warning-mode", "fail", "--continue"], "job-fresh"),
@@ -116,8 +117,8 @@ def evidence_entrypoints() -> list[dict[str, object]]:
         entrypoint("cli/strict-matrix/complete", cli, "direct", ["verify_build_inputs.py", "strict-matrix", "--policy", "config/quality/build-inputs.json", "--group", "complete"], "command-fresh"),
         entrypoint("cli/strict-matrix/product-regressions", cli, "nested", ["verify_build_inputs.py", "strict-matrix", "--policy", "config/quality/build-inputs.json", "--group", "product-regressions"], "command-fresh"),
         entrypoint("cli/configuration-cache", cli, "direct", ["verify_build_inputs.py", "configuration-cache", "--policy", "config/quality/build-inputs.json"], "command-fresh"),
-        entrypoint("cli/reproduce/copy-a", cli, "direct", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-a"),
-        entrypoint("cli/reproduce/copy-b", cli, "direct", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-b"),
+        entrypoint("cli/reproduce/copy-a", "scripts/quality/build_inputs/reproducibility.py", "nested", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-a"),
+        entrypoint("cli/reproduce/copy-b", "scripts/quality/build_inputs/reproducibility.py", "nested", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-b"),
         entrypoint("cli/release-bind", cli, "receipt-consumer", ["verify_build_inputs.py", "release-bind", "--policy", "config/quality/build-inputs.json", "--receipt", "{receipt}", "--apk", "{apk}"], "none"),
         entrypoint("cli/evidence-session", cli, "nested", ["verify_build_inputs.py", "evidence-session", "--policy", "config/quality/build-inputs.json", "--", "{allowlisted-command}"], "command-fresh"),
         entrypoint("testkit/shared-normal", fixture, "nested", ["GradleRunner.withArguments", "{fixture-arguments}", "--dependency-verification=strict"], "testkit-fresh"),
@@ -125,6 +126,19 @@ def evidence_entrypoints() -> list[dict[str, object]]:
         entrypoint("testkit/adversarial", adversarial, "nested", ["GradleRunner.withArguments", "help", "--dependency-verification=strict"], "testkit-adversarial-fresh"),
     ]
     return sorted(rows, key=lambda row: row["id"])
+
+
+def docs_parent_edges() -> list[str]:
+    """Return every governed parent chain that may reach the stable docs bridge."""
+
+    return [
+        ".github/workflows/android.yml agent-contracts -> check_contracts -> bridge",
+        "scripts/agent/check_contracts.py -> bridge",
+        "scripts/agent/verify.sh auto -> check_contracts -> bridge",
+        "scripts/agent/verify.sh docs -> check_contracts -> bridge",
+        "verify_build_inputs.py evidence-session -> bridge",
+        "verify_build_inputs.py strict-matrix complete -> bridge",
+    ]
 
 
 def policy() -> dict[str, object]:
@@ -227,12 +241,7 @@ def policy() -> dict[str, object]:
             "facadePath": "scripts/docs/validate.py",
             "forbiddenRepositoryImportRoots": ["scripts/agent", "scripts/quality"],
             "loadedModuleRoots": ["scripts/docs"],
-            "parentEdges": [
-                "scripts/agent/verify.sh docs -> bridge",
-                "scripts/agent/verify.sh auto -> bridge",
-                ".github/workflows/android.yml agent-contracts -> bridge",
-                "verify_build_inputs.py evidence-session -> bridge",
-            ],
+            "parentEdges": docs_parent_edges(),
             "receiptPath": "build/reports/build-inputs/docs-gradle-validation.json",
             "receiptSchemaVersion": 1,
             "sourceRoots": ["scripts/docs/extensions"],

@@ -301,13 +301,22 @@ def check_live_links(root: Path) -> list[str]:
 def check_documentation_contracts(root: Path) -> list[str]:
     """Delegate cataloged live-document checks to the focused validator."""
     catalog = root / "docs" / "documentation-catalog.json"
-    validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
     if not catalog.is_file():
         return [issue("docs/documentation-catalog.json", 1, "documentation catalog missing")]
-    if not validator.is_file():
-        return [issue("scripts/docs/validate.py", 1, "documentation validator missing")]
+    governed = os.environ.get("GASSTATION_BUILD_INPUT_EVIDENCE") == "sealed-v1"
+    if governed:
+        bridge = root / "scripts/quality/build_inputs/docs_gradle_validation_bridge.py"
+        if not bridge.is_file():
+            return [issue(bridge.relative_to(root).as_posix(), 1, "documentation bridge missing")]
+        command = [sys.executable, str(bridge), "--check-gradle-tasks"]
+    else:
+        validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
+        if not validator.is_file():
+            return [issue("scripts/docs/validate.py", 1, "documentation validator missing")]
+        command = [sys.executable, str(validator), "--root", str(root)]
     result = subprocess.run(
-        [sys.executable, str(validator), "--root", str(root)],
+        command,
+        cwd=root,
         text=True,
         capture_output=True,
     )
@@ -1454,6 +1463,8 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
         issues.append(issue(workflow_path, job_line, "coverage job must be blocking"))
 
     job_environment = workflow_job_environment(body)
+    if "CODECOV_TOKEN" in job_environment:
+        issues.append(issue(workflow_path, job_line, "Codecov token must not be job-scoped"))
     if job_environment.get("GASSTATION_COVERAGE_EVENT") != yaml_scalar(COVERAGE_EVENT_EXPRESSION):
         issues.append(issue(workflow_path, job_line, "coverage event routing must use the immutable contract"))
     if job_environment.get("GASSTATION_COVERAGE_BASE_REF") != yaml_scalar(COVERAGE_BASE_EXPRESSION):
@@ -1547,13 +1558,15 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
         issues.append(issue(workflow_path, job_line, "optional Codecov upload missing"))
     else:
         codecov = codecov_steps[0]
+        codecov_with = codecov["nested"].get("with", {})
         if (
-            codecov["fields"].get("if") != yaml_scalar("${{ env.CODECOV_TOKEN != '' }}")
+            "if" in codecov["fields"]
             or static_workflow_boolean(codecov["fields"].get("continue-on-error", "")) is not True
-            or codecov["nested"].get("with", {}).get("files")
+            or codecov_with.get("token") != yaml_scalar("${{ secrets.CODECOV_TOKEN }}")
+            or codecov_with.get("files")
             != "**/build/reports/coverage/*/report.xml"
         ):
-            issues.append(issue(workflow_path, job_line, "Codecov must remain optional and nonblocking"))
+            issues.append(issue(workflow_path, job_line, "Codecov secret must be action-scoped and nonblocking"))
     return issues
 
 

@@ -8,6 +8,18 @@ from .contracts import BuildInputError, HEX40
 
 
 USES = re.compile(r"^(?P<indent>\s*)-?\s*uses:\s*(?P<value>[^\s#]+)(?:\s+#\s*(?P<label>v\d+))?\s*$")
+PROTECTED_WORKFLOW_ENV = (
+    "GRADLE_HOME",
+    "GRADLE_USER_HOME",
+    "GRADLE_OPTS",
+    "JAVA_HOME",
+    "JAVA_HOME_17_X64",
+    "JAVA_HOME_21_X64",
+    "JAVA_OPTS",
+    "JAVA_TOOL_OPTIONS",
+    "JDK_JAVA_OPTIONS",
+    "_JAVA_OPTIONS",
+)
 
 
 def _job_block(workflow: str, name: str) -> str:
@@ -50,7 +62,74 @@ def _remote_uses(root: Path) -> list[tuple[str, int, str, str | None]]:
     return rows
 
 
+def _verify_protected_workflow_environment(path: Path, text: str) -> None:
+    for name in PROTECTED_WORKFLOW_ENV:
+        if re.search(rf"(?m)^\s+{re.escape(name)}\s*:", text):
+            raise BuildInputError(f"{path.name}: protected environment shadow: {name}")
+        for line_number, line in enumerate(text.splitlines(), 1):
+            if "GITHUB_ENV" in line and re.search(rf"\b{re.escape(name)}\s*=", line):
+                raise BuildInputError(
+                    f"{path.name}:{line_number}: protected GITHUB_ENV shadow: {name}",
+                )
+            assignment = re.search(
+                rf"(?<![A-Za-z0-9_]){re.escape(name)}=(?P<value>\"[^\"]*\"|'[^']*'|[^\s\\]+)",
+                line,
+            )
+            if assignment is not None and assignment.group("value") not in {
+                f"${name}",
+                f'"${name}"',
+                f"'${name}'",
+            }:
+                raise BuildInputError(
+                    f"{path.name}:{line_number}: protected shell assignment: {name}",
+                )
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if "GITHUB_PATH" in line:
+            raise BuildInputError(f"{path.name}:{line_number}: workflow may not mutate GITHUB_PATH")
+
+
+def _verify_workflow_process_inventory(root: Path, policy: Mapping[str, Any]) -> None:
+    rows = policy.get("evidenceGradleEntrypoints")
+    if not isinstance(rows, list):
+        raise BuildInputError("workflow process inventory is missing")
+    owners = {
+        row.get("owner")
+        for row in rows
+        if isinstance(row, dict)
+        and isinstance(row.get("owner"), str)
+        and str(row["owner"]).startswith(".github/workflows/")
+    }
+    for owner in sorted(owners):
+        assert isinstance(owner, str)
+        text = _without_comments((root / owner).read_text(encoding="utf-8"))
+        executables = {
+            row["argv"][0]
+            for row in rows
+            if isinstance(row, dict)
+            and row.get("owner") == owner
+            and isinstance(row.get("argv"), list)
+            and row["argv"]
+        }
+        for executable in sorted(executables):
+            expected = sum(
+                1
+                for row in rows
+                if isinstance(row, dict)
+                and row.get("owner") == owner
+                and isinstance(row.get("argv"), list)
+                and row["argv"]
+                and row["argv"][0] == executable
+            )
+            actual = text.count(executable)
+            if actual != expected:
+                raise BuildInputError(
+                    f"{owner}: process inventory mismatch for {executable}: "
+                    f"expected={expected} actual={actual}",
+                )
+
+
 def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promoted: bool | None) -> None:
+    _verify_workflow_process_inventory(root, policy)
     action_rows = policy["actions"]["workflowUses"]
     expected = {f"{row['owner']}/{row['repository']}{('/' + row['path']) if row['path'] else ''}@{row['commit']}": row for row in action_rows}
     actual_rows = _remote_uses(root)
@@ -71,9 +150,7 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
             raise BuildInputError(f"{workflow.name}: ubuntu-latest is forbidden")
         if "actions/setup-java@" in text:
             raise BuildInputError(f"{workflow.name}: setup-java is forbidden")
-        for forbidden in ("JAVA_OPTS:", "GRADLE_OPTS:", "JAVA_TOOL_OPTIONS:", "JDK_JAVA_OPTIONS:", "_JAVA_OPTIONS:"):
-            if forbidden in text:
-                raise BuildInputError(f"{workflow.name}: protected environment shadow: {forbidden[:-1]}")
+        _verify_protected_workflow_environment(workflow, text)
         checkout_blocks = re.finditer(r"(?m)^\s*-\s+uses:\s+actions/checkout@[^\n]+\n(?P<body>(?:\s{8,}[^\n]*\n){0,8})", text)
         for match in checkout_blocks:
             if "persist-credentials: false" not in match.group("body"):
@@ -126,13 +203,19 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
                 "      - name: Upload build-input evidence\n        if: always()\n",
                 "name: build-input-evidence-${{ github.sha }}-${{ github.run_attempt }}",
                 "path: build/reports/build-inputs/**",
-                "if-no-files-found: warn",
+                "if-no-files-found: error",
                 "      - name: Upload source-bound reproducibility receipt\n        if: success()\n",
                 "name: reproducible-prod-release-receipt-${{ github.sha }}",
                 "path: build/reports/build-inputs/reproducible-prod-release-receipt.json",
             ),
             owner="build-inputs job",
         )
+        evidence_upload = re.search(
+            r"(?ms)^      - name: Upload build-input evidence\n(?P<body>.*?)(?=^      - |\Z)",
+            build_inputs,
+        )
+        if evidence_upload is None or "if-no-files-found: error" not in evidence_upload.group("body"):
+            raise BuildInputError("build-input evidence upload must fail when evidence is absent")
         report_only = "    continue-on-error: true\n" in build_inputs
         if build_inputs.count("continue-on-error:") != (1 if report_only else 0):
             raise BuildInputError("build-inputs may only use the job-level report-only allowance")
@@ -182,6 +265,25 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
             publish_binding = release_publish.index("verify_build_inputs.py release-bind")
             if publish_binding > release_publish.index("sha256sum") or publish_binding > release_publish.index("gh release"):
                 raise BuildInputError("release-publish binding must precede checksum and release mutation")
+
+    coverage = _job_block(android, "coverage")
+    if coverage.count("secrets.CODECOV_TOKEN") != 1 or re.search(
+        r"(?m)^\s+CODECOV_TOKEN\s*:",
+        coverage,
+    ):
+        raise BuildInputError("Codecov token must be scoped to the single Codecov action")
+    _require_fragments(
+        coverage,
+        (
+            "      - name: Download verified Codecov CLI\n",
+            "verify_build_inputs.py download-codecov",
+            "      - name: Upload to Codecov\n        continue-on-error: true\n",
+            "token: ${{ secrets.CODECOV_TOKEN }}",
+        ),
+        owner="coverage job",
+    )
+    if "if: ${{ env.CODECOV_TOKEN != '' }}" in coverage:
+        raise BuildInputError("Codecov token may not be promoted through job environment")
 
 
 def _without_comments(text: str) -> str:
