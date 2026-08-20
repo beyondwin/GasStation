@@ -5,7 +5,9 @@ import com.gasstation.buildlogic.quality.mutation.configureSealedInheritedJavaEx
 import com.gasstation.buildlogic.quality.mutation.blockingMutationThreshold
 import com.gasstation.buildlogic.quality.mutation.requireSupportedMutationProject
 import com.gasstation.buildlogic.quality.mutation.validateBlockingEnforcement
+import com.gasstation.buildlogic.quality.coverage.canonicalCoverageJson
 import com.gasstation.buildlogic.testing.GradlePluginTestProject
+import groovy.json.JsonSlurper
 import info.solidsoft.gradle.pitest.validatePitestOptionOverrides
 import info.solidsoft.gradle.pitest.canonicalIdentity
 import info.solidsoft.gradle.pitest.validateSealedExecutable
@@ -22,6 +24,8 @@ import org.junit.Test
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.charset.StandardCharsets.UTF_8
+import java.security.MessageDigest
 
 class GasStationJvmMutationConventionPluginTest {
     @get:Rule
@@ -351,7 +355,52 @@ class GasStationJvmMutationConventionPluginTest {
         assertFalse("canonical non-zero PIT launch reported success", nonZero.output.contains("BUILD SUCCESSFUL"))
     }
 
-    private fun mutationProject(name: String): GradlePluginTestProject {
+    @Test
+    fun mutationFixtureOwnsItsRouteEvidenceAndRejectsAStaleLocalRoute() {
+        val repositoryRoot = File(System.getProperty("user.dir")).resolve("../..").canonicalFile
+        val cleanCheckout = temporaryFolder.newFolder("clean-parent-without-pit-reports")
+        val cleanPolicy = cleanCheckout.resolve("config/quality/mutation-policy.json")
+        assertTrue(cleanPolicy.parentFile.mkdirs())
+        cleanPolicy.writeText(repositoryRoot.resolve("config/quality/mutation-policy.json").readText())
+        assertFalse(cleanCheckout.resolve("build/reports/pitest/route.json").exists())
+        assertFalse(cleanCheckout.resolve("build/reports/pitest/route-receipt.json").exists())
+
+        val project = mutationProject("self-contained-route", cleanCheckout)
+        val success = project.runner(":domain:station:verifyPitestConfiguration").build()
+        assertTrue(success.output, success.output.contains("BUILD SUCCESSFUL"))
+
+        val route = File(project.projectDir, "build/reports/pitest/route.json")
+        val current = route.readText()
+        val stale = current.replace("\"status\":\"selected\"", "\"status\":\"not-applicable\"")
+        assertFalse("fixture route mutation did not change bytes", current == stale)
+        route.writeText(stale)
+        val failure = project.runner(":domain:station:verifyPitestConfiguration").buildAndFail()
+        assertTrue(
+            failure.output,
+            failure.output.contains("PIT route receipt predecessor identity differs"),
+        )
+
+        val policy = File(project.projectDir, "config/quality/mutation-policy.json")
+        writeCanonicalRouteEvidence(project, policy.readText())
+        val receipt = File(project.projectDir, "build/reports/pitest/route-receipt.json")
+        val receiptText = receipt.readText()
+        val mismatchedReceipt = receiptText.replace(
+            "\"policy\":\"${sha256(policy.readBytes())}\"",
+            "\"policy\":\"${"0".repeat(64)}\"",
+        )
+        assertFalse("fixture receipt mutation did not change bytes", receiptText == mismatchedReceipt)
+        receipt.writeText(mismatchedReceipt)
+        val receiptFailure = project.runner(":domain:station:verifyPitestConfiguration").buildAndFail()
+        assertTrue(
+            receiptFailure.output,
+            receiptFailure.output.contains("PIT route receipt predecessor identity differs"),
+        )
+    }
+
+    private fun mutationProject(
+        name: String,
+        checkoutRoot: File = File(System.getProperty("user.dir")).resolve("../..").canonicalFile,
+    ): GradlePluginTestProject {
         val project = GradlePluginTestProject.create(temporaryFolder.newFolder(name), sharedGradleUserHome)
         project.writeSettings(
             """
@@ -370,18 +419,13 @@ class GasStationJvmMutationConventionPluginTest {
             kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
             """.trimIndent(),
         )
-        project.writeFile(
-            "config/quality/mutation-policy.json",
-            File(System.getProperty("user.dir")).resolve("../../config/quality/mutation-policy.json").canonicalFile.readText(),
-        )
-        project.writeFile(
-            "build/reports/pitest/route.json",
-            File(System.getProperty("user.dir")).resolve("../../build/reports/pitest/route.json").canonicalFile.readText(),
-        )
-        project.writeFile(
-            "build/reports/pitest/route-receipt.json",
-            File(System.getProperty("user.dir")).resolve("../../build/reports/pitest/route-receipt.json").canonicalFile.readText(),
-        )
+        val policyText =
+            checkoutRoot
+                .resolve("config/quality/mutation-policy.json")
+                .canonicalFile
+                .readText()
+        project.writeFile("config/quality/mutation-policy.json", policyText)
+        writeCanonicalRouteEvidence(project, policyText)
         listOf("station", "location", "settings").forEach { module ->
             project.writeFile(
                 "domain/$module/build.gradle.kts",
@@ -394,6 +438,145 @@ class GasStationJvmMutationConventionPluginTest {
         }
         return project
     }
+
+    private fun writeCanonicalRouteEvidence(
+        project: GradlePluginTestProject,
+        policyText: String,
+    ) {
+        val policyBytes = (policyText.trimEnd('\r', '\n') + "\n").toByteArray(UTF_8)
+        @Suppress("UNCHECKED_CAST")
+        val policy = JsonSlurper().parse(policyBytes) as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val modules = policy.getValue("modules") as Map<String, Map<String, Any?>>
+        @Suppress("UNCHECKED_CAST")
+        val pitest = policy.getValue("pitest") as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val executionEnvironment = policy.getValue("executionEnvironmentPolicy") as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val gitObjectViewPolicy = policy.getValue("gitObjectViewPolicy") as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val profiles = policy.getValue("bootstrapProfiles") as Map<String, Map<String, Any?>>
+        val profileName = "darwin-arm64"
+        val profile = profiles.getValue(profileName)
+        val digest = "1".repeat(64)
+        val observedTools =
+            listOf("bash", "env", "git", "python").associateWith { name ->
+                sortedMapOf<String, Any?>(
+                    "entryPath" to "/fixture/$name",
+                    "entryType" to "regular",
+                    "fileType" to "regular",
+                    "mode" to "0755",
+                    "resolvedPath" to "/fixture/$name",
+                    "sha256" to digest,
+                    "versionSha256" to digest,
+                )
+            }.toSortedMap()
+        val java =
+            sortedMapOf<String, Any?>(
+                "executableSha256" to digest,
+                "major" to 21,
+                "runtimeVersion" to "21.0.0-test",
+                "toolchainRole" to "mutation-runtime",
+                "vendorFamily" to "Eclipse Adoptium/Temurin",
+            )
+        val bootstrap =
+            sortedMapOf<String, Any?>(
+                "environmentPolicy" to executionEnvironment.getValue("policyVersion"),
+                "gitObjectView" to
+                    sortedMapOf<String, Any?>(
+                        "inventorySha256" to digest,
+                        "policy" to gitObjectViewPolicy.getValue("policyVersion"),
+                        "prefixSha256" to digest,
+                    ),
+                "imageIdentity" to null,
+                "java" to java,
+                "observedToolBundleSha256" to sha256(canonicalCoverageJson(observedTools)),
+                "observedTools" to observedTools,
+                "profile" to profileName,
+                "profileSha256" to sha256(canonicalCoverageJson(profile)),
+            )
+        val hostNeutral =
+            sortedMapOf<String, Any?>(
+                "java" to
+                    sortedMapOf<String, Any?>(
+                        "major" to 21,
+                        "toolchainRole" to "mutation-runtime",
+                        "vendorFamily" to "Eclipse Adoptium/Temurin",
+                    ),
+                "pitestEngine" to pitest.getValue("pitestVersion"),
+                "pitestPlugin" to pitest.getValue("pluginVersion"),
+                "reportGeneration" to pitest,
+                "schema" to "host-neutral-mutation-identity-v1",
+                "targets" to
+                    modules.toSortedMap().mapValues { (_, module) ->
+                        sortedMapOf<String, Any?>(
+                            "sourceSets" to listOf("main", "test"),
+                            "targetClasses" to module.getValue("targetClasses"),
+                            "targetTests" to module.getValue("targetTests"),
+                        )
+                    },
+            )
+        val perRun =
+            sortedMapOf<String, Any?>(
+                "imageIdentity" to null,
+                "javaExecutableSha256" to digest,
+                "javaRuntimeVersion" to "21.0.0-test",
+                "observedToolBundleSha256" to bootstrap.getValue("observedToolBundleSha256"),
+                "profileDefinitionSha256" to bootstrap.getValue("profileSha256"),
+                "schema" to "per-run-execution-provenance-route-v1",
+                "selectedProfile" to profileName,
+            )
+        val selectedModules = modules.keys.sorted()
+        val selectedTasks = selectedModules.map { modules.getValue(it).getValue("pitestTask") }
+        val sourceCommit = "1".repeat(40)
+        val route =
+            sortedMapOf<String, Any?>(
+                "baseCommit" to null,
+                "bootstrap" to bootstrap,
+                "changes" to emptyList<Any>(),
+                "environmentPolicy" to executionEnvironment.getValue("policyVersion"),
+                "event" to "local-all",
+                "gitObjectViewPolicy" to gitObjectViewPolicy.getValue("policyVersion"),
+                "hostNeutralMutationIdentity" to hostNeutral,
+                "hostNeutralMutationIdentitySha256" to sha256(canonicalCoverageJson(hostNeutral)),
+                "mergeBase" to null,
+                "perRunExecutionProvenance" to perRun,
+                "perRunExecutionProvenanceSha256" to sha256(canonicalCoverageJson(perRun)),
+                "policySha256" to sha256(policyBytes),
+                "schemaVersion" to 1,
+                "selectedModules" to selectedModules,
+                "selectedTasks" to selectedTasks,
+                "sourceCommit" to sourceCommit,
+                "status" to "selected",
+            )
+        val routeBytes = canonicalCoverageJson(route) + byteArrayOf('\n'.code.toByte())
+        val tasksText = selectedTasks.joinToString(separator = "\n", postfix = "\n")
+        val tasksBytes = tasksText.toByteArray(UTF_8)
+        val receipt =
+            sortedMapOf<String, Any?>(
+                "bootstrap" to bootstrap,
+                "predecessors" to
+                    sortedMapOf<String, Any?>(
+                        "policy" to sha256(policyBytes),
+                        "route" to sha256(routeBytes),
+                        "tasks" to sha256(tasksBytes),
+                    ),
+                "schema" to "pitest-route-receipt-v1",
+                "sourceCommit" to sourceCommit,
+                "status" to "selected",
+            )
+        project.writeFile("build/reports/pitest/route.json", routeBytes.toString(UTF_8))
+        project.writeFile("build/reports/pitest/tasks.txt", tasksText)
+        project.writeFile(
+            "build/reports/pitest/route-receipt.json",
+            canonicalCoverageJson(receipt).toString(UTF_8),
+        )
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { byte -> "%02x".format(byte) }
 
     private fun mutationBuildScript(extra: String = ""): String =
         """
