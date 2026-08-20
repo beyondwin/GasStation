@@ -35,7 +35,7 @@ from scripts.quality.build_inputs.receipts import (
     write_canonical_receipt,
 )
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
-from scripts.quality.build_inputs.workflow import verify_repository_workflows
+from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
 from scripts.quality.verify_build_inputs import _apply_reviewed_metadata_superset
 
 
@@ -372,19 +372,25 @@ class VerifiedDownloadTest(unittest.TestCase):
 
 
 class WorkflowContractTest(unittest.TestCase):
-    def test_checked_in_workflows_match_full_sha_and_closed_jdk_contract(self) -> None:
-        verify_repository_workflows(ROOT, load_policy(POLICY, root=ROOT), promoted=False)
+    def test_promotion_detection_ignores_non_build_input_allowances(self) -> None:
+        workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
+        self.assertIn("continue-on-error: true", workflow)
+        self.assertTrue(build_inputs_is_promoted(workflow))
 
-    def test_report_only_workflow_rejects_closed_matrix_and_artifact_mutations(self) -> None:
+    def test_checked_in_workflows_match_full_sha_and_closed_jdk_contract(self) -> None:
+        verify_repository_workflows(ROOT, load_policy(POLICY, root=ROOT), promoted=True)
+
+    def test_blocking_workflow_rejects_release_binding_mutations(self) -> None:
         policy = load_policy(POLICY, root=ROOT)
         workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
         mutations = (
-            ("    continue-on-error: true\n", ""),
-            ("--group complete", "--group incomplete"),
+            ("    timeout-minutes: 60\n", "    timeout-minutes: 60\n    continue-on-error: true\n"),
+            ("    needs: build-inputs\n", ""),
             (
-                "reproducible-prod-release-receipt-${{ github.sha }}",
+                "name: reproducible-prod-release-receipt-${{ github.sha }}",
                 "reproducible-prod-release-receipt-latest",
             ),
+            ("verify_build_inputs.py release-bind", "verify_build_inputs.py verify"),
         )
         for old, new in mutations:
             with self.subTest(old=old), tempfile.TemporaryDirectory() as directory:
@@ -394,7 +400,7 @@ class WorkflowContractTest(unittest.TestCase):
                 self.assertNotEqual(workflow, candidate)
                 (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
                 with self.assertRaises(BuildInputError):
-                    verify_repository_workflows(root, policy, promoted=False)
+                    verify_repository_workflows(root, policy, promoted=True)
 
     def test_policy_static_source_hashes_match_current_bytes(self) -> None:
         policy = load_policy(POLICY, root=ROOT)

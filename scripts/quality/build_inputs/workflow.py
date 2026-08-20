@@ -26,6 +26,10 @@ def _require_fragments(block: str, fragments: tuple[str, ...], *, owner: str) ->
         raise BuildInputError(f"{owner} contract is incomplete: missing={missing}")
 
 
+def build_inputs_is_promoted(workflow: str) -> bool:
+    return "    continue-on-error: true\n" not in _job_block(workflow, "build-inputs")
+
+
 def _remote_uses(root: Path) -> list[tuple[str, int, str, str | None]]:
     rows: list[tuple[str, int, str, str | None]] = []
     paths = [
@@ -136,6 +140,48 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
             raise BuildInputError("blocking build-inputs job may not continue on error")
         if promoted is False and not report_only:
             raise BuildInputError("observation build-inputs job must be present and report-only")
+        if promoted is True:
+            release_assemble = _job_block(android, "release-assemble")
+            release_publish = _job_block(android, "release-publish")
+            receipt_name = "name: reproducible-prod-release-receipt-${{ github.sha }}"
+            receipt_path = "path: build/reports/build-inputs/probe"
+            binding_fragments = (
+                "verify_build_inputs.py release-bind",
+                "--receipt build/reports/build-inputs/probe/reproducible-prod-release-receipt.json",
+                "--source-commit \"$GITHUB_SHA\"",
+                "--artifact-name \"reproducible-prod-release-receipt-${GITHUB_SHA}\"",
+            )
+            _require_fragments(
+                release_assemble,
+                (
+                    "    needs: build-inputs\n",
+                    receipt_name,
+                    receipt_path,
+                    "      - uses: ./.github/actions/setup-build-inputs\n",
+                    *binding_fragments,
+                    "--output build/reports/build-inputs/release-assemble-binding.json",
+                ),
+                owner="release-assemble job",
+            )
+            _require_fragments(
+                release_publish,
+                (
+                    "needs: [agent-contracts, build-inputs, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage, mutation]",
+                    receipt_name,
+                    receipt_path,
+                    "      - uses: ./.github/actions/setup-build-inputs\n",
+                    *binding_fragments,
+                    "--output build/reports/build-inputs/release-publish-binding.json",
+                ),
+                owner="release-publish job",
+            )
+            if release_assemble.index("verify_build_inputs.py release-bind") > release_assemble.index(
+                "      - name: Upload unsigned prod APK",
+            ):
+                raise BuildInputError("release-assemble binding must precede APK upload")
+            publish_binding = release_publish.index("verify_build_inputs.py release-bind")
+            if publish_binding > release_publish.index("sha256sum") or publish_binding > release_publish.index("gh release"):
+                raise BuildInputError("release-publish binding must precede checksum and release mutation")
 
 
 def _without_comments(text: str) -> str:

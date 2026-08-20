@@ -40,8 +40,6 @@ jobs:
   build-inputs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # Observation phase: collect source-bound evidence without blocking sibling/release jobs yet.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -249,14 +247,31 @@ jobs:
 
   release-assemble:
     runs-on: ubuntu-24.04
+    needs: build-inputs
     if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Download source-bound reproducibility receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: reproducible-prod-release-receipt-${{ github.sha }}
+          path: build/reports/build-inputs/probe
       - uses: ./.github/actions/setup-build-inputs
       - name: Release Assemble
         run: scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail
+      - name: Bind assembled prod APK to reproducibility receipt
+        run: |
+          mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
+          test "${#apks[@]}" -eq 1
+          python3 scripts/quality/verify_build_inputs.py release-bind \
+            --policy config/quality/build-inputs.json \
+            --receipt build/reports/build-inputs/probe/reproducible-prod-release-receipt.json \
+            --apk "${apks[0]}" \
+            --source-commit "$GITHUB_SHA" \
+            --artifact-name "reproducible-prod-release-receipt-${GITHUB_SHA}" \
+            --output build/reports/build-inputs/release-assemble-binding.json
       - name: Prepare unsigned prod APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
@@ -404,7 +419,7 @@ jobs:
   release-publish:
     runs-on: ubuntu-24.04
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-    needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage, mutation]
+    needs: [agent-contracts, build-inputs, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage, mutation]
     permissions:
       contents: write
     steps:
@@ -416,6 +431,12 @@ jobs:
           pattern: release-*-apk
           path: release-assets
           merge-multiple: true
+      - name: Download source-bound reproducibility receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: reproducible-prod-release-receipt-${{ github.sha }}
+          path: build/reports/build-inputs/probe
+      - uses: ./.github/actions/setup-build-inputs
       - name: Validate release metadata and assets
         id: release-metadata
         run: |
@@ -433,12 +454,28 @@ jobs:
           )
           test -f "release-assets/${apk_names[0]}"
           test -f "release-assets/${apk_names[1]}"
-
+          printf 'prod_apk=%s\n' "release-assets/${apk_names[1]}" >> "$GITHUB_OUTPUT"
+          printf 'notes_file=%s\n' "${notes_files[0]}" >> "$GITHUB_OUTPUT"
+      - name: Bind published prod APK to reproducibility receipt
+        run: |
+          python3 scripts/quality/verify_build_inputs.py release-bind \
+            --policy config/quality/build-inputs.json \
+            --receipt build/reports/build-inputs/probe/reproducible-prod-release-receipt.json \
+            --apk "${{ steps.release-metadata.outputs.prod_apk }}" \
+            --source-commit "$GITHUB_SHA" \
+            --artifact-name "reproducible-prod-release-receipt-${GITHUB_SHA}" \
+            --output build/reports/build-inputs/release-publish-binding.json
+      - name: Prepare release checksums
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          apk_names=(
+            "GasStation-$version-demo-debug.apk"
+            "GasStation-$version-prod-release-unsigned.apk"
+          )
           (
             cd release-assets
             sha256sum "${apk_names[@]}" > SHA256SUMS.txt
           )
-          printf 'notes_file=%s\n' "${notes_files[0]}" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

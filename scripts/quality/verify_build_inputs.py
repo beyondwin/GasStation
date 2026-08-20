@@ -48,7 +48,10 @@ from scripts.quality.build_inputs.runtime import (  # noqa: E402
     sealed_gradle_arguments,
     write_evidence_arguments,
 )
-from scripts.quality.build_inputs.workflow import verify_repository_workflows  # noqa: E402
+from scripts.quality.build_inputs.workflow import (  # noqa: E402
+    build_inputs_is_promoted,
+    verify_repository_workflows,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -148,7 +151,7 @@ def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
     if dynamic:
         raise BuildInputError(dynamic[0])
     workflow_text = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
-    promoted = "  build-inputs:\n" not in workflow_text or "    continue-on-error: true\n" not in workflow_text
+    promoted = build_inputs_is_promoted(workflow_text)
     verify_repository_workflows(ROOT, policy, promoted=promoted)
     metadata = _metadata_counts(policy)
     return {

@@ -65,7 +65,7 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 ## Unsigned prod-release build-input prerequisite
 
-`build-inputs` job은 exact source에서 두 clean tree의 unsigned `:app:assembleProdRelease` APK size/SHA-256 equality와 source-bound receipt를 만든다. 현재 observation phase에서는 job-level `continue-on-error: true`로 증거만 수집하며 release prerequisite가 아니다. Blocking phase에서만 `release-assemble`과 `release-publish`가 이 job을 prerequisite로 요구하고, exact receipt와 별도 조립·다운로드한 prod APK를 upload/checksum/release mutation 전에 다시 검증한다. Receipt 자체는 release asset이 아니다.
+`build-inputs` job은 exact source에서 두 clean tree의 unsigned `:app:assembleProdRelease` APK size/SHA-256 equality와 source-bound receipt를 실패 완화 없이 만든다. `release-assemble`과 `release-publish`는 이 job을 prerequisite로 요구하고, exact receipt와 별도 조립·다운로드한 prod APK를 upload/checksum/release mutation 전에 다시 검증한다. Receipt 자체는 release asset이 아니다.
 
 이 상태는 unsigned prod-release의 same-host/workspace-independent 재현성만 의미한다. demo-debug는 probe 대상이 아니고 기존 demo asset 이름은 유지한다. signed artifact, cross-OS, hosted image 자체의 immutable identity는 주장하지 않는다. Hosted probe가 아직 실행되지 않은 source는 `HOSTED BUILD-INPUT EVIDENCE: NOT RUN`이며 로컬 결과로 바꾸지 않는다. 자세한 mismatch triage는 [Build Input Provenance](runbooks/build-input-provenance.md)를 따른다.
 
