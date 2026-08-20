@@ -253,16 +253,26 @@ def build_capture_receipt(
     *,
     candidate_baseline: bytes,
     evidence_manifest: Mapping[str, object],
+    evidence_archive: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     if evidence_manifest.get("schema") != "pitest-capture-evidence-manifest-v1":
         raise MutationPolicyError("capture receipt requires the typed capture-evidence manifest")
     manifest_digest = hashlib.sha256(canonical_json_bytes(dict(evidence_manifest))).hexdigest()
+    if evidence_archive is not None:
+        if set(evidence_archive) != {"path", "sha256"}:
+            raise MutationPolicyError("capture receipt archive reference keys differ")
+        path = evidence_archive.get("path")
+        archive_sha256 = evidence_archive.get("sha256")
+        if not isinstance(path, str) or not path.startswith("config/quality/mutation-evidence/"):
+            raise MutationPolicyError("capture receipt archive path differs")
+        _require_sha256(archive_sha256, "capture receipt archive SHA-256")
     return {
-        "schema": "pitest-capture-receipt-v1",
+        "schema": "pitest-capture-receipt-v2" if evidence_archive is not None else "pitest-capture-receipt-v1",
         "candidateBaselineSha256": hashlib.sha256(candidate_baseline).hexdigest(),
         "predecessorBaselineHash": evidence_manifest.get("predecessorBaselineHash"),
         "captureEvidenceDigest": manifest_digest,
         "evidenceManifest": dict(evidence_manifest),
+        **({"evidenceArchive": dict(evidence_archive)} if evidence_archive is not None else {}),
     }
 
 

@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from pitest_policy import GitCommand, MutationPolicyError, canonical_json_bytes
+from pitest_policy import GitCommand, GitExecutor, MutationPolicyError, canonical_json_bytes
 from pitest_policy.contracts import (
     build_capture_candidate,
     build_capture_evidence_manifest,
@@ -205,6 +206,184 @@ class LinuxObservedProfileTest(unittest.TestCase):
 
 
 class AcyclicCaptureTest(unittest.TestCase):
+    def _clone_checked_repository(self, destination: Path) -> None:
+        subprocess.run(
+            ["git", "clone", "--quiet", "--no-local", str(ROOT), str(destination)],
+            check=True,
+        )
+        subprocess.run(["git", "config", "user.name", "Task 7 Test"], cwd=destination, check=True)
+        subprocess.run(["git", "config", "user.email", "task7-test@example.invalid"], cwd=destination, check=True)
+        (destination / "config/quality/mutation-policy.json").write_bytes(
+            (ROOT / "config/quality/mutation-policy.json").read_bytes()
+        )
+        subprocess.run(["git", "add", "config/quality/mutation-policy.json"], cwd=destination, check=True)
+        subprocess.run(["git", "commit", "--quiet", "-m", "install round3 policy fixture"], cwd=destination, check=True)
+
+    def _validate_clone_baseline(self, repository: Path) -> None:
+        baseline_path = repository / "config/quality/mutation-baseline.json"
+        receipt_root = repository / "config/quality/mutation-captures"
+        transition_root = repository / "config/quality/mutation-transitions"
+        baseline_raw = baseline_path.read_bytes()
+        baseline = json.loads(baseline_raw)
+        git_path = Path(shutil.which("git") or "/usr/bin/git")
+        git = GitExecutor(
+            repository,
+            git_path=git_path,
+            home=repository / ".test-git-home",
+            tmpdir=repository / ".test-git-tmp",
+        )
+        git.assert_original_full_history()
+        patches = {
+            "REPOSITORY_ROOT": repository,
+            "POLICY_PATH": repository / "config/quality/mutation-policy.json",
+            "BASELINE_PATH": baseline_path,
+            "CAPTURE_RECEIPT_ROOT": receipt_root,
+            "TRANSITION_ROOT": transition_root,
+        }
+        with mock.patch.multiple("verify_pitest", **patches):
+            validate_baseline_capture_receipt(baseline_raw, baseline, git=git)
+
+    @staticmethod
+    def _commit_clone(repository: Path, message: str) -> None:
+        subprocess.run(["git", "add", "config/quality"], cwd=repository, check=True)
+        subprocess.run(["git", "commit", "--quiet", "-m", message], cwd=repository, check=True)
+
+    def test_newly_committed_resigned_successor_requires_independent_component_bytes(self) -> None:
+        """Catches trusting an arbitrary component digest from its own new receipt."""
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:
+            repository = Path(directory) / "forged-successor"
+            self._clone_checked_repository(repository)
+            baseline_path = repository / "config/quality/mutation-baseline.json"
+            receipt_root = repository / "config/quality/mutation-captures"
+            transition_root = repository / "config/quality/mutation-transitions"
+            predecessor_raw = baseline_path.read_bytes()
+            predecessor = json.loads(predecessor_raw)
+            predecessor_hash = hashlib.sha256(predecessor_raw).hexdigest()
+            predecessor_receipt = json.loads((receipt_root / f"{predecessor_hash}.json").read_text())
+            manifest = {
+                **predecessor_receipt["evidenceManifest"],
+                "predecessorBaselineHash": predecessor_hash,
+                "components": {
+                    **predecessor_receipt["evidenceManifest"]["components"],
+                    "attempt": "f" * 64,
+                },
+            }
+            evidence_digest = hashlib.sha256(canonical_json_bytes(manifest)).hexdigest()
+            candidate = {
+                **predecessor,
+                "predecessorBaselineHash": predecessor_hash,
+                "captureEvidenceDigest": evidence_digest,
+            }
+            candidate_raw = canonical_json_bytes(candidate)
+            candidate_hash = hashlib.sha256(candidate_raw).hexdigest()
+            archive_root = repository / "config/quality/mutation-evidence" / candidate_hash
+            archive_records = {}
+            for index, (name, claimed_digest) in enumerate(sorted(manifest["components"].items())):
+                component_path = archive_root / "components" / f"{index:02d}.bin"
+                component_path.parent.mkdir(parents=True, exist_ok=True)
+                component_path.write_bytes(("forged component: " + name).encode())
+                archive_records[name] = {
+                    "path": component_path.relative_to(repository).as_posix(),
+                    "sha256": claimed_digest,
+                }
+            archive = {
+                "schema": "pitest-capture-evidence-archive-v1",
+                "candidateBaselineSha256": candidate_hash,
+                "components": archive_records,
+            }
+            archive_raw = canonical_json_bytes(archive)
+            archive_path = archive_root / "archive.json"
+            archive_path.write_bytes(archive_raw)
+            archive_reference = {
+                "path": archive_path.relative_to(repository).as_posix(),
+                "sha256": hashlib.sha256(archive_raw).hexdigest(),
+            }
+            receipt = build_capture_receipt(
+                candidate_baseline=candidate_raw,
+                evidence_manifest=manifest,
+                evidence_archive=archive_reference,
+            )
+            receipt_raw = canonical_json_bytes(receipt)
+            (receipt_root / f"{candidate_hash}.json").write_bytes(receipt_raw)
+
+            previous_transition = next(
+                json.loads(path.read_text())
+                for path in transition_root.glob("*.json")
+                if json.loads(path.read_text())["candidateBaselineSha256"] == predecessor_hash
+            )
+            input_identity = predecessor["mutationInputIdentitySha256"]
+            transition = {
+                **previous_transition,
+                "schema": "pitest-recapture-transition-v2",
+                "predecessorBaselineSha256": predecessor_hash,
+                "candidateBaselineSha256": candidate_hash,
+                "captureReceiptSha256": hashlib.sha256(receipt_raw).hexdigest(),
+                "oldInputIdentity": {
+                    "schemaVersion": 2,
+                    "mutationInputIdentitySha256": input_identity,
+                    "hostNeutralMutationIdentitySha256": predecessor["hostNeutralMutationIdentitySha256"],
+                },
+                "newInputIdentity": {
+                    "schemaVersion": 2,
+                    "mutationInputIdentitySha256": input_identity,
+                    "hostNeutralMutationIdentitySha256": predecessor["hostNeutralMutationIdentitySha256"],
+                },
+                "evidenceArchive": archive_reference,
+            }
+            (transition_root / f"{predecessor_hash}-to-{input_identity}.json").write_bytes(
+                canonical_json_bytes(transition),
+            )
+            baseline_path.write_bytes(candidate_raw)
+            self._commit_clone(repository, "forge complete successor")
+
+            with self.assertRaisesRegex(MutationPolicyError, "archive|component bytes"):
+                self._validate_clone_baseline(repository)
+
+    def test_deleting_history_and_committing_a_replacement_null_root_is_rejected(self) -> None:
+        """Catches deriving the trust root only from paths surviving at HEAD."""
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:
+            repository = Path(directory) / "replacement-root"
+            self._clone_checked_repository(repository)
+            baseline_path = repository / "config/quality/mutation-baseline.json"
+            receipt_root = repository / "config/quality/mutation-captures"
+            transition_root = repository / "config/quality/mutation-transitions"
+            baseline = json.loads(baseline_path.read_text())
+            current_hash = hashlib.sha256(baseline_path.read_bytes()).hexdigest()
+            current_receipt = json.loads((receipt_root / f"{current_hash}.json").read_text())
+            manifest = {
+                **current_receipt["evidenceManifest"],
+                "predecessorBaselineHash": None,
+                "predecessorVerificationReceiptHash": None,
+                "components": {
+                    key: value
+                    for key, value in current_receipt["evidenceManifest"]["components"].items()
+                    if key != "predecessorVerificationReceipt"
+                },
+            }
+            evidence_digest = hashlib.sha256(canonical_json_bytes(manifest)).hexdigest()
+            replacement = {
+                **baseline,
+                "predecessorBaselineHash": None,
+                "predecessorVerificationReceiptHash": None,
+                "captureEvidenceDigest": evidence_digest,
+            }
+            replacement_raw = canonical_json_bytes(replacement)
+            replacement_hash = hashlib.sha256(replacement_raw).hexdigest()
+            replacement_receipt = build_capture_receipt(
+                candidate_baseline=replacement_raw,
+                evidence_manifest=manifest,
+            )
+            for path in receipt_root.glob("*.json"):
+                path.unlink()
+            for path in transition_root.glob("*.json"):
+                path.unlink()
+            (receipt_root / f"{replacement_hash}.json").write_bytes(canonical_json_bytes(replacement_receipt))
+            baseline_path.write_bytes(replacement_raw)
+            self._commit_clone(repository, "replace complete capture history")
+
+            with self.assertRaisesRegex(MutationPolicyError, "trust anchor|deleted|history"):
+                self._validate_clone_baseline(repository)
+
     def test_transition_chain_successor_requires_the_full_capture_schema(self) -> None:
         candidate = "1" * 64
         minimal = canonical_json_bytes({
@@ -216,11 +395,24 @@ class AcyclicCaptureTest(unittest.TestCase):
         with self.assertRaisesRegex(MutationPolicyError, "closed schema"):
             _capture_receipt_link(minimal, f"config/quality/mutation-captures/{candidate}.json")
 
-    def test_policy_authorizes_only_the_reviewed_round2_successor_axis(self) -> None:
+    def test_policy_pins_initial_anchor_checkpoint_and_only_round3_successor_axis(self) -> None:
         policy, _, _ = load_policy()
         self.assertEqual(
-            ["task7-spec-review-round2-corrections"],
+            ["task7-spec-review-round3-corrections"],
             policy["capturePolicy"]["reviewedTransitionAxes"],
+        )
+        self.assertEqual(
+            {
+                "baselineCandidateSha256": "0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201",
+                "captureReceiptPath": "config/quality/mutation-captures/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201.json",
+                "captureReceiptSha256": "4da85a7c98dda7c26287d215b6b59c37c68a448e9d3e19b28916283615a68219",
+                "introductionCommit": "4a958727679440a53657a0adcf1a7017cedcb804",
+            },
+            policy["capturePolicy"]["initialAnchor"],
+        )
+        self.assertEqual(
+            "dfb5439c76bb860ca545e4744dca937057c3b85c",
+            policy["capturePolicy"]["legacyCheckpoint"]["commit"],
         )
 
     def test_checked_capture_artifact_must_be_append_only_from_its_introduction(self) -> None:
@@ -397,7 +589,7 @@ class AcyclicCaptureTest(unittest.TestCase):
         baseline = json.loads(baseline_raw)
         with tempfile.TemporaryDirectory(dir=ROOT / "config/quality") as directory:
             with mock.patch("verify_pitest.TRANSITION_ROOT", Path(directory)):
-                with self.assertRaisesRegex(MutationPolicyError, "disconnected from current baseline"):
+                with self.assertRaisesRegex(MutationPolicyError, "file inventory differs|disconnected from current baseline"):
                     validate_baseline_capture_receipt(baseline_raw, baseline)
 
 

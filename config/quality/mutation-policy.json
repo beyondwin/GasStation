@@ -37,10 +37,13 @@
   "capturePolicy": {
     "baselineSchemaVersion": 2,
     "candidateForbiddenFields": ["baselineSha256", "candidateBaselineSha256", "candidateSha256", "captureReceiptHash", "captureReceiptSha256", "finalReceiptHash", "successorHash", "verificationReceiptHash"],
+    "evidenceArchiveDirectory": "config/quality/mutation-evidence",
     "captureReceiptDirectory": "config/quality/mutation-captures",
+    "initialAnchor": {"baselineCandidateSha256": "0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201", "captureReceiptPath": "config/quality/mutation-captures/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201.json", "captureReceiptSha256": "4da85a7c98dda7c26287d215b6b59c37c68a448e9d3e19b28916283615a68219", "introductionCommit": "4a958727679440a53657a0adcf1a7017cedcb804"},
     "initialPredecessorBaselineHash": null,
     "initialPredecessorVerificationReceiptHash": null,
-    "reviewedTransitionAxes": ["task7-spec-review-round2-corrections"],
+    "legacyCheckpoint": {"commit": "dfb5439c76bb860ca545e4744dca937057c3b85c", "captureReceiptSha256ByPath": {"config/quality/mutation-captures/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201.json": "4da85a7c98dda7c26287d215b6b59c37c68a448e9d3e19b28916283615a68219", "config/quality/mutation-captures/0af6ea8f8de37a79d498414be858dc86978b3cc37d4baa2efbaf3aac39511a62.json": "e1f35dca922f393e372f32c70c647eac566a7395e2568f3f9ce207ad462fac03", "config/quality/mutation-captures/24aa14a0e2941d673d6aa3b370a268fbb2fe4633b6ef863a1ed736af41a0336a.json": "f0eab82ccde205b79d18b8e42cb3b5afd7a7bf161a9a0da28dbcf86fe1fa5238", "config/quality/mutation-captures/b5d344f5754eb0fa4ab2cbfd6ce460b54befcb062d477ed4397379a48202f4c8.json": "0dc0b8c58a2b9556c64959c9971d7468c3475d559b7b03cdd09f68f50b96f994"}, "transitionSha256ByPath": {"config/quality/mutation-transitions/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201-to-99360ac88c51e0027c544e2b1dd1c02fb1bfe8671e2a9354127f5511b08e8168.json": "c69309ace3eb06e4a041a08a9a147909fcd5000f4b87da14f4f0e1b5e278b25d", "config/quality/mutation-transitions/0af6ea8f8de37a79d498414be858dc86978b3cc37d4baa2efbaf3aac39511a62-to-adf64ef12bc9352b2f74df93c366d9799e668a61827c4430b933cd024b8c81a1.json": "8e8fa6d528fee2ad07146ad2e7a79a03b89e888307c7936ac44ad51d5c55ef7a", "config/quality/mutation-transitions/b5d344f5754eb0fa4ab2cbfd6ce460b54befcb062d477ed4397379a48202f4c8-to-69331d2eb42cb734716b1886397b2aa1fd61bf141cee919ab29a2496e7d404bb.json": "517a69214b8bf5a2ee559ff92680a340b0cb047e4d0fb53c1756ef7754f97d3e"}},
+    "reviewedTransitionAxes": ["task7-spec-review-round3-corrections"],
     "schema": "acyclic-candidate-and-separate-receipt-v1",
     "transitionDirectory": "config/quality/mutation-transitions"
   },
@@ -93,7 +96,7 @@
   "rejectedStatuses": ["EQUIVALENT", "MEMORY_ERROR", "NON_VIABLE", "NOT_STARTED", "RUN_ERROR", "STARTED", "TIMED_OUT"],
   "routing": {
     "allModuleExactPaths": [".github/workflows/android.yml", ".github/workflows/mutation-schedule.yml", "build.gradle.kts", "config/quality/mutation-baseline.json", "config/quality/mutation-policy.json", "gradle.properties", "gradle/libs.versions.toml", "gradle/verification-metadata.xml", "gradlew", "gradlew.bat", "scripts/agent/check_contracts.py", "scripts/agent/test.sh", "scripts/agent/tests/check_contracts_test.sh", "scripts/agent/tests/verify_test.sh", "scripts/agent/verify.sh", "settings.gradle.kts"],
-    "allModulePrefixes": ["build-logic/", "config/quality/mutation-transitions/", "core/model/", "gradle/wrapper/", "scripts/quality/"],
+    "allModulePrefixes": ["build-logic/", "config/quality/mutation-captures/", "config/quality/mutation-evidence/", "config/quality/mutation-transitions/", "core/model/", "gradle/wrapper/", "scripts/quality/"],
     "eventsSelectingAll": ["local-all", "main", "schedule", "tag"],
     "pullRequestMode": "task5-nul-safe-merge-base-diff-v1"
   },
