@@ -169,9 +169,14 @@ GMD_DEVICE_SOURCE_FIELDS = {
     "avdName",
     "fingerprint",
     "googleServicesRevision",
+    "imagePackage",
+    "imageSource",
     "locale",
     "permissionControllerPackage",
     "permissionControllerRevision",
+    "profile",
+    "shards",
+    "task",
 }
 CONNECTED_TEARDOWN_FIELDS = {
     "schemaVersion",
@@ -266,6 +271,8 @@ def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
             or source_value["apiLevel"] <= 0
             or source_value["abi"] != "x86_64"
             or not re.fullmatch(r"gasstationPixel2Api(?:28|36)", source_value["avdName"] or "")
+            or source_value["task"] != task
+            or source_value["shards"] != 1
             or google_revision is not None and (not isinstance(google_revision, str) or not google_revision.isdigit())
             or any(
                 not isinstance(source_value[field], str) or not source_value[field].strip()
@@ -275,18 +282,28 @@ def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
         ):
             raise DeviceEvidenceError(f"GMD task receipt {index} device facts are incomplete")
         image_source = "google" if google_revision is not None else "aosp"
+        expected_image_package = (
+            f"system-images;android-{source_value['apiLevel']};{image_source};{source_value['abi']}"
+        )
+        if (
+            source_value["profile"] != "Pixel 2"
+            or source_value["imageSource"] != image_source
+            or source_value["imagePackage"] != expected_image_package
+        ):
+            raise DeviceEvidenceError(f"GMD task receipt {index} raw image/profile facts conflict")
         receipt["derivedDevice"] = {
             "abi": source_value["abi"],
             "apiLevel": source_value["apiLevel"],
             "fingerprint": source_value["fingerprint"],
-            "imagePackage": f"system-images;android-{source_value['apiLevel']};{image_source};{source_value['abi']}",
-            "imageSource": image_source,
+            "imagePackage": source_value["imagePackage"],
+            "imageSource": source_value["imageSource"],
             "locale": source_value["locale"],
             "permissionControllerPackage": source_value["permissionControllerPackage"],
             "permissionControllerRevision": source_value["permissionControllerRevision"],
-            "profile": "Pixel 2",
+            "profile": source_value["profile"],
             "serial": source_value["avdName"],
         }
+        receipt["derivedDeviceSourceShards"] = source_value["shards"]
         receipts.append(receipt)
     return receipts
 
@@ -349,7 +366,7 @@ def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
         "lane": lane_name,
         "kind": "gmd",
         **actual,
-        "shards": 1,
+        "shards": receipts[0]["derivedDeviceSourceShards"],
     }
 
 

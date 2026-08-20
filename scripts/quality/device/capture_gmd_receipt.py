@@ -24,9 +24,14 @@ DEVICE_FIELDS = {
     "avdName",
     "fingerprint",
     "googleServicesRevision",
+    "imagePackage",
+    "imageSource",
     "locale",
     "permissionControllerPackage",
     "permissionControllerRevision",
+    "profile",
+    "shards",
+    "task",
 }
 
 

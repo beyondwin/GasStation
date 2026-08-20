@@ -128,6 +128,8 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         mutators = {
             "wrong-api": lambda facts, completion, junit: facts.update(apiLevel=36),
             "wrong-serial": lambda facts, completion, junit: facts.update(serial="untrusted-device"),
+            "wrong-profile": lambda facts, completion, junit: facts.update(profile="policy-echo"),
+            "wrong-image": lambda facts, completion, junit: facts.update(imagePackage="system-images;android-28;google;x86_64"),
             "sharded-run": lambda facts, completion, junit: facts.update(shards=2),
             "self-asserted-device": lambda facts, completion, junit: facts.update(source="policy"),
             "cached-task": lambda facts, completion, junit: completion["commands"][0].update(outcome="FROM-CACHE"),
@@ -397,9 +399,14 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                         "avdName": facts["serial"],
                         "fingerprint": facts["fingerprint"],
                         "googleServicesRevision": "36" if facts["imageSource"] == "google" else None,
+                        "imagePackage": facts["imagePackage"],
+                        "imageSource": facts["imageSource"],
                         "locale": facts["locale"],
                         "permissionControllerPackage": facts["permissionControllerPackage"],
                         "permissionControllerRevision": facts["permissionControllerRevision"],
+                        "profile": facts["profile"],
+                        "shards": facts["shards"],
+                        "task": task,
                     },
                 )
                 self._write_json(

@@ -183,6 +183,12 @@ class DeviceScriptTest(unittest.TestCase):
 
             self._write_gmd_task_receipt(attempt, 1, lane)
 
+            self._write_gmd_task_receipt(attempt, 1, lane, raw_task=lane["gradleTasks"][0])
+            with self.assertRaises(DeviceEvidenceError):
+                gmd_metadata(attempt, lane_name, lane)
+
+            self._write_gmd_task_receipt(attempt, 1, lane)
+
             (attempt / "raw/gmd-task-2.json").write_text(
                 (attempt / "raw/gmd-task-0.json").read_text(encoding="utf-8"), encoding="utf-8"
             )
@@ -315,7 +321,7 @@ class DeviceScriptTest(unittest.TestCase):
         self.assertNotIn("|| true", (DEVICE / "run_api24_avd.sh").read_text(encoding="utf-8"))
 
     @staticmethod
-    def _write_gmd_task_receipt(attempt, index, lane, *, locale="ko-KR"):
+    def _write_gmd_task_receipt(attempt, index, lane, *, locale="ko-KR", raw_task=None):
         source_path = attempt / f"collected/{lane['resultRoots'][index * 3]}/device-evidence-device.json"
         source_path.parent.mkdir(parents=True, exist_ok=True)
         source = {
@@ -326,9 +332,14 @@ class DeviceScriptTest(unittest.TestCase):
             "avdName": "gasstationPixel2Api28",
             "fingerprint": "aosp/fixture/api28",
             "googleServicesRevision": None,
+            "imagePackage": "system-images;android-28;aosp;x86_64",
+            "imageSource": "aosp",
             "locale": locale,
             "permissionControllerPackage": "com.android.packageinstaller",
             "permissionControllerRevision": "28",
+            "profile": "Pixel 2",
+            "shards": 1,
+            "task": raw_task or lane["gradleTasks"][index],
         }
         source_path.write_text(json.dumps(source, sort_keys=True) + "\n", encoding="utf-8")
         receipt = {

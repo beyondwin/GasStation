@@ -32,6 +32,10 @@ class DeviceEvidenceReceiptRule : TestWatcher() {
         val abi = requireNotNull(Build.SUPPORTED_ABIS.firstOrNull())
         val serial = readSystemProperty("ro.boot.qemu.avd_name")
         require(serial.isNotBlank()) { "GMD AVD name property is missing" }
+        val imageSource = if (googleServicesRevision == null) "aosp" else "google"
+        val task = ":core:database:${serial}DebugAndroidTest"
+        val shards = InstrumentationRegistry.getArguments().getString("numShards")?.toInt() ?: 1
+        require(shards == 1) { "GMD test sharding is not allowed" }
         val receipt = JSONObject()
             .put("schemaVersion", 1)
             .put("producer", "androidx-test-storage")
@@ -40,9 +44,14 @@ class DeviceEvidenceReceiptRule : TestWatcher() {
             .put("avdName", serial)
             .put("fingerprint", Build.FINGERPRINT)
             .put("googleServicesRevision", googleServicesRevision ?: JSONObject.NULL)
+            .put("imagePackage", "system-images;android-${Build.VERSION.SDK_INT};$imageSource;$abi")
+            .put("imageSource", imageSource)
             .put("locale", Locale.getDefault().toLanguageTag())
             .put("permissionControllerPackage", permissionPackage)
             .put("permissionControllerRevision", permissionRevision)
+            .put("profile", profileFromAvdName(serial))
+            .put("shards", shards)
+            .put("task", task)
         PlatformTestStorageRegistry.getInstance().openOutputFile("device-evidence-device.json")
             .bufferedWriter(Charsets.UTF_8).use { it.write(receipt.toString()) }
     }
@@ -51,3 +60,9 @@ class DeviceEvidenceReceiptRule : TestWatcher() {
 private fun readSystemProperty(name: String): String =
     ProcessBuilder("/system/bin/getprop", name).start().inputStream
         .bufferedReader(Charsets.UTF_8).use { it.readText().trim() }
+
+private fun profileFromAvdName(avdName: String): String =
+    when {
+        avdName.matches(Regex("gasstationPixel2Api(?:28|36)")) -> "Pixel 2"
+        else -> error("Unreviewed GMD AVD name: $avdName")
+    }
