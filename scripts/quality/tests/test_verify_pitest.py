@@ -197,6 +197,33 @@ class PitestParserTest(unittest.TestCase):
                 class_lookup=lambda class_name: ("Thing.class", source_file_bytes("Other.kt", class_name)),
             )
 
+    def test_class_parser_accepts_strict_modified_utf8_and_rejects_malformed_forms(self) -> None:
+        modified_utf8 = b"prefix\xc0\x80\xed\xa0\xbd\xed\xb8\x80suffix"
+        parse_pitest_xml(
+            VALID_XML,
+            module="station",
+            package_root="com.gasstation.domain.station",
+            source_lookup=lambda class_name, source_file: source_file,
+            class_lookup=lambda class_name: (
+                "Thing.class",
+                source_file_bytes("Thing.kt", class_name, extra_utf8=modified_utf8),
+            ),
+        )
+
+        for malformed in (b"literal\x00nul", b"\xc1\x81", b"\xe0\x80\x80", b"\xed\xa0"):
+            with self.subTest(malformed=malformed):
+                with self.assertRaisesRegex(MutationPolicyError, "UTF-8"):
+                    parse_pitest_xml(
+                        VALID_XML,
+                        module="station",
+                        package_root="com.gasstation.domain.station",
+                        source_lookup=lambda class_name, source_file: source_file,
+                        class_lookup=lambda class_name: (
+                            "Thing.class",
+                            source_file_bytes("Thing.kt", class_name, extra_utf8=malformed),
+                        ),
+                    )
+
 
 class ExactFloorAndRoutingTest(unittest.TestCase):
     def test_exact_floor_boundaries_do_not_round(self) -> None:
@@ -335,7 +362,7 @@ class GitObjectViewTest(unittest.TestCase):
                 executor.assert_original_full_history()
 
 
-def source_file_bytes(source_file: str, class_name: str) -> bytes:
+def source_file_bytes(source_file: str, class_name: str, *, extra_utf8: bytes | None = None) -> bytes:
     """Build the smallest valid Java-17 class file with one SourceFile attribute."""
     internal = class_name.replace(".", "/").encode()
     source = source_file.encode()
@@ -348,6 +375,8 @@ def source_file_bytes(source_file: str, class_name: str) -> bytes:
         utf8(b"SourceFile"),
         utf8(source),
     ]
+    if extra_utf8 is not None:
+        pool.append(utf8(extra_utf8))
     return (
         b"\xca\xfe\xba\xbe"
         + (0).to_bytes(2, "big")

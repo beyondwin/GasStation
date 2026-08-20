@@ -469,10 +469,7 @@ def _parse_class_source_file(data: bytes) -> tuple[str, str]:
         if tag == 1:
             length, offset = _u2(data, offset)
             raw, offset = _take(data, offset, length)
-            try:
-                pool[index] = raw.decode("utf-8", errors="strict")
-            except UnicodeDecodeError as error:
-                raise MutationPolicyError("invalid class UTF-8 constant") from error
+            pool[index] = _decode_modified_utf8(raw)
         elif tag in {3, 4}:
             _, offset = _take(data, offset, 4)
         elif tag in {5, 6}:
@@ -518,6 +515,43 @@ def _parse_class_source_file(data: bytes) -> tuple[str, str]:
     if len(source_files) != 1:
         raise MutationPolicyError("class file must contain exactly one SourceFile attribute")
     return internal_name, source_files[0]
+
+
+def _decode_modified_utf8(raw: bytes) -> str:
+    code_units: list[int] = []
+    offset = 0
+    while offset < len(raw):
+        first = raw[offset]
+        offset += 1
+        if 0x01 <= first <= 0x7F:
+            code_units.append(first)
+            continue
+        if 0xC0 <= first <= 0xDF:
+            if offset >= len(raw) or raw[offset] & 0xC0 != 0x80:
+                raise MutationPolicyError("invalid class UTF-8 constant")
+            second = raw[offset]
+            offset += 1
+            value = ((first & 0x1F) << 6) | (second & 0x3F)
+            if value == 0:
+                if first != 0xC0 or second != 0x80:
+                    raise MutationPolicyError("invalid class UTF-8 constant")
+            elif value < 0x80:
+                raise MutationPolicyError("invalid class UTF-8 constant")
+            code_units.append(value)
+            continue
+        if 0xE0 <= first <= 0xEF:
+            if offset + 1 >= len(raw) or raw[offset] & 0xC0 != 0x80 or raw[offset + 1] & 0xC0 != 0x80:
+                raise MutationPolicyError("invalid class UTF-8 constant")
+            second, third = raw[offset:offset + 2]
+            offset += 2
+            value = ((first & 0x0F) << 12) | ((second & 0x3F) << 6) | (third & 0x3F)
+            if value < 0x800:
+                raise MutationPolicyError("invalid class UTF-8 constant")
+            code_units.append(value)
+            continue
+        raise MutationPolicyError("invalid class UTF-8 constant")
+    encoded = b"".join(code_unit.to_bytes(2, "big") for code_unit in code_units)
+    return encoded.decode("utf-16-be", errors="surrogatepass")
 
 
 def _skip_attributes(data: bytes, offset: int, count: int) -> int:
