@@ -65,9 +65,8 @@ android {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
-    sourceSets.getByName("androidTest").kotlin.directories.add("src/sharedTest/kotlin")
+    sourceSets.getByName("androidTest").kotlin.directories.add("src/testDemo/java/com/gasstation/test/shared")
     sourceSets.getByName("androidTestDemo").kotlin.directories.add("src/demoAndroidTest/kotlin")
-    sourceSets.getByName("testDemo").kotlin.directories.add("src/sharedTest/kotlin")
 }
 
 dependencies {
