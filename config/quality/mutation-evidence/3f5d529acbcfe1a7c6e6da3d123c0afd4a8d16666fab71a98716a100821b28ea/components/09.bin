@@ -1,0 +1,104 @@
+{
+  "acceptedStatuses": ["KILLED", "NO_COVERAGE", "SURVIVED"],
+  "bootstrapProfiles": {
+    "darwin-arm64": {
+      "architecture": "arm64",
+      "kind": "fixed-content-v1",
+      "platform": "Darwin",
+      "tools": {
+        "bash": {"fileType": "regular", "mode": "0555", "path": "/bin/bash", "sha256": "fde343ee184953c1fa1185abddeaa8be61c6acbebae4eb54db5d6b55b09a5755", "versionSha256": "bbb931c0afdf20554fcb03c4414a67092e2d8db87226567a6ad5be3c1bcc1a15"},
+        "env": {"fileType": "regular", "mode": "0755", "path": "/usr/bin/env", "sha256": "6e506aec3c0cff703ac1e66cedc6f1945354ad41339a38db4425c7c88227128f", "versionSha256": "ff52f1745a38285bcd773e81072d5ddc56d60069e6cb6298162e5e86546b89e6"},
+        "git": {"fileType": "regular", "mode": "0755", "path": "/usr/bin/git", "sha256": "179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818", "versionSha256": "0a72a762b37a3800276a1004e2c169aed0610d4a3ba601ba59e70e1c4d9f3200"},
+        "python": {"fileType": "regular", "mode": "0755", "path": "/usr/bin/python3", "sha256": "179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818", "versionSha256": "fd0fd4290ad100adc37e4a82e45f821faeacbecae70f4d3eba08e85be138c632"}
+      }
+    },
+    "linux-x86_64": {
+      "architecture": "x86_64",
+      "image": {
+        "ImageOS": "ubuntu24",
+        "ImageVersion": "20260816.277.1",
+        "inventoryAsset": "internal.ubuntu24.json",
+        "inventoryAssetDigest": "sha256:35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19",
+        "runnerImagesTag": "ubuntu24/20260816.277",
+        "runnerImagesTagCommit": "3b5f596ffecb076aa5f3c3ded95b145f6daeb016"
+      },
+      "kind": "github-hosted-image-observed-v1",
+      "platform": "Linux",
+      "runnerLabel": "ubuntu-24.04",
+      "tools": {
+        "bash": {"fileType": "regular", "modePredicate": "any-executable-bit", "path": "/bin/bash", "symlink": false},
+        "env": {"fileType": "regular", "modePredicate": "any-executable-bit", "path": "/usr/bin/env", "symlink": false},
+        "git": {"fileType": "regular", "modePredicate": "any-executable-bit", "path": "/usr/bin/git", "symlink": false},
+        "python": {"fileType": "regular", "linkTarget": "python3.12", "locator": "/usr/bin/python3", "locatorType": "symlink", "modePredicate": "any-executable-bit", "path": "/usr/bin/python3.12", "semanticVersion": "3.12", "symlink": false}
+      }
+    }
+  },
+  "canonicalGradleFlags": ["--configuration-cache", "--configuration-cache-problems=fail", "--no-build-cache", "--rerun-tasks", "--no-parallel", "--warning-mode", "fail"],
+  "capturePolicy": {
+    "baselineSchemaVersion": 2,
+    "candidateForbiddenFields": ["baselineSha256", "candidateBaselineSha256", "candidateSha256", "captureReceiptHash", "captureReceiptSha256", "finalReceiptHash", "successorHash", "verificationReceiptHash"],
+    "evidenceArchiveDirectory": "config/quality/mutation-evidence",
+    "captureReceiptDirectory": "config/quality/mutation-captures",
+    "initialAnchor": {"baselineCandidateSha256": "0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201", "captureReceiptPath": "config/quality/mutation-captures/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201.json", "captureReceiptSha256": "4da85a7c98dda7c26287d215b6b59c37c68a448e9d3e19b28916283615a68219", "introductionCommit": "4a958727679440a53657a0adcf1a7017cedcb804"},
+    "initialPredecessorBaselineHash": null,
+    "initialPredecessorVerificationReceiptHash": null,
+    "legacyCheckpoint": {"commit": "dfb5439c76bb860ca545e4744dca937057c3b85c", "captureReceiptSha256ByPath": {"config/quality/mutation-captures/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201.json": "4da85a7c98dda7c26287d215b6b59c37c68a448e9d3e19b28916283615a68219", "config/quality/mutation-captures/0af6ea8f8de37a79d498414be858dc86978b3cc37d4baa2efbaf3aac39511a62.json": "e1f35dca922f393e372f32c70c647eac566a7395e2568f3f9ce207ad462fac03", "config/quality/mutation-captures/24aa14a0e2941d673d6aa3b370a268fbb2fe4633b6ef863a1ed736af41a0336a.json": "f0eab82ccde205b79d18b8e42cb3b5afd7a7bf161a9a0da28dbcf86fe1fa5238", "config/quality/mutation-captures/b5d344f5754eb0fa4ab2cbfd6ce460b54befcb062d477ed4397379a48202f4c8.json": "0dc0b8c58a2b9556c64959c9971d7468c3475d559b7b03cdd09f68f50b96f994"}, "transitionSha256ByPath": {"config/quality/mutation-transitions/0839a284eb2e6b1617969d3427ba1b4d1ac7c7bf81441d12801eebba127be201-to-99360ac88c51e0027c544e2b1dd1c02fb1bfe8671e2a9354127f5511b08e8168.json": "c69309ace3eb06e4a041a08a9a147909fcd5000f4b87da14f4f0e1b5e278b25d", "config/quality/mutation-transitions/0af6ea8f8de37a79d498414be858dc86978b3cc37d4baa2efbaf3aac39511a62-to-adf64ef12bc9352b2f74df93c366d9799e668a61827c4430b933cd024b8c81a1.json": "8e8fa6d528fee2ad07146ad2e7a79a03b89e888307c7936ac44ad51d5c55ef7a", "config/quality/mutation-transitions/b5d344f5754eb0fa4ab2cbfd6ce460b54befcb062d477ed4397379a48202f4c8-to-69331d2eb42cb734716b1886397b2aa1fd61bf141cee919ab29a2496e7d404bb.json": "517a69214b8bf5a2ee559ff92680a340b0cb047e4d0fb53c1756ef7754f97d3e"}},
+    "reviewedTransitionAxes": ["task7-spec-review-round3-corrections"],
+    "schema": "acyclic-candidate-and-separate-receipt-v1",
+    "transitionDirectory": "config/quality/mutation-transitions"
+  },
+  "enforcementPhase": "blocking",
+  "executionEnvironmentPolicy": {
+    "allowedEvidenceNames": ["CI", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_SYSTEM", "GIT_NO_REPLACE_OBJECTS", "GIT_OPTIONAL_LOCKS", "GIT_PAGER", "GIT_TERMINAL_PROMPT", "HOME", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE", "TERM", "TMPDIR", "TZ"],
+    "allowedPitChildNames": ["CI", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "TZ"],
+    "allowedWrapperNames": ["CI", "GRADLE_USER_HOME", "HOME", "JAVA_HOME", "LANG", "LC_ALL", "PATH", "PYTHONDONTWRITEBYTECODE", "TERM", "TMPDIR", "TZ"],
+    "forbiddenExactNames": ["BASHOPTS", "BASH_ENV", "CDPATH", "CLASSPATH", "DEFAULT_JVM_OPTS", "DYLD_FALLBACK_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "ENV", "GLOBIGNORE", "GRADLE_OPTS", "IBM_JAVA_OPTIONS", "IFS", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVAC_OPTIONS", "JDK_JAVA_OPTIONS", "KOTLIN_OPTS", "LD_LIBRARY_PATH", "LD_PRELOAD", "OPENJ9_JAVA_OPTIONS", "POSIXLY_CORRECT", "SHELLOPTS", "SSH_AGENT_PID", "SSH_ASKPASS", "SSH_AUTH_SOCK", "VIRTUAL_ENV", "XDG_CONFIG_HOME", "_IBM_JAVA_OPTIONS", "_JAVA_OPTIONS", "__PYVENV_LAUNCHER__"],
+    "forbiddenPrefixes": ["BASH_FUNC_", "GIT_", "PYTHON"],
+    "fixedLiterals": {"CI": "true", "LANG": "C", "LC_ALL": "C", "TERM": "dumb", "TZ": "UTC"},
+    "normalizedDirectoryRoles": ["evidence-home", "evidence-tmp", "gradle-user-home", "pit-child-home", "pit-child-tmp", "runner-home", "runner-tmp"],
+    "policyVersion": "pitest-sealed-v1",
+    "prohibitedDedicatedHomePaths": ["gradle-user-home/gradle.properties", "gradle-user-home/init.gradle", "gradle-user-home/init.gradle.kts", "runner-home/.gradle/gradle.properties", "runner-home/.gradle/init.gradle", "runner-home/.gradle/init.gradle.kts"]
+  },
+  "gitObjectViewPolicy": {
+    "commandPrefix": "<absolute-git> --no-replace-objects -C <repository-root>",
+    "environment": {"GIT_ATTR_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_SYSTEM": "/dev/null", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_PAGER": "", "GIT_TERMINAL_PROMPT": "0"},
+    "forbiddenMetadata": ["alternates", "grafts", "refs/replace", "shallow"],
+    "policyVersion": "original-object-view-v1"
+  },
+  "identitySchemas": {
+    "hostNeutralMutationIdentity": {
+      "forbiddenFields": ["absolutePath", "captureProfile", "configurationSha256ByModule", "image", "imageIdentity", "javaExecutableSha256", "observedToolBundle", "observedToolBundleSha256", "perRunExecutionProvenance", "profileDefinitionSha256", "rawConfigurationSha256", "routeReceiptSha256", "selectedProfile"],
+      "java": {"major": 21, "toolchainRole": "mutation-runtime", "vendorFamily": "Eclipse Adoptium/Temurin"},
+      "schema": "host-neutral-mutation-identity-v1"
+    },
+    "perRunExecutionProvenance": {
+      "requiredFields": ["configurationSha256ByModule", "javaExecutableSha256", "observedToolBundleSha256", "profileDefinitionSha256", "routeReceiptSha256", "schema", "selectedProfile"],
+      "schema": "per-run-execution-provenance-v1"
+    }
+  },
+  "linuxHistoricalComparator": {"establishmentMode": "reviewed-recapture-transition-only", "initialState": "NOT_ESTABLISHED", "states": ["ESTABLISHED", "NOT_ESTABLISHED"]},
+  "modules": {
+    "location": {"configurationPath": "domain/location/build/reports/quality/pitest-configuration.json", "floorPercent": 75, "modulePath": ":domain:location", "mutationThresholdBlocking": 75, "mutationThresholdObserve": null, "packageRoot": "com.gasstation.domain.location", "pitestTask": ":domain:location:pitestVerified", "rejectedPitestTask": ":domain:location:pitest", "reportPath": "domain/location/build/reports/pitest/mutations.xml", "scoreMode": "blocking", "sourceRoot": "domain/location/src/main", "targetClasses": ["com.gasstation.domain.location.*"], "targetTests": ["com.gasstation.domain.location.*"], "testRoot": "domain/location/src/test"},
+    "settings": {"configurationPath": "domain/settings/build/reports/quality/pitest-configuration.json", "floorPercent": null, "modulePath": ":domain:settings", "mutationThresholdBlocking": null, "mutationThresholdObserve": null, "packageRoot": "com.gasstation.domain.settings", "pitestTask": ":domain:settings:pitestVerified", "rejectedPitestTask": ":domain:settings:pitest", "reportPath": "domain/settings/build/reports/pitest/mutations.xml", "scoreMode": "report-only", "sourceRoot": "domain/settings/src/main", "targetClasses": ["com.gasstation.domain.settings.*"], "targetTests": ["com.gasstation.domain.settings.*"], "testRoot": "domain/settings/src/test"},
+    "station": {"configurationPath": "domain/station/build/reports/quality/pitest-configuration.json", "floorPercent": 45, "modulePath": ":domain:station", "mutationThresholdBlocking": 45, "mutationThresholdObserve": 40, "packageRoot": "com.gasstation.domain.station", "pitestTask": ":domain:station:pitestVerified", "rejectedPitestTask": ":domain:station:pitest", "reportPath": "domain/station/build/reports/pitest/mutations.xml", "scoreMode": "blocking", "sourceRoot": "domain/station/src/main", "targetClasses": ["com.gasstation.domain.station.*"], "targetTests": ["com.gasstation.domain.station.*"], "testRoot": "domain/station/src/test"}
+  },
+  "noCoverageMode": "changed-package-nonincrease",
+  "pitest": {
+    "addJUnitPlatformLauncher": false, "additionalMutableCodePaths": [], "avoidCallsTo": [], "coverageThreshold": null, "detectInlinedCode": true,
+    "defaultCharacterEncoding": "UTF-8", "enableDefaultIncrementalAnalysis": false, "excludedClasses": [], "excludedGroups": [], "excludedMethods": [], "excludedTestClasses": [], "exportLineCoverage": false,
+    "failWhenNoMutations": true, "features": [], "fileExtensionsToFilter": ["pom", "so", "dll", "dylib"], "fullMutationMatrix": false,
+    "historyInputLocation": null, "historyOutputLocation": null, "includedGroups": [], "includedTestMethods": [], "inputCharset": "UTF-8", "junit5PluginVersion": null,
+    "jvmArgs": [], "jvmPath": null, "mainProcessJvmArgs": [], "mainSourceSets": ["main"], "maxSurviving": null, "mutationEngine": "gregor", "mutators": ["DEFAULTS"],
+    "outputCharset": "UTF-8", "outputFormats": ["HTML", "XML"], "pluginConfiguration": {}, "pluginVersion": "1.19.0", "pitestVersion": "1.25.7",
+    "reportAggregatorProperties": null, "skipFailingTests": false, "testPlugin": null, "testSourceSets": ["test"], "testStrengthThreshold": null, "threads": 2,
+    "timeoutConstInMillis": 4000, "timeoutFactor": "1.25", "timestampedReports": false, "useClasspathFile": true, "useClasspathJar": false, "verbose": false, "verbosity": "NO_SPINNER"
+  },
+  "rejectedStatuses": ["EQUIVALENT", "MEMORY_ERROR", "NON_VIABLE", "NOT_STARTED", "RUN_ERROR", "STARTED", "TIMED_OUT"],
+  "routing": {
+    "allModuleExactPaths": [".github/workflows/android.yml", ".github/workflows/mutation-schedule.yml", "build.gradle.kts", "config/quality/mutation-baseline.json", "config/quality/mutation-policy.json", "gradle.properties", "gradle/libs.versions.toml", "gradle/verification-metadata.xml", "gradlew", "gradlew.bat", "scripts/agent/check_contracts.py", "scripts/agent/test.sh", "scripts/agent/tests/check_contracts_test.sh", "scripts/agent/tests/verify_test.sh", "scripts/agent/verify.sh", "settings.gradle.kts"],
+    "allModulePrefixes": ["build-logic/", "config/quality/mutation-captures/", "config/quality/mutation-evidence/", "config/quality/mutation-transitions/", "core/model/", "gradle/wrapper/", "scripts/quality/"],
+    "eventsSelectingAll": ["local-all", "main", "schedule", "tag"],
+    "pullRequestMode": "task5-nul-safe-merge-base-diff-v1"
+  },
+  "schemaVersion": 1
+}
