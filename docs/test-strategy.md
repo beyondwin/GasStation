@@ -219,3 +219,9 @@ Darwin arm64 profile은 검토된 고정 content/version hash를 사용합니다
 - benchmark는 demo 경로를 기준으로 돈다
 
 새 문서 설명을 추가할 때는 "이 설명이 어떤 테스트 파일에 기대고 있는가"까지 같이 점검하는 편이 안전합니다.
+
+## Build-input integrity와 reproducibility ownership
+
+Task 9 build-input tests는 `config/quality/build-inputs.json`, full-SHA action/composite closure, exact Temurin pair, wrapper/SDK identity, strict `gradle/verification-metadata.xml`, fresh TestKit home/copy, bypass scanner, redacted receipt와 two-clean-tree unsigned prod APK equality를 소유합니다. TestKit-only graph는 production dependency selection과 분리된 reviewed capture surface이며 ordinary nested builds는 copied metadata를 strict mode로만 소비합니다. 문서 task discovery는 stable bridge와 dynamic executed-source closure가 소유합니다.
+
+이 계층의 SHA-256은 검토한 bytes와의 integrity만 증명합니다. publisher identity, vulnerability absence, license review, signed 또는 cross-OS APK reproducibility를 증명하지 않습니다. 동일 host에서 두 clean tree의 unsigned prod-release size/hash가 같은 경우만 재현성 `PASS`이며 demo-debug는 후보가 아닙니다. 명령과 receipt 경로는 [검증 매트릭스](verification-matrix.md), 운영 해석은 [Build Input Provenance](runbooks/build-input-provenance.md)를 따릅니다.

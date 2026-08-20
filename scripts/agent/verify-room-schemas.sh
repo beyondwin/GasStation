@@ -40,7 +40,11 @@ mkdir -p "$generated_schema_root"
 
 (
   cd "$repo_root"
-  ./gradlew \
+  gradle_launcher=(./gradlew)
+  if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then
+    gradle_launcher=(scripts/quality/build_inputs/run_gradle.sh)
+  fi
+  "${gradle_launcher[@]}" \
     :core:database:kspDebugKotlin \
     "-Pgasstation.roomSchemaOutput=$generated_schema_root" \
     --rerun-tasks \

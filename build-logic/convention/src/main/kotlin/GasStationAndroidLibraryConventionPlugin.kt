@@ -17,6 +17,7 @@ class GasStationAndroidLibraryConventionPlugin : Plugin<Project> {
 
         extensions.configure<LibraryExtension> {
             compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
+            buildToolsVersion = libs.findVersion("buildTools").get().requiredVersion
 
             defaultConfig {
                 minSdk = libs.findVersion("minSdk").get().requiredVersion.toInt()

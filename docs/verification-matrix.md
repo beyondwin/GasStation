@@ -657,6 +657,82 @@ Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64
 
 Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 Task 9가 소유합니다.
 
+## Build input provenance와 unsigned release 재현성
+
+운영 설명과 갱신 순서는 [Build Input Provenance](runbooks/build-input-provenance.md)가 소유한다. 아래 명령만 runnable matrix를 소유한다. Linux x64 evidence host는 정책이 설치한 exact Temurin 17/21과 fresh `GRADLE_USER_HOME`을 사용하며 raw developer Gradle 실행은 accepted receipt가 아니다.
+
+정적 정책·action closure·wrapper/JDK/SDK identity·metadata 구조와 bypass scanner:
+
+```bash
+python3 scripts/quality/verify_build_inputs.py verify \
+  --policy config/quality/build-inputs.json
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s scripts/quality/tests -p 'test_build_inputs.py' -v
+scripts/agent/check-contracts.sh --ci
+```
+
+검토된 Linux x64 host에서 metadata generation을 수행한 뒤 같은 행을 반복해 `gradle/verification-metadata.xml` SHA-256 no-diff를 확인한다. ordinary CI와 `check`에서는 capture를 호출하지 않는다.
+
+```bash
+python3 scripts/quality/verify_build_inputs.py metadata-capture \
+  --policy config/quality/build-inputs.json
+git diff --exit-code -- gradle/verification-metadata.xml
+```
+
+final metadata로 fresh cold-home complete matrix, product regression matrix와 configuration-cache 저장/재사용을 분리 실행한다.
+
+```bash
+python3 scripts/quality/verify_build_inputs.py strict-matrix \
+  --policy config/quality/build-inputs.json --group complete
+python3 scripts/quality/verify_build_inputs.py strict-matrix \
+  --policy config/quality/build-inputs.json --group product-regressions
+python3 scripts/quality/verify_build_inputs.py configuration-cache \
+  --policy config/quality/build-inputs.json
+```
+
+Governed docs entry는 stable bridge 하나뿐이다.
+
+```bash
+python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py \
+  --check-gradle-tasks
+```
+
+Evidence session allowlist는 다음 네 argv와 정확히 같아야 하며 suffix나 fifth command는 거부한다.
+
+```bash
+python3 scripts/quality/verify_build_inputs.py evidence-session --policy config/quality/build-inputs.json -- python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks
+python3 scripts/quality/verify_build_inputs.py evidence-session --policy config/quality/build-inputs.json -- scripts/agent/verify-room-schemas.sh
+python3 scripts/quality/verify_build_inputs.py evidence-session --policy config/quality/build-inputs.json -- scripts/agent/verify.sh auto
+python3 scripts/quality/verify_build_inputs.py evidence-session --policy config/quality/build-inputs.json -- scripts/agent/verify.sh docs
+```
+
+Clean source의 unsigned prod release two-copy probe와 receipt capture:
+
+```bash
+python3 scripts/quality/verify_build_inputs.py reproduce \
+  --policy config/quality/build-inputs.json \
+  --source-commit <source-commit> \
+  --output build/reports/build-inputs/reproducible-build.json
+python3 scripts/quality/verify_build_inputs.py capture \
+  --policy config/quality/build-inputs.json \
+  --source-commit <source-commit> \
+  --evidence build/reports/build-inputs/reproducible-build.json \
+  --output build/reports/build-inputs/build-input-receipt.json
+```
+
+Release candidate는 upload/publish 전에 source-bound probe receipt와 다시 묶는다.
+
+```bash
+python3 scripts/quality/verify_build_inputs.py release-bind \
+  --policy config/quality/build-inputs.json \
+  --receipt <reproducible-prod-release-receipt.json> \
+  --apk <GasStation-X.Y.Z-prod-release-unsigned.apk> \
+  --source-commit <source-commit> \
+  --artifact-name reproducible-prod-release-receipt-<source-commit>
+```
+
+동일한 size/SHA-256만 same-host/workspace-independent unsigned prod-release 재현성 `PASS`다. demo-debug, signed APK, cross-OS/runner 재현성은 이 판정에 포함하지 않는다. Hosted build-input evidence와 Task 8 device lane을 실행하지 않았으면 각각 `NOT RUN`으로 남긴다.
+
 ## Bounded Android device evidence
 
 Task 8의 host-only 구현 준비 gate는 실제 device `PASS`와 분리합니다.

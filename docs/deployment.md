@@ -63,6 +63,12 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 태그 push와 GitHub Release는 Play Store 업로드를 수행하지 않습니다.
 
+## Unsigned prod-release build-input prerequisite
+
+`build-inputs` job은 exact source에서 두 clean tree의 unsigned `:app:assembleProdRelease` APK size/SHA-256 equality와 source-bound receipt를 만든다. Blocking phase에서 `release-assemble`은 이 job을 prerequisite로 요구하고, exact receipt를 내려받아 별도 조립한 prod APK가 같은 source/policy/artifact identity·size·hash이며 unsigned인지 upload 전에 확인한다. `release-publish`도 receipt와 `release-prod-apk`를 다시 검증한 뒤 checksum 또는 GitHub Release mutation을 수행한다. Receipt 자체는 release asset이 아니다.
+
+이 상태는 unsigned prod-release의 same-host/workspace-independent 재현성만 의미한다. demo-debug는 probe 대상이 아니고 기존 demo asset 이름은 유지한다. signed artifact, cross-OS, hosted image 자체의 immutable identity는 주장하지 않는다. Hosted probe가 아직 실행되지 않은 source는 `HOSTED BUILD-INPUT EVIDENCE: NOT RUN`이며 로컬 결과로 바꾸지 않는다. 자세한 mismatch triage는 [Build Input Provenance](runbooks/build-input-provenance.md)를 따른다.
+
 ## 기기 진단 workflow와 release 경계
 
 `.github/workflows/device-evidence.yml`의 API 28 PR smoke는 초기 report-only이며, API 24/28/36 scheduled/manual job은 실패를 숨기지 않는 진단 경로입니다. Task 8에서는 어느 job도 `release-publish.needs`가 아니고 tag/Release를 차단하거나 발행 근거를 대체하지 않습니다. API 28 PR status의 blocking 승격은 [Android 기기 검증 런북](runbooks/device-verification.md)의 반복 hosted evidence와 별도 review 조건을 만족한 후의 독립 변경으로만 수행합니다. hosted run이 없으면 `HOSTED NOT RUN`으로 남기며 release PASS로 해석하지 않습니다.

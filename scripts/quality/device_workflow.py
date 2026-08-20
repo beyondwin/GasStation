@@ -75,9 +75,9 @@ def _step_blocks(job: str) -> list[str]:
 
 
 def _step_value(step: str, key: str) -> str | None:
-    match = re.search(rf"(?m)^      - {re.escape(key)}:\s*([^#\n]*?)\s*$", step)
+    match = re.search(rf"(?m)^      - {re.escape(key)}:\s*([^#\n]*?)\s*(?:#.*)?$", step)
     if not match:
-        match = re.search(rf"(?m)^        {re.escape(key)}:\s*([^#\n]*?)\s*$", step)
+        match = re.search(rf"(?m)^        {re.escape(key)}:\s*([^#\n]*?)\s*(?:#.*)?$", step)
     return match.group(1).strip().strip('"\'') if match else None
 
 
@@ -153,7 +153,7 @@ def check_device_contracts(root: Path) -> list[str]:
             wrapper_minutes = budget["preflightMinutes"] + budget["appMinutes"] + budget["roomMinutes"] + budget["locationMinutes"] + budget["completionMinutes"]
             if str(wrapper_minutes) != expected["step_timeout"]:
                 issues.append(f"config/quality/device-evidence-policy.json:1: {name} wrapper phase sum differs")
-        if _active_scalar(body, "runs-on", 4) != "ubuntu-latest":
+        if _active_scalar(body, "runs-on", 4) != "ubuntu-24.04":
             issues.append(f".github/workflows/device-evidence.yml:1: {name} runner drifted")
         if _active_scalar(body, "timeout-minutes", 4) != expected["timeout"]:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} timeout drifted")
@@ -171,13 +171,13 @@ def check_device_contracts(root: Path) -> list[str]:
         if any(_step_value(step, "continue-on-error") is not None for step in steps):
             issues.append(f".github/workflows/device-evidence.yml:1: {name} has step-level error suppression")
         checkout = [step for step in steps if (_step_value(step, "uses") or "").startswith("actions/checkout@")]
-        java = [step for step in steps if (_step_value(step, "uses") or "").startswith("actions/setup-java@")]
-        gradle = [step for step in steps if (_step_value(step, "uses") or "").startswith("gradle/actions/setup-gradle@")]
-        if len(checkout) != 1 or len(java) != 1 or len(gradle) != 1:
+        setup = [step for step in steps if _step_value(step, "uses") == "./.github/actions/setup-build-inputs"]
+        if len(checkout) != 1 or len(setup) != 1:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} setup action family differs")
-        for setup_step in [*checkout, *java, *gradle]:
-            if _step_value(setup_step, "timeout-minutes") != "2":
-                issues.append(f".github/workflows/device-evidence.yml:1: {name} setup action is unbounded")
+        if checkout and _step_value(checkout[0], "timeout-minutes") != "2":
+            issues.append(f".github/workflows/device-evidence.yml:1: {name} checkout action is unbounded")
+        if setup and _step_value(setup[0], "timeout-minutes") != "8":
+            issues.append(f".github/workflows/device-evidence.yml:1: {name} verified setup action is unbounded")
         run_steps = [step for step in steps if _step_value(step, "run") is not None or "run: |" in step]
         active = "\n".join(run_steps)
         if "|| true" in active:

@@ -162,7 +162,7 @@ for index in "${!tasks[@]}"; do
   log="$root/$attempt_root/logs/gradle-$index.log"
   set +e
   ANDROID_SERIAL=emulator-5554 run_device_seconds "${seconds[$index]}" \
-    "$root/gradlew" "$task" --warning-mode fail --no-parallel --max-workers=1 \
+    "$root/scripts/quality/build_inputs/run_gradle.sh" "$task" --warning-mode fail --no-parallel --max-workers=1 \
     --rerun-tasks --configuration-cache \
     "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=$attempt_id" \
     "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane" \

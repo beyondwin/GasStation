@@ -46,4 +46,8 @@ keystore.properties
 *.log
 hs_err_pid*
 replay_pid*
+
+# Python tooling caches
+__pycache__/
+*.py[cod]
 .fixthis

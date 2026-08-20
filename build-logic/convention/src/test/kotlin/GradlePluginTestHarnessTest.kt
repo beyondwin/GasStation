@@ -8,7 +8,6 @@ import com.gasstation.buildlogic.testing.assertTaskOutcome
 import java.io.File
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
-import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.junit.Assert.assertArrayEquals
@@ -104,7 +103,7 @@ class GradlePluginTestHarnessTest {
         val nestedHome = project.gradleUserHomeDir.resolve("nested").canonicalFile
 
         val result =
-            adversarialRunner(project, nestedHome, "harnessEnvironment").build()
+            project.adversarialRunner(nestedHome, "harnessEnvironment").build()
 
         assertThrows(AssertionError::class.java) {
             result.assertOutputKeyValueExactlyOnce(
@@ -238,6 +237,38 @@ class GradlePluginTestHarnessTest {
     }
 
     @Test
+    fun nestedBuildFailsWhenKnownRequiredChecksumIsRemovedFromOnlyFixtureCopy() {
+        val project =
+            newProject("missing-checksum").writeSettings().writeBuildFile(
+                """
+                plugins { base }
+                repositories { mavenCentral() }
+                val proof by configurations.creating
+                dependencies { proof("org.jetbrains:annotations:13.0") }
+                tasks.register("resolveProof") {
+                    doLast { proof.files.forEach(File::getName) }
+                }
+                """.trimIndent(),
+            )
+        val runner = project.runner("resolveProof")
+        val fixtureMetadata = project.projectDir.resolve("gradle/verification-metadata.xml")
+        val original = fixtureMetadata.readText()
+        val artifact =
+            Regex(
+                """\s*<artifact name="annotations-13\.0\.jar">.*?</artifact>""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
+        val mutated = original.replace(artifact, "")
+        assertNotEquals("known fixture checksum mutation must change metadata", original, mutated)
+        fixtureMetadata.writeText(mutated)
+
+        val result = runner.buildAndFail()
+
+        assertTrue(result.output.contains("Dependency verification failed"))
+        assertTrue(result.output.contains("annotations-13.0.jar"))
+    }
+
+    @Test
     fun fiveConcurrentFixturesUseIsolatedProjectTestKitAndGradleHomes() {
         assertEquals("5", System.getProperty("gasstation.convention.test.maxParallelForks"))
         val roots = (1..5).map { index -> temporaryFolder.newFolder("parallel-$index-root") }
@@ -311,26 +342,6 @@ class GradlePluginTestHarnessTest {
             }
         }
         """.trimIndent()
-
-    private fun adversarialRunner(
-        project: GradlePluginTestProject,
-        gradleUserHome: File,
-        vararg arguments: String,
-    ): GradleRunner =
-        GradleRunner.create()
-            .withProjectDir(project.projectDir)
-            .withTestKitDir(project.testKitDir)
-            .withPluginClasspath()
-            .withArguments(
-                arguments.toList() +
-                    listOf(
-                        "--no-configuration-cache",
-                        "--no-build-cache",
-                        "--warning-mode=fail",
-                        "--stacktrace",
-                        "--gradle-user-home=${gradleUserHome.absolutePath}",
-                    ),
-            )
 
     private fun failureBuildScript(): String =
         """

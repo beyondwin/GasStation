@@ -6,7 +6,7 @@ import org.gradle.testkit.runner.TaskOutcome
 fun BuildResult.assertTaskOutcome(path: String, expected: TaskOutcome) {
     val task = task(path)
         ?: throw AssertionError(
-            "Task $path missing; available=${availableTaskOutcomes()}",
+            "Task $path missing; available=${availableTaskOutcomes()}; outputTail=${output.takeLast(30_000)}",
         )
     if (task.outcome != expected) {
         throw AssertionError(

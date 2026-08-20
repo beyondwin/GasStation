@@ -58,6 +58,7 @@ LIVE_PATHS = [
     "docs/performance.md",
     "docs/build-velocity.md",
     "docs/runbooks/device-verification.md",
+    "docs/runbooks/build-input-provenance.md",
     "core/database/AGENTS.md",
     "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
@@ -812,7 +813,7 @@ class ValidatorTest(unittest.TestCase):
         self.repo.append("CHANGELOG.md", "CI job `removed-job` used to run.\n")
         self.assert_rejected("missing CI job: removed-job")
 
-    def test_optional_gradle_check_discovers_once_and_checks_only_owned_commands(self) -> None:
+    def test_direct_gradle_check_is_rejected_without_invoking_gradle(self) -> None:
         self.repo.append(
             "docs/verification-matrix.md",
             "<!-- command-owner: verification.fast -->\n"
@@ -827,8 +828,12 @@ class ValidatorTest(unittest.TestCase):
         )
         (self.repo.root / "gradlew").chmod(0o755)
         result = self.run_validator("--check-gradle-tasks")
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual("call\n", (self.repo.root / "gradle-calls.txt").read_text())
+        self.assertEqual(2, result.returncode, result.stderr)
+        self.assertIn(
+            "use python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py",
+            result.stderr,
+        )
+        self.assertFalse((self.repo.root / "gradle-calls.txt").exists())
 
     def test_default_validation_never_invokes_gradle(self) -> None:
         self.repo.write(
@@ -852,34 +857,36 @@ class ValidatorTest(unittest.TestCase):
             {":app:first", ":app:second", ":app:third"},
             validator.canonical_gradle_tasks({"docs/verification-matrix.md": owned_commands}),
         )
-        self.repo.append(
-            "docs/verification-matrix.md",
-            owned_commands,
+        self.assertEqual(
+            [],
+            validator.check_gradle_tasks(
+                self.repo.root,
+                {"docs/verification-matrix.md": owned_commands},
+                frozenset({":app:first", ":app:second", ":app:third"}),
+            ),
         )
-        self.repo.write(
-            "gradlew",
-            "#!/usr/bin/env bash\n"
-            "printf '%s\\n' ':app:first - First' ':app:second - Second' ':app:third - Third'\n",
-        )
-        (self.repo.root / "gradlew").chmod(0o755)
-        result = self.run_validator("--check-gradle-tasks")
-        self.assertEqual(0, result.returncode, result.stderr)
 
     def test_gradle_check_accepts_tasks_without_descriptions(self) -> None:
-        self.repo.append(
-            "docs/verification-matrix.md",
+        validator = load_validator()
+        owned_commands = (
             "<!-- command-owner: verification.bare -->\n"
-            "```bash\n./gradlew :app:compileDemoDebugAndroidTestKotlin spotlessCheck lint verifyRoborazziDebug\n```\n",
+            "```bash\n./gradlew :app:compileDemoDebugAndroidTestKotlin spotlessCheck lint verifyRoborazziDebug\n```\n"
         )
-        self.repo.write(
-            "gradlew",
-            "#!/usr/bin/env bash\n"
-            "printf '%s\\n' 'app:compileDemoDebugAndroidTestKotlin' 'core:model:spotlessCheck' "
-            "'app:lint' 'feature:station-list:verifyRoborazziDebug'\n",
+        self.assertEqual(
+            [],
+            validator.check_gradle_tasks(
+                self.repo.root,
+                {"docs/verification-matrix.md": owned_commands},
+                frozenset(
+                    {
+                        "app:compileDemoDebugAndroidTestKotlin",
+                        "spotlessCheck",
+                        "lint",
+                        "verifyRoborazziDebug",
+                    },
+                ),
+            ),
         )
-        (self.repo.root / "gradlew").chmod(0o755)
-        result = self.run_validator("--check-gradle-tasks")
-        self.assertEqual(0, result.returncode, result.stderr)
 
     def test_owned_block_without_gradle_tasks_does_not_invoke_gradle(self) -> None:
         self.repo.append(
@@ -889,30 +896,20 @@ class ValidatorTest(unittest.TestCase):
         self.repo.write("gradlew", "#!/usr/bin/env bash\nprintf called > gradle-calls.txt\n")
         (self.repo.root / "gradlew").chmod(0o755)
         result = self.run_validator("--check-gradle-tasks")
-        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(2, result.returncode, result.stderr)
         self.assertFalse((self.repo.root / "gradle-calls.txt").exists())
 
-    def test_gradle_discovery_timeout_is_a_stable_issue(self) -> None:
+    def test_supplied_gradle_discovery_reports_missing_owned_task(self) -> None:
         validator = load_validator()
-        self.repo.write("gradlew", "#!/usr/bin/env bash\n")
-        with mock.patch.object(
-            validator.subprocess,
-            "run",
-            side_effect=subprocess.TimeoutExpired(["gradlew", "tasks", "--all"], 30),
-        ):
-            issues = validator.check_gradle_tasks(self.repo.root, {
-                "README.md": "<!-- command-owner: slow -->\n```bash\n./gradlew :app:test\n```\n"
-            })
-        self.assertEqual(["gradlew:1: Gradle task discovery timed out after 30 seconds"], issues)
-
-    def test_gradle_discovery_os_error_is_a_stable_issue(self) -> None:
-        validator = load_validator()
-        self.repo.write("gradlew", "#!/usr/bin/env bash\n")
-        with mock.patch.object(validator.subprocess, "run", side_effect=OSError("permission denied")):
-            issues = validator.check_gradle_tasks(self.repo.root, {
-                "README.md": "<!-- command-owner: broken -->\n```bash\n./gradlew :app:test\n```\n"
-            })
-        self.assertEqual(["gradlew:1: Gradle task discovery could not start: permission denied"], issues)
+        issues = validator.check_gradle_tasks(
+            self.repo.root,
+            {"README.md": "<!-- command-owner: slow -->\n```bash\n./gradlew :app:test\n```\n"},
+            frozenset({":app:other"}),
+        )
+        self.assertEqual(
+            ["docs/documentation-catalog.json:1: missing Gradle task: :app:test"],
+            issues,
+        )
 
 
 if __name__ == "__main__":

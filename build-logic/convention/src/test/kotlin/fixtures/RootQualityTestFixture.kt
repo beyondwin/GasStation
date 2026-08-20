@@ -26,8 +26,8 @@ data class RootQualityFixture(
     val modules: List<String>,
     val projectDependencies: List<RootQualityProjectDependency> = emptyList(),
     val externalImplementation: String? = null,
-    val ciJavaVersion: String = "21",
-    val setupJavaExpressions: List<String> = listOf("\${{ env.CI_JAVA_VERSION }}"),
+    val ciJavaVersion: String = "21.0.12.1+1",
+    val ciJavaToolchainVersion: String = "17.0.20+8",
     val robolectricSdk: String = "36",
     val kotlinSources: Map<String, String> = emptyMap(),
     val pluginProjectPath: String = ":",
@@ -392,18 +392,13 @@ private fun workflow(fixture: RootQualityFixture): String =
     buildString {
         appendLine("name: Android CI")
         appendLine("env:")
+        appendLine("  CI_JAVA_TOOLCHAIN_VERSION: \"${fixture.ciJavaToolchainVersion}\"")
         appendLine("  CI_JAVA_VERSION: \"${fixture.ciJavaVersion}\"")
         appendLine("jobs:")
         appendLine("  test:")
-        appendLine("    runs-on: ubuntu-latest")
+        appendLine("    runs-on: ubuntu-24.04")
         appendLine("    steps:")
-        fixture.setupJavaExpressions.forEachIndexed { index, expression ->
-            appendLine("      - name: Setup Java ${index + 1}")
-            appendLine("        uses: actions/setup-java@v5")
-            appendLine("        with:")
-            appendLine("          distribution: temurin")
-            appendLine("          java-version: $expression")
-        }
+        appendLine("      - uses: ./.github/actions/setup-build-inputs")
     }
 
 private fun requireRootQualityProjectPath(projectPath: String) {

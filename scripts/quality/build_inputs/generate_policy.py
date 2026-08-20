@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""Generate the canonical Task-9 build-input policy from reviewed constants."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.quality.build_inputs.contracts import canonical_json_bytes, sha256_file  # noqa: E402
+
+
+OUTPUT = ROOT / "config/quality/build-inputs.json"
+STATIC_SOURCES = (
+    ".github/actions/setup-build-inputs/action.yml",
+    "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt",
+    "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt",
+    "scripts/agent/verify-room-schemas.sh",
+    "scripts/agent/verify.sh",
+    "scripts/quality/build_inputs/archive.py",
+    "scripts/quality/build_inputs/contracts.py",
+    "scripts/quality/build_inputs/docs_gradle_validation_bridge.py",
+    "scripts/quality/build_inputs/downloader.py",
+    "scripts/quality/build_inputs/generate_policy.py",
+    "scripts/quality/build_inputs/receipts.py",
+    "scripts/quality/build_inputs/reproducibility.py",
+    "scripts/quality/build_inputs/run_gradle.sh",
+    "scripts/quality/build_inputs/runtime.py",
+    "scripts/quality/build_inputs/workflow.py",
+    "scripts/quality/device/execute_gmd_task.sh",
+    "scripts/quality/device/run_api24_avd.sh",
+    "scripts/quality/device/run_gmd_lane.sh",
+    "scripts/quality/run_pitest.sh",
+    "scripts/quality/verify_build_inputs.py",
+)
+
+
+def action(
+    owner: str,
+    repository: str,
+    path: str,
+    commit: str,
+    source_tag: str,
+    manifest_path: str,
+    manifest_sha256: str,
+    kind: str,
+) -> dict[str, object]:
+    return {
+        "annotatedTag": False,
+        "commit": commit,
+        "kind": kind,
+        "manifestPath": manifest_path,
+        "manifestSha256": manifest_sha256,
+        "officialRepositoryUrl": f"https://github.com/{owner}/{repository}",
+        "owner": owner,
+        "parentChains": [],
+        "path": path,
+        "peeledCommit": commit,
+        "repository": repository,
+        "sourceTag": source_tag,
+    }
+
+
+def entrypoint(
+    identity: str,
+    owner: str,
+    relationship: str,
+    argv: list[str],
+    gradle_home_role: str,
+) -> dict[str, object]:
+    return {
+        "argv": argv,
+        "gradleHomeRole": gradle_home_role,
+        "id": identity,
+        "owner": owner,
+        "relationship": relationship,
+        "sourceSha256": sha256_file(ROOT / owner),
+    }
+
+
+def evidence_entrypoints() -> list[dict[str, object]]:
+    """Return the finite governed direct/nested Gradle-process inventory."""
+
+    android = ".github/workflows/android.yml"
+    device = ".github/workflows/device-evidence.yml"
+    scheduled = ".github/workflows/mutation-schedule.yml"
+    cli = "scripts/quality/verify_build_inputs.py"
+    fixture = "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
+    adversarial = "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt"
+    rows = [
+        entrypoint("android/agent-contracts/docs-task-discovery", android, "direct", ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"], "job-fresh"),
+        entrypoint("android/static-analysis/quality", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", "spotlessCheck", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", ":core:model:checkKotlinAbi", ":core:observability:checkKotlinAbi", ":domain:location:checkKotlinAbi", ":domain:settings:checkKotlinAbi", ":domain:station:checkKotlinAbi", "verifyPublicApiBoundaries", "verifyModuleBoundaries", "productionDependencyInventory", "verifyNoDeprecatedComposeTestApis", "verifyCiRobolectricRuntime", "-Pgasstation.lintTestSources=false", "--warning-mode", "fail", "--continue"], "job-fresh"),
+        entrypoint("android/static-analysis/convention-testkit", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":build-logic:convention:test", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/lint-tests/test-sources", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", "-Pgasstation.lintTestSources=true", "--warning-mode", "fail", "--continue"], "job-fresh"),
+        entrypoint("android/unit-tests/all", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":domain:location:test", ":core:model:test", ":domain:station:test", ":domain:settings:test", ":core:database:testDebugUnitTest", ":core:database:compileDebugAndroidTestKotlin", ":core:datastore:testDebugUnitTest", ":core:designsystem:testDebugUnitTest", ":core:location:testDebugUnitTest", ":core:network:test", ":core:observability:test", ":data:settings:testDebugUnitTest", ":data:station:testDebugUnitTest", ":feature:settings:testDebugUnitTest", ":feature:station-list:testDebugUnitTest", ":feature:watchlist:testDebugUnitTest", ":app:testDemoDebugUnitTest", ":app:testProdDebugUnitTest", ":app:compileDemoDebugAndroidTestKotlin", ":tools:demo-seed:test", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/unit-tests/room-schema-child", android, "nested", ["scripts/agent/verify-room-schemas.sh"], "job-fresh"),
+        entrypoint("android/screenshot-tests/roborazzi", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", "verifyRoborazziDebug", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/assemble/demo", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:assembleDemoDebug", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/assemble/prod", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:assembleProdDebug", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/assemble/benchmark", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":benchmark:assemble", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/release-assemble/prod-release", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:assembleProdRelease", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/coverage/report-and-gate", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", "coverageXmlReport", "verifyCoverageReport", "-Pgasstation.coverageSourceCommit={GITHUB_SHA}", "-Pgasstation.coverageEvent={GASSTATION_COVERAGE_EVENT}", "-Pgasstation.coverageBaseRef={GASSTATION_COVERAGE_BASE_REF}", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/mutation/pull-request", android, "nested", ["scripts/quality/run_pitest.sh", "--event", "pull-request", "--base", "{pull_request.base.sha}", "--java-home-file", "build/quality/pitest-runtime/bootstrap/java-home.selector"], "job-fresh"),
+        entrypoint("android/mutation/main", android, "nested", ["scripts/quality/run_pitest.sh", "--event", "main", "--java-home-file", "build/quality/pitest-runtime/bootstrap/java-home.selector"], "job-fresh"),
+        entrypoint("android/mutation/tag", android, "nested", ["scripts/quality/run_pitest.sh", "--event", "tag", "--java-home-file", "build/quality/pitest-runtime/bootstrap/java-home.selector"], "job-fresh"),
+        entrypoint("mutation-scheduled/mutation", scheduled, "nested", ["scripts/quality/run_pitest.sh", "--event", "schedule", "--java-home-file", "build/quality/pitest-runtime/bootstrap/java-home.selector"], "job-fresh"),
+        entrypoint("device-pr-api28/gmd", device, "nested", ["scripts/quality/device/run_gmd_lane.sh", "--lane", "api28-pr-smoke"], "job-fresh"),
+        entrypoint("device-scheduled-api24/connected", device, "nested", ["scripts/quality/device/run_api24_avd.sh", "--lane", "api24-scheduled"], "job-fresh"),
+        entrypoint("device-scheduled-api28/gmd", device, "nested", ["scripts/quality/device/run_gmd_lane.sh", "--lane", "api28-scheduled"], "job-fresh"),
+        entrypoint("device-scheduled-api36/gmd", device, "nested", ["scripts/quality/device/run_gmd_lane.sh", "--lane", "api36-scheduled"], "job-fresh"),
+        entrypoint("cli/metadata-capture", cli, "direct", ["verify_build_inputs.py", "metadata-capture", "--policy", "config/quality/build-inputs.json"], "command-fresh"),
+        entrypoint("cli/strict-matrix/complete", cli, "direct", ["verify_build_inputs.py", "strict-matrix", "--policy", "config/quality/build-inputs.json", "--group", "complete"], "command-fresh"),
+        entrypoint("cli/strict-matrix/product-regressions", cli, "nested", ["verify_build_inputs.py", "strict-matrix", "--policy", "config/quality/build-inputs.json", "--group", "product-regressions"], "command-fresh"),
+        entrypoint("cli/configuration-cache", cli, "direct", ["verify_build_inputs.py", "configuration-cache", "--policy", "config/quality/build-inputs.json"], "command-fresh"),
+        entrypoint("cli/reproduce/copy-a", cli, "direct", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-a"),
+        entrypoint("cli/reproduce/copy-b", cli, "direct", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks"], "reproduce-b"),
+        entrypoint("cli/release-bind", cli, "receipt-consumer", ["verify_build_inputs.py", "release-bind", "--policy", "config/quality/build-inputs.json", "--receipt", "{receipt}", "--apk", "{apk}"], "none"),
+        entrypoint("cli/evidence-session", cli, "nested", ["verify_build_inputs.py", "evidence-session", "--policy", "config/quality/build-inputs.json", "--", "{allowlisted-command}"], "command-fresh"),
+        entrypoint("testkit/shared-normal", fixture, "nested", ["GradleRunner.withArguments", "{fixture-arguments}", "--dependency-verification=strict"], "testkit-fresh"),
+        entrypoint("testkit/shared-configuration-cache", fixture, "nested", ["GradleRunner.withArguments", "{fixture-arguments}", "--configuration-cache", "--configuration-cache-problems=fail", "--dependency-verification=strict"], "testkit-fresh"),
+        entrypoint("testkit/adversarial", adversarial, "nested", ["GradleRunner.withArguments", "help", "--dependency-verification=strict"], "testkit-adversarial-fresh"),
+    ]
+    return sorted(rows, key=lambda row: row["id"])
+
+
+def policy() -> dict[str, object]:
+    generation_matrix = [
+        ["./gradlew", "help"],
+        [
+            "./gradlew",
+            ":build-logic:convention:captureTestKitDependencyVerificationMetadata",
+            ":build-logic:convention:test",
+        ],
+        ["./gradlew", "spotlessCheck", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", "-Pgasstation.lintTestSources=false", "--continue"],
+        ["./gradlew", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", "-Pgasstation.lintTestSources=true", "--continue"],
+        ["./gradlew", ":domain:location:test", ":core:model:test", ":domain:station:test", ":domain:settings:test", ":core:database:testDebugUnitTest", ":core:database:compileDebugAndroidTestKotlin", ":core:datastore:testDebugUnitTest", ":core:designsystem:testDebugUnitTest", ":core:location:testDebugUnitTest", ":core:network:test", ":core:observability:test", ":data:settings:testDebugUnitTest", ":data:station:testDebugUnitTest", ":feature:settings:testDebugUnitTest", ":feature:station-list:testDebugUnitTest", ":feature:watchlist:testDebugUnitTest", ":app:testDemoDebugUnitTest", ":app:testProdDebugUnitTest", ":app:compileDemoDebugAndroidTestKotlin", ":tools:demo-seed:test"],
+        ["./gradlew", ":core:database:kspDebugKotlin", "--rerun-tasks", "--no-build-cache"],
+        ["./gradlew", "verifyRoborazziDebug"],
+        ["./gradlew", ":app:assembleDemoDebug", ":app:assembleProdDebug", ":benchmark:assemble", ":app:assembleProdRelease"],
+        ["./gradlew", "coverageXmlReport", "verifyCoverageReport", "-Pgasstation.coverageSourceCommit={sourceCommit}", "-Pgasstation.coverageEvent=local"],
+        ["./gradlew", ":core:model:checkKotlinAbi", ":core:observability:checkKotlinAbi", ":domain:location:checkKotlinAbi", ":domain:settings:checkKotlinAbi", ":domain:station:checkKotlinAbi", "verifyPublicApiBoundaries", "verifyModuleBoundaries", "productionDependencyInventory", "verifyNoDeprecatedComposeTestApis", "verifyCiRobolectricRuntime"],
+        ["./gradlew", "verifyPitestConfiguration", ":domain:station:pitestVerified", ":domain:location:pitestVerified", ":domain:settings:pitestVerified"],
+        ["./gradlew", ":app:compileDemoDebugAndroidTestKotlin", ":core:database:compileDebugAndroidTestKotlin", ":core:location:compileDebugAndroidTestKotlin", "tasks", "--all"],
+    ]
+    actions = [
+        action("actions", "checkout", "", "3d3c42e5aac5ba805825da76410c181273ba90b1", "v7", "action.yml", "d59219cb79590abdb877deaa14e3b65a00c05318bf5a6f3b989b9162b5d08c35", "node24"),
+        action("actions", "download-artifact", "", "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8", "action.yml", "e98559b7a31ba31be4709f20d22102dc2737fa630f69a339eb89981151e505fe", "node24"),
+        action("actions", "upload-artifact", "", "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7", "action.yml", "c5979822866a72362e609844b6ebe77d4b7e759af68cc1c2c425dcf51481fab4", "node24"),
+        action("codecov", "codecov-action", "", "fb8b3582c8e4def4969c97caa2f19720cb33a72f", "v7", "action.yml", "4577833b9005e94bc4bd8fa9489badc1295ead0f8433b09f987bcd0e33015e79", "composite"),
+        action("gradle", "actions", "setup-gradle", "9c971963bec38e04b3d30dcc455b5382be2fdbfb", "v6", "setup-gradle/action.yml", "2349387452e549e19d18088c56dbde623896688ec624338cac09c1adfc754f45", "node24"),
+    ]
+    closure = actions + [
+        action("actions", "github-script", "", "ed597411d8f924073f98dfc5c65a23a2325f34cd", "v8", "action.yml", "2155c7b84863afcfe81a73ab8eafcb2c2f304a995cbe282c31617aa847dff1d8", "node24"),
+    ]
+    closure[-1]["parentChains"] = [
+        ["codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f"],
+    ]
+    return {
+        "actions": {
+            "transitiveUses": sorted(closure[-1:], key=lambda row: (row["owner"], row["repository"], row["path"])),
+            "workflowUses": sorted(actions, key=lambda row: (row["owner"], row["repository"], row["path"])),
+        },
+        "android": {
+            "buildTools": "36.0.0",
+            "compileSdk": 37,
+            "minSdk": 24,
+            "packages": [
+                {"coordinate": "build-tools;36.0.0", "revision": "36.0.0", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "cmdline-tools;latest", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "emulator", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "platform-tools", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "platforms;android-37", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "system-images;android-24;google_apis;x86_64", "logicalIdentity": "system-images;android-24;google_apis;x86_64", "revision": "27", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "system-images;android-28;default;x86_64", "logicalIdentity": "system-images;android-28;aosp;x86_64", "revision": "4", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "system-images;android-36;google_apis;x86_64", "logicalIdentity": "system-images;android-36;google;x86_64", "revision": "7", "runtimeEvidence": "NOT RUN"},
+            ],
+            "targetSdk": 36,
+        },
+        "codecovCli": {
+            "architecture": "x64",
+            "binarySha256": "ca1d64196d2d34771084afe76ea657d581bf628e31d993ff8e52ea09cc88a56d",
+            "binarySize": 10402464,
+            "binaryUrl": "https://github.com/codecov/codecov-cli/releases/download/v11.3.1/codecovcli_linux",
+            "os": "Linux",
+            "version": "11.3.1",
+        },
+        "dependencyVerification": {
+            "allowedInitScripts": [],
+            "bypassDenylist": [
+                "--dependency-verification " + "off|lenient",
+                "-Dorg.gradle.dependency.verification=" + "off|lenient",
+                "-" + "I|--init-" + "script",
+                "ResolutionStrategy.disableDependency" + "Verification()",
+                "disableDependency" + "Verification()",
+            ],
+            "checksumAlgorithms": ["sha256"],
+            "configurationCache": [
+                ["./gradlew", "verifyModuleBoundaries", "verifyPublicApiBoundaries", "verifyPitestConfiguration"],
+                ["./gradlew", ":app:assembleProdRelease"],
+            ],
+            "generationMatrix": generation_matrix,
+            "metadataPath": "gradle/verification-metadata.xml",
+            "mode": "strict",
+            "nestedTestKit": {
+                "copyRootMetadata": True,
+                "freshGradleHome": True,
+                "rejectCallerOverrides": True,
+                "sanitizedEnvironment": True,
+            },
+            "strictGroups": {
+                "complete": [*generation_matrix, ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"]],
+                "product-regressions": [["scripts/agent/test.sh"], ["scripts/agent/verify.sh", "auto"]],
+            },
+            "verifyMetadata": True,
+        },
+        "docsValidation": {
+            "aggregateAlgorithm": "sha256(canonical-json(manifest)+LF)",
+            "argv": ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"],
+            "bridgeSha256": sha256_file(ROOT / "scripts/quality/build_inputs/docs_gradle_validation_bridge.py"),
+            "bridgePath": "scripts/quality/build_inputs/docs_gradle_validation_bridge.py",
+            "excludedRoots": ["scripts/docs/__pycache__", "scripts/docs/tests"],
+            "facadeCallable": "validate_repository(root: pathlib.Path, *, discovered_gradle_tasks: frozenset[str] | None) -> list[str]",
+            "facadePath": "scripts/docs/validate.py",
+            "forbiddenRepositoryImportRoots": ["scripts/agent", "scripts/quality"],
+            "loadedModuleRoots": ["scripts/docs"],
+            "parentEdges": [
+                "scripts/agent/verify.sh docs -> bridge",
+                "scripts/agent/verify.sh auto -> bridge",
+                ".github/workflows/android.yml agent-contracts -> bridge",
+                "verify_build_inputs.py evidence-session -> bridge",
+            ],
+            "receiptPath": "build/reports/build-inputs/docs-gradle-validation.json",
+            "receiptSchemaVersion": 1,
+            "sourceRoots": ["scripts/docs/extensions"],
+        },
+        "evidence": {
+            "artifactName": "build-input-evidence-{sourceSha}-{runAttempt}",
+            "fieldAllowlist": ["android", "attempt", "dependencyVerification", "evidenceFiles", "gradle", "jdks", "policySha256", "runner", "schemaVersion", "sourceCommit", "wrapper"],
+            "receiptPath": "build/reports/build-inputs/build-input-receipt.json",
+            "reproducibilityPath": "build/reports/build-inputs/reproducible-build.json",
+            "retentionDays": 7,
+            "root": "build/reports/build-inputs",
+            "schemaVersion": 1,
+        },
+        "evidenceGradleEntrypoints": evidence_entrypoints(),
+        "evidenceSessionCommands": sorted([
+            ["scripts/agent/verify-room-schemas.sh"],
+            ["scripts/agent/verify.sh", "auto"],
+            ["scripts/agent/verify.sh", "docs"],
+            ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"],
+        ]),
+        "gradleWrapper": {
+            "distributionSha256": "9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14",
+            "distributionUrl": "https://services.gradle.org/distributions/gradle-9.6.1-bin.zip",
+            "networkTimeout": 10000,
+            "retries": 0,
+            "retryBackOffMs": 500,
+            "validateDistributionUrl": True,
+            "version": "9.6.1",
+            "wrapperJarPath": "gradle/wrapper/gradle-wrapper.jar",
+            "wrapperJarSha256": "497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7",
+        },
+        "jdks": {
+            "compile": {
+                "architecture": "x64",
+                "archiveRoot": "jdk-17.0.20+8",
+                "archiveSha256": "be7668bc030d578b83d6d5ef9221d6d6729bbbca8cf94a7d52e16ac68b5a5a35",
+                "archiveSize": 193273593,
+                "archiveUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                "checksumUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz.sha256.txt",
+                "filename": "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                "major": 17,
+                "os": "Linux",
+                "packageType": "JDK",
+                "vendor": "Eclipse Temurin",
+                "version": "17.0.20+8",
+                "vm": "HotSpot",
+            },
+            "runtime": {
+                "architecture": "x64",
+                "archiveRoot": "jdk-21.0.12.1+1",
+                "archiveSha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
+                "archiveSize": 207473347,
+                "archiveUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                "checksumUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz.sha256.txt",
+                "filename": "OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                "major": 21,
+                "os": "Linux",
+                "packageType": "JDK",
+                "vendor": "Eclipse Temurin",
+                "version": "21.0.12.1+1",
+                "vm": "HotSpot",
+            },
+        },
+        "reproducibleArtifact": {
+            "artifactName": "reproducible-prod-release-receipt-{sourceSha}",
+            "buildCache": False,
+            "configurationCache": False,
+            "gradleHomes": 2,
+            "outputGlob": "app/build/outputs/apk/prod/release/*.apk",
+            "outputIdentity": "prod-release-unsigned.apk",
+            "requiredCardinality": 1,
+            "receiptPath": "build/reports/build-inputs/reproducible-prod-release-receipt.json",
+            "receiptSchemaVersion": 1,
+            "signingSecretsAllowed": False,
+            "sourceCopies": 2,
+            "strictDependencyVerification": True,
+            "task": ":app:assembleProdRelease",
+            "unsigned": True,
+        },
+        "runner": {"architecture": "x64", "label": "ubuntu-24.04", "mutableHostedImage": True, "os": "Linux"},
+        "schemaVersion": 1,
+        "staticSourceHashes": [
+            {"path": path, "sha256": sha256_file(ROOT / path)} for path in STATIC_SOURCES
+        ],
+    }
+
+
+def main() -> int:
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_bytes(canonical_json_bytes(policy()))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

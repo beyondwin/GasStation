@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shlex
@@ -71,6 +72,7 @@ EXPECTED_LIVE_PATHS = {
     "docs/performance.md",
     "docs/build-velocity.md",
     "docs/runbooks/device-verification.md",
+    "docs/runbooks/build-input-provenance.md",
     "core/database/AGENTS.md",
     "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
@@ -1494,41 +1496,66 @@ def canonical_gradle_tasks(texts: dict[str, str]) -> set[str]:
     return tasks
 
 
-def check_gradle_tasks(root: Path, texts: dict[str, str]) -> list[str]:
+def check_gradle_tasks(
+    root: Path,
+    texts: dict[str, str],
+    discovered_gradle_tasks: frozenset[str],
+) -> list[str]:
     expected = canonical_gradle_tasks(texts)
     if not expected:
         return []
-    wrapper = root / "gradlew"
-    if not wrapper.is_file():
-        return [location("gradlew", 1, "Gradle wrapper missing for task validation")]
-    try:
-        result = subprocess.run(
-            [str(wrapper), "tasks", "--all"],
-            cwd=root,
-            text=True,
-            capture_output=True,
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        return [location("gradlew", 1, "Gradle task discovery timed out after 30 seconds")]
-    except OSError as error:
-        return [location("gradlew", 1, f"Gradle task discovery could not start: {error}")]
-    if result.returncode:
-        return [location("gradlew", 1, "Gradle task discovery failed")]
-    discovered: set[str] = set()
-    for line in result.stdout.splitlines():
-        match = re.match(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s+-\s", line)
-        if match is None:
-            match = re.match(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s*$", line)
-        if match:
-            task_path = match.group(1)
-            discovered.add(task_path)
-            discovered.add(task_path.lstrip(":"))
-            discovered.add(task_path.rsplit(":", 1)[-1])
-    return [location(CATALOG_PATH, 1, f"missing Gradle task: {task}") for task in sorted(expected) if task not in discovered and task.lstrip(":") not in discovered]
+    return [
+        location(CATALOG_PATH, 1, f"missing Gradle task: {task}")
+        for task in sorted(expected)
+        if task not in discovered_gradle_tasks and task.lstrip(":") not in discovered_gradle_tasks
+    ]
 
 
-def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
+def run_extensions(
+    root: Path,
+    *,
+    discovered_gradle_tasks: frozenset[str] | None,
+) -> list[str]:
+    extension_root = root / "scripts/docs/extensions"
+    if not extension_root.is_dir():
+        return []
+    issues: list[str] = []
+    for index, path in enumerate(sorted(extension_root.glob("*.py"))):
+        if path.name == "__init__.py" or not path.is_file() or path.is_symlink():
+            continue
+        module_name = f"gasstation_docs_extension_{index}_{path.stem}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            issues.append(location(path.relative_to(root).as_posix(), 1, "extension cannot be loaded"))
+            continue
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            validate_extension = getattr(module, "validate")
+            extension_issues = validate_extension(root, discovered_gradle_tasks)
+        except (OSError, ValueError, TypeError, AttributeError, ImportError) as error:
+            sys.modules.pop(module_name, None)
+            issues.append(
+                location(
+                    path.relative_to(root).as_posix(),
+                    1,
+                    f"extension contract failure: {error}",
+                ),
+            )
+            continue
+        if not isinstance(extension_issues, list) or any(not isinstance(item, str) for item in extension_issues):
+            issues.append(location(path.relative_to(root).as_posix(), 1, "extension validate() must return list[str]"))
+            continue
+        issues.extend(extension_issues)
+    return issues
+
+
+def validate_repository(
+    root: Path,
+    *,
+    discovered_gradle_tasks: frozenset[str] | None,
+) -> list[str]:
     entries, issues = load_catalog(root)
     live_paths = {entry["path"] for entry in entries if isinstance(entry.get("path"), str)}
     issues.extend(catalog_source_issues(root, entries))
@@ -1560,9 +1587,22 @@ def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
         state_claim_paths.update(path for path in state_consumers if isinstance(path, str))
     issues.extend(station_list_state_claim_issues({path: texts[path] for path in state_claim_paths if path in texts}))
     issues.extend(station_list_state_source_surface_issues(root))
-    if include_gradle_tasks:
-        issues.extend(check_gradle_tasks(root, texts))
+    if discovered_gradle_tasks is not None:
+        issues.extend(check_gradle_tasks(root, texts, discovered_gradle_tasks))
+    issues.extend(run_extensions(root, discovered_gradle_tasks=discovered_gradle_tasks))
     return sorted(set(issues))
+
+
+def validate(root: Path, include_gradle_tasks: bool = False) -> list[str]:
+    if include_gradle_tasks:
+        return [
+            location(
+                "scripts/docs/validate.py",
+                1,
+                "direct Gradle task discovery is forbidden; use the governed docs bridge",
+            ),
+        ]
+    return validate_repository(root, discovered_gradle_tasks=None)
 
 
 def main() -> int:
@@ -1574,7 +1614,15 @@ def main() -> int:
         root = args.root.resolve()
     else:
         root = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()).resolve()
-    issues = validate(root, include_gradle_tasks=args.check_gradle_tasks)
+    if args.check_gradle_tasks:
+        print(
+            "ERROR: direct Gradle task discovery is forbidden; use "
+            "python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py "
+            "--check-gradle-tasks",
+            file=sys.stderr,
+        )
+        return 2
+    issues = validate_repository(root, discovered_gradle_tasks=None)
     if issues:
         for item in issues:
             print(f"ERROR: {item}", file=sys.stderr)

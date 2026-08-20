@@ -150,7 +150,7 @@ if ((${#gradle_tasks[@]} == 0)); then
   fi
   "$repo_root/scripts/agent/check-contracts.sh"
   if [[ "$scope" == docs && -x "$repo_root/gradlew" ]]; then
-    python3 "$repo_root/scripts/docs/validate.py" --check-gradle-tasks
+    python3 "$repo_root/scripts/quality/build_inputs/docs_gradle_validation_bridge.py" --check-gradle-tasks
   fi
   exit 0
 fi
@@ -190,4 +190,9 @@ fi
 "$repo_root/scripts/agent/check-contracts.sh"
 "$repo_root/scripts/agent/preflight.sh" --require-build --hook
 cd "$repo_root"
-./gradlew "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
+if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then
+  scripts/quality/build_inputs/run_gradle.sh \
+    "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
+else
+  ./gradlew "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
+fi

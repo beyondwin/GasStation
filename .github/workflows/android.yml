@@ -14,43 +14,40 @@ concurrency:
 
 env:
   # Robolectric API 36 requires Java 21+, while production bytecode remains JVM 17.
-  CI_JAVA_VERSION: "21"
+  CI_JAVA_TOOLCHAIN_VERSION: "17.0.20+8"
+  CI_JAVA_VERSION: "21.0.12.1+1"
 
 permissions:
   contents: read
 
 jobs:
   agent-contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Agent contract tests
         env:
           GASSTATION_CI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           scripts/agent/test.sh
           scripts/agent/check-contracts.sh --ci
-          python3 scripts/docs/validate.py --check-gradle-tasks
+          python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks
 
   static-analysis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Spotless + Lint + Contract Guards
         run: |
-          ./gradlew \
+          scripts/quality/build_inputs/run_gradle.sh \
             spotlessCheck \
             :app:lintDemoDebug \
             :app:lintProdDebug \
@@ -69,10 +66,10 @@ jobs:
             --warning-mode fail \
             --continue
       - name: Convention plugin tests
-        run: ./gradlew :build-logic:convention:test --warning-mode fail
+        run: scripts/quality/build_inputs/run_gradle.sh :build-logic:convention:test --warning-mode fail
       - name: Upload production lint reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lint-production-reports
           path: "**/build/reports/lint-results-*"
@@ -80,7 +77,7 @@ jobs:
           retention-days: 7
       - name: Upload dependency and public API reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dependency-public-api-reports
           path: |
@@ -91,18 +88,16 @@ jobs:
           retention-days: 7
 
   lint-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Lint test sources
         run: |
-          ./gradlew \
+          scripts/quality/build_inputs/run_gradle.sh \
             :app:lintDemoDebug \
             :app:lintProdDebug \
             lint \
@@ -111,7 +106,7 @@ jobs:
             --continue
       - name: Upload test-source lint reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lint-test-source-reports
           path: "**/build/reports/lint-results-*"
@@ -119,18 +114,16 @@ jobs:
           retention-days: 7
 
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Unit Tests
         # Regular unit-test tasks exclude Roborazzi screenshot classes; screenshot-tests owns screenshot regression.
         run: |
-          ./gradlew \
+          scripts/quality/build_inputs/run_gradle.sh \
             :domain:location:test \
             :core:model:test \
             :domain:station:test \
@@ -157,40 +150,36 @@ jobs:
         run: scripts/agent/verify-room-schemas.sh
 
   screenshot-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Roborazzi Screenshot Verification
         # Keep screenshot regression separate from the fast unit-test path.
-        run: ./gradlew verifyRoborazziDebug --warning-mode fail
+        run: scripts/quality/build_inputs/run_gradle.sh verifyRoborazziDebug --warning-mode fail
       - name: Upload screenshot diffs on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: roborazzi-diffs
           path: "**/build/outputs/roborazzi/**"
 
   assemble:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Assemble
         # Run assemble targets separately so parallel Gradle execution does not compile
         # both app flavors and benchmark in the same memory peak on GitHub runners.
         run: |
-          ./gradlew :app:assembleDemoDebug --warning-mode fail
-          ./gradlew :app:assembleProdDebug --warning-mode fail
-          ./gradlew :benchmark:assemble --warning-mode fail
+          scripts/quality/build_inputs/run_gradle.sh :app:assembleDemoDebug --warning-mode fail
+          scripts/quality/build_inputs/run_gradle.sh :app:assembleProdDebug --warning-mode fail
+          scripts/quality/build_inputs/run_gradle.sh :benchmark:assemble --warning-mode fail
       - name: Prepare demo APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
@@ -200,7 +189,7 @@ jobs:
           cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-demo-debug.apk"
       - name: Upload demo APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-demo-apk
           path: release-assets/*.apk
@@ -208,17 +197,15 @@ jobs:
           retention-days: 7
 
   release-assemble:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Release Assemble
-        run: ./gradlew :app:assembleProdRelease --warning-mode fail
+        run: scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail
       - name: Prepare unsigned prod APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
@@ -228,7 +215,7 @@ jobs:
           cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-prod-release-unsigned.apk"
       - name: Upload unsigned prod APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-prod-apk
           path: release-assets/*.apk
@@ -236,21 +223,18 @@ jobs:
           retention-days: 7
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GASSTATION_COVERAGE_EVENT: ${{ github.event_name == 'pull_request' && 'pull-request' || startsWith(github.ref, 'refs/tags/v') && 'tag' || 'main' }}
       GASSTATION_COVERAGE_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.ref == 'refs/heads/main' && github.event.before) || '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Create coverage attempt envelope
         env:
           COVERAGE_SOURCE_SHA: ${{ github.sha }}
@@ -277,14 +261,14 @@ jobs:
           PY
       - name: Verify trustworthy coverage
         run: |
-          ./gradlew coverageXmlReport verifyCoverageReport \
+          scripts/quality/build_inputs/run_gradle.sh coverageXmlReport verifyCoverageReport \
             -Pgasstation.coverageSourceCommit="$GITHUB_SHA" \
             -Pgasstation.coverageEvent="$GASSTATION_COVERAGE_EVENT" \
             -Pgasstation.coverageBaseRef="$GASSTATION_COVERAGE_BASE_REF" \
             --warning-mode fail
       - name: Upload coverage evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-evidence
           path: |
@@ -295,11 +279,19 @@ jobs:
             **/build/reports/coverage/*/report.xml
           if-no-files-found: error
           retention-days: 7
+      - name: Download verified Codecov CLI
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        run: |
+          mkdir -p build/quality/build-inputs
+          python3 scripts/quality/verify_build_inputs.py download-codecov \
+            --policy config/quality/build-inputs.json \
+            --output build/quality/build-inputs/codecovcli_linux
       - name: Upload to Codecov
         if: ${{ env.CODECOV_TOKEN != '' }}
         continue-on-error: true
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
+          binary: build/quality/build-inputs/codecovcli_linux
           token: ${{ env.CODECOV_TOKEN }}
           files: "**/build/reports/coverage/*/report.xml"
 
@@ -307,39 +299,48 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - id: mutation_java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
       - name: Stage mutation Java selector
-        shell: /usr/bin/env -i LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
         run: |
           umask 077
           /bin/mkdir -p build/quality/pitest-runtime/bootstrap
           set -C
-          /usr/bin/printf '%s\n' '${{ steps.mutation_java.outputs.path }}' > build/quality/pitest-runtime/bootstrap/java-home.selector
+          /usr/bin/printf '%s\n' "$JAVA_HOME_21_X64" > build/quality/pitest-runtime/bootstrap/java-home.selector
       - name: Mutation (pull request)
         if: github.event_name == 'pull_request'
-        shell: /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
         run: |
-          exec scripts/quality/run_pitest.sh --event pull-request --base ${{ github.event.pull_request.base.sha }} --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
+          exec /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 \
+            JAVA_HOME="$JAVA_HOME" JAVA_HOME_17_X64="$JAVA_HOME_17_X64" JAVA_HOME_21_X64="$JAVA_HOME_21_X64" \
+            PATH="$JAVA_HOME_21_X64/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true \
+            scripts/quality/run_pitest.sh --event pull-request --base ${{ github.event.pull_request.base.sha }} --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
       - name: Mutation (main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
         run: |
-          exec scripts/quality/run_pitest.sh --event main --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
+          exec /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 \
+            JAVA_HOME="$JAVA_HOME" JAVA_HOME_17_X64="$JAVA_HOME_17_X64" JAVA_HOME_21_X64="$JAVA_HOME_21_X64" \
+            PATH="$JAVA_HOME_21_X64/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true \
+            scripts/quality/run_pitest.sh --event main --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
       - name: Mutation (tag)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        shell: /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
         run: |
-          exec scripts/quality/run_pitest.sh --event tag --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
+          exec /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 \
+            JAVA_HOME="$JAVA_HOME" JAVA_HOME_17_X64="$JAVA_HOME_17_X64" JAVA_HOME_21_X64="$JAVA_HOME_21_X64" \
+            PATH="$JAVA_HOME_21_X64/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true \
+            scripts/quality/run_pitest.sh --event tag --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
       - name: Upload mutation evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pitest-evidence
           path: |
@@ -350,14 +351,16 @@ jobs:
           retention-days: 7
 
   release-publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     needs: [agent-contracts, static-analysis, lint-tests, unit-tests, screenshot-tests, assemble, release-assemble, coverage, mutation]
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: release-*-apk
           path: release-assets

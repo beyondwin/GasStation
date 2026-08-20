@@ -235,53 +235,17 @@ class GasStationJvmMutationConventionPluginTest {
             assertTrue("case $index missing $diagnostic: ${result.output}", result.output.contains(diagnostic))
             assertFalse("case $index unexpectedly reached PIT", result.output.contains("PIT >>"))
         }
-        project.writeFile(
-            "original-collection.init.gradle",
-            """
-            gradle.beforeProject { candidate ->
-                if (candidate.path == ":domain:station") {
-                    candidate.afterEvaluate {
-                        candidate.tasks.named("pitest").configure { task ->
-                            task.additionalClasspath.from(candidate.rootProject.file("README.md"))
-                        }
-                    }
+        listOf("--init-script", "-I").forEach { option ->
+            val error =
+                assertThrows(IllegalArgumentException::class.java) {
+                    project.runner(
+                        ":domain:station:verifyPitestConfiguration",
+                        option,
+                        project.projectDir.resolve("untrusted.init.gradle").absolutePath,
+                    )
                 }
-            }
-            """.trimIndent(),
-        )
-        val originalCollectionInit = File(project.projectDir, "original-collection.init.gradle")
-        val originalCollection = project.runner(
-            ":domain:station:verifyPitestConfiguration",
-            "--init-script", originalCollectionInit.absolutePath,
-        ).buildAndFail()
-        assertTrue(
-            "late original collection mutation passed configuration: ${originalCollection.output}",
-            originalCollection.output.contains("pit.additionalClasspath"),
-        )
-
-        project.writeFile(
-            "environment.init.gradle",
-            """
-            gradle.beforeProject { candidate ->
-                if (candidate.path == ":domain:station") {
-                    candidate.afterEvaluate {
-                        candidate.tasks.named("pitestVerified").configure { task ->
-                            task.environment("SECRET_TOKEN", "must-not-serialize")
-                        }
-                    }
-                }
-            }
-            """.trimIndent(),
-        )
-        val environmentInit = File(project.projectDir, "environment.init.gradle")
-        val environment = project.runner(
-            ":domain:station:verifyPitestConfiguration",
-            "--init-script", environmentInit.absolutePath,
-        ).buildAndFail()
-        assertTrue(
-            "late verified environment passed configuration: ${environment.output}",
-            environment.output.contains("java.environment"),
-        )
+            assertTrue(error.message.orEmpty().contains(option))
+        }
         val configuration = File(project.projectDir, "domain/station/build/reports/quality/pitest-configuration.json")
         val configurationText = configuration.takeIf { it.isFile }?.readText().orEmpty()
         assertFalse(

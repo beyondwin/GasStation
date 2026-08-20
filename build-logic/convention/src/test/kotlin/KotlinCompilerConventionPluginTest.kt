@@ -138,6 +138,10 @@ class KotlinCompilerConventionPluginTest {
                 "CONVENTION_TEST_TIMEOUT_MINUTES",
                 "15",
             )
+            defaultResult.assertOutputKeyValueExactlyOnce(
+                "CONVENTION_BUILD_TOOLS_VERSION",
+                "36.0.0",
+            )
             assertUncheckedCastWarning(defaultResult, "${kind.name} report-only")
 
             val strictResult =
@@ -227,11 +231,13 @@ class KotlinCompilerConventionPluginTest {
             first.assertTaskOutcome(":conventionProbe", TaskOutcome.SUCCESS)
             first.assertConfigurationCacheStored()
             first.assertOutputKeyValueExactlyOnce("CONVENTION_WARNINGS_AS_ERRORS", "false")
+            first.assertOutputKeyValueExactlyOnce("CONVENTION_BUILD_TOOLS_VERSION", "36.0.0")
             val second = project.configurationCacheRunner(*defaultArguments).build()
             second.assertTaskOutcome(":${kind.compileTask}", TaskOutcome.SUCCESS)
             second.assertTaskOutcome(":conventionProbe", TaskOutcome.SUCCESS)
             second.assertConfigurationCacheReused()
             second.assertOutputKeyValueExactlyOnce("CONVENTION_WARNINGS_AS_ERRORS", "false")
+            second.assertOutputKeyValueExactlyOnce("CONVENTION_BUILD_TOOLS_VERSION", "36.0.0")
 
             val strictArguments =
                 arrayOf(

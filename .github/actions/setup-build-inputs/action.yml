@@ -1,0 +1,30 @@
+name: Set up verified GasStation build inputs
+description: Install the reviewed JDK pair and configure the pinned Gradle action.
+runs:
+  using: composite
+  steps:
+    - name: Install reviewed Temurin archives
+      shell: bash
+      run: |
+        set -euo pipefail
+        output_root="$RUNNER_TEMP/gasstation-jdks-$GITHUB_JOB-$GITHUB_RUN_ATTEMPT"
+        test ! -e "$output_root"
+        python3 scripts/quality/verify_build_inputs.py install-jdks \
+          --policy config/quality/build-inputs.json \
+          --output-root "$output_root"
+    - name: Create fresh governed Gradle home
+      shell: bash
+      run: |
+        set -euo pipefail
+        gradle_home="$RUNNER_TEMP/gasstation-gradle-home-$GITHUB_JOB-$GITHUB_RUN_ATTEMPT"
+        test ! -e "$gradle_home"
+        mkdir -p "$gradle_home"
+        printf 'GRADLE_USER_HOME=%s\n' "$gradle_home" >> "$GITHUB_ENV"
+        printf 'GASSTATION_BUILD_INPUT_EVIDENCE=sealed-v1\n' >> "$GITHUB_ENV"
+    - name: Configure pinned Gradle
+      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      with:
+        cache-provider: basic
+        validate-wrappers: true
+        allow-snapshot-wrappers: false
+        dependency-graph: disabled

@@ -172,6 +172,7 @@ private val ANDROID_LINT_VERSION_CATALOG =
     compileSdk = "37"
     minSdk = "24"
     targetSdk = "36"
+    buildTools = "36.0.0"
     desugarJdkLibs = "2.1.5"
     coreKtx = "1.19.0"
     lifecycle = "2.11.0"

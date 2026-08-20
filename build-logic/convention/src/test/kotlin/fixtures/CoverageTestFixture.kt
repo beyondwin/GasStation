@@ -303,6 +303,7 @@ private val COVERAGE_VERSION_CATALOG =
     """
     [versions]
     compileSdk = "37"
+    buildTools = "36.0.0"
     minSdk = "24"
     targetSdk = "36"
     desugarJdkLibs = "2.1.5"

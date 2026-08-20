@@ -29,25 +29,23 @@ permissions:
   contents: read
 
 env:
-  CI_JAVA_VERSION: "21"
+  CI_JAVA_TOOLCHAIN_VERSION: "17.0.20+8"
+  CI_JAVA_VERSION: "21.0.12.1+1"
 
 jobs:
   device-pr-api28:
     name: Device API 28 PR smoke (report-only)
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 55
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
-        timeout-minutes: 2
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         timeout-minutes: 2
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
-        timeout-minutes: 2
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
+        timeout-minutes: 8
       - name: Prove KVM access
         timeout-minutes: 2
         run: |
@@ -67,7 +65,7 @@ jobs:
         id: upload
         if: always()
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: device-api28-pr-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -90,18 +88,15 @@ jobs:
   device-scheduled-api24:
     name: Device API 24 scheduled evidence
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 80
     steps:
-      - uses: actions/checkout@v7
-        timeout-minutes: 2
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         timeout-minutes: 2
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
-        timeout-minutes: 2
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
+        timeout-minutes: 8
       - name: Prove KVM access
         timeout-minutes: 2
         run: |
@@ -121,7 +116,7 @@ jobs:
         id: upload
         if: always()
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: device-api24-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -146,18 +141,15 @@ jobs:
   device-scheduled-api28:
     name: Device API 28 scheduled evidence
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 80
     steps:
-      - uses: actions/checkout@v7
-        timeout-minutes: 2
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         timeout-minutes: 2
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
-        timeout-minutes: 2
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
+        timeout-minutes: 8
       - name: Prove KVM access
         timeout-minutes: 2
         run: |
@@ -177,7 +169,7 @@ jobs:
         id: upload
         if: always()
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: device-api28-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -202,18 +194,15 @@ jobs:
   device-scheduled-api36:
     name: Device API 36 scheduled evidence
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 100
     steps:
-      - uses: actions/checkout@v7
-        timeout-minutes: 2
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         timeout-minutes: 2
         with:
-          distribution: temurin
-          java-version: ${{ env.CI_JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
-        timeout-minutes: 2
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build-inputs
+        timeout-minutes: 8
       - name: Prove KVM access
         timeout-minutes: 2
         run: |
@@ -233,7 +222,7 @@ jobs:
         id: upload
         if: always()
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: device-api36-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

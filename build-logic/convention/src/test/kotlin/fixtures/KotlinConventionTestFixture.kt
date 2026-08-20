@@ -150,11 +150,15 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
         @get:Input
         abstract val testTimeoutMinutes: Property<Long>
 
+        @get:Input
+        abstract val buildToolsVersion: Property<String>
+
         @TaskAction
         fun probe() {
             println("CONVENTION_JVM_TARGET=" + jvmTarget.get())
             println("CONVENTION_WARNINGS_AS_ERRORS=" + warningsAsErrors.get())
             println("CONVENTION_TEST_TIMEOUT_MINUTES=" + testTimeoutMinutes.get())
+            println("CONVENTION_BUILD_TOOLS_VERSION=" + buildToolsVersion.get())
         }
     }
 
@@ -182,6 +186,15 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
         }
     }
 
+    val effectiveBuildToolsVersion =
+        if (${kind != KotlinConventionFixtureKind.JVM}) {
+            extensions.getByName("android").javaClass
+                .getMethod("getBuildToolsVersion")
+                .invoke(extensions.getByName("android"))
+                .toString()
+        } else {
+            "not-android"
+        }
     val conventionProbe = tasks.register<ConventionProbe>("conventionProbe")
     val explicitApiProbe = tasks.register<ExplicitApiProbe>("explicitApiProbe")
     afterEvaluate {
@@ -192,6 +205,7 @@ private fun kotlinConventionBuildScript(kind: KotlinConventionFixtureKind): Stri
             jvmTarget.set(conventionCompile.flatMap { it.compilerOptions.jvmTarget }.map { it.target })
             warningsAsErrors.set(conventionCompile.flatMap { it.compilerOptions.allWarningsAsErrors })
             testTimeoutMinutes.set(conventionTest.flatMap { it.timeout }.map { it.toMinutes() })
+            buildToolsVersion.set(effectiveBuildToolsVersion)
         }
         explicitApiProbe.configure {
             compilerArguments.set(conventionCompile.flatMap { it.compilerOptions.freeCompilerArgs })

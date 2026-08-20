@@ -37,7 +37,7 @@ if [[ -n $filter ]]; then
 fi
 
 set +e
-GASSTATION_DEVICE_OWNER_TOKEN=$attempt_id "$root/gradlew" "${arguments[@]}" >"$log" 2>&1
+GASSTATION_DEVICE_OWNER_TOKEN=$attempt_id "$root/scripts/quality/build_inputs/run_gradle.sh" "${arguments[@]}" >"$log" 2>&1
 gradle_status=$?
 set -e
 python3 "$script_dir/record_command.py" \

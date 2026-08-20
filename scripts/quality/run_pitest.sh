@@ -15,13 +15,15 @@ case "$-" in *u*) ;; *) fail "required Bash option is disabled: nounset" ;; esac
 
 while IFS='=' read -r name _; do
   case "$name" in
-    GASSTATION_PITEST_BOOTSTRAP|LANG|LC_ALL|TZ|TERM|CI|PWD|SHLVL|_) ;;
+    GASSTATION_PITEST_BOOTSTRAP|JAVA_HOME|JAVA_HOME_17_X64|JAVA_HOME_21_X64|PATH|LANG|LC_ALL|TZ|TERM|CI|PWD|SHLVL|_) ;;
     *) fail "unexpected exported bootstrap name: $name" ;;
   esac
 done < <(/usr/bin/env)
 
 [[ "$LANG" == "C" && "$LC_ALL" == "C" && "$TZ" == "UTC" && "$TERM" == "dumb" && "$CI" == "true" ]] ||
   fail "fixed bootstrap literals differ"
+[[ -n ${JAVA_HOME_17_X64:-} && -n ${JAVA_HOME_21_X64:-} && ${JAVA_HOME:-} == "$JAVA_HOME_21_X64" ]] ||
+  fail "verified Java roles are missing or cross-wired"
 
 event=""
 base=""
@@ -105,6 +107,7 @@ fi
 
 [[ "$java_home" == /* && ! -L "$java_home" && -d "$java_home" ]] ||
   fail "Java home must be an absolute non-symlink directory"
+[[ "$java_home" == "$JAVA_HOME_21_X64" ]] || fail "mutation runtime must use the verified Java 21 role"
 
 for directory in "$runtime_root" "$evidence_home" "$evidence_tmp" "$runner_home" "$runner_tmp" "$gradle_home" "$pit_child_home" "$pit_child_tmp"; do
   [[ ! -L "$directory" ]] || fail "dedicated runtime path is symlinked"
@@ -151,10 +154,12 @@ fi
 run_policy attempt
 /usr/bin/env -i \
   JAVA_HOME="$java_home" \
+  JAVA_HOME_17_X64="$JAVA_HOME_17_X64" \
+  JAVA_HOME_21_X64="$JAVA_HOME_21_X64" \
   PATH="$java_home/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
   LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true PYTHONDONTWRITEBYTECODE=1 \
   HOME="$runner_home" GRADLE_USER_HOME="$gradle_home" TMPDIR="$runner_tmp" \
-  ./gradlew verifyPitestConfiguration "${pitest_tasks[@]}" \
+  scripts/quality/build_inputs/run_gradle.sh verifyPitestConfiguration "${pitest_tasks[@]}" \
   --configuration-cache \
   --configuration-cache-problems=fail \
   --no-build-cache \

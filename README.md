@@ -196,6 +196,7 @@ live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용
 - [오프라인 전략](docs/offline-strategy.md): 캐시 스냅샷, stale 판정, refresh 실패, watchlist fallback을 다룹니다.
 - [테스트 전략](docs/test-strategy.md): 어떤 층을 어떤 테스트로 검증하는지 설명합니다.
 - [검증 매트릭스](docs/verification-matrix.md): 실제로 어떤 Gradle 명령을 돌리면 되는지 정리합니다.
+- [빌드 입력 provenance](docs/runbooks/build-input-provenance.md): 검토된 wrapper/action/JDK/dependency 입력, receipt와 unsigned release 재현성 운영 경계를 설명합니다.
 - [보안 trade-off](docs/security-trade-offs.md): API key, cleartext, backup, certificate pinning, proxy 승격 조건을 설명합니다.
 - [디자인 컨텍스트](.impeccable.md): yellow/black/white 정보 위계, UI 유지 기준을 설명합니다.
 

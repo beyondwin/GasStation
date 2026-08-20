@@ -53,3 +53,11 @@
 ## Backend Proxy Escalation
 
 Backend proxy implementation is not part of the current Android-focused scope. The accepted escalation path is documented in [`docs/adr/2026-05-18-backend-proxy-escalation.md`](adr/2026-05-18-backend-proxy-escalation.md).
+
+## Build-input trust boundary
+
+Governed CI accepts only full-SHA actions with reviewed tag/peeled membership and recursive composite closure, Gradle wrapper distribution/JAR checksums, exact official Temurin Linux x64 archive URL/size/SHA-256, exact Android SDK evidence, and strict Maven/plugin SHA-256 metadata. These checks establish byte integrity against reviewed metadata; they are not publisher signatures, vulnerability scans, license review, or an immutable hosted-VM attestation.
+
+The governed Gradle launcher rejects inherited JVM/Gradle option channels including wrapper-consumed `JAVA_OPTS`, protected Java/Gradle home drift, verification disable API/property/environment, and every `-I`/`--init-script` spelling. Raw developer `./gradlew` and Android Studio remain outside the provenance claim and cannot create accepted receipts. Receipt schemas allowlist fields and redact secrets/absolute user paths; Codecov remains optional and its token is scoped to the coverage job while its downloaded CLI binary is size/SHA verified.
+
+Residual mutable services include GitHub-hosted runner images, Android package repositories, action/GitHub delivery, Maven repositories and Codecov. Rotation or alternate checksum fails closed for review. Upgrade and rollback procedure는 [Build Input Provenance](runbooks/build-input-provenance.md)가 소유한다.

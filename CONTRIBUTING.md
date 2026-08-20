@@ -70,3 +70,6 @@ JVM mutation 설정은 `./gradlew verifyPitestConfiguration --warning-mode fail`
 ## 행동 강령
 
 존중과 건설적 토론을 원칙으로 합니다. 사용자 데이터/위치 처리에 영향을 주는 PR은 보안 영향을 명시합니다.
+## Build input changes
+
+Wrapper, GitHub Action, JDK, Android SDK 또는 Maven/plugin 입력을 바꿀 때는 [Build Input Provenance](docs/runbooks/build-input-provenance.md)의 one-input-family 절차와 [검증 매트릭스](docs/verification-matrix.md)의 strict/cold-home 명령을 따른다. Raw developer Gradle 실행 결과는 governed receipt나 release 재현성 증거가 아니다.

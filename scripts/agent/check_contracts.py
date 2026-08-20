@@ -49,6 +49,7 @@ CI_REQUIRED_FILES = (
         "config/quality/device-evidence-policy.json",
         "config/quality/device-evidence-quarantine.json",
         "docs/runbooks/device-verification.md",
+        "docs/runbooks/build-input-provenance.md",
         "docs/AGENTS.md",
         "core/database/AGENTS.md",
         "benchmark/AGENTS.md",
@@ -215,38 +216,41 @@ COVERAGE_BASE_EXPRESSION = (
     "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha "
     "|| (github.ref == 'refs/heads/main' && github.event.before) || '' }}"
 )
-MUTATION_STAGE_SHELL = (
-    "/usr/bin/env -i LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true "
-    "/bin/bash --noprofile --norc -euo pipefail {0}"
-)
-MUTATION_RUN_SHELL = (
-    "/usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C "
-    "TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}"
-)
+MUTATION_STAGE_SHELL = "/bin/bash --noprofile --norc -euo pipefail {0}"
+MUTATION_RUN_SHELL = "/bin/bash --noprofile --norc -euo pipefail {0}"
 MUTATION_STAGE_BODY = """umask 077
 /bin/mkdir -p build/quality/pitest-runtime/bootstrap
 set -C
-/usr/bin/printf '%s\\n' '${{ steps.mutation_java.outputs.path }}' > build/quality/pitest-runtime/bootstrap/java-home.selector"""
+/usr/bin/printf '%s\\n' "$JAVA_HOME_21_X64" > build/quality/pitest-runtime/bootstrap/java-home.selector"""
 MUTATION_UPLOAD_PATHS = """build/reports/pitest/**
 domain/*/build/reports/quality/pitest-configuration.json
 domain/*/build/reports/pitest/**"""
-MUTATION_CI_JAVA_VERSION = '"21"'
-MUTATION_JAVA_VERSION_REFERENCE = "${{ env.CI_JAVA_VERSION }}"
+MUTATION_CI_ENVIRONMENT = [
+    ("CI_JAVA_TOOLCHAIN_VERSION", '"17.0.20+8"'),
+    ("CI_JAVA_VERSION", '"21.0.12.1+1"'),
+]
+MUTATION_RUN_PREFIX = (
+    "exec /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 \\\n"
+    "  JAVA_HOME=\"$JAVA_HOME\" JAVA_HOME_17_X64=\"$JAVA_HOME_17_X64\" JAVA_HOME_21_X64=\"$JAVA_HOME_21_X64\" \\\n"
+    "  PATH=\"$JAVA_HOME_21_X64/bin:/usr/bin:/bin:/usr/sbin:/sbin\" \\\n"
+    "  LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true \\\n"
+    "  "
+)
 MUTATION_PRIMARY_RUNS = {
     "Mutation (pull request)": (
         "github.event_name == pull_request",
-        "exec scripts/quality/run_pitest.sh --event pull-request --base "
+        MUTATION_RUN_PREFIX + "scripts/quality/run_pitest.sh --event pull-request --base "
         "${{ github.event.pull_request.base.sha }} --java-home-file "
         "build/quality/pitest-runtime/bootstrap/java-home.selector",
     ),
     "Mutation (main)": (
         "github.event_name == push && github.ref == refs/heads/main",
-        "exec scripts/quality/run_pitest.sh --event main --java-home-file "
+        MUTATION_RUN_PREFIX + "scripts/quality/run_pitest.sh --event main --java-home-file "
         "build/quality/pitest-runtime/bootstrap/java-home.selector",
     ),
     "Mutation (tag)": (
         "github.event_name == push && startsWith(github.ref, refs/tags/v)",
-        "exec scripts/quality/run_pitest.sh --event tag --java-home-file "
+        MUTATION_RUN_PREFIX + "scripts/quality/run_pitest.sh --event tag --java-home-file "
         "build/quality/pitest-runtime/bootstrap/java-home.selector",
     ),
 }
@@ -808,14 +812,15 @@ def shell_gradle_arguments(script: str) -> tuple[list[list[str]], bool]:
         except ValueError:
             standalone = False
             continue
-        if not words or words[0] != "./gradlew" or any(
+        launchers = {"./gradlew", "scripts/quality/build_inputs/run_gradle.sh"}
+        if not words or words[0] not in launchers or any(
             word in {";", "&", "&&", "|", "||"} for word in words
         ):
             standalone = False
         segment: list[str] = []
         for word in words + [";"]:
             if word in {";", "&", "&&", "|", "||"}:
-                if segment and segment[0] == "./gradlew":
+                if segment and segment[0] in launchers:
                     invocations.append(segment[1:])
                 segment = []
             else:
@@ -887,32 +892,22 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
         (scheduled, ".github/workflows/mutation-schedule.yml"),
     ):
         top_level_environment = workflow_top_level_environment(text)
-        if top_level_environment != [("CI_JAVA_VERSION", MUTATION_CI_JAVA_VERSION)]:
-            issues.append(issue(path, 1, 'workflow must declare one exact top-level CI_JAVA_VERSION: "21"'))
-        if len(re.findall(r"(?m)^\s*CI_JAVA_VERSION:\s*", text)) != 1:
-            issues.append(issue(path, 1, "CI_JAVA_VERSION must not be duplicated or shadowed"))
-        setup_count, setup_versions = workflow_setup_java_versions(text)
-        if (
-            setup_count == 0
-            or len(setup_versions) != setup_count
-            or any(version != MUTATION_JAVA_VERSION_REFERENCE for version in setup_versions)
-        ):
-            issues.append(
-                issue(
-                    path,
-                    1,
-                    "every setup-java step must use exact ${{ env.CI_JAVA_VERSION }}",
-                )
-            )
+        if top_level_environment != MUTATION_CI_ENVIRONMENT:
+            issues.append(issue(path, 1, "workflow must declare the exact closed JDK role versions"))
+        for name, _ in MUTATION_CI_ENVIRONMENT:
+            if len(re.findall(rf"(?m)^\s*{name}:\s*", text)) != 1:
+                issues.append(issue(path, 1, f"{name} must not be duplicated or shadowed"))
+        if "actions/setup-java@" in text:
+            issues.append(issue(path, 1, "setup-java is forbidden by the closed JDK contract"))
     if not all(anchor in primary for anchor in ("pull_request:", "branches:\n      - main", "tags:\n      - \"v*\"")):
         issues.append(issue(".github/workflows/android.yml", 1, "mutation primary trigger matrix drifted"))
     if 'cron: "17 3 * * 0"' not in scheduled:
         issues.append(issue(".github/workflows/mutation-schedule.yml", 1, "weekly mutation schedule drifted"))
 
-    def job(text: str, path: str) -> tuple[str, int] | None:
-        match = re.search(WORKFLOW_JOB_TEMPLATE.format(job="mutation"), text)
+    def job(text: str, path: str, job_name: str) -> tuple[str, int] | None:
+        match = re.search(WORKFLOW_JOB_TEMPLATE.format(job=job_name), text)
         if match is None:
-            issues.append(issue(path, 1, "workflow job missing: mutation"))
+            issues.append(issue(path, 1, f"workflow job missing: {job_name}"))
             return None
         return match.group("body"), source_line(text, match.start())
 
@@ -943,16 +938,16 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
                 issues.append(issue(path, line, "mutation steps must not transport values through env"))
 
         checkout = steps[0]
-        if checkout["fields"].get("uses") != "actions/checkout@v7" or checkout["nested"].get("with") != {"fetch-depth": "0"}:
+        if (
+            checkout["fields"].get("uses") != "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+            or checkout["nested"].get("with") != {"fetch-depth": "0", "persist-credentials": "false"}
+        ):
             issues.append(issue(path, line, "mutation checkout must fetch full history"))
         setup = steps[1]
         if (
-            setup["fields"].get("id") != "mutation_java"
-            or setup["fields"].get("uses") != "actions/setup-java@v5"
-            or setup["nested"].get("with")
-            != {"distribution": "temurin", "java-version": MUTATION_JAVA_VERSION_REFERENCE}
+            setup["fields"].get("uses") != "./.github/actions/setup-build-inputs"
         ):
-            issues.append(issue(path, line, "mutation Java setup output contract drifted"))
+            issues.append(issue(path, line, "mutation closed JDK setup contract drifted"))
         stage = steps[2]["fields"]
         if (
             stage.get("name") != "Stage mutation Java selector"
@@ -963,7 +958,7 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
 
         run_steps = steps[3:-1]
         expected_runs = (
-            {"Mutation (schedule)": (None, "exec scripts/quality/run_pitest.sh --event schedule --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector")}
+            {"Mutation (schedule)": (None, MUTATION_RUN_PREFIX + "scripts/quality/run_pitest.sh --event schedule --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector")}
             if scheduled_job
             else MUTATION_PRIMARY_RUNS
         )
@@ -986,7 +981,7 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
         if (
             upload["fields"].get("name") != "Upload mutation evidence"
             or upload["fields"].get("if") != "always()"
-            or upload["fields"].get("uses") != "actions/upload-artifact@v7"
+            or upload["fields"].get("uses") != "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
             or upload["nested"].get("with")
             != {
                 "name": expected_name,
@@ -997,10 +992,10 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
         ):
             issues.append(issue(path, line, "mutation evidence upload contract drifted"))
 
-    primary_job = job(primary, ".github/workflows/android.yml")
+    primary_job = job(primary, ".github/workflows/android.yml", "mutation")
     if primary_job is not None:
         common_steps(primary_job[0], ".github/workflows/android.yml", primary_job[1], scheduled_job=False)
-    scheduled_job = job(scheduled, ".github/workflows/mutation-schedule.yml")
+    scheduled_job = job(scheduled, ".github/workflows/mutation-schedule.yml", "mutation-scheduled")
     if scheduled_job is not None:
         common_steps(scheduled_job[0], ".github/workflows/mutation-schedule.yml", scheduled_job[1], scheduled_job=True)
 
@@ -1446,8 +1441,8 @@ def check_coverage_workflow_contract(workflow: str) -> list[str]:
     body = match.group("body")
     job_line = source_line(workflow, match.start())
     job_fields = workflow_job_fields(body)
-    if job_fields.get("runs-on") != "ubuntu-latest":
-        issues.append(issue(workflow_path, job_line, "coverage runner must be ubuntu-latest"))
+    if job_fields.get("runs-on") != "ubuntu-24.04":
+        issues.append(issue(workflow_path, job_line, "coverage runner must be ubuntu-24.04"))
     if job_fields.get("timeout-minutes") != "45":
         issues.append(issue(workflow_path, job_line, "coverage timeout must be 45 minutes"))
     if "if" in job_fields:

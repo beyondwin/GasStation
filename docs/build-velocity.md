@@ -29,3 +29,9 @@ GitHub Actions already separates `static-analysis`, `unit-tests`, `screenshot-te
 Mutation verification is deliberately outside ordinary fast/auto Gradle task arrays. `verifyPitestConfiguration` is the fast agent gate; the routed CI/manual runner owns the real three-module PIT work. Selected modules run sequentially with `--no-parallel`, each PIT process uses exactly two threads, and the hosted job has a 60-minute ceiling. History, retry, task exclusion, dry-run, and automatic rerun are disabled so elapsed time and mutant populations remain honest.
 
 The sealed runner uses configuration cache but disables build cache and reruns tasks. Its isolated proof must show both a stored first run and reused second run without changing the 15-minute convention-suite timeout, retrying failures, reducing test coverage, or increasing worker forks. Weekly `ubuntu-24.04` image rotation can stop before PIT while the reviewed image profile is recaptured; that maintenance cost is intentional fail-closed behavior, not a reason to accept runtime-observed hashes as permanent tool pins.
+
+## Build-input cost boundary
+
+Governed jobs use pinned `setup-gradle` with the basic cache provider, but each job still owns a fresh `GRADLE_USER_HOME`. Configuration-cache proof is a separate same-job two-run check: first run must store and second run must reuse. It does not share cache evidence with the two-copy reproducibility probe.
+
+Cold-home strict dependency verification and the reproducibility probe are intentionally expensive release-quality gates. Each reproducibility copy has separate Gradle/project/Kotlin cache roots and disables build cache and configuration cache, so cache reuse cannot masquerade as independent artifact generation. Timing claims are added only from measured final runs; hosted execution that did not occur remains `NOT RUN`. The exact commands live in [검증 매트릭스](verification-matrix.md).

@@ -23,22 +23,24 @@ abstract class VerifyCiRobolectricRuntimeTask : DefaultTask() {
     @TaskAction
     fun verify() {
         val workflow = workflowFile.get().asFile.readText()
-        val ciJavaVersion =
-            CI_JAVA_VERSION.find(workflow)?.groupValues?.get(1)?.toInt()
-                ?: throw GradleException(
-                    "Android CI must declare a top-level CI_JAVA_VERSION for the shared Gradle runtime.",
-                )
-        val javaVersionDeclarations =
-            JAVA_VERSION_DECLARATION.findAll(workflow).map { it.groupValues[1] }.toList()
-        if (
-            javaVersionDeclarations.isEmpty() ||
-            javaVersionDeclarations.any { it != EXPECTED_JAVA_VERSION_REFERENCE }
-        ) {
-            throw GradleException(
-                "Every Android CI setup-java step must use $EXPECTED_JAVA_VERSION_REFERENCE; found " +
-                    javaVersionDeclarations.joinToString(),
-            )
+        val runtimeVersions = CI_JAVA_VERSION.findAll(workflow).map { it.groupValues[1] }.toList()
+        val toolchainVersions = CI_JAVA_TOOLCHAIN_VERSION.findAll(workflow).map { it.groupValues[1] }.toList()
+        if (runtimeVersions != listOf(EXACT_RUNTIME_VERSION)) {
+            throw GradleException("Android CI must declare exact CI_JAVA_VERSION=$EXACT_RUNTIME_VERSION once.")
         }
+        if (toolchainVersions != listOf(EXACT_TOOLCHAIN_VERSION)) {
+            throw GradleException("Android CI must declare exact CI_JAVA_TOOLCHAIN_VERSION=$EXACT_TOOLCHAIN_VERSION once.")
+        }
+        if (SETUP_JAVA.containsMatchIn(workflow)) {
+            throw GradleException("Android CI may not use actions/setup-java; use the closed JDK installer action.")
+        }
+        if (!CLOSED_INSTALLER.containsMatchIn(workflow)) {
+            throw GradleException("Android CI must use ./.github/actions/setup-build-inputs.")
+        }
+        if (RUNNER.findAll(workflow).map { it.groupValues[1] }.any { it != "ubuntu-24.04" }) {
+            throw GradleException("Every Android CI job must use the explicit mutable ubuntu-24.04 runner label.")
+        }
+        val ciJavaVersion = runtimeVersions.single().substringBefore('.').toInt()
         val robolectricSdk =
             Properties().run {
                 robolectricConfigFile.get().asFile.inputStream().use(::load)
@@ -61,8 +63,14 @@ abstract class VerifyCiRobolectricRuntimeTask : DefaultTask() {
 
     companion object {
         private val CI_JAVA_VERSION =
-            Regex("(?m)^\\s*CI_JAVA_VERSION:\\s*[\\\"]?(\\d+)[\\\"]?\\s*$")
-        private val JAVA_VERSION_DECLARATION = Regex("(?m)^\\s*java-version:\\s*(.+?)\\s*$")
-        private const val EXPECTED_JAVA_VERSION_REFERENCE = "\${{ env.CI_JAVA_VERSION }}"
+            Regex("(?m)^  CI_JAVA_VERSION:\\s*[\\\"]?([^\\\"\\s]+)[\\\"]?\\s*$")
+        private val CI_JAVA_TOOLCHAIN_VERSION =
+            Regex("(?m)^  CI_JAVA_TOOLCHAIN_VERSION:\\s*[\\\"]?([^\\\"\\s]+)[\\\"]?\\s*$")
+        private val SETUP_JAVA = Regex("(?m)^\\s*-?\\s*uses:\\s*actions/setup-java@")
+        private val CLOSED_INSTALLER =
+            Regex("(?m)^\\s*-?\\s*uses:\\s*\\./\\.github/actions/setup-build-inputs\\s*$")
+        private val RUNNER = Regex("(?m)^\\s{4}runs-on:\\s*([^\\s#]+)")
+        private const val EXACT_RUNTIME_VERSION = "21.0.12.1+1"
+        private const val EXACT_TOOLCHAIN_VERSION = "17.0.20+8"
     }
 }

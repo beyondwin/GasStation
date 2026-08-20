@@ -250,7 +250,7 @@ class GasStationRootQualityConventionPluginTest {
     }
 
     @Test
-    fun runtimeGuardKeepsSdkThresholdsAndValidatesEveryJavaDeclaration() {
+    fun runtimeGuardRequiresExactClosedInstallerRolesAndSdkThreshold() {
         val project = newProject("runtime-boundaries")
             .writeRootQualityFixture(RootQualityFixture(modules = emptyList()))
 
@@ -258,35 +258,18 @@ class GasStationRootQualityConventionPluginTest {
         java21Sdk36.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.SUCCESS)
         assertTrue(java21Sdk36.output.contains("Java 21 supports test SDK 36"))
 
-        project.writeFile(".github/workflows/android.yml", validWorkflow("17"))
-            .writeFile("config/robolectric/robolectric.properties", "sdk=35")
-        val java17Sdk35 = project.runner("verifyCiRobolectricRuntime", "--rerun-tasks").build()
-        java17Sdk35.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.SUCCESS)
-
-        project.writeFile("config/robolectric/robolectric.properties", "sdk=36")
-        val java17Sdk36 = project.runner("verifyCiRobolectricRuntime", "--rerun-tasks").buildAndFail()
-        java17Sdk36.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.FAILED)
-        assertTrue(java17Sdk36.output.contains("Robolectric SDK 36 requires Java 21 or newer"))
-        assertTrue(java17Sdk36.output.contains("Android CI declares Java 17"))
-
         listOf(
-            listOf("\${{ env.CI_JAVA_VERSION }}", "17"),
-            listOf("17", "\${{ env.CI_JAVA_VERSION }}"),
-        ).forEach { expressions ->
-            project.writeFile(".github/workflows/android.yml", workflow("21", expressions))
-            val wrongDeclaration =
-                project.runner("verifyCiRobolectricRuntime", "--rerun-tasks").buildAndFail()
-            wrongDeclaration.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.FAILED)
-            assertTrue(wrongDeclaration.output.contains("Every Android CI setup-java step must use"))
-            assertTrue(wrongDeclaration.output.contains("17"))
+            workflow(runtime = "21.0.12+8") to "exact CI_JAVA_VERSION",
+            workflow(toolchain = "17") to "exact CI_JAVA_TOOLCHAIN_VERSION",
+            workflow(extraStep = "      - uses: actions/setup-java@v5") to "may not use actions/setup-java",
+            workflow(includeInstaller = false) to "must use ./.github/actions/setup-build-inputs",
+            workflow(runner = "ubuntu-latest") to "ubuntu-24.04",
+        ).forEachIndexed { index, (candidate, diagnostic) ->
+            project.writeFile(".github/workflows/android.yml", candidate)
+            val result = project.runner("verifyCiRobolectricRuntime", "--rerun-tasks").buildAndFail()
+            result.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.FAILED)
+            assertTrue("runtime mutation $index missing $diagnostic", result.output.contains(diagnostic))
         }
-
-        project.writeFile(
-            ".github/workflows/android.yml",
-            workflow("21", listOf("\${{ env.CI_JAVA_VERSION }}", "\${{ env.CI_JAVA_VERSION }}")),
-        )
-        val everyCorrect = project.runner("verifyCiRobolectricRuntime", "--rerun-tasks").build()
-        everyCorrect.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.SUCCESS)
     }
 
     @Test
@@ -295,11 +278,10 @@ class GasStationRootQualityConventionPluginTest {
             .writeRootQualityFixture(RootQualityFixture(modules = emptyList()))
         val invalidCases =
             listOf(
-                Triple(workflowWithoutCiVersion(), "sdk=36", "must declare a top-level CI_JAVA_VERSION"),
-                Triple(workflow("twenty-one"), "sdk=36", "must declare a top-level CI_JAVA_VERSION"),
-                Triple(validWorkflow("21"), "name=value", "must declare a numeric sdk"),
-                Triple(validWorkflow("21"), "sdk=thirty-six", "must declare a numeric sdk"),
-                Triple(workflow("21", emptyList()), "sdk=36", "Every Android CI setup-java step must use"),
+                Triple(workflowWithoutCiVersion(), "sdk=36", "exact CI_JAVA_VERSION"),
+                Triple(workflow(runtime = "twenty-one"), "sdk=36", "exact CI_JAVA_VERSION"),
+                Triple(workflow(), "name=value", "must declare a numeric sdk"),
+                Triple(workflow(), "sdk=thirty-six", "must declare a numeric sdk"),
             )
 
         invalidCases.forEachIndexed { index, (workflow, config, diagnostic) ->
@@ -556,35 +538,36 @@ class GasStationRootQualityConventionPluginTest {
         assertTrue(result.output.contains("CI/Robolectric runtime OK"))
     }
 
-    private fun validWorkflow(javaVersion: String): String = workflow(javaVersion)
-
     private fun workflow(
-        javaVersion: String,
-        expressions: List<String> = listOf("\${{ env.CI_JAVA_VERSION }}"),
+        runtime: String = "21.0.12.1+1",
+        toolchain: String = "17.0.20+8",
+        runner: String = "ubuntu-24.04",
+        includeInstaller: Boolean = true,
+        extraStep: String = "",
     ): String =
         buildString {
             appendLine("name: Android CI")
             appendLine("env:")
-            appendLine("  CI_JAVA_VERSION: \"$javaVersion\"")
+            appendLine("  CI_JAVA_TOOLCHAIN_VERSION: \"$toolchain\"")
+            appendLine("  CI_JAVA_VERSION: \"$runtime\"")
             appendLine("jobs:")
             appendLine("  test:")
+            appendLine("    runs-on: $runner")
             appendLine("    steps:")
-            expressions.forEach { expression ->
-                appendLine("      - uses: actions/setup-java@v5")
-                appendLine("        with:")
-                appendLine("          java-version: $expression")
-            }
+            if (includeInstaller) appendLine("      - uses: ./.github/actions/setup-build-inputs")
+            if (extraStep.isNotEmpty()) appendLine(extraStep)
         }
 
     private fun workflowWithoutCiVersion(): String =
         """
         name: Android CI
+        env:
+          CI_JAVA_TOOLCHAIN_VERSION: "17.0.20+8"
         jobs:
           test:
+            runs-on: ubuntu-24.04
             steps:
-              - uses: actions/setup-java@v5
-                with:
-                  java-version: ${'$'}{{ env.CI_JAVA_VERSION }}
+              - uses: ./.github/actions/setup-build-inputs
         """.trimIndent()
 
     companion object {
