@@ -370,6 +370,239 @@ class AcyclicCaptureTest(unittest.TestCase):
             with self.assertRaisesRegex(MutationPolicyError, "archived attempt schema differs"):
                 self._validate_clone_baseline(repository)
 
+    def test_newly_committed_successor_accepts_a_post_i1_predecessor_capture_receipt(self) -> None:
+        """Proves the next checked recapture can archive a receipt sealed after I1."""
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:
+            repository = Path(directory) / "post-i1-successor"
+            self._clone_checked_repository(repository)
+            baseline_path = repository / "config/quality/mutation-baseline.json"
+            receipt_root = repository / "config/quality/mutation-captures"
+            transition_root = repository / "config/quality/mutation-transitions"
+            predecessor_raw = baseline_path.read_bytes()
+            predecessor = json.loads(predecessor_raw)
+            predecessor_hash = hashlib.sha256(predecessor_raw).hexdigest()
+            predecessor_capture_receipt_raw = (
+                receipt_root / f"{predecessor_hash}.json"
+            ).read_bytes()
+            predecessor_capture_receipt_hash = hashlib.sha256(
+                predecessor_capture_receipt_raw,
+            ).hexdigest()
+            predecessor_capture_receipt = json.loads(predecessor_capture_receipt_raw)
+            predecessor_archive = json.loads(
+                (repository / predecessor_capture_receipt["evidenceArchive"]["path"]).read_text()
+            )
+            component_bytes = {
+                name: (repository / record["path"]).read_bytes()
+                for name, record in predecessor_archive["components"].items()
+            }
+
+            summary = json.loads(component_bytes["verificationSummary"])
+            summary["predecessorBaselineHash"] = predecessor_hash
+            summary["predecessorCaptureReceiptSha256"] = predecessor_capture_receipt_hash
+            component_bytes["verificationSummary"] = canonical_json_bytes(summary)
+
+            predecessor_verification_receipt = json.loads(
+                component_bytes["predecessorVerificationReceipt"],
+            )
+            predecessor_verification_receipt["predecessors"]["baseline"] = predecessor_hash
+            predecessor_verification_receipt["predecessors"]["baselineCaptureReceipt"] = (
+                predecessor_capture_receipt_hash
+            )
+            predecessor_verification_receipt["predecessors"]["summary"] = hashlib.sha256(
+                component_bytes["verificationSummary"],
+            ).hexdigest()
+            component_bytes["predecessorVerificationReceipt"] = canonical_json_bytes(
+                predecessor_verification_receipt,
+            )
+
+            component_hashes = {
+                name: hashlib.sha256(raw).hexdigest()
+                for name, raw in component_bytes.items()
+            }
+            manifest = {
+                **predecessor_capture_receipt["evidenceManifest"],
+                "predecessorBaselineHash": predecessor_hash,
+                "predecessorVerificationReceiptHash": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
+                "components": component_hashes,
+            }
+            evidence_digest = hashlib.sha256(canonical_json_bytes(manifest)).hexdigest()
+            candidate = {
+                **predecessor,
+                "predecessorBaselineHash": predecessor_hash,
+                "predecessorVerificationReceiptHash": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
+                "captureEvidenceDigest": evidence_digest,
+            }
+            candidate_raw = canonical_json_bytes(candidate)
+            candidate_hash = hashlib.sha256(candidate_raw).hexdigest()
+            archive_root = repository / "config/quality/mutation-evidence" / candidate_hash
+            archive_records = {}
+            for index, (name, claimed_digest) in enumerate(sorted(component_hashes.items())):
+                component_path = archive_root / "components" / f"{index:02d}.bin"
+                component_path.parent.mkdir(parents=True, exist_ok=True)
+                component_path.write_bytes(component_bytes[name])
+                archive_records[name] = {
+                    "path": component_path.relative_to(repository).as_posix(),
+                    "sha256": claimed_digest,
+                }
+            archive = {
+                "schema": "pitest-capture-evidence-archive-v1",
+                "candidateBaselineSha256": candidate_hash,
+                "components": archive_records,
+            }
+            archive_raw = canonical_json_bytes(archive)
+            archive_path = archive_root / "archive.json"
+            archive_path.write_bytes(archive_raw)
+            archive_reference = {
+                "path": archive_path.relative_to(repository).as_posix(),
+                "sha256": hashlib.sha256(archive_raw).hexdigest(),
+            }
+            receipt = build_capture_receipt(
+                candidate_baseline=candidate_raw,
+                evidence_manifest=manifest,
+                evidence_archive=archive_reference,
+            )
+            receipt_raw = canonical_json_bytes(receipt)
+            (receipt_root / f"{candidate_hash}.json").write_bytes(receipt_raw)
+
+            previous_transition = next(
+                json.loads(path.read_text())
+                for path in transition_root.glob("*.json")
+                if json.loads(path.read_text())["candidateBaselineSha256"] == predecessor_hash
+            )
+            input_identity = predecessor["mutationInputIdentitySha256"]
+            transition = {
+                **previous_transition,
+                "predecessorBaselineSha256": predecessor_hash,
+                "candidateBaselineSha256": candidate_hash,
+                "captureReceiptSha256": hashlib.sha256(receipt_raw).hexdigest(),
+                "predecessorVerificationReceiptSha256": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
+                "routeSha256": component_hashes["route"],
+                "completionSha256": component_hashes["completion"],
+                "oldInputIdentity": {
+                    "schemaVersion": 2,
+                    "mutationInputIdentitySha256": input_identity,
+                    "hostNeutralMutationIdentitySha256": predecessor[
+                        "hostNeutralMutationIdentitySha256"
+                    ],
+                },
+                "newInputIdentity": {
+                    "schemaVersion": 2,
+                    "mutationInputIdentitySha256": input_identity,
+                    "hostNeutralMutationIdentitySha256": predecessor[
+                        "hostNeutralMutationIdentitySha256"
+                    ],
+                },
+                "evidenceArchive": archive_reference,
+            }
+            (transition_root / f"{predecessor_hash}-to-{input_identity}.json").write_bytes(
+                canonical_json_bytes(transition),
+            )
+            baseline_path.write_bytes(candidate_raw)
+            self._commit_clone(repository, "install post-I1 successor")
+
+            self._validate_clone_baseline(repository)
+
+    def test_post_i1_archive_rejects_an_omitted_or_swapped_predecessor_capture_receipt(self) -> None:
+        baseline_raw = (ROOT / "config/quality/mutation-baseline.json").read_bytes()
+        predecessor_hash = hashlib.sha256(baseline_raw).hexdigest()
+        predecessor_capture_receipt_raw = (
+            ROOT / "config/quality/mutation-captures" / f"{predecessor_hash}.json"
+        ).read_bytes()
+        predecessor_capture_receipt_hash = hashlib.sha256(
+            predecessor_capture_receipt_raw,
+        ).hexdigest()
+        predecessor_capture_receipt = json.loads(predecessor_capture_receipt_raw)
+        archive = json.loads(
+            (ROOT / predecessor_capture_receipt["evidenceArchive"]["path"]).read_text()
+        )
+        original_components = {
+            name: (ROOT / record["path"]).read_bytes()
+            for name, record in archive["components"].items()
+        }
+        previous_transition = next(
+            json.loads(path.read_text())
+            for path in (ROOT / "config/quality/mutation-transitions").glob("*.json")
+            if json.loads(path.read_text())["candidateBaselineSha256"] == predecessor_hash
+        )
+
+        for label, capture_link in (
+            ("omitted", None),
+            ("swapped", "0" * 64),
+        ):
+            with self.subTest(label=label):
+                components = dict(original_components)
+                summary = json.loads(components["verificationSummary"])
+                summary["predecessorBaselineHash"] = predecessor_hash
+                summary["predecessorCaptureReceiptSha256"] = (
+                    predecessor_capture_receipt_hash
+                )
+                components["verificationSummary"] = canonical_json_bytes(summary)
+                predecessor_verification_receipt = json.loads(
+                    components["predecessorVerificationReceipt"],
+                )
+                predecessor_verification_receipt["predecessors"]["baseline"] = (
+                    predecessor_hash
+                )
+                predecessor_verification_receipt["predecessors"]["summary"] = (
+                    hashlib.sha256(components["verificationSummary"]).hexdigest()
+                )
+                if capture_link is None:
+                    predecessor_verification_receipt["predecessors"].pop(
+                        "baselineCaptureReceipt",
+                        None,
+                    )
+                else:
+                    predecessor_verification_receipt["predecessors"][
+                        "baselineCaptureReceipt"
+                    ] = capture_link
+                components["predecessorVerificationReceipt"] = canonical_json_bytes(
+                    predecessor_verification_receipt,
+                )
+                component_hashes = {
+                    name: hashlib.sha256(raw).hexdigest()
+                    for name, raw in components.items()
+                }
+                candidate = hashlib.sha256(label.encode()).hexdigest()
+                receipt_value = {
+                    **predecessor_capture_receipt,
+                    "evidenceManifest": {
+                        **predecessor_capture_receipt["evidenceManifest"],
+                        "predecessorBaselineHash": predecessor_hash,
+                        "predecessorVerificationReceiptHash": component_hashes[
+                            "predecessorVerificationReceipt"
+                        ],
+                        "components": component_hashes,
+                    },
+                }
+                transition = {
+                    **previous_transition,
+                    "predecessorBaselineSha256": predecessor_hash,
+                    "candidateBaselineSha256": candidate,
+                    "predecessorVerificationReceiptSha256": component_hashes[
+                        "predecessorVerificationReceipt"
+                    ],
+                    "routeSha256": component_hashes["route"],
+                    "completionSha256": component_hashes["completion"],
+                }
+
+                with self.assertRaisesRegex(
+                    MutationPolicyError,
+                    "predecessor verification receipt typed links differ",
+                ):
+                    _validate_archived_components(
+                        components,
+                        candidate=candidate,
+                        receipt_value=receipt_value,
+                        transition=transition,
+                        predecessor_capture_receipt_raw=predecessor_capture_receipt_raw,
+                    )
+
     def test_deleting_history_and_committing_a_replacement_null_root_is_rejected(self) -> None:
         """Catches deriving the trust root only from paths surviving at HEAD."""
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:

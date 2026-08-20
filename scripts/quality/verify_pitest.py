@@ -76,6 +76,11 @@ LEGACY_TRANSITION_PATH_ORDER = (
     "config/quality/mutation-transitions/b5d344f5754eb0fa4ab2cbfd6ce460b54befcb062d477ed4397379a48202f4c8-to-69331d2eb42cb734716b1886397b2aa1fd61bf141cee919ab29a2496e7d404bb.json",
     "config/quality/mutation-transitions/0af6ea8f8de37a79d498414be858dc86978b3cc37d4baa2efbaf3aac39511a62-to-adf64ef12bc9352b2f74df93c366d9799e668a61827c4430b933cd024b8c81a1.json",
 )
+LEGACY_ARCHIVED_CANDIDATES_WITHOUT_BASELINE_CAPTURE_RECEIPT = frozenset({
+    "3f5d529acbcfe1a7c6e6da3d123c0afd4a8d16666fab71a98716a100821b28ea",
+    "2000cdf63d960a707cc610917b254950070f403a7bd2d755f10d3678de589caa",
+    "015ed5a495a958029ba02cf8775edf198ef2d4842d9e9d6c3c8489e10707d905",
+})
 BOOTSTRAP_MARKER = "sealed-v1"
 
 
@@ -1634,6 +1639,7 @@ def _validate_archived_components(
     candidate: str,
     receipt_value: dict[str, Any],
     transition: dict[str, Any],
+    predecessor_capture_receipt_raw: bytes | None = None,
 ) -> dict[str, Any]:
     """Decode the complete archived run and reconstruct every typed predecessor edge."""
     policy, checked_policy_raw, checked_policy_hash = load_policy()
@@ -1979,6 +1985,9 @@ def _validate_archived_components(
         raise MutationPolicyError("archived measurement typed links differ")
 
     summary = _archived_json(raw_components["verificationSummary"], "verification summary")
+    legacy_without_capture_receipt = (
+        candidate in LEGACY_ARCHIVED_CANDIDATES_WITHOUT_BASELINE_CAPTURE_RECEIPT
+    )
     summary_keys = {
         "schemaVersion", "verificationMode", "transitionAxis", "status", "sourceCommit",
         "policySha256", "predecessorBaselineHash", "routeSha256", "routeReceiptSha256",
@@ -1987,6 +1996,34 @@ def _validate_archived_components(
         "perRunExecutionProvenanceSha256", "historicalLinuxComparison", "reports",
         "inventoryDelta", "violations",
     }
+    if not legacy_without_capture_receipt:
+        summary_keys.add("predecessorCaptureReceiptSha256")
+    predecessor_capture_receipt: dict[str, Any] | None = None
+    predecessor_capture_receipt_hash: str | None = None
+    if not legacy_without_capture_receipt:
+        if predecessor_capture_receipt_raw is None:
+            raise MutationPolicyError(
+                "archived predecessor baseline capture receipt is missing",
+            )
+        predecessor_capture_receipt_hash = sha256(predecessor_capture_receipt_raw)
+        predecessor_capture_receipt = read_strict_json(predecessor_capture_receipt_raw)
+        predecessor_baseline_hash = transition.get("predecessorBaselineSha256")
+        predecessor_capture_path = (
+            f"config/quality/mutation-captures/{predecessor_baseline_hash}.json"
+        )
+        linked_candidate, _, linked_receipt = _capture_receipt_link(
+            predecessor_capture_receipt_raw,
+            predecessor_capture_path,
+        )
+        if (
+            linked_candidate != predecessor_baseline_hash
+            or predecessor_capture_receipt != linked_receipt
+            or canonical_json_bytes(predecessor_capture_receipt)
+            != predecessor_capture_receipt_raw
+        ):
+            raise MutationPolicyError(
+                "archived predecessor baseline capture receipt identity differs",
+            )
     if (
         not isinstance(summary, dict)
         or set(summary) != summary_keys
@@ -1998,6 +2035,11 @@ def _validate_archived_components(
         or summary.get("policySha256") != checked_policy_hash
         or summary.get("predecessorBaselineHash")
         != transition.get("predecessorBaselineSha256")
+        or (
+            not legacy_without_capture_receipt
+            and summary.get("predecessorCaptureReceiptSha256")
+            != predecessor_capture_receipt_hash
+        )
         or summary.get("routeSha256") != sha256(raw_components["route"])
         or summary.get("routeReceiptSha256") != route_receipt_hash
         or summary.get("attemptSha256") != sha256(raw_components["attempt"])
@@ -2024,31 +2066,40 @@ def _validate_archived_components(
         raw_components["predecessorVerificationReceipt"],
         "predecessor verification receipt",
     )
+    predecessor_receipt_components = {
+        "policy": checked_policy_raw,
+        "route": raw_components["route"],
+        "routeReceipt": raw_components["routeReceipt"],
+        "tasks": tasks_raw,
+        "attempt": raw_components["attempt"],
+        "completion": raw_components["completion"],
+        "baseline": transition["predecessorBaselineSha256"].encode("ascii"),
+        "summary": raw_components["verificationSummary"],
+        **{
+            f"configuration:{name}": raw_components[f"configuration:{name}"]
+            for name in selected_modules
+        },
+        **{f"xml:{name}": raw_components[f"xml:{name}"] for name in selected_modules},
+        **{
+            f"semantic:{name}": canonical_json_bytes({
+                "semanticSha256": reports_by_module[name]["semanticSha256"],
+                "records": reports_by_module[name]["records"],
+            })
+            for name in selected_modules
+        },
+        **{f"html:{name}": raw_components[f"html:{name}"] for name in selected_modules},
+    }
+    if not legacy_without_capture_receipt:
+        if predecessor_capture_receipt_raw is None:
+            raise MutationPolicyError(
+                "archived predecessor baseline capture receipt snapshot was lost",
+            )
+        predecessor_receipt_components["baselineCaptureReceipt"] = (
+            predecessor_capture_receipt_raw
+        )
     expected_predecessor_receipt = receipt(
         "pitest-verification-receipt-v1",
-        {
-            "policy": checked_policy_raw,
-            "route": raw_components["route"],
-            "routeReceipt": raw_components["routeReceipt"],
-            "tasks": tasks_raw,
-            "attempt": raw_components["attempt"],
-            "completion": raw_components["completion"],
-            "baseline": transition["predecessorBaselineSha256"].encode("ascii"),
-            "summary": raw_components["verificationSummary"],
-            **{
-                f"configuration:{name}": raw_components[f"configuration:{name}"]
-                for name in selected_modules
-            },
-            **{f"xml:{name}": raw_components[f"xml:{name}"] for name in selected_modules},
-            **{
-                f"semantic:{name}": canonical_json_bytes({
-                    "semanticSha256": reports_by_module[name]["semanticSha256"],
-                    "records": reports_by_module[name]["records"],
-                })
-                for name in selected_modules
-            },
-            **{f"html:{name}": raw_components[f"html:{name}"] for name in selected_modules},
-        },
+        predecessor_receipt_components,
         sourceCommit=source_commit,
         status="selected-transition-verified",
         policySha256=checked_policy_hash,
@@ -2346,6 +2397,7 @@ def validate_capture_transition_chain(
                 candidate=candidate,
                 receipt_value=receipt_value,
                 transition=transition,
+                predecessor_capture_receipt_raw=receipts[cursor][2],
             )
             archive_reference = receipt_value["evidenceArchive"]
             if transition.get("evidenceArchive") != archive_reference:
@@ -3436,14 +3488,22 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
     predecessor = read_strict_json(predecessor_raw)
     if not isinstance(predecessor, dict):
         raise MutationPolicyError("recapture-transition predecessor must be an object")
+    predecessor_hash = sha256(predecessor_raw)
+    predecessor_capture_receipt_raw = read_bytes(
+        CAPTURE_RECEIPT_ROOT / f"{predecessor_hash}.json",
+    )
+    predecessor_capture_receipt_sha256 = sha256(predecessor_capture_receipt_raw)
     predecessor_schema = predecessor.get("schemaVersion")
     if predecessor_schema == 1:
         validate_legacy_predecessor(predecessor_raw, predecessor)
     elif predecessor_schema == 2:
-        validate_baseline_capture_receipt(predecessor_raw, predecessor)
+        validate_baseline_capture_receipt(
+            predecessor_raw,
+            predecessor,
+            capture_receipt_raw=predecessor_capture_receipt_raw,
+        )
     else:
         raise MutationPolicyError("recapture-transition predecessor schema differs")
-    predecessor_hash = sha256(predecessor_raw)
     measurement = measure(java_home)
     _, git = validate_bootstrap(policy, java_home)
     input_identity = mutation_input_identity(policy, git, measurement)
@@ -3486,6 +3546,7 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
         "sourceCommit": route_value["sourceCommit"],
         "policySha256": policy_hash,
         "predecessorBaselineHash": predecessor_hash,
+        "predecessorCaptureReceiptSha256": predecessor_capture_receipt_sha256,
         "routeSha256": sha256(read_bytes(ROUTE_PATH)),
         "routeReceiptSha256": sha256(read_bytes(ROUTE_RECEIPT_PATH)),
         "attemptSha256": sha256(read_bytes(ATTEMPT_PATH)),
@@ -3507,7 +3568,13 @@ def recapture_transition(java_home: str) -> dict[str, Any]:
     if violations:
         raise MutationPolicyError("; ".join(sorted(violations)))
     final_receipt = _seal_typed_summary(
-        policy, route_value, policy_raw, policy_hash, summary, predecessor_raw,
+        policy,
+        route_value,
+        policy_raw,
+        policy_hash,
+        summary,
+        predecessor_raw,
+        predecessor_capture_receipt_raw,
     )
     final_receipt_raw = read_bytes(FINAL_RECEIPT_PATH)
     components = _capture_components(policy, route_value, measurement)
@@ -3636,16 +3703,23 @@ def _seal_typed_summary(
     policy_hash: str,
     summary: dict[str, Any],
     baseline_raw: bytes,
+    baseline_capture_receipt_raw: bytes,
 ) -> dict[str, Any]:
     completion, completion_raw = validate_completion_value(policy, route_value, policy_raw)
     summary_raw = read_bytes(SUMMARY_PATH)
     if read_strict_json(summary_raw) != summary:
         raise MutationPolicyError("transition summary re-read differs")
+    if summary.get("predecessorCaptureReceiptSha256") != sha256(
+        baseline_capture_receipt_raw,
+    ):
+        raise MutationPolicyError("transition summary baseline capture receipt differs")
     predecessors = {
         "policy": policy_raw, "route": read_bytes(ROUTE_PATH),
         "routeReceipt": read_bytes(ROUTE_RECEIPT_PATH), "tasks": read_bytes(TASKS_PATH),
         "attempt": read_bytes(ATTEMPT_PATH), "completion": completion_raw,
-        "baseline": baseline_raw, "summary": summary_raw,
+        "baseline": baseline_raw,
+        "baselineCaptureReceipt": baseline_capture_receipt_raw,
+        "summary": summary_raw,
     }
     for report in completion["reports"]:
         name = report["module"]
