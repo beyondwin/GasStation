@@ -33,6 +33,9 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
     @get:org.gradle.api.tasks.Internal
     abstract val expectedRepositoryRoot: org.gradle.api.file.DirectoryProperty
 
+    @get:org.gradle.api.tasks.Internal
+    abstract val expectedBuildDirectory: org.gradle.api.file.DirectoryProperty
+
     @get:Input
     @get:Optional
     abstract val expectedMutationThreshold: org.gradle.api.provider.Property<Int>
@@ -85,14 +88,14 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         reject(environment != expectedChildEnvironment.get(), "environment")
         reject(classpath.files != launchClasspath.files, "classpath")
         reject(testPlugin.isPresent, "testPlugin")
-        val expectedBuildDirectory = project.layout.buildDirectory.get().asFile
-        reject(reportDir.get().asFile.canonicalFile != expectedBuildDirectory.resolve("reports/pitest").canonicalFile, "reportDir")
+        val expectedBuildDirectoryFile = expectedBuildDirectory.get().asFile
+        reject(reportDir.get().asFile.canonicalFile != expectedBuildDirectoryFile.resolve("reports/pitest").canonicalFile, "reportDir")
         reject(
-            additionalClasspathFile.get().asFile.canonicalFile != expectedBuildDirectory.resolve("pitClasspath").canonicalFile,
+            additionalClasspathFile.get().asFile.canonicalFile != expectedBuildDirectoryFile.resolve("pitClasspath").canonicalFile,
             "additionalClasspathFile",
         )
         reject(
-            defaultFileForHistoryData.get().asFile.canonicalFile != expectedBuildDirectory.resolve("pitHistory.txt").canonicalFile,
+            defaultFileForHistoryData.get().asFile.canonicalFile != expectedBuildDirectoryFile.resolve("pitHistory.txt").canonicalFile,
             "defaultFileForHistoryData",
         )
         reject(mainProcessJvmArgs.getOrElse(emptyList()).isNotEmpty(), "mainProcessJvmArgs")

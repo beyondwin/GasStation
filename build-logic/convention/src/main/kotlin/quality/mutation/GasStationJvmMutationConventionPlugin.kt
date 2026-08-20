@@ -120,6 +120,7 @@ class GasStationJvmMutationConventionPlugin : Plugin<Project> {
             copyPitestPropertiesFrom(original)
             expectedChildEnvironment.set(childEnvironment)
             expectedRepositoryRoot.set(target.rootProject.layout.projectDirectory)
+            expectedBuildDirectory.set(target.layout.buildDirectory)
             expectedSourceDirs.from(original.sourceDirs)
             expectedAdditionalClasspath.from(original.additionalClasspath)
             expectedMutableCodePaths.from(original.mutableCodePaths)
