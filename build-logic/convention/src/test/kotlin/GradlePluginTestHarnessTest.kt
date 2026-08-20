@@ -238,9 +238,9 @@ class GradlePluginTestHarnessTest {
     }
 
     @Test
-    fun fourConcurrentFixturesUseIsolatedProjectTestKitAndGradleHomes() {
-        assertEquals("4", System.getProperty("gasstation.convention.test.maxParallelForks"))
-        val roots = (1..4).map { index -> temporaryFolder.newFolder("parallel-$index-root") }
+    fun fiveConcurrentFixturesUseIsolatedProjectTestKitAndGradleHomes() {
+        assertEquals("5", System.getProperty("gasstation.convention.test.maxParallelForks"))
+        val roots = (1..5).map { index -> temporaryFolder.newFolder("parallel-$index-root") }
         val fixtures = roots.map(GradlePluginTestProject::create)
         fixtures.first().writeFile("stale.txt", "stale")
 
@@ -248,7 +248,7 @@ class GradlePluginTestHarnessTest {
             fixtures.map { it.projectDir.canonicalFile },
             fixtures.map { it.testKitDir.canonicalFile },
             fixtures.map { it.gradleUserHomeDir.canonicalFile },
-        ).forEach { directories -> assertEquals(4, directories.toSet().size) }
+        ).forEach { directories -> assertEquals(5, directories.toSet().size) }
         fixtures.drop(1).forEach { fixture -> assertFalse(fixture.projectDir.resolve("stale.txt").exists()) }
         assertThrows(IllegalArgumentException::class.java) {
             GradlePluginTestProject.create(roots.first())

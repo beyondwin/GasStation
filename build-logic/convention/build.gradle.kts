@@ -33,7 +33,7 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(15))
-    maxParallelForks = 4
+    maxParallelForks = 5
     systemProperty("gasstation.convention.test.maxParallelForks", maxParallelForks)
 }
 
