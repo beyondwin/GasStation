@@ -25,6 +25,7 @@ make_git_repo "$fixture/repo"
 mkdir -p \
   "$fixture/repo/app" \
   "$fixture/repo/docs" \
+  "$fixture/repo/docs/runbooks" \
   "$fixture/repo/docs/release-notes" \
   "$fixture/repo/.codex" \
   "$fixture/repo/.claude" \
@@ -70,6 +71,11 @@ for live_doc in \
   security-trade-offs.md state-model.md test-strategy.md verification-matrix.md; do
   printf '# Live contract\n' > "$fixture/repo/docs/$live_doc"
 done
+printf '# Device verification fixture\n' > "$fixture/repo/docs/runbooks/device-verification.md"
+cp "$repo_root/.github/workflows/device-evidence.yml" "$fixture/repo/.github/workflows/device-evidence.yml"
+cp "$repo_root/config/quality/device-evidence-policy.json" "$fixture/repo/config/quality/device-evidence-policy.json"
+cp "$repo_root/config/quality/device-evidence-quarantine.json" "$fixture/repo/config/quality/device-evidence-quarantine.json"
+printf '\n' > "$fixture/repo/gradle.properties"
 cat > "$fixture/repo/docs/module-contracts.md" <<'EOF'
 # Module contracts
 
@@ -355,6 +361,7 @@ paths = [
     "docs/module-contracts.md", "docs/state-model.md", "docs/offline-strategy.md",
     "docs/test-strategy.md", "docs/verification-matrix.md", "docs/security-trade-offs.md",
     "docs/deployment.md", "docs/performance.md", "docs/build-velocity.md",
+    "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md", "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
 ]
@@ -1605,6 +1612,7 @@ assert_contains "$(cat "$fixture/secret.out")" "non-empty secret assignment"
 assert_error_locations "$(cat "$fixture/secret.out")"
 
 git -C "$fixture/repo" reset -q HEAD -- gradle.properties
+git -C "$fixture/repo" restore gradle.properties
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 
 printf 'fixture artifact\n' > "$fixture/repo/release.apk"

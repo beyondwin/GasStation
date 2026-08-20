@@ -1688,7 +1688,10 @@ def check_device_evidence_contracts(root: Path) -> list[str]:
     quality_dir = Path(__file__).resolve().parents[1] / "quality"
     sys.path.insert(0, str(quality_dir))
     try:
-        from device_workflow import check_device_contracts
+        try:
+            from device_workflow import check_device_contracts
+        except ModuleNotFoundError:
+            return [issue("scripts/quality/device_workflow.py", 1, "device workflow checker missing")]
     finally:
         sys.path.pop(0)
     return check_device_contracts(root)
