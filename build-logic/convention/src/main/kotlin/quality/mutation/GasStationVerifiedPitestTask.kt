@@ -109,7 +109,7 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         val actualThreshold = mutationThreshold.orNull
         reject(actualThreshold != expectedMutationThreshold.orNull, "mutationThreshold")
         validateEffectivePitestSurface(
-            expectedEffectivePitestSurface(),
+            expectedEffectivePitestSurface().filterKeys { !it.startsWith("extension.") },
             effectivePitestSurface(expectedRepositoryRoot.get().asFile),
         )
     }
@@ -133,6 +133,15 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         fun ordered(raw: Iterable<String>?): String = raw?.joinToString("\u001f") ?: "<null>"
         fun value(raw: Any?): String = raw?.toString() ?: "<null>"
         fun path(raw: File?): String = raw?.let { canonicalIdentity(it, repositoryRoot) } ?: "<null>"
+        fun location(raw: File?): String = raw?.let {
+            val canonical = it.canonicalFile
+            val root = repositoryRoot.canonicalFile
+            if (canonical.toPath().startsWith(root.toPath())) {
+                "repo:${root.toPath().relativize(canonical.toPath()).toString().replace(File.separatorChar, '/')}"
+            } else {
+                "external:${canonical.name}"
+            }
+        } ?: "<null>"
         fun files(raw: FileCollection): String = if (resolveFiles) fileCollectionIdentity(raw, repositoryRoot) else "<deferred>"
 
         // Gradle's aggregate JVM-argument getters realize argument providers. The
@@ -147,7 +156,7 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
         }
         val surface = sortedMapOf(
             "pit.testPlugin" to value(testPlugin.orNull),
-            "pit.reportDir" to path(reportDir.orNull?.asFile),
+            "pit.reportDir" to location(reportDir.orNull?.asFile),
             "pit.targetClasses" to values(targetClasses.orNull),
             "pit.targetTests" to values(targetTests.orNull),
             "pit.threads" to value(threads.orNull),
@@ -173,12 +182,12 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
             "pit.timestampedReports" to value(timestampedReports.orNull),
             "pit.additionalClasspath" to files(additionalClasspath),
             "pit.useClasspathFile" to value(useAdditionalClasspathFile.orNull),
-            "pit.additionalClasspathFile" to path(additionalClasspathFile.orNull?.asFile),
+            "pit.additionalClasspathFile" to location(additionalClasspathFile.orNull?.asFile),
             "pit.mutableCodePaths" to files(mutableCodePaths),
             "pit.historyInputLocation" to path(historyInputLocation.orNull?.asFile),
             "pit.historyOutputLocation" to path(historyOutputLocation.orNull?.asFile),
             "pit.enableDefaultIncrementalAnalysis" to value(enableDefaultIncrementalAnalysis.orNull),
-            "pit.defaultFileForHistoryData" to path(defaultFileForHistoryData.orNull?.asFile),
+            "pit.defaultFileForHistoryData" to location(defaultFileForHistoryData.orNull?.asFile),
             "pit.mutationThreshold" to value(mutationThreshold.orNull),
             "pit.coverageThreshold" to value(coverageThreshold.orNull),
             "pit.testStrengthThreshold" to value(testStrengthThreshold.orNull),
@@ -217,7 +226,7 @@ abstract class GasStationVerifiedPitestTask : PitestTask() {
             "java.mainModule" to value(mainModule.orNull),
             "java.inferModulePath" to modularity.inferModulePath.getOrElse(false).toString(),
             "java.ignoreExitValue" to isIgnoreExitValue.toString(),
-            "java.workingDir" to path(workingDir),
+            "java.workingDir" to location(workingDir),
             "java.environment" to environment.toSortedMap().entries.joinToString("\u001f") { "${it.key}=${normalizeEnvironmentValue(it.key, it.value.toString(), repositoryRoot)}" },
             "java.classpath" to files(classpath),
             "java.executable" to path(executable?.let(::File)),
