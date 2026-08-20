@@ -9,3 +9,4 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 "$repo_root/scripts/agent/tests/verify_room_schemas_test.sh"
 python3 "$repo_root/scripts/agent/tests/test_pre_tool_policy.py"
 python3 -m unittest discover -s "$repo_root/scripts/docs/tests"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$repo_root/scripts/quality/tests" -v

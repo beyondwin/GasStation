@@ -80,6 +80,11 @@ else
       docs/*|README.md|CONTRIBUTING.md|AGENTS.md|.impeccable.md)
         add_scope docs
         ;;
+      config/quality/mutation-*|scripts/quality/*|build-logic/convention/src/main/kotlin/quality/mutation/*|build-logic/convention/src/test/kotlin/quality/GasStationJvmMutationConventionPluginTest.kt)
+        add_scope data
+        add_scope app
+        add_scope release
+        ;;
       core/designsystem/*|feature/settings/*|feature/station-list/*|feature/watchlist/*)
         add_scope ui
         ;;
@@ -128,13 +133,13 @@ for selected in "${scopes[@]}"; do
       for task in :core:designsystem:testDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest verifyRoborazziDebug; do add_task "$task"; done
       ;;
     data)
-      for task in :core:model:test :core:network:test :core:observability:test :domain:location:test :domain:settings:test :domain:station:test :core:database:testDebugUnitTest :core:datastore:testDebugUnitTest :core:location:testDebugUnitTest :data:settings:testDebugUnitTest :data:station:testDebugUnitTest verifyModuleBoundaries; do add_task "$task"; done
+      for task in :core:model:test :core:network:test :core:observability:test :domain:location:test :domain:settings:test :domain:station:test :core:database:testDebugUnitTest :core:datastore:testDebugUnitTest :core:location:testDebugUnitTest :data:settings:testDebugUnitTest :data:station:testDebugUnitTest verifyModuleBoundaries verifyPitestConfiguration; do add_task "$task"; done
       ;;
     app)
-      for task in :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime; do add_task "$task"; done
+      for task in :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :app:assembleDemoDebug :app:assembleProdDebug :benchmark:assemble verifyModuleBoundaries verifyNoDeprecatedComposeTestApis verifyCiRobolectricRuntime verifyPitestConfiguration; do add_task "$task"; done
       ;;
     release)
-      for task in spotlessCheck lint :core:model:test :core:network:test :domain:location:test :core:observability:test :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest verifyRoborazziDebug coverageXmlReport verifyCoverageReport :app:assembleProdRelease; do add_task "$task"; done
+      for task in spotlessCheck lint :core:model:test :core:network:test :domain:location:test :core:observability:test :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest verifyRoborazziDebug coverageXmlReport verifyCoverageReport :app:assembleProdRelease verifyPitestConfiguration; do add_task "$task"; done
       ;;
   esac
 done

@@ -1,0 +1,44 @@
+name: Scheduled mutation verification
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: mutation_java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Stage mutation Java selector
+        shell: /usr/bin/env -i LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        run: |
+          umask 077
+          /bin/mkdir -p build/quality/pitest-runtime/bootstrap
+          set -C
+          /usr/bin/printf '%s\n' '${{ steps.mutation_java.outputs.path }}' > build/quality/pitest-runtime/bootstrap/java-home.selector
+      - name: Mutation (schedule)
+        shell: /usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}
+        run: |
+          exec scripts/quality/run_pitest.sh --event schedule --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
+      - name: Upload mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pitest-scheduled-evidence
+          path: |
+            build/reports/pitest/**
+            domain/*/build/reports/quality/pitest-configuration.json
+            domain/*/build/reports/pitest/**
+          if-no-files-found: error
+          retention-days: 7

@@ -422,18 +422,9 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 ./gradlew :feature:station-list:compileDebugKotlin -Pgasstation.composeCompilerReports=true
 ```
 
-## 검증 깊이 측정 (온디맨드 / report-only)
+## 검증 깊이 측정
 
-라인 커버리지 숫자 너머의 신호를 측정·기록하는 명령입니다. 빌드를 깨는 게이트가 아니라 신호 수집용이며, 기본 PR gate에는 넣지 않습니다.
-
-```bash
-# JVM 모듈 변이 테스트 — 온디맨드. 리포트는 각 모듈 build/reports/pitest/.
-# domain:station 은 mutationThreshold 40 floor 게이트라 점수가 떨어지면 실패한다.
-# domain:settings / domain:location 은 report-only 베이스라인이다.
-./gradlew :domain:station:pitest
-./gradlew :domain:settings:pitest
-./gradlew :domain:location:pitest
-```
+JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 현재 observation commit에서는 결과를 CI evidence로 수집하되 release prerequisite 승격은 별도 blocking commit이 소유합니다.
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
@@ -625,3 +616,41 @@ Do not add this command to the default PR gate. It depends on a connected physic
 - `docs/build-velocity.md`는 Gradle parallel/cache/configuration-cache 기본값과 release assemble gate 위치를 timing 근거와 함께 설명합니다.
 - `./benchmark/run-demo-benchmark.sh`는 빠른 assemble 확인용 래퍼입니다.
 - 앱 모듈의 사용 가능한 variant/task 표면은 `./gradlew :app:tasks --all`로 다시 확인할 수 있습니다.
+
+## Sealed JVM mutation verification
+
+빠른 공개 gate는 실제 mutant를 만들지 않습니다.
+
+```bash
+./gradlew verifyPitestConfiguration \
+  --warning-mode fail --rerun-tasks
+```
+
+실제 로컬 실행과 판정은 아래 한 entry만 사용합니다. 이것이 route, route receipt, attempt, canonical Gradle, completion, strict XML measurement, observation/verification summary와 final receipt를 순서대로 소유합니다. baseline 갱신용 `--capture-kind`는 수동 검토 때만 추가하며 ordinary CI/agent에서는 사용하지 않습니다.
+
+```bash
+/usr/bin/env -i \
+  GASSTATION_PITEST_BOOTSTRAP=sealed-v1 \
+  LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true \
+  /bin/bash --noprofile --norc \
+  scripts/quality/run_pitest.sh \
+  --event local-all --java-home "$JAVA_HOME"
+```
+
+현재 Commit B는 `observe` phase라 final verification receipt 대신 report-only observation 결과를 만듭니다. Commit C의 blocking phase에서는 동일 command가 `verify`와 `build/reports/pitest/verification-receipt.json`까지 요구합니다. PR은 `--event pull-request --base <immutable-base-sha>`로 변경된 domain module만 선택하고, main/tag/schedule/local-all은 세 모듈을 모두 선택합니다.
+
+주요 증거 경로:
+
+- `build/reports/pitest/route.json`, `route-receipt.json`, `attempt.json`, `completion.json`
+- `build/reports/pitest/measurement.json`, `verification-summary.json`, blocking phase의 `verification-receipt.json`
+- `domain/*/build/reports/quality/pitest-configuration.json`
+- `domain/*/build/reports/pitest/mutations.xml`과 HTML report
+- `config/quality/mutation-baseline.json`과 `config/quality/mutation-captures/<candidate-sha256>.json`
+
+Canonical Gradle flags는 configuration cache, configuration-cache-problems fail, no build cache, rerun tasks, no parallel, warning-mode fail입니다. 모듈은 순차 실행하고 PIT만 module당 2 thread를 사용하며 workflow timeout은 60분입니다. retry, `--continue`, exclusion, history input/output, dry-run은 없습니다. configuration-cache 검증은 격리된 project/user cache에서 동일 command를 두 번 실행해 첫 run 저장과 둘째 run 재사용을 모두 확인합니다.
+
+Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64`, `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`, runner-images tag `ubuntu24/20260816.277`, commit `3b5f596ffecb076aa5f3c3ded95b145f6daeb016`, `internal.ubuntu24.json` SHA-256 `35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19`를 gate합니다. Python locator `/usr/bin/python3 -> python3.12`를 확인한 뒤 canonical `/usr/bin/python3.12`만 실행합니다. Linux tool full numeric mode와 content/version hash는 매 실행 receipt에 관측하며 고정 executable-byte claim이 아닙니다. Darwin은 별도의 reviewed fixed-hash profile입니다.
+
+`actions/setup-java@v5`의 `steps.mutation_java.outputs.path`는 env로 전달하지 않습니다. sanitized custom shell에서 mode 077 directory를 만들고 `set -C`로 `build/quality/pitest-runtime/bootstrap/java-home.selector`를 한 번 생성합니다. selector는 0600 이하 regular non-symlink 단일 line인지 검증한 뒤 삭제되며, mutation run step은 `GASSTATION_PITEST_BOOTSTRAP=sealed-v1`을 포함한 absolute `/usr/bin/env -i` → `/bin/bash --noprofile --norc -euo pipefail {0}` shell을 사용합니다. pre-existing/retargeted/중복 selector, workflow/job/step env Java transport, PATH-selected Python/Git/Gradle, hostile JVM/Gradle/Git/Python environment는 fail closed입니다.
+
+Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 Task 9가 소유합니다.

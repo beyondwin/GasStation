@@ -165,32 +165,25 @@ python3 scripts/quality/verify_coverage.py capture \
 
 ## Mutation testing (변이 테스트)
 
-라인 커버리지 숫자만으로는 테스트가 실제 결함을 잡는지 알 수 없습니다. JVM-only 모듈(`gasstation.jvm.library`)에 변이 테스트를 적용해 테스트의 결함 탐지력을 측정·기록합니다. Pitest는 Android 모듈에서 불안정하므로 JVM 모듈로 한정합니다. 현재 `domain:station`, `domain:settings`, `domain:location` 세 모듈을 다룹니다.
+PIT 1.25.7은 Android/기기 경로가 아니라 JVM-only `domain:station`, `domain:location`, `domain:settings`의 `main`/`test` source set에만 적용합니다. plugin이 만든 `pitest` task의 직접 실행은 금지되며, 공개 configuration gate는 `verifyPitestConfiguration`, 실제 실행은 `scripts/quality/run_pitest.sh`가 소유하는 세 `pitestVerified` task뿐입니다. history, dry-run, retry, parallel module 실행, Android/device PIT는 사용하지 않습니다.
 
-### `domain:station` (floor 게이트)
+초기 baseline은 source commit `d8e19a60b1cc6542bdcefd754ca45ae748fd88a9`의 clean observation 실행에서 얻었습니다.
 
-- **대상 선정 이유:** JVM-only 모듈 중 라인 커버리지가 가장 약한(48.57%) 1순위 모듈.
-- **실행 명령:** `./gradlew :domain:station:pitest`. 리포트는 `domain/station/build/reports/pitest/`.
-- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 32/65 (49%)`, `NO_COVERAGE 31`, `SURVIVED 2`, test strength 94%. 전체 점수가 낮은 이유는 no-coverage 변이 31건이며, baseline JSON의 상태별 카운터가 후속 ratchet의 단일 기준입니다.
-- **보강한 테스트:** `StationPriceDeltaTest`에 0(비음수 경계) 허용과 음수 previous price 거부 케이스를, `StationQueryCacheKeyTest`에 좌표→버킷의 정확한 곱셈/나눗셈 결과 검증과 `bucketMeters` 비양수 거부 케이스를 추가했습니다.
-- **게이트:** `mutationThreshold.set(40)` floor 게이트로 점수 하락을 막습니다. 현재 baseline의 49%는 이 floor를 넘습니다. 47%와 `Mutation score of 47 is below threshold of 60`은 이전 60-mutant 실험의 historical 결과이며, 현재 65-mutant baseline 수치와 혼용하지 않습니다. report-only 베이스라인이 안정화된 모듈만 이렇게 게이트화합니다.
+| 모듈 | KILLED | SURVIVED | NO_COVERAGE | 점수 상태 |
+| --- | ---: | ---: | ---: | --- |
+| station | 36/66 | 3 | 27 | observation에서 기존 native 40 유지, 최종 floor 45 |
+| location | 53/68 | 12 | 3 | 최종 floor 75 |
+| settings | 8/13 | 5 | 0 | score report-only |
 
-### `domain:settings` (report-only)
+점수는 반올림 표시가 아니라 `killed * 100 >= floor * total`의 정수 교차곱으로 판정합니다. settings도 malformed XML, 허용되지 않은 status, source/class identity와 changed-package `NO_COVERAGE` non-increase는 차단하며 점수 floor만 없습니다. 세 모듈 모두 `KILLED`, `SURVIVED`, `NO_COVERAGE` 외 status를 거부합니다.
 
-- **실행 명령:** `./gradlew :domain:settings:pitest`. 리포트는 `domain/settings/build/reports/pitest/`.
-- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 8/13 (62%)`, test strength 62%, `NO_COVERAGE 0`, `SURVIVED 5`.
-- **SURVIVED 분석:** 현재 baseline의 SURVIVED 5건은 다음 mutation-review task에서 개별적으로 분류합니다. 과거의 10-survivor equivalent-mutant 분석은 현재 결과에 적용하지 않으며, 이 문서는 다섯 개를 자동으로 equivalent라고 주장하지 않습니다.
-- **report-only 결정:** 현재 다섯 SURVIVED mutant의 개별 검토 전까지는 report-only로 유지합니다.
+현재 Commit B의 CI job은 report-only observation 단계입니다. floor/no-coverage delta를 증거에 기록하지만 아직 tag release prerequisite는 아닙니다. blocking 승격은 별도 Commit C에서 station 45/location 75 native threshold, strict `verify`, tag prerequisite를 함께 전환합니다.
 
-### `domain:location` (report-only)
+Baseline provenance는 순환하지 않습니다. candidate baseline은 predecessor hash(초기값 null)와 `captureEvidenceDigest`만 가지며 자기 hash나 receipt hash를 포함하지 않습니다. candidate를 쓴 뒤 `config/quality/mutation-captures/<candidate-sha256>.json`이라는 별도 append-only receipt가 candidate와 pre-baseline component hash를 묶습니다. 갱신은 CI/agent가 아닌 수동 canonical capture만 허용하며 predecessor baseline과 predecessor verification receipt를 정확히 이어야 합니다.
 
-- **실행 명령:** `./gradlew :domain:location:pitest`. 리포트는 `domain/location/build/reports/pitest/`.
-- **관측 baseline (sourceCommit `7b8c149`, 2026-08-12):** `Killed 55/68 (81%)`, test strength 85%, `NO_COVERAGE 3`, `SURVIVED 10`.
-- **보강한 테스트:** `AddressLabelNormalizerTest`에 (1) 선행 noise 토큰을 건너뛰고 bare metro(`서울`)를 이름으로 골라내는 fallback 경로, (2) district 앞의 가장 가까운 `시`/`도` 지역 선택, (3) dong 앞 trailing noise를 건너뛰고 행정 district를 고르는 케이스를 추가해 `findFallbackRegionIndexBefore`/`findLastAdminIndexBefore`의 실제 로직 갭(SURVIVED 4건)을 제거했습니다.
-- **SURVIVED 잔여 분석:** 남은 10건은 문자 범위(`'가'..'힣'`) 경계 변이와 인덱스 경계 변이(`dongIndex < 0`, `districtIndex >= 0` 등)로, 추적 결과 동작이 동일한 equivalent/near-equivalent mutant입니다.
-- **report-only 결정:** baseline 기록만 하고 게이트화는 점수 안정화 후 별도 결정합니다.
+`hostNeutralMutationIdentity`는 PIT/plugin 버전, target/source-set, report-generation 설정과 Java 21 Temurin family를 비교하고, `perRunExecutionProvenance`는 선택 profile, 실제 Java executable/configuration/tool 관측값과 receipt를 분리해 보존합니다. host-neutral 설정은 `defaultCharacterEncoding=UTF-8`을 명시적으로 소유하고 pre-exec에서 alternate/same-value duplicate `file.encoding`과 관리 인자가 정확히 하나가 아닌 경우를 거부합니다. Gradle 9.6.1 getter가 ambient 기본 charset을 정규화하므로 null/absence를 증거로 사용하지 않습니다.
 
-> 변이 테스트는 느리므로 세 모듈 모두 CI에 포함하지 않고 로컬/온디맨드로 실행합니다. `domain:station`만 `mutationThreshold` floor 게이트를 가지며, 이는 `:domain:station:pitest`를 직접 실행할 때만 적용됩니다.
+Darwin arm64 profile은 검토된 고정 content/version hash를 사용합니다. Linux x86_64 profile은 exact `ubuntu-24.04`, `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`과 runner-images release identity를 먼저 검사한 뒤 `/usr/bin/env`, `/bin/bash`, `/usr/bin/python3.12`, `/usr/bin/git`의 type/mode/content/version을 매 실행 관측합니다. 이 관측값은 고정 executable provenance나 서명된 attestation이 아닙니다. 초기 Linux 비교는 `NOT_ESTABLISHED`이고 검토된 `recapture-transition`만 이를 수립할 수 있습니다. hosted image rotation은 fail closed 후 정책/transition 재검토가 필요하며 최종 binary supply-chain 강화는 Task 9 범위입니다.
 
 ## 의도적으로 약하게 보는 것
 

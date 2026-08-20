@@ -211,6 +211,39 @@ COVERAGE_BASE_EXPRESSION = (
     "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha "
     "|| (github.ref == 'refs/heads/main' && github.event.before) || '' }}"
 )
+MUTATION_STAGE_SHELL = (
+    "/usr/bin/env -i LANG=C LC_ALL=C TZ=UTC TERM=dumb CI=true "
+    "/bin/bash --noprofile --norc -euo pipefail {0}"
+)
+MUTATION_RUN_SHELL = (
+    "/usr/bin/env -i GASSTATION_PITEST_BOOTSTRAP=sealed-v1 LANG=C LC_ALL=C "
+    "TZ=UTC TERM=dumb CI=true /bin/bash --noprofile --norc -euo pipefail {0}"
+)
+MUTATION_STAGE_BODY = """umask 077
+/bin/mkdir -p build/quality/pitest-runtime/bootstrap
+set -C
+/usr/bin/printf '%s\\n' '${{ steps.mutation_java.outputs.path }}' > build/quality/pitest-runtime/bootstrap/java-home.selector"""
+MUTATION_UPLOAD_PATHS = """build/reports/pitest/**
+domain/*/build/reports/quality/pitest-configuration.json
+domain/*/build/reports/pitest/**"""
+MUTATION_PRIMARY_RUNS = {
+    "Mutation (pull request)": (
+        "github.event_name == pull_request",
+        "exec scripts/quality/run_pitest.sh --event pull-request --base "
+        "${{ github.event.pull_request.base.sha }} --java-home-file "
+        "build/quality/pitest-runtime/bootstrap/java-home.selector",
+    ),
+    "Mutation (main)": (
+        "github.event_name == push && github.ref == refs/heads/main",
+        "exec scripts/quality/run_pitest.sh --event main --java-home-file "
+        "build/quality/pitest-runtime/bootstrap/java-home.selector",
+    ),
+    "Mutation (tag)": (
+        "github.event_name == push && startsWith(github.ref, refs/tags/v)",
+        "exec scripts/quality/run_pitest.sh --event tag --java-home-file "
+        "build/quality/pitest-runtime/bootstrap/java-home.selector",
+    ),
+}
 
 
 def issue(path, line: int, message: str) -> str:
@@ -760,6 +793,174 @@ def normalize_gradle_arguments(arguments: list[str]) -> list[str]:
         normalized.append(argument)
         index += 1
     return normalized
+
+
+def check_mutation_workflow_contracts(root: Path) -> list[str]:
+    """Validate the closed primary/scheduled mutation workflow transport."""
+    policy_path = root / "config/quality/mutation-policy.json"
+    primary_path = root / ".github/workflows/android.yml"
+    scheduled_path = root / ".github/workflows/mutation-schedule.yml"
+    issues: list[str] = []
+    if not policy_path.is_file():
+        return issues
+    for path in (primary_path, scheduled_path):
+        if not path.is_file():
+            issues.append(issue(path.relative_to(root), 1, "mutation workflow missing"))
+    if issues:
+        return issues
+    try:
+        policy = json.loads(policy_path.read_text())
+    except (json.JSONDecodeError, OSError) as error:
+        return [issue("config/quality/mutation-policy.json", 1, f"invalid mutation policy: {error}")]
+
+    phase = policy.get("enforcementPhase")
+    if phase not in {"observe", "blocking"}:
+        issues.append(issue("config/quality/mutation-policy.json", 1, "mutation enforcement phase is invalid"))
+    linux = policy.get("bootstrapProfiles", {}).get("linux-x86_64", {})
+    expected_linux = {
+        "platform": "Linux",
+        "architecture": "x86_64",
+        "runnerLabel": "ubuntu-24.04",
+        "kind": "github-hosted-image-observed-v1",
+    }
+    for key, expected in expected_linux.items():
+        if linux.get(key) != expected:
+            issues.append(issue("config/quality/mutation-policy.json", 1, f"Linux mutation profile {key} drifted"))
+    expected_image = {
+        "ImageOS": "ubuntu24",
+        "ImageVersion": "20260816.277.1",
+        "runnerImagesTag": "ubuntu24/20260816.277",
+        "runnerImagesTagCommit": "3b5f596ffecb076aa5f3c3ded95b145f6daeb016",
+        "inventoryAsset": "internal.ubuntu24.json",
+        "inventoryAssetDigest": "sha256:35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19",
+    }
+    if linux.get("image") != expected_image:
+        issues.append(issue("config/quality/mutation-policy.json", 1, "Linux mutation image identity drifted"))
+
+    primary = primary_path.read_text(errors="replace")
+    scheduled = scheduled_path.read_text(errors="replace")
+    if not all(anchor in primary for anchor in ("pull_request:", "branches:\n      - main", "tags:\n      - \"v*\"")):
+        issues.append(issue(".github/workflows/android.yml", 1, "mutation primary trigger matrix drifted"))
+    if 'cron: "17 3 * * 0"' not in scheduled:
+        issues.append(issue(".github/workflows/mutation-schedule.yml", 1, "weekly mutation schedule drifted"))
+
+    def job(text: str, path: str) -> tuple[str, int] | None:
+        match = re.search(WORKFLOW_JOB_TEMPLATE.format(job="mutation"), text)
+        if match is None:
+            issues.append(issue(path, 1, "workflow job missing: mutation"))
+            return None
+        return match.group("body"), source_line(text, match.start())
+
+    def common_steps(body: str, path: str, line: int, *, scheduled_job: bool) -> None:
+        fields = workflow_job_fields(body)
+        if fields.get("runs-on") != "ubuntu-24.04":
+            issues.append(issue(path, line, "mutation runner must be exact ubuntu-24.04"))
+        if fields.get("timeout-minutes") != "60":
+            issues.append(issue(path, line, "mutation timeout must be 60 minutes"))
+        if "if" in fields or "container" in fields:
+            issues.append(issue(path, line, "mutation job must be unconditional and non-containerized"))
+        if "continue-on-error" in fields and static_workflow_boolean(fields["continue-on-error"]) is not False:
+            issues.append(issue(path, line, "mutation job must be blocking"))
+        if workflow_job_environment(body):
+            issues.append(issue(path, line, "mutation job must not transport values through env"))
+
+        steps = workflow_steps(body)
+        expected_count = 5 if scheduled_job else 7
+        if len(steps) != expected_count:
+            issues.append(issue(path, line, f"mutation job must contain exactly {expected_count} ordered steps"))
+            return
+        for step in steps:
+            step_fields = step["fields"]
+            step_nested = step["nested"]
+            if "continue-on-error" in step_fields:
+                issues.append(issue(path, line, "mutation steps must not declare continue-on-error"))
+            if step_nested.get("env"):
+                issues.append(issue(path, line, "mutation steps must not transport values through env"))
+
+        checkout = steps[0]
+        if checkout["fields"].get("uses") != "actions/checkout@v7" or checkout["nested"].get("with") != {"fetch-depth": "0"}:
+            issues.append(issue(path, line, "mutation checkout must fetch full history"))
+        setup = steps[1]
+        if (
+            setup["fields"].get("id") != "mutation_java"
+            or setup["fields"].get("uses") != "actions/setup-java@v5"
+            or setup["nested"].get("with") != {"distribution": "temurin", "java-version": "21"}
+        ):
+            issues.append(issue(path, line, "mutation Java setup output contract drifted"))
+        stage = steps[2]["fields"]
+        if (
+            stage.get("name") != "Stage mutation Java selector"
+            or stage.get("shell") != MUTATION_STAGE_SHELL
+            or stage.get("run", "").strip() != MUTATION_STAGE_BODY
+        ):
+            issues.append(issue(path, line, "mutation selector staging contract drifted"))
+
+        run_steps = steps[3:-1]
+        expected_runs = (
+            {"Mutation (schedule)": (None, "exec scripts/quality/run_pitest.sh --event schedule --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector")}
+            if scheduled_job
+            else MUTATION_PRIMARY_RUNS
+        )
+        if [step["fields"].get("name") for step in run_steps] != list(expected_runs):
+            issues.append(issue(path, line, "mutation run-step order or names drifted"))
+        else:
+            for step in run_steps:
+                run_fields = step["fields"]
+                condition, command = expected_runs[run_fields["name"]]
+                if run_fields.get("shell") != MUTATION_RUN_SHELL or run_fields.get("run", "").strip() != command:
+                    issues.append(issue(path, line, f"{run_fields['name']} sealed command drifted"))
+                if condition is None:
+                    if "if" in run_fields:
+                        issues.append(issue(path, line, "scheduled mutation run must be unconditional"))
+                elif run_fields.get("if") != condition:
+                    issues.append(issue(path, line, f"{run_fields['name']} routing condition drifted"))
+
+        upload = steps[-1]
+        expected_name = "pitest-scheduled-evidence" if scheduled_job else "pitest-evidence"
+        if (
+            upload["fields"].get("name") != "Upload mutation evidence"
+            or upload["fields"].get("if") != "always()"
+            or upload["fields"].get("uses") != "actions/upload-artifact@v7"
+            or upload["nested"].get("with")
+            != {
+                "name": expected_name,
+                "path": MUTATION_UPLOAD_PATHS,
+                "if-no-files-found": "error",
+                "retention-days": "7",
+            }
+        ):
+            issues.append(issue(path, line, "mutation evidence upload contract drifted"))
+
+    primary_job = job(primary, ".github/workflows/android.yml")
+    if primary_job is not None:
+        common_steps(primary_job[0], ".github/workflows/android.yml", primary_job[1], scheduled_job=False)
+    scheduled_job = job(scheduled, ".github/workflows/mutation-schedule.yml")
+    if scheduled_job is not None:
+        common_steps(scheduled_job[0], ".github/workflows/mutation-schedule.yml", scheduled_job[1], scheduled_job=True)
+
+    release = RELEASE_JOB.search(primary)
+    if release is None:
+        issues.append(issue(".github/workflows/android.yml", 1, "tag release publishing contract missing"))
+    else:
+        needs = re.search(r"(?m)^\s+needs:\s*\[([^\]]+)\]\s*$", release.group("body"))
+        prerequisites = {value.strip() for value in needs.group(1).split(",")} if needs else set()
+        if phase == "observe" and "mutation" in prerequisites:
+            issues.append(issue(".github/workflows/android.yml", 1, "report-only mutation must not gate tag release"))
+        if phase == "blocking" and "mutation" not in prerequisites:
+            issues.append(issue(".github/workflows/android.yml", 1, "blocking mutation must gate tag release"))
+
+    agent_test = root / "scripts/agent/test.sh"
+    expected_quality_suite = (
+        'PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover '
+        '-s "$repo_root/scripts/quality/tests" -v'
+    )
+    if not agent_test.is_file() or agent_test.read_text().count(expected_quality_suite) != 1:
+        issues.append(issue("scripts/agent/test.sh", 1, "quality Python suite must run exactly once"))
+    verifier = root / "scripts/agent/verify.sh"
+    verifier_text = verifier.read_text() if verifier.is_file() else ""
+    if verifier_text.count("verifyPitestConfiguration") != 3 or "pitestVerified" in verifier_text:
+        issues.append(issue("scripts/agent/verify.sh", 1, "agent scopes must own only the fast PIT configuration gate"))
+    return issues
 
 
 def static_workflow_boolean(value: str) -> bool | None:
@@ -1412,7 +1613,8 @@ def check_ci_contracts(root: Path) -> list[str]:
                         1,
                         f"tag release publishing prerequisite missing: {prerequisite}",
                     )
-                )
+                    )
+    issues += check_mutation_workflow_contracts(root)
     return issues
 
 

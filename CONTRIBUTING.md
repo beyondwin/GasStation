@@ -44,6 +44,8 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 Coverage는 CI와 로컬에서 report와 ratchet을 함께 차단형으로 판정합니다. `verifyCoverageReport`는 항상
 판정을 실행하며, `build/reports/coverage/verification-summary.json`을 확인합니다.
 
+JVM mutation 설정은 `./gradlew verifyPitestConfiguration --warning-mode fail`로 빠르게 확인합니다. 실제 PIT는 plugin의 `pitest` task를 직접 호출하지 않고 `docs/verification-matrix.md`의 sealed `scripts/quality/run_pitest.sh` entry만 사용합니다. 현재 Commit B의 CI mutation job은 report-only observation이며 baseline capture/update는 자동 CI나 agent verification에 넣지 않습니다.
+
 명령 변경/확장 시 `docs/verification-matrix.md`를 먼저 갱신한 뒤 위 블록을 같이 동기화합니다.
 
 ## 릴리스와 배포

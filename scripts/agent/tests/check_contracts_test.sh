@@ -1669,4 +1669,70 @@ if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
   "$repo_root/scripts/agent/check-contracts.sh"
 fi
 
+PYTHONDONTWRITEBYTECODE=1 python3 - "$repo_root" <<'PY'
+import json
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+sys.path.insert(0, str(repo / "scripts/agent"))
+from check_contracts import check_mutation_workflow_contracts
+
+
+def copy_contract() -> Path:
+    target = Path(tempfile.mkdtemp())
+    for relative in (
+        ".github/workflows/android.yml",
+        ".github/workflows/mutation-schedule.yml",
+        "config/quality/mutation-policy.json",
+        "scripts/agent/test.sh",
+        "scripts/agent/verify.sh",
+    ):
+        source = repo / relative
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+    return target
+
+
+issues = check_mutation_workflow_contracts(repo)
+assert not issues, "\n".join(issues)
+
+mutations = (
+    (".github/workflows/android.yml", "runs-on: ubuntu-24.04", "runs-on: ubuntu-latest"),
+    (".github/workflows/android.yml", "fetch-depth: 0", "fetch-depth: 1"),
+    (".github/workflows/android.yml", "set -C", "set +C"),
+    (
+        ".github/workflows/android.yml",
+        "name: Upload mutation evidence\n        if: always()",
+        "name: Upload mutation evidence\n        if: success()",
+    ),
+    (".github/workflows/android.yml", "--event tag", "--event main"),
+    (".github/workflows/mutation-schedule.yml", "--event schedule", "--event local-all"),
+    ("scripts/agent/test.sh", "scripts/quality/tests", "scripts/quality/disabled-tests"),
+    ("scripts/agent/verify.sh", "verifyPitestConfiguration", "pitestVerified"),
+)
+for relative, old, new in mutations:
+    target = copy_contract()
+    path = target / relative
+    text = path.read_text()
+    assert old in text, (relative, old)
+    path.write_text(text.replace(old, new))
+    assert check_mutation_workflow_contracts(target), (relative, old, new)
+
+target = copy_contract()
+workflow = target / ".github/workflows/android.yml"
+workflow.write_text(workflow.read_text().replace("  mutation:\n", "  mutation:\n    env:\n      JAVA_HOME: /tmp/override\n", 1))
+assert check_mutation_workflow_contracts(target)
+
+target = copy_contract()
+policy_path = target / "config/quality/mutation-policy.json"
+policy = json.loads(policy_path.read_text())
+policy["enforcementPhase"] = "blocking"
+policy_path.write_text(json.dumps(policy))
+assert check_mutation_workflow_contracts(target), "blocking phase accepted a report-only release graph"
+PY
+
 echo "check_contracts_test: PASS"
