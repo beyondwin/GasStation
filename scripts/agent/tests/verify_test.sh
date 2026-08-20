@@ -139,17 +139,17 @@ fi
 [[ "$missing_value_status" -eq 64 ]] || fail "missing --changed-file value returned $missing_value_status instead of 64"
 assert_contains "$missing_value_error" "missing value for --changed-file"
 
-mkdir -p "$fixture/docs-scope/scripts/agent" "$fixture/docs-scope/scripts/docs"
+mkdir -p "$fixture/docs-scope/scripts/agent" "$fixture/docs-scope/scripts/quality/build_inputs"
 cp "$repo_root/scripts/agent/verify.sh" "$fixture/docs-scope/scripts/agent/verify.sh"
 cat > "$fixture/docs-scope/scripts/agent/check-contracts.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'contracts:%s\n' "$*" >> "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/calls.log"
 EOF
-cat > "$fixture/docs-scope/scripts/docs/validate.py" <<'EOF'
+cat > "$fixture/docs-scope/scripts/quality/build_inputs/docs_gradle_validation_bridge.py" <<'EOF'
 #!/usr/bin/env python3
 import pathlib
 import sys
-root = pathlib.Path(__file__).resolve().parents[2]
+root = pathlib.Path(__file__).resolve().parents[3]
 with (root / "calls.log").open("a") as output:
     output.write("docs:" + " ".join(sys.argv[1:]) + "\n")
 EOF

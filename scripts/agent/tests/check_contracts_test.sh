@@ -73,6 +73,7 @@ for live_doc in \
   printf '# Live contract\n' > "$fixture/repo/docs/$live_doc"
 done
 printf '# Device verification fixture\n' > "$fixture/repo/docs/runbooks/device-verification.md"
+printf '# Build input provenance fixture\n' > "$fixture/repo/docs/runbooks/build-input-provenance.md"
 cp "$repo_root/.github/workflows/device-evidence.yml" "$fixture/repo/.github/workflows/device-evidence.yml"
 cp "$repo_root/config/quality/device-evidence-policy.json" "$fixture/repo/config/quality/device-evidence-policy.json"
 cp "$repo_root/config/quality/device-evidence-quarantine.json" "$fixture/repo/config/quality/device-evidence-quarantine.json"
@@ -261,7 +262,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -363,7 +364,7 @@ paths = [
     "docs/module-contracts.md", "docs/state-model.md", "docs/offline-strategy.md",
     "docs/test-strategy.md", "docs/verification-matrix.md", "docs/security-trade-offs.md",
     "docs/deployment.md", "docs/performance.md", "docs/build-velocity.md",
-    "docs/runbooks/device-verification.md",
+    "docs/runbooks/build-input-provenance.md", "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md", "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
 ]
@@ -505,7 +506,7 @@ git -C "$fixture/repo" add .
 git -C "$fixture/repo" commit -qm "test: add contract fixture"
 ci_base=$(git -C "$fixture/repo" rev-parse HEAD^)
 
-assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scripts/docs/validate.py --check-gradle-tasks"
+assert_contains "$(cat "$repo_root/.github/workflows/android.yml")" "python3 scripts/quality/build_inputs/docs_gradle_validation_bridge.py --check-gradle-tasks"
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
@@ -1707,30 +1708,7 @@ def copy_contract() -> Path:
     return target
 
 
-def corrected_java_version_contract() -> Path:
-    target = copy_contract()
-    canonical = "${{ env.CI_JAVA_VERSION }}"
-    for relative in (
-        ".github/workflows/android.yml",
-        ".github/workflows/mutation-schedule.yml",
-    ):
-        path = target / relative
-        text = path.read_text().replace("java-version: '21'", f"java-version: {canonical}")
-        if "CI_JAVA_VERSION:" not in text:
-            text = text.replace(
-                "\npermissions:\n",
-                '\nenv:\n  CI_JAVA_VERSION: "21"\n\npermissions:\n',
-                1,
-            )
-        path.write_text(text)
-    return target
-
-
 issues = check_mutation_workflow_contracts(repo)
-assert not issues, "\n".join(issues)
-
-target = corrected_java_version_contract()
-issues = check_mutation_workflow_contracts(target)
 assert not issues, "\n".join(issues)
 
 mutations = (
@@ -1755,44 +1733,46 @@ for relative, old, new in mutations:
     path.write_text(text.replace(old, new))
     assert check_mutation_workflow_contracts(target), (relative, old, new)
 
-canonical = "${{ env.CI_JAVA_VERSION }}"
 java_version_mutations = (
-    (".github/workflows/android.yml", f"java-version: {canonical}", "java-version: '21'"),
-    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: 21"),
-    (".github/workflows/android.yml", f"java-version: {canonical}", "java-version: ${{ env.MUTATION_JAVA_VERSION }}"),
-    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: ${{ vars.CI_JAVA_VERSION }}"),
-    (".github/workflows/mutation-schedule.yml", f"java-version: {canonical}", "java-version: ${{ inputs.java-version }}"),
-    (".github/workflows/android.yml", 'CI_JAVA_VERSION: "21"', 'CI_JAVA_VERSION: "17"'),
+    (".github/workflows/android.yml", 'CI_JAVA_VERSION: "21.0.12.1+1"', 'CI_JAVA_VERSION: "21"'),
+    (".github/workflows/mutation-schedule.yml", 'CI_JAVA_TOOLCHAIN_VERSION: "17.0.20+8"', 'CI_JAVA_TOOLCHAIN_VERSION: "17"'),
     (
         ".github/workflows/mutation-schedule.yml",
-        'CI_JAVA_VERSION: "21"',
-        'CI_JAVA_VERSION: "21"\n  CI_JAVA_VERSION: "21"',
+        'CI_JAVA_VERSION: "21.0.12.1+1"',
+        'CI_JAVA_VERSION: "21.0.12.1+1"\n  CI_JAVA_VERSION: "21.0.12.1+1"',
     ),
+    (".github/workflows/android.yml", "- uses: ./.github/actions/setup-build-inputs", "- uses: actions/setup-java@v5"),
 )
 for relative, old, new in java_version_mutations:
-    target = corrected_java_version_contract()
+    target = copy_contract()
     path = target / relative
     text = path.read_text()
     assert old in text, (relative, old)
     path.write_text(text.replace(old, new, 1))
     assert check_mutation_workflow_contracts(target), (relative, old, new)
 
-target = corrected_java_version_contract()
-workflow = target / ".github/workflows/mutation-schedule.yml"
-workflow.write_text(workflow.read_text().replace("          distribution: temurin\n", "          distribution: temurin\n          env:\n            CI_JAVA_VERSION: 21\n", 1))
-assert check_mutation_workflow_contracts(target), "step shadow accepted"
-
-target = corrected_java_version_contract()
-workflow = target / ".github/workflows/android.yml"
-workflow.write_text(workflow.read_text().replace(f"          java-version: {canonical}\n", "", 1))
-assert check_mutation_workflow_contracts(target), "missing canonical reference accepted"
-
-target = corrected_java_version_contract()
+target = copy_contract()
 workflow = target / ".github/workflows/mutation-schedule.yml"
 workflow.write_text(
     workflow.read_text().replace(
-        "  mutation:\n    runs-on:",
-        "  mutation:\n    env:\n      CI_JAVA_VERSION: 21\n    runs-on:",
+        "      - uses: ./.github/actions/setup-build-inputs\n",
+        "      - uses: ./.github/actions/setup-build-inputs\n        env:\n          CI_JAVA_VERSION: 21\n",
+        1,
+    )
+)
+assert check_mutation_workflow_contracts(target), "step shadow accepted"
+
+target = copy_contract()
+workflow = target / ".github/workflows/android.yml"
+workflow.write_text(workflow.read_text().replace("      - uses: ./.github/actions/setup-build-inputs\n", ""))
+assert check_mutation_workflow_contracts(target), "missing closed JDK setup accepted"
+
+target = copy_contract()
+workflow = target / ".github/workflows/mutation-schedule.yml"
+workflow.write_text(
+    workflow.read_text().replace(
+        "  mutation-scheduled:\n    runs-on:",
+        "  mutation-scheduled:\n    env:\n      CI_JAVA_VERSION: 21\n    runs-on:",
         1,
     )
 )
