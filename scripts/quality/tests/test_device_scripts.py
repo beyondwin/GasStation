@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from device.write_manifest import connected_metadata, derive_cleanup_status, gmd_metadata, safe_segment
-from device_evidence import DeviceEvidenceError
+from device_evidence import DeviceEvidenceError, sha256_file
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -165,53 +165,23 @@ class DeviceScriptTest(unittest.TestCase):
             attempt = Path(directory)
             (attempt / "raw").mkdir()
             for index, task in enumerate(lane["gradleTasks"]):
-                receipt = {
-                    "schemaVersion": 1,
-                    "producer": "agp-utp",
-                    "task": task,
-                    "device": {
-                        "abi": "x86_64",
-                        "apiLevel": 28,
-                        "fingerprint": "aosp/fixture/api28",
-                        "imagePackage": "system-images;android-28;aosp;x86_64",
-                        "imageSource": "aosp",
-                        "locale": "ko-KR",
-                        "permissionControllerPackage": "com.android.packageinstaller",
-                        "permissionControllerRevision": "28",
-                        "profile": "Pixel 2",
-                        "serial": "gasstationPixel2Api28",
-                    },
-                    "execution": {"shards": 1},
-                    "teardown": {"status": "SUCCESS", "timedOut": False},
-                }
-                (attempt / f"raw/gmd-task-{index}.json").write_text(
-                    json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
-                )
+                self._write_gmd_task_receipt(attempt, index, lane)
             metadata = gmd_metadata(attempt, lane_name, lane)
             self.assertEqual("aosp/fixture/api28", metadata["fingerprint"])
             self.assertEqual("x86_64", metadata["abi"])
 
-            missing_field = json.loads((attempt / "raw/gmd-task-1.json").read_text(encoding="utf-8"))
-            missing_field["device"].pop("permissionControllerRevision")
-            (attempt / "raw/gmd-task-1.json").write_text(
-                json.dumps(missing_field, sort_keys=True) + "\n", encoding="utf-8"
-            )
+            source_path = attempt / f"collected/{lane['resultRoots'][3]}/device-evidence-device.json"
+            missing_field = json.loads(source_path.read_text(encoding="utf-8"))
+            missing_field.pop("permissionControllerRevision")
+            source_path.write_text(json.dumps(missing_field, sort_keys=True) + "\n", encoding="utf-8")
             with self.assertRaises(DeviceEvidenceError):
                 gmd_metadata(attempt, lane_name, lane)
 
-            (attempt / "raw/gmd-task-1.json").write_text(
-                (attempt / "raw/gmd-task-0.json").read_text(encoding="utf-8").replace(
-                    lane["gradleTasks"][0], lane["gradleTasks"][1]
-                ),
-                encoding="utf-8",
-            )
-            conflicting = json.loads((attempt / "raw/gmd-task-1.json").read_text(encoding="utf-8"))
-            conflicting["device"]["locale"] = "en-US"
-            (attempt / "raw/gmd-task-1.json").write_text(
-                json.dumps(conflicting, sort_keys=True) + "\n", encoding="utf-8"
-            )
+            self._write_gmd_task_receipt(attempt, 1, lane, locale="en-US")
             with self.assertRaises(DeviceEvidenceError):
                 gmd_metadata(attempt, lane_name, lane)
+
+            self._write_gmd_task_receipt(attempt, 1, lane)
 
             (attempt / "raw/gmd-task-2.json").write_text(
                 (attempt / "raw/gmd-task-0.json").read_text(encoding="utf-8"), encoding="utf-8"
@@ -265,25 +235,6 @@ class DeviceScriptTest(unittest.TestCase):
 
     def test_gmd_cleanup_rejects_missing_failed_or_timed_out_teardown(self):
         task = ":app:gasstationPixel2Api28DemoDebugAndroidTest"
-        base = {
-            "schemaVersion": 1,
-            "producer": "agp-utp",
-            "task": task,
-            "device": {
-                "abi": "x86_64",
-                "apiLevel": 28,
-                "fingerprint": "aosp/fixture/api28",
-                "imagePackage": "system-images;android-28;aosp;x86_64",
-                "imageSource": "aosp",
-                "locale": "ko-KR",
-                "permissionControllerPackage": "com.android.packageinstaller",
-                "permissionControllerRevision": "28",
-                "profile": "Pixel 2",
-                "serial": "gasstationPixel2Api28",
-            },
-            "execution": {"shards": 1},
-            "teardown": {"status": "SUCCESS", "timedOut": False},
-        }
         with tempfile.TemporaryDirectory() as directory:
             attempt = Path(directory)
             (attempt / "raw").mkdir()
@@ -307,7 +258,9 @@ class DeviceScriptTest(unittest.TestCase):
                 ) + "\n",
                 encoding="utf-8",
             )
-            path.write_text(json.dumps(base, sort_keys=True) + "\n", encoding="utf-8")
+            lane = json.loads((ROOT / "config/quality/device-evidence-policy.json").read_text(encoding="utf-8"))["lanes"]["api28-pr-smoke"]
+            self._write_gmd_task_receipt(attempt, 0, lane)
+            base = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("PASS", derive_cleanup_status(attempt, "gmd", [task]))
             cleanup = json.loads(cleanup_path.read_text(encoding="utf-8"))
             cleanup.update(observedPids=[4321], killedPids=[4321], livePids=[4321])
@@ -360,6 +313,35 @@ class DeviceScriptTest(unittest.TestCase):
         self.assertNotIn("retry", text.lower())
         self.assertNotIn("|| true", text)
         self.assertNotIn("|| true", (DEVICE / "run_api24_avd.sh").read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _write_gmd_task_receipt(attempt, index, lane, *, locale="ko-KR"):
+        source_path = attempt / f"collected/{lane['resultRoots'][index * 3]}/device-evidence-device.json"
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source = {
+            "schemaVersion": 1,
+            "producer": "androidx-test-storage",
+            "abi": "x86_64",
+            "apiLevel": 28,
+            "avdName": "gasstationPixel2Api28",
+            "fingerprint": "aosp/fixture/api28",
+            "googleServicesRevision": None,
+            "locale": locale,
+            "permissionControllerPackage": "com.android.packageinstaller",
+            "permissionControllerRevision": "28",
+        }
+        source_path.write_text(json.dumps(source, sort_keys=True) + "\n", encoding="utf-8")
+        receipt = {
+            "schemaVersion": 1,
+            "producer": "gasstation-gmd-observation",
+            "deviceSource": {
+                "path": source_path.relative_to(attempt).as_posix(),
+                "sha256": sha256_file(source_path),
+            },
+            "teardown": {"status": "SUCCESS", "timedOut": False},
+        }
+        receipt_path = attempt / f"raw/gmd-task-{index}.json"
+        receipt_path.write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
 
     def test_attempt_cleanup_clears_result_and_apk_roots_before_execution(self):
         common = (DEVICE / "common.sh").read_text(encoding="utf-8")

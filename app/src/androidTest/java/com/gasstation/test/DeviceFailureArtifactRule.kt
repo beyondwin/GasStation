@@ -94,24 +94,28 @@ private fun writeDeviceEvidenceReceipt() {
     val permissionRevision =
         if (Build.VERSION.SDK_INT >= 28) permissionInfo.longVersionCode.toString()
         else @Suppress("DEPRECATION") permissionInfo.versionCode.toString()
-    val hasGoogleServices =
-        runCatching { packageManager.getPackageInfo("com.google.android.gms", 0) }.isSuccess
-    val imageSource = if (hasGoogleServices) "google" else "aosp"
+    val googleServices =
+        runCatching { packageManager.getPackageInfo("com.google.android.gms", 0) }.getOrNull()
+    val googleServicesRevision =
+        googleServices?.let {
+            if (Build.VERSION.SDK_INT >= 28) it.longVersionCode.toString()
+            else @Suppress("DEPRECATION") it.versionCode.toString()
+        }
     val serial = readSystemProperty("ro.boot.qemu.avd_name")
     require(serial.isNotBlank()) { "GMD AVD name property is missing" }
     val abi = requireNotNull(Build.SUPPORTED_ABIS.firstOrNull())
     val receipt =
         JSONObject()
+            .put("schemaVersion", 1)
+            .put("producer", "androidx-test-storage")
             .put("abi", abi)
             .put("apiLevel", Build.VERSION.SDK_INT)
+            .put("avdName", serial)
             .put("fingerprint", Build.FINGERPRINT)
-            .put("imagePackage", "system-images;android-${Build.VERSION.SDK_INT};$imageSource;$abi")
-            .put("imageSource", imageSource)
+            .put("googleServicesRevision", googleServicesRevision ?: JSONObject.NULL)
             .put("locale", Locale.getDefault().toLanguageTag())
             .put("permissionControllerPackage", permissionPackage)
             .put("permissionControllerRevision", permissionRevision)
-            .put("profile", profileFromAvdName(serial))
-            .put("serial", serial)
     PlatformTestStorageRegistry.getInstance()
         .openOutputFile("device-evidence-device.json")
         .bufferedWriter(Charsets.UTF_8)
@@ -124,9 +128,3 @@ private fun readSystemProperty(name: String): String =
         .inputStream
         .bufferedReader(Charsets.UTF_8)
         .use { it.readText().trim() }
-
-private fun profileFromAvdName(avdName: String): String =
-    when {
-        avdName.contains("Pixel2", ignoreCase = true) -> "Pixel 2"
-        else -> error("Unreviewed GMD AVD name: $avdName")
-    }

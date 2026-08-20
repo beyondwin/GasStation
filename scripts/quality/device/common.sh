@@ -51,21 +51,27 @@ run_device_phase() {
   local phase=$2
   shift 2
   local seconds timeout_command
+  local grace=5
   seconds=$(device_phase_seconds "$lane" "$phase")
   timeout_command=$(device_timeout_command)
-  "$timeout_command" --signal=TERM --kill-after=30s "${seconds}s" "$@"
+  if (( seconds <= grace )); then
+    printf '%s\n' "device phase has no room for timeout termination grace" >&2
+    return 2
+  fi
+  "$timeout_command" --signal=TERM --kill-after="${grace}s" "$((seconds - grace))s" "$@"
 }
 
 run_device_seconds() {
   local seconds=$1
   shift
   local timeout_command
+  local grace=5
   timeout_command=$(device_timeout_command)
-  if (( seconds <= 0 )); then
-    printf '%s\n' "device command has no positive timeout" >&2
+  if (( seconds <= grace )); then
+    printf '%s\n' "device command has no room for timeout termination grace" >&2
     return 2
   fi
-  "$timeout_command" --signal=TERM --kill-after=30s "${seconds}s" "$@"
+  "$timeout_command" --signal=TERM --kill-after="${grace}s" "$((seconds - grace))s" "$@"
 }
 
 require_regular_executable() {

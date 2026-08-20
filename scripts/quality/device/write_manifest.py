@@ -160,18 +160,18 @@ def parse_getprop(path: Path) -> dict[str, str]:
     return result
 
 
-GMD_RECEIPT_FIELDS = {"schemaVersion", "producer", "task", "device", "execution", "teardown"}
-GMD_DEVICE_FIELDS = {
+GMD_RECEIPT_FIELDS = {"schemaVersion", "producer", "deviceSource", "teardown"}
+GMD_DEVICE_SOURCE_FIELDS = {
+    "schemaVersion",
+    "producer",
     "abi",
     "apiLevel",
+    "avdName",
     "fingerprint",
-    "imagePackage",
-    "imageSource",
+    "googleServicesRevision",
     "locale",
     "permissionControllerPackage",
     "permissionControllerRevision",
-    "profile",
-    "serial",
 }
 CONNECTED_TEARDOWN_FIELDS = {
     "schemaVersion",
@@ -211,6 +211,14 @@ def read_json_object(path: Path, name: str) -> dict:
 
 
 def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
+    matching_lanes = [
+        lane
+        for lane in load_policy(POLICY)["lanes"].values()
+        if lane["device"]["kind"] == "gmd" and lane["gradleTasks"] == tasks
+    ]
+    if len(matching_lanes) != 1:
+        raise DeviceEvidenceError("GMD receipt task inventory does not identify one reviewed lane")
+    result_roots = matching_lanes[0]["resultRoots"]
     paths = sorted((attempt_root / "raw").glob("gmd-task-*.json"))
     expected_paths = [attempt_root / "raw" / f"gmd-task-{index}.json" for index in range(len(tasks))]
     if paths != expected_paths:
@@ -220,15 +228,29 @@ def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
         receipt = read_json_object(path, "GMD task receipt")
         if set(receipt) != GMD_RECEIPT_FIELDS:
             raise DeviceEvidenceError(f"GMD task receipt {index} fields differ")
-        if receipt["schemaVersion"] != 1 or receipt["producer"] != "agp-utp" or receipt["task"] != task:
+        if receipt["schemaVersion"] != 1 or receipt["producer"] != "gasstation-gmd-observation":
             raise DeviceEvidenceError(f"GMD task receipt {index} identity differs")
-        device = receipt["device"]
-        execution = receipt["execution"]
+        source = receipt["deviceSource"]
         teardown = receipt["teardown"]
-        if not isinstance(device, dict) or set(device) != GMD_DEVICE_FIELDS:
-            raise DeviceEvidenceError(f"GMD task receipt {index} device fields differ")
-        if not isinstance(execution, dict) or set(execution) != {"shards"} or execution["shards"] != 1:
-            raise DeviceEvidenceError(f"GMD task receipt {index} execution differs")
+        if not isinstance(source, dict) or set(source) != {"path", "sha256"}:
+            raise DeviceEvidenceError(f"GMD task receipt {index} source binding fields differ")
+        relative = source["path"]
+        expected_roots = [f"collected/{root}/" for root in result_roots[index * 3 : index * 3 + 3]]
+        if (
+            not isinstance(relative, str)
+            or not relative.endswith("/device-evidence-device.json")
+            or not any(relative.startswith(root) for root in expected_roots)
+            or Path(relative).is_absolute()
+            or any(part in {"", ".", ".."} for part in Path(relative).parts)
+            or not re.fullmatch(r"[0-9a-f]{64}", source["sha256"] or "")
+        ):
+            raise DeviceEvidenceError(f"GMD task receipt {index} source binding is unsafe")
+        source_path = attempt_root / relative
+        if sha256_file(source_path) != source["sha256"]:
+            raise DeviceEvidenceError(f"GMD task receipt {index} source hash differs")
+        source_value = read_json_object(source_path, "pulled GMD device source")
+        if set(source_value) != GMD_DEVICE_SOURCE_FIELDS:
+            raise DeviceEvidenceError(f"GMD task receipt {index} pulled source fields differ")
         if (
             not isinstance(teardown, dict)
             or set(teardown) != {"status", "timedOut"}
@@ -236,13 +258,35 @@ def parse_gmd_task_receipts(attempt_root: Path, tasks: list[str]) -> list[dict]:
             or not isinstance(teardown["timedOut"], bool)
         ):
             raise DeviceEvidenceError(f"GMD task receipt {index} teardown fields differ")
+        google_revision = source_value["googleServicesRevision"]
         if (
-            not isinstance(device["apiLevel"], int)
-            or device["apiLevel"] <= 0
-            or device["abi"] != "x86_64"
-            or any(not isinstance(device[field], str) or not device[field].strip() for field in GMD_DEVICE_FIELDS - {"apiLevel"})
+            source_value["schemaVersion"] != 1
+            or source_value["producer"] != "androidx-test-storage"
+            or not isinstance(source_value["apiLevel"], int)
+            or source_value["apiLevel"] <= 0
+            or source_value["abi"] != "x86_64"
+            or not re.fullmatch(r"gasstationPixel2Api(?:28|36)", source_value["avdName"] or "")
+            or google_revision is not None and (not isinstance(google_revision, str) or not google_revision.isdigit())
+            or any(
+                not isinstance(source_value[field], str) or not source_value[field].strip()
+                for field in ("fingerprint", "locale", "permissionControllerPackage", "permissionControllerRevision")
+            )
+            or not source_value["permissionControllerRevision"].isdigit()
         ):
             raise DeviceEvidenceError(f"GMD task receipt {index} device facts are incomplete")
+        image_source = "google" if google_revision is not None else "aosp"
+        receipt["derivedDevice"] = {
+            "abi": source_value["abi"],
+            "apiLevel": source_value["apiLevel"],
+            "fingerprint": source_value["fingerprint"],
+            "imagePackage": f"system-images;android-{source_value['apiLevel']};{image_source};{source_value['abi']}",
+            "imageSource": image_source,
+            "locale": source_value["locale"],
+            "permissionControllerPackage": source_value["permissionControllerPackage"],
+            "permissionControllerRevision": source_value["permissionControllerRevision"],
+            "profile": "Pixel 2",
+            "serial": source_value["avdName"],
+        }
         receipts.append(receipt)
     return receipts
 
@@ -296,8 +340,8 @@ def connected_metadata(attempt_root: Path, lane_name: str) -> dict:
 
 def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
     receipts = parse_gmd_task_receipts(attempt_root, lane["gradleTasks"])
-    actual = receipts[0]["device"]
-    if any(receipt["device"] != actual for receipt in receipts[1:]):
+    actual = receipts[0]["derivedDevice"]
+    if any(receipt["derivedDevice"] != actual for receipt in receipts[1:]):
         raise DeviceEvidenceError("GMD task receipts conflict on actual device facts")
     return {
         "schemaVersion": 1,

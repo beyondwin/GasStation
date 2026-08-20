@@ -98,6 +98,31 @@ class DeviceWorkflowContractTest(unittest.TestCase):
                 path.write_text(path.read_text(encoding="utf-8").replace(anchor, "unbounded_phase", 1), encoding="utf-8")
                 self.assertNotEqual([], check_device_contracts(root))
 
+    def test_timeout_helper_mutations_fail_closed(self):
+        mutations = {
+            "direct-call": (
+                '"$timeout_command" --signal=TERM --kill-after="${grace}s" "$((seconds - grace))s" "$@"',
+                '"$@"',
+            ),
+            "five-minute-kill-grace": ('--kill-after="${grace}s"', '--kill-after="${grace}m"'),
+            "undeclared-kill-grace": ('"$((seconds - grace))s"', '"${seconds}s"'),
+        }
+        for name, (anchor, replacement) in mutations.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / ".github/workflows").mkdir(parents=True)
+                for workflow in ("device-evidence.yml", "android.yml"):
+                    shutil.copyfile(ROOT / f".github/workflows/{workflow}", root / f".github/workflows/{workflow}")
+                shutil.copytree(ROOT / "config/quality", root / "config/quality")
+                shutil.copytree(ROOT / "scripts/quality/device", root / "scripts/quality/device")
+                shutil.copyfile(ROOT / "gradle.properties", root / "gradle.properties")
+                path = root / "scripts/quality/device/common.sh"
+                original = path.read_text(encoding="utf-8")
+                mutated = original.replace(anchor, replacement, 1)
+                self.assertNotEqual(original, mutated)
+                path.write_text(mutated, encoding="utf-8")
+                self.assertNotEqual([], check_device_contracts(root))
+
 
 if __name__ == "__main__":
     unittest.main()

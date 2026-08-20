@@ -255,6 +255,22 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         )
         self.assertEqual("FAIL", result["status"])
 
+    def test_real_nonzero_junit_error_requires_app_failure_artifacts(self):
+        def error_one(facts, completion, junit):
+            junit["errors"] = {junit["tests"][0]}
+            completion["commands"][0]["exitCode"] = 1
+
+        with self.assertRaisesRegex(DeviceEvidenceError, "lacks exact pulled PNG/diagnostic"):
+            self._write_complete_attempt("api28-pr-smoke", mutator=error_one)
+
+        self._reset_attempt_root()
+        result = self._write_complete_attempt(
+            "api28-pr-smoke",
+            mutator=error_one,
+            include_failure_artifacts=True,
+        )
+        self.assertEqual("FAIL", result["status"])
+
     def test_metadata_policy_echo_and_cleanup_assertion_without_raw_match_fail_closed(self):
         with self.assertRaises(DeviceEvidenceError):
             self._write_complete_attempt(
@@ -296,7 +312,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         expected = []
         for inventory in lane_policy["inventories"]:
             expected.extend(load_policy(self.policy_path, today=today)["inventories"][inventory])
-        junit = {"tests": expected[:], "skipped": set(), "failed": set()}
+        junit = {"tests": expected[:], "skipped": set(), "failed": set(), "errors": set()}
         facts = {
             "schemaVersion": 1,
             "source": "agp-utp" if lane_policy["device"]["kind"] == "gmd" else "adb",
@@ -349,8 +365,8 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "attemptNumber": "1",
             "attemptId": "fixture-run-1",
             "filter": lane_policy["filter"],
-            "expectedCommands": lane_policy["gradleTasks"],
-            "resultRoots": lane_policy["resultRoots"],
+            "expectedCommands": lane_policy["gradleTasks"][:],
+            "resultRoots": lane_policy["resultRoots"][:],
             "startedAt": "2026-08-20T00:00:00Z",
             "toolIdentities": {"java": "fixture-java", "gradle": "9.6.1"},
         }
@@ -370,28 +386,31 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self._write_json(self.attempt_root / "raw/commands.json", completion["commands"])
         if lane_policy["device"]["kind"] == "gmd":
             for index, task in enumerate(lane_policy["gradleTasks"]):
+                source_path = self.attempt_root / f"collected/{lane_policy['resultRoots'][index * 3]}/device-evidence-device.json"
+                self._write_json(
+                    source_path,
+                    {
+                        "schemaVersion": 1,
+                        "producer": "androidx-test-storage",
+                        "abi": facts["abi"],
+                        "apiLevel": facts["apiLevel"],
+                        "avdName": facts["serial"],
+                        "fingerprint": facts["fingerprint"],
+                        "googleServicesRevision": "36" if facts["imageSource"] == "google" else None,
+                        "locale": facts["locale"],
+                        "permissionControllerPackage": facts["permissionControllerPackage"],
+                        "permissionControllerRevision": facts["permissionControllerRevision"],
+                    },
+                )
                 self._write_json(
                     self.attempt_root / f"raw/gmd-task-{index}.json",
                     {
                         "schemaVersion": 1,
-                        "producer": "agp-utp",
-                        "task": task,
-                        "device": {
-                            key: facts[key]
-                            for key in (
-                                "abi",
-                                "apiLevel",
-                                "fingerprint",
-                                "imagePackage",
-                                "imageSource",
-                                "locale",
-                                "permissionControllerPackage",
-                                "permissionControllerRevision",
-                                "profile",
-                                "serial",
-                            )
+                        "producer": "gasstation-gmd-observation",
+                        "deviceSource": {
+                            "path": source_path.relative_to(self.attempt_root).as_posix(),
+                            "sha256": sha256_file(source_path),
                         },
-                        "execution": {"shards": 1},
                         "teardown": {"status": "SUCCESS", "timedOut": False},
                     },
                 )
@@ -453,7 +472,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
 
         failure_artifacts = []
         if include_failure_artifacts:
-            for identity in junit["failed"]:
+            for identity in junit["failed"] | junit["errors"]:
                 class_name, method_name = identity.split("#", 1)
                 safe_class = "".join(character if character.isalnum() or character in "_-" else "_" for character in class_name)
                 safe_method = "".join(character if character.isalnum() or character in "_-" else "_" for character in method_name)
@@ -502,6 +521,11 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             completion["artifacts"].append(
                 {"path": relative, "kind": "raw-device", "sha256": sha256_file(path)}
             )
+        for path in sorted(self.attempt_root.rglob("device-evidence-device.json")):
+            relative = path.relative_to(self.attempt_root).as_posix()
+            completion["artifacts"].append(
+                {"path": relative, "kind": "raw-device", "sha256": sha256_file(path)}
+            )
         self._write_json(self.attempt_root / "completion.json", completion)
         return verify_attempt(self.policy_path, self.attempt_root, today=today)
 
@@ -512,15 +536,18 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             class_name, method = identity.split("#", 1)
             if identity in junit["failed"]:
                 child = '<failure message="fixture failure" />'
+            elif identity in junit["errors"]:
+                child = '<error message="fixture error" />'
             elif identity in junit["skipped"]:
                 child = "<skipped />"
             else:
                 child = ""
             cases.append(f'<testcase classname="{class_name}" name="{method}">{child}</testcase>')
         failures = len(junit["failed"])
+        errors = len(junit["errors"])
         skipped = len(junit["skipped"])
         path.write_text(
-            f'<testsuite tests="{len(junit["tests"])}" failures="{failures}" errors="0" skipped="{skipped}">' +
+            f'<testsuite tests="{len(junit["tests"])}" failures="{failures}" errors="{errors}" skipped="{skipped}">' +
             "".join(cases) + "</testsuite>\n",
             encoding="utf-8",
         )

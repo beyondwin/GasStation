@@ -334,14 +334,14 @@ def validate_policy(policy: dict, *, today: str | None = None) -> None:
             raise DeviceEvidenceError(f"lane {lane_name} executable phase budget drifted")
         if any(type(value) is not int or value < 0 for value in phases.values()):
             raise DeviceEvidenceError(f"lane {lane_name} executable phase budget is malformed")
-        if any(phases[key] <= 0 for key in ("prepare", "hostPreflight", "collection", "cleanup", "completion", "verify", "receipt")):
+        if any(phases[key] <= 5 for key in ("prepare", "hostPreflight", "collection", "cleanup", "completion", "verify", "receipt")):
             raise DeviceEvidenceError(f"lane {lane_name} has an unbounded active phase")
         if phases["prepare"] + phases["hostPreflight"] + phases["provision"] + phases["boot"] != budget["preflightMinutes"] * 60:
             raise DeviceEvidenceError(f"lane {lane_name} preflight phases do not close")
         if sum(phases[key] for key in ("collection", "cleanup", "completion", "verify", "receipt")) != budget["completionMinutes"] * 60:
             raise DeviceEvidenceError(f"lane {lane_name} completion phases do not close")
         if expected["kind"] == "connected-avd":
-            if phases["provision"] <= 0 or phases["boot"] <= 0:
+            if phases["provision"] <= 5 or phases["boot"] <= 5:
                 raise DeviceEvidenceError(f"lane {lane_name} connected provisioning is unbounded")
         elif phases["provision"] != 0 or phases["boot"] != 0:
             raise DeviceEvidenceError(f"lane {lane_name} GMD setup must remain inside its task bound")
@@ -636,12 +636,13 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
         raise DeviceEvidenceError("required test identity set differs")
     if skipped:
         raise DeviceEvidenceError(f"required tests skipped: {sorted(skipped)}")
-    if errors:
-        if not command_failed:
-            raise DeviceEvidenceError("JUnit errors are not bound to a nonzero test command")
-        status = "FAIL"
-    elif failures:
-        failed_app = [identity for identity in failures if identity.startswith("com.gasstation.") and ".core." not in identity]
+    test_problems = failures | errors
+    if test_problems:
+        failed_app = [
+            identity
+            for identity in test_problems
+            if identity.startswith("com.gasstation.") and ".core." not in identity
+        ]
         png_names = {path.name for path in kinds.get("failure-png", [])}
         diagnostics = {path.name for path in kinds.get("failure-diagnostic", [])}
         for identity in failed_app:
@@ -687,7 +688,7 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
                 if selection["packageName"] not in packages or selection["resourceName"] not in resources:
                     raise DeviceEvidenceError("permission selection is outside the closed SDK table")
         if not command_failed:
-            raise DeviceEvidenceError("JUnit failures are not bound to a nonzero test command")
+            raise DeviceEvidenceError("JUnit failures/errors are not bound to a nonzero test command")
         status = "FAIL"
     elif command_failed:
         raise DeviceEvidenceError("nonzero test command lacks matching collected JUnit failure")

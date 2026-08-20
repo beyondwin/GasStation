@@ -263,6 +263,23 @@ def check_device_contracts(root: Path) -> list[str]:
                 issues.append(f"scripts/quality/device/{filename}:1: executable phase bound differs: {anchor}")
         if "--cleanup-status" in wrapper_text:
             issues.append(f"scripts/quality/device/{filename}:1: caller asserts cleanup status")
+
+    common_path = device_dir / "common.sh"
+    if not common_path.is_file():
+        issues.append("scripts/quality/device/common.sh:1: bounded timeout helper missing")
+    else:
+        common_text = "\n".join(
+            line for line in common_path.read_text(encoding="utf-8", errors="strict").splitlines()
+            if not line.lstrip().startswith("#")
+        )
+        bounded_timeout = (
+            '"$timeout_command" --signal=TERM --kill-after="${grace}s" '
+            '"$((seconds - grace))s" "$@"'
+        )
+        if common_text.count("local grace=5") != 2 or common_text.count(bounded_timeout) != 2:
+            issues.append("scripts/quality/device/common.sh:1: timeout termination grace escapes declared phase")
+        if common_text.count("if (( seconds <= grace )); then") != 2:
+            issues.append("scripts/quality/device/common.sh:1: timeout phase lacks positive command window")
     for helper in (
         "execute_gmd_task.sh",
         "capture_gmd_receipt.py",

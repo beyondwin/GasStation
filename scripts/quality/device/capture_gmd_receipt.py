@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -16,16 +17,16 @@ from device_evidence import DeviceEvidenceError, canonical_json_bytes, load_poli
 
 
 DEVICE_FIELDS = {
+    "schemaVersion",
+    "producer",
     "abi",
     "apiLevel",
+    "avdName",
     "fingerprint",
-    "imagePackage",
-    "imageSource",
+    "googleServicesRevision",
     "locale",
     "permissionControllerPackage",
     "permissionControllerRevision",
-    "profile",
-    "serial",
 }
 
 
@@ -58,7 +59,7 @@ def main() -> int:
         raise DeviceEvidenceError("attempt root is outside the canonical evidence tree")
 
     task_roots = lane["resultRoots"][arguments.task_index * 3 : arguments.task_index * 3 + 3]
-    candidates: list[dict] = []
+    candidates: list[tuple[Path, dict]] = []
     for relative in task_roots:
         root = ROOT / relative
         if root.is_symlink() or not root.is_dir():
@@ -72,9 +73,11 @@ def main() -> int:
                 raise DeviceEvidenceError(f"invalid pulled GMD device receipt: {path}") from error
             if not isinstance(value, dict) or set(value) != DEVICE_FIELDS:
                 raise DeviceEvidenceError("pulled GMD device receipt fields differ")
-            candidates.append(value)
-    if not candidates or any(value != candidates[0] for value in candidates[1:]):
-        raise DeviceEvidenceError("GMD task requires one consistent device-originated receipt")
+            candidates.append((path, value))
+    if len(candidates) != 1:
+        raise DeviceEvidenceError("GMD task requires exactly one device-originated receipt")
+    source_path = candidates[0][0]
+    relative = Path("collected") / source_path.relative_to(ROOT)
 
     baseline = set(read_lines(arguments.baseline_processes))
     final = set(read_lines(arguments.final_processes))
@@ -84,10 +87,11 @@ def main() -> int:
     teardown_passed = not timed_out and not (final - baseline) and not adb_targets
     receipt = {
         "schemaVersion": 1,
-        "producer": "agp-utp",
-        "task": lane["gradleTasks"][arguments.task_index],
-        "device": candidates[0],
-        "execution": {"shards": 1},
+        "producer": "gasstation-gmd-observation",
+        "deviceSource": {
+            "path": relative.as_posix(),
+            "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+        },
         "teardown": {"status": "SUCCESS" if teardown_passed else "FAILED", "timedOut": timed_out},
     }
     output = attempt_root / "raw" / f"gmd-task-{arguments.task_index}.json"
