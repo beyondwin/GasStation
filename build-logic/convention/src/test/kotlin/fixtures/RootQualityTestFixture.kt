@@ -255,6 +255,7 @@ fun GradlePluginTestProject.writeRootQualityFixture(
             }
         },
     )
+    writeFile("config/quality/public-api-signatures.txt", "schema-version=1\n")
     return this
 }
 
