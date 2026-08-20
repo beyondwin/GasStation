@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from pitest_policy import MutationPolicyError, canonical_json_bytes
 from pitest_policy.contracts import (
@@ -12,7 +16,7 @@ from pitest_policy.contracts import (
     validate_identity_partition,
     validate_linux_profile,
 )
-from verify_pitest import load_policy
+from verify_pitest import _observe_java_home, load_policy
 
 
 LINUX_PROFILE = {
@@ -47,6 +51,32 @@ LINUX_PROFILE = {
 
 
 class IdentityPartitionTest(unittest.TestCase):
+    def test_java_runtime_identity_ignores_nondeterministic_vm_layout_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            java = Path(temporary) / "bin/java"
+            java.parent.mkdir()
+            java.write_bytes(b"stable-java-executable")
+            java.chmod(0o755)
+            common = b"    java.vendor = Eclipse Adoptium\n    java.version = 21.0.12.1\n"
+            outputs = (
+                common + b"    java.vm.compressedOopsMode = Non-zero based\n",
+                common + b"    java.vm.compressedOopsMode = Non-zero disjoint base\n",
+            )
+            observations = []
+            for output in outputs:
+                with mock.patch(
+                    "verify_pitest.subprocess.run",
+                    return_value=subprocess.CompletedProcess([str(java)], 0, stdout=output),
+                ):
+                    observations.append(_observe_java_home(temporary))
+
+        self.assertEqual(observations[0], observations[1])
+        self.assertNotIn("runtimeOutputSha256", observations[0])
+        self.assertEqual(
+            hashlib.sha256(b"stable-java-executable").hexdigest(),
+            observations[0]["executableSha256"],
+        )
+
     def test_cross_host_identity_excludes_per_run_fields(self) -> None:
         neutral = {
             "schema": "host-neutral-mutation-identity-v1",

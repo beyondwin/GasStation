@@ -252,7 +252,6 @@ def _observe_java_home(raw_java_home: str) -> dict[str, Any]:
         "vendorFamily": "Eclipse Adoptium/Temurin",
         "toolchainRole": "mutation-runtime",
         "runtimeVersion": version,
-        "runtimeOutputSha256": sha256(completed.stdout),
         "executableSha256": sha256(executable.read_bytes()),
     }
 
