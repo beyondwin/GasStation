@@ -20,6 +20,8 @@ from pitest_policy.contracts import (
     validate_linux_profile,
 )
 from verify_pitest import (
+    BaselineSnapshot,
+    _validate_archived_components,
     _checked_blob,
     _capture_receipt_link,
     _observe_java_home,
@@ -245,6 +247,7 @@ class AcyclicCaptureTest(unittest.TestCase):
             "BASELINE_PATH": baseline_path,
             "CAPTURE_RECEIPT_ROOT": receipt_root,
             "TRANSITION_ROOT": transition_root,
+            "EVIDENCE_ARCHIVE_ROOT": repository / "config/quality/mutation-evidence",
         }
         with mock.patch.multiple("verify_pitest", **patches):
             validate_baseline_capture_receipt(baseline_raw, baseline, git=git)
@@ -254,8 +257,8 @@ class AcyclicCaptureTest(unittest.TestCase):
         subprocess.run(["git", "add", "config/quality"], cwd=repository, check=True)
         subprocess.run(["git", "commit", "--quiet", "-m", message], cwd=repository, check=True)
 
-    def test_newly_committed_resigned_successor_requires_independent_component_bytes(self) -> None:
-        """Catches trusting an arbitrary component digest from its own new receipt."""
+    def test_newly_committed_resigned_successor_rejects_correctly_hashed_typed_invalid_attempt(self) -> None:
+        """Catches accepting a correctly hashed archive whose attempt has no typed links."""
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:
             repository = Path(directory) / "forged-successor"
             self._clone_checked_repository(repository)
@@ -266,18 +269,35 @@ class AcyclicCaptureTest(unittest.TestCase):
             predecessor = json.loads(predecessor_raw)
             predecessor_hash = hashlib.sha256(predecessor_raw).hexdigest()
             predecessor_receipt = json.loads((receipt_root / f"{predecessor_hash}.json").read_text())
+            predecessor_archive = json.loads(
+                (repository / predecessor_receipt["evidenceArchive"]["path"]).read_text()
+            )
+            component_bytes = {
+                name: (repository / record["path"]).read_bytes()
+                for name, record in predecessor_archive["components"].items()
+            }
+            component_bytes["attempt"] = canonical_json_bytes({
+                "schema": "forged-attempt-with-no-typed-links",
+            })
+            component_hashes = {
+                name: hashlib.sha256(raw).hexdigest()
+                for name, raw in component_bytes.items()
+            }
             manifest = {
                 **predecessor_receipt["evidenceManifest"],
                 "predecessorBaselineHash": predecessor_hash,
-                "components": {
-                    **predecessor_receipt["evidenceManifest"]["components"],
-                    "attempt": "f" * 64,
-                },
+                "predecessorVerificationReceiptHash": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
+                "components": component_hashes,
             }
             evidence_digest = hashlib.sha256(canonical_json_bytes(manifest)).hexdigest()
             candidate = {
                 **predecessor,
                 "predecessorBaselineHash": predecessor_hash,
+                "predecessorVerificationReceiptHash": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
                 "captureEvidenceDigest": evidence_digest,
             }
             candidate_raw = canonical_json_bytes(candidate)
@@ -287,7 +307,7 @@ class AcyclicCaptureTest(unittest.TestCase):
             for index, (name, claimed_digest) in enumerate(sorted(manifest["components"].items())):
                 component_path = archive_root / "components" / f"{index:02d}.bin"
                 component_path.parent.mkdir(parents=True, exist_ok=True)
-                component_path.write_bytes(("forged component: " + name).encode())
+                component_path.write_bytes(component_bytes[name])
                 archive_records[name] = {
                     "path": component_path.relative_to(repository).as_posix(),
                     "sha256": claimed_digest,
@@ -324,6 +344,11 @@ class AcyclicCaptureTest(unittest.TestCase):
                 "predecessorBaselineSha256": predecessor_hash,
                 "candidateBaselineSha256": candidate_hash,
                 "captureReceiptSha256": hashlib.sha256(receipt_raw).hexdigest(),
+                "predecessorVerificationReceiptSha256": component_hashes[
+                    "predecessorVerificationReceipt"
+                ],
+                "routeSha256": component_hashes["route"],
+                "completionSha256": component_hashes["completion"],
                 "oldInputIdentity": {
                     "schemaVersion": 2,
                     "mutationInputIdentitySha256": input_identity,
@@ -342,7 +367,7 @@ class AcyclicCaptureTest(unittest.TestCase):
             baseline_path.write_bytes(candidate_raw)
             self._commit_clone(repository, "forge complete successor")
 
-            with self.assertRaisesRegex(MutationPolicyError, "archive|component bytes"):
+            with self.assertRaisesRegex(MutationPolicyError, "archived attempt schema differs"):
                 self._validate_clone_baseline(repository)
 
     def test_deleting_history_and_committing_a_replacement_null_root_is_rejected(self) -> None:
@@ -389,6 +414,51 @@ class AcyclicCaptureTest(unittest.TestCase):
 
             with self.assertRaisesRegex(MutationPolicyError, "trust anchor|deleted|history"):
                 self._validate_clone_baseline(repository)
+
+    def test_closed_archive_decoder_rejects_each_of_22_typed_component_kinds(self) -> None:
+        baseline_raw = (ROOT / "config/quality/mutation-baseline.json").read_bytes()
+        candidate = hashlib.sha256(baseline_raw).hexdigest()
+        receipt_value = json.loads(
+            (ROOT / "config/quality/mutation-captures" / f"{candidate}.json").read_text()
+        )
+        archive = json.loads(
+            (ROOT / receipt_value["evidenceArchive"]["path"]).read_text()
+        )
+        raw_components = {
+            name: (ROOT / record["path"]).read_bytes()
+            for name, record in archive["components"].items()
+        }
+        transition = next(
+            json.loads(path.read_text())
+            for path in (ROOT / "config/quality/mutation-transitions").glob("*.json")
+            if json.loads(path.read_text())["candidateBaselineSha256"] == candidate
+        )
+
+        self.assertEqual(22, len(raw_components))
+        decoded = _validate_archived_components(
+            raw_components,
+            candidate=candidate,
+            receipt_value=receipt_value,
+            transition=transition,
+        )
+        self.assertEqual(transition["sourceCommit"], decoded["sourceCommit"])
+
+        for name in sorted(raw_components):
+            with self.subTest(component=name):
+                forged = dict(raw_components)
+                forged[name] = (
+                    b'<mutations partial="true"><broken></mutations>\n'
+                    if name.startswith("xml:")
+                    else b"{}\n"
+                )
+                with self.assertRaises(MutationPolicyError) as raised:
+                    _validate_archived_components(
+                        forged,
+                        candidate=candidate,
+                        receipt_value=receipt_value,
+                        transition=transition,
+                    )
+                self.assertNotIn("component bytes differ", str(raised.exception))
 
     def test_transition_chain_successor_requires_the_full_capture_schema(self) -> None:
         candidate = "1" * 64
@@ -686,10 +756,15 @@ class ReceiptChainTest(unittest.TestCase):
             validated_baseline = canonical_json_bytes({"validated": True})
             tampered_baseline = canonical_json_bytes({"tampered": True})
             paths["baseline"].write_bytes(validated_baseline)
+            capture_receipt_raw = canonical_json_bytes({"capture": True})
+            baseline_sha256 = hashlib.sha256(validated_baseline).hexdigest()
+            capture_receipt_sha256 = hashlib.sha256(capture_receipt_raw).hexdigest()
             summary = {
                 "status": "pass",
                 "hostNeutralMutationIdentitySha256": "c" * 64,
                 "perRunExecutionProvenanceSha256": "d" * 64,
+                "predecessorBaselineSha256": baseline_sha256,
+                "predecessorCaptureReceiptSha256": capture_receipt_sha256,
             }
             paths["summary"].write_bytes(canonical_json_bytes(summary))
             policy = {"modules": {}}
@@ -707,10 +782,20 @@ class ReceiptChainTest(unittest.TestCase):
                 "SUMMARY_PATH": paths["summary"], "FINAL_RECEIPT_PATH": paths["final"],
             }
             with mock.patch("verify_pitest.validate_route", return_value=(policy, route, b"policy", "a" * 64)):
-                with mock.patch("verify_pitest.verify", side_effect=replace_after_validation):
-                    with mock.patch("verify_pitest.validate_completion_value", return_value=({"reports": []}, b"completion")):
-                        with mock.patch.multiple("verify_pitest", **patches):
-                            sealed = seal_verification("/ignored")
+                with mock.patch(
+                    "verify_pitest.read_baseline_snapshot",
+                    return_value=BaselineSnapshot(
+                        raw=validated_baseline,
+                        value={"validated": True},
+                        sha256=baseline_sha256,
+                        capture_receipt_raw=capture_receipt_raw,
+                        capture_receipt_sha256=capture_receipt_sha256,
+                    ),
+                ):
+                    with mock.patch("verify_pitest.verify", side_effect=replace_after_validation):
+                        with mock.patch("verify_pitest.validate_completion_value", return_value=({"reports": []}, b"completion")):
+                            with mock.patch.multiple("verify_pitest", **patches):
+                                sealed = seal_verification("/ignored")
 
             self.assertEqual(
                 hashlib.sha256(validated_baseline).hexdigest(),
@@ -720,6 +805,65 @@ class ReceiptChainTest(unittest.TestCase):
                 hashlib.sha256(tampered_baseline).hexdigest(),
                 sealed["predecessors"]["baseline"],
             )
+
+    def test_seal_rejects_summary_baseline_identity_omission_and_swap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {name: root / name for name in (
+                "route", "tasks", "route-receipt", "attempt", "completion", "summary", "final",
+            )}
+            for name in ("route", "tasks", "route-receipt", "attempt", "completion"):
+                paths[name].write_bytes(name.encode())
+            baseline_raw = canonical_json_bytes({"validated": True})
+            snapshot = BaselineSnapshot(
+                raw=baseline_raw,
+                value={"validated": True},
+                sha256=hashlib.sha256(baseline_raw).hexdigest(),
+                capture_receipt_raw=b"capture receipt",
+                capture_receipt_sha256=hashlib.sha256(b"capture receipt").hexdigest(),
+            )
+            policy = {"modules": {}}
+            route = {"status": "selected", "sourceCommit": "e" * 40}
+            common_summary = {
+                "status": "pass",
+                "hostNeutralMutationIdentitySha256": "c" * 64,
+                "perRunExecutionProvenanceSha256": "d" * 64,
+            }
+            cases = {
+                "omitted": common_summary,
+                "swapped": {
+                    **common_summary,
+                    "predecessorBaselineSha256": "f" * 64,
+                    "predecessorCaptureReceiptSha256": "0" * 64,
+                },
+            }
+            patches = {
+                "ROUTE_PATH": paths["route"], "TASKS_PATH": paths["tasks"],
+                "ROUTE_RECEIPT_PATH": paths["route-receipt"], "ATTEMPT_PATH": paths["attempt"],
+                "COMPLETION_PATH": paths["completion"], "SUMMARY_PATH": paths["summary"],
+                "FINAL_RECEIPT_PATH": paths["final"],
+            }
+            for label, summary in cases.items():
+                with self.subTest(label=label):
+                    paths["summary"].write_bytes(canonical_json_bytes(summary))
+                    paths["final"].unlink(missing_ok=True)
+                    with mock.patch(
+                        "verify_pitest.validate_route",
+                        return_value=(policy, route, b"policy", "a" * 64),
+                    ):
+                        with mock.patch("verify_pitest.read_baseline_snapshot", return_value=snapshot):
+                            with mock.patch("verify_pitest.verify", return_value=summary):
+                                with mock.patch(
+                                    "verify_pitest.validate_completion_value",
+                                    return_value=({"reports": []}, b"completion"),
+                                ):
+                                    with mock.patch.multiple("verify_pitest", **patches):
+                                        with self.assertRaisesRegex(
+                                            MutationPolicyError,
+                                            "verification summary baseline identity differs",
+                                        ):
+                                            seal_verification("/ignored")
+                    self.assertFalse(paths["final"].exists())
 
 
 class LinuxComparatorStateTest(unittest.TestCase):

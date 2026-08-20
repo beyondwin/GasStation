@@ -84,6 +84,8 @@ class BaselineSnapshot:
     raw: bytes
     value: dict[str, Any]
     sha256: str
+    capture_receipt_raw: bytes | None = None
+    capture_receipt_sha256: str | None = None
 
 
 def sha256(data: bytes) -> str:
@@ -107,7 +109,15 @@ def read_baseline_snapshot() -> BaselineSnapshot | None:
     value = read_strict_json(raw)
     if not isinstance(value, dict):
         raise MutationPolicyError("mutation baseline is malformed")
-    return BaselineSnapshot(raw=raw, value=value, sha256=sha256(raw))
+    baseline_sha256 = sha256(raw)
+    capture_receipt_raw = read_bytes(CAPTURE_RECEIPT_ROOT / f"{baseline_sha256}.json")
+    return BaselineSnapshot(
+        raw=raw,
+        value=value,
+        sha256=baseline_sha256,
+        capture_receipt_raw=capture_receipt_raw,
+        capture_receipt_sha256=sha256(capture_receipt_raw),
+    )
 
 
 def relative(path: Path) -> str:
@@ -1341,13 +1351,757 @@ def _capture_receipt_link(raw: bytes, path: str) -> tuple[str, str | None, dict[
     return candidate, predecessor, value
 
 
+_ARCHIVED_CONFIGURATION_VALUE_KEYS_SHA256 = (
+    "3a6779a27d03e6acfef9517a784145dcc787b658c8c87a5a01e69f915e9203cd"
+)
+
+
+def _archived_json(
+    raw: bytes,
+    label: str,
+    *,
+    canonical: bool = True,
+) -> dict[str, Any] | list[Any]:
+    value = read_strict_json(raw)
+    if (
+        not isinstance(value, (dict, list))
+        or (canonical and canonical_json_bytes(value) != raw)
+    ):
+        raise MutationPolicyError(f"archived {label} schema differs")
+    return value
+
+
+def _archived_digest(value: object, label: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise MutationPolicyError(f"archived {label} digest differs")
+    return value
+
+
+def _gradle_canonical_digest(value: object) -> str:
+    """Match build-logic canonicalCoverageJson, which has no trailing newline."""
+    encoded = canonical_json_bytes(value)
+    if not encoded.endswith(b"\n"):
+        raise MutationPolicyError("canonical JSON encoding lost its required line ending")
+    return sha256(encoded[:-1])
+
+
+def _validate_archived_path_digest_inventory(
+    value: object,
+    label: str,
+    *,
+    path_prefix: str,
+    path_suffix: str,
+) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        raise MutationPolicyError(f"archived {label} schema differs")
+    paths: list[str] = []
+    for record in value:
+        if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+            raise MutationPolicyError(f"archived {label} record schema differs")
+        path = record.get("path")
+        if (
+            not isinstance(path, str)
+            or not path.startswith(path_prefix)
+            or not path.endswith(path_suffix)
+            or path.startswith("/")
+            or ".." in Path(path).parts
+        ):
+            raise MutationPolicyError(f"archived {label} path differs")
+        _archived_digest(record.get("sha256"), f"{label} record")
+        paths.append(path)
+    if paths != sorted(paths) or len(paths) != len(set(paths)):
+        raise MutationPolicyError(f"archived {label} inventory differs")
+    return value
+
+
+def _validate_archived_inventory_delta(value: object, label: str) -> None:
+    module_keys = {
+        "authoredMain", "authoredTest", "compiledMain", "compiledTest", "sourceFiles",
+        "mutants", "classes", "effectiveSurface", "classpaths",
+    }
+    if not isinstance(value, dict) or set(value) != module_keys:
+        raise MutationPolicyError(f"archived {label} schema differs")
+    for name in ("authoredMain", "authoredTest", "compiledMain", "compiledTest"):
+        delta = value[name]
+        if not isinstance(delta, dict) or set(delta) != {"added", "removed", "changed"}:
+            raise MutationPolicyError(f"archived {label} {name} schema differs")
+        if any(not isinstance(delta[field], list) for field in delta):
+            raise MutationPolicyError(f"archived {label} {name} values differ")
+        record_keys = {"path", "blob", "mode"} if name.startswith("authored") else {"path", "sha256"}
+
+        def validate_inventory_record(record: object) -> bool:
+            if not isinstance(record, dict) or set(record) != record_keys:
+                return False
+            if not isinstance(record.get("path"), str):
+                return False
+            digest_key = "blob" if "blob" in record_keys else "sha256"
+            digest_pattern = r"[0-9a-f]{40}" if digest_key == "blob" else r"[0-9a-f]{64}"
+            if not isinstance(record.get(digest_key), str) or re.fullmatch(digest_pattern, record[digest_key]) is None:
+                return False
+            return "mode" not in record_keys or (
+                isinstance(record.get("mode"), str)
+                and re.fullmatch(r"[0-7]{6}", record["mode"]) is not None
+            )
+
+        if any(
+            not validate_inventory_record(record)
+            for field in ("added", "removed")
+            for record in delta[field]
+        ):
+            raise MutationPolicyError(f"archived {label} {name} record schema differs")
+        for change in delta["changed"]:
+            if (
+                not isinstance(change, dict)
+                or set(change) != {"path", "before", "after"}
+                or not isinstance(change["path"], str)
+                or not validate_inventory_record(change["before"])
+                or not validate_inventory_record(change["after"])
+                or change["before"]["path"] != change["path"]
+                or change["after"]["path"] != change["path"]
+            ):
+                raise MutationPolicyError(f"archived {label} {name} change schema differs")
+    for name in ("sourceFiles",):
+        delta = value[name]
+        if (
+            not isinstance(delta, dict)
+            or set(delta) != {"added", "removed"}
+            or any(
+                not isinstance(items, list)
+                or items != sorted(items)
+                or len(items) != len(set(items))
+                or any(not isinstance(item, str) for item in items)
+                for items in delta.values()
+            )
+        ):
+            raise MutationPolicyError(f"archived {label} {name} schema differs")
+    mutants = value["mutants"]
+    if (
+        not isinstance(mutants, dict)
+        or set(mutants) != {"added", "removed", "changedStatuses"}
+        or any(not isinstance(items, list) for items in mutants.values())
+    ):
+        raise MutationPolicyError(f"archived {label} mutants schema differs")
+    mutant_keys = {"mutatedClass", "mutatedMethod", "methodDescription", "mutator", "indexes"}
+    for field, records in mutants.items():
+        expected = mutant_keys | ({"before", "after"} if field == "changedStatuses" else set())
+        for record in records:
+            if (
+                not isinstance(record, dict)
+                or set(record) != expected
+                or any(not isinstance(record[key], str) for key in expected - {"indexes"})
+                or not isinstance(record["indexes"], list)
+                or not record["indexes"]
+                or any(type(index) is not int or index < 0 for index in record["indexes"])
+            ):
+                raise MutationPolicyError(f"archived {label} mutant record schema differs")
+    classes = value["classes"]
+    if (
+        not isinstance(classes, dict)
+        or set(classes) != {"added", "removed", "changedContent"}
+        or any(not isinstance(items, list) for items in classes.values())
+        or any(not isinstance(path, str) for field in ("added", "removed") for path in classes[field])
+    ):
+        raise MutationPolicyError(f"archived {label} classes schema differs")
+    for record in classes["changedContent"]:
+        if not isinstance(record, dict) or set(record) != {"path", "beforeSha256", "afterSha256"}:
+            raise MutationPolicyError(f"archived {label} class change schema differs")
+        if not isinstance(record["path"], str):
+            raise MutationPolicyError(f"archived {label} class change path differs")
+        _archived_digest(record["beforeSha256"], f"{label} class before")
+        _archived_digest(record["afterSha256"], f"{label} class after")
+    surface = value["effectiveSurface"]
+    if not isinstance(surface, dict) or set(surface) != {"changedFields"} or not isinstance(surface["changedFields"], list):
+        raise MutationPolicyError(f"archived {label} effective-surface schema differs")
+    for record in surface["changedFields"]:
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"field", "before", "after"}
+            or not isinstance(record["field"], str)
+            or any(record[key] is not None and not isinstance(record[key], str) for key in ("before", "after"))
+        ):
+            raise MutationPolicyError(f"archived {label} effective-surface record differs")
+    classpaths = value["classpaths"]
+    allowed_classpaths = {"sourceDirs", "mutableCodePaths", "additionalClasspath", "launchClasspath"}
+    if not isinstance(classpaths, dict) or not set(classpaths).issubset(allowed_classpaths):
+        raise MutationPolicyError(f"archived {label} classpath schema differs")
+    for record in classpaths.values():
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"before", "after"}
+            or any(not isinstance(item, str) for item in record.values())
+        ):
+            raise MutationPolicyError(f"archived {label} classpath record differs")
+
+
+def _validate_archived_bootstrap(
+    bootstrap: object,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    keys = {
+        "environmentPolicy", "gitObjectView", "imageIdentity", "java",
+        "observedToolBundleSha256", "observedTools", "profile", "profileSha256",
+    }
+    if not isinstance(bootstrap, dict) or set(bootstrap) != keys:
+        raise MutationPolicyError("archived route bootstrap schema differs")
+    profile_name = bootstrap.get("profile")
+    profile = policy["bootstrapProfiles"].get(profile_name)
+    if (
+        not isinstance(profile, dict)
+        or bootstrap.get("profileSha256") != sha256(canonical_json_bytes(profile))
+        or bootstrap.get("environmentPolicy")
+        != policy["executionEnvironmentPolicy"]["policyVersion"]
+    ):
+        raise MutationPolicyError("archived route bootstrap profile differs")
+    image = profile.get("image") if profile_name == "linux-x86_64" else None
+    if bootstrap.get("imageIdentity") != image:
+        raise MutationPolicyError("archived route bootstrap image identity differs")
+    observed = bootstrap.get("observedTools")
+    if not isinstance(observed, dict) or set(observed) != {"bash", "env", "git", "python"}:
+        raise MutationPolicyError("archived route observed-tool schema differs")
+    tool_keys = {
+        "entryPath", "resolvedPath", "entryType", "fileType", "mode", "sha256",
+        "versionSha256",
+    }
+    for name, tool in observed.items():
+        if not isinstance(tool, dict) or set(tool) != tool_keys:
+            raise MutationPolicyError(f"archived route observed-tool schema differs: {name}")
+        for digest_name in ("sha256", "versionSha256"):
+            _archived_digest(tool.get(digest_name), f"route observed-tool {name} {digest_name}")
+        if (
+            tool.get("fileType") != "regular"
+            or tool.get("entryType") not in {"regular", "symlink"}
+            or re.fullmatch(r"[0-7]{4}", str(tool.get("mode"))) is None
+            or not isinstance(tool.get("entryPath"), str)
+            or not str(tool["entryPath"]).startswith("/")
+            or not isinstance(tool.get("resolvedPath"), str)
+            or not str(tool["resolvedPath"]).startswith("/")
+        ):
+            raise MutationPolicyError(f"archived route observed-tool value differs: {name}")
+    if bootstrap.get("observedToolBundleSha256") != sha256(canonical_json_bytes(observed)):
+        raise MutationPolicyError("archived route observed-tool bundle differs")
+    java = bootstrap.get("java")
+    if not isinstance(java, dict) or set(java) != {
+        "major", "vendorFamily", "toolchainRole", "runtimeVersion", "executableSha256",
+    }:
+        raise MutationPolicyError("archived route Java identity schema differs")
+    _archived_digest(java.get("executableSha256"), "route Java executable")
+    if (
+        java.get("major") != 21
+        or java.get("vendorFamily") != "Eclipse Adoptium/Temurin"
+        or java.get("toolchainRole") != "mutation-runtime"
+        or not isinstance(java.get("runtimeVersion"), str)
+        or not str(java["runtimeVersion"]).startswith("21")
+    ):
+        raise MutationPolicyError("archived route Java identity differs")
+    git_view = bootstrap.get("gitObjectView")
+    if not isinstance(git_view, dict) or set(git_view) != {
+        "inventorySha256", "policy", "prefixSha256",
+    }:
+        raise MutationPolicyError("archived route Git object-view schema differs")
+    _archived_digest(git_view.get("inventorySha256"), "route Git inventory")
+    _archived_digest(git_view.get("prefixSha256"), "route Git prefix")
+    if git_view.get("policy") != policy["gitObjectViewPolicy"]["policyVersion"]:
+        raise MutationPolicyError("archived route Git object-view policy differs")
+    return bootstrap
+
+
+def _archived_route_per_run(
+    bootstrap: dict[str, Any],
+    *,
+    schema: str,
+    route_receipt_sha256: str | None = None,
+    configuration_sha256_by_module: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "schema": schema,
+        "selectedProfile": bootstrap["profile"],
+        "profileDefinitionSha256": bootstrap["profileSha256"],
+        "imageIdentity": bootstrap["imageIdentity"],
+        "observedToolBundleSha256": bootstrap["observedToolBundleSha256"],
+        "javaExecutableSha256": bootstrap["java"]["executableSha256"],
+        "javaRuntimeVersion": bootstrap["java"]["runtimeVersion"],
+    }
+    if route_receipt_sha256 is not None:
+        value["routeReceiptSha256"] = route_receipt_sha256
+    if configuration_sha256_by_module is not None:
+        value["configurationSha256ByModule"] = configuration_sha256_by_module
+    return value
+
+
+def _validate_archived_components(
+    raw_components: dict[str, bytes],
+    *,
+    candidate: str,
+    receipt_value: dict[str, Any],
+    transition: dict[str, Any],
+) -> dict[str, Any]:
+    """Decode the complete archived run and reconstruct every typed predecessor edge."""
+    policy, checked_policy_raw, checked_policy_hash = load_policy()
+    policy_value = _archived_json(
+        raw_components["policy"],
+        "policy",
+        canonical=False,
+    )
+    if not isinstance(policy_value, dict) or raw_components["policy"] != checked_policy_raw:
+        raise MutationPolicyError("archived policy differs from the checked reviewed policy")
+
+    source_raw = raw_components["sourceCommit"]
+    try:
+        source_commit = source_raw.decode("ascii").removesuffix("\n")
+    except UnicodeDecodeError as error:
+        raise MutationPolicyError("archived source commit schema differs") from error
+    if source_raw != (source_commit + "\n").encode("ascii") or re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+        raise MutationPolicyError("archived source commit schema differs")
+
+    route = _archived_json(raw_components["route"], "route")
+    route_keys = {
+        "schemaVersion", "event", "sourceCommit", "baseCommit", "mergeBase",
+        "policySha256", "environmentPolicy", "gitObjectViewPolicy", "bootstrap",
+        "hostNeutralMutationIdentity", "hostNeutralMutationIdentitySha256",
+        "perRunExecutionProvenance", "perRunExecutionProvenanceSha256", "changes",
+        "selectedModules", "selectedTasks", "status",
+    }
+    if not isinstance(route, dict) or set(route) != route_keys or route.get("schemaVersion") != 1:
+        raise MutationPolicyError("archived route schema differs")
+    bootstrap = _validate_archived_bootstrap(route.get("bootstrap"), policy)
+    neutral = host_neutral_mutation_identity(policy)
+    neutral_hash = sha256(canonical_json_bytes(neutral))
+    selected_modules = sorted(policy["modules"])
+    selected_tasks = [policy["modules"][name]["pitestTask"] for name in selected_modules]
+    expected_route_per_run = _archived_route_per_run(
+        bootstrap,
+        schema="per-run-execution-provenance-route-v1",
+    )
+    if (
+        route.get("event") != "local-all"
+        or route.get("sourceCommit") != source_commit
+        or route.get("baseCommit") is not None
+        or route.get("mergeBase") is not None
+        or route.get("policySha256") != checked_policy_hash
+        or route.get("environmentPolicy")
+        != policy["executionEnvironmentPolicy"]["policyVersion"]
+        or route.get("gitObjectViewPolicy") != policy["gitObjectViewPolicy"]["policyVersion"]
+        or route.get("hostNeutralMutationIdentity") != neutral
+        or route.get("hostNeutralMutationIdentitySha256") != neutral_hash
+        or route.get("perRunExecutionProvenance") != expected_route_per_run
+        or route.get("perRunExecutionProvenanceSha256")
+        != sha256(canonical_json_bytes(expected_route_per_run))
+        or route.get("changes") != []
+        or route.get("selectedModules") != selected_modules
+        or route.get("selectedTasks") != selected_tasks
+        or route.get("status") != "selected"
+    ):
+        raise MutationPolicyError("archived route typed values differ")
+
+    tasks_raw = raw_components["tasks"]
+    if tasks_raw != "".join(f"{task}\n" for task in selected_tasks).encode("utf-8"):
+        raise MutationPolicyError("archived tasks projection differs")
+    expected_route_receipt = receipt(
+        "pitest-route-receipt-v1",
+        {"policy": checked_policy_raw, "route": raw_components["route"], "tasks": tasks_raw},
+        sourceCommit=source_commit,
+        status="selected",
+        bootstrap=bootstrap,
+    )
+    route_receipt = _archived_json(raw_components["routeReceipt"], "route receipt")
+    if route_receipt != expected_route_receipt:
+        raise MutationPolicyError("archived route receipt typed links differ")
+    route_receipt_hash = sha256(raw_components["routeReceipt"])
+
+    attempt = _archived_json(raw_components["attempt"], "attempt")
+    attempt_per_run = _archived_route_per_run(
+        bootstrap,
+        schema="per-run-execution-provenance-attempt-v1",
+        route_receipt_sha256=route_receipt_hash,
+    )
+    expected_attempt = receipt(
+        "pitest-attempt-v1",
+        {
+            "policy": checked_policy_raw,
+            "route": raw_components["route"],
+            "routeReceipt": raw_components["routeReceipt"],
+            "tasks": tasks_raw,
+        },
+        sourceCommit=source_commit,
+        selectedTasks=selected_tasks,
+        gradleFlags=policy["canonicalGradleFlags"],
+        environmentPolicy=policy["executionEnvironmentPolicy"]["policyVersion"],
+        gitObjectViewPolicy=policy["gitObjectViewPolicy"]["policyVersion"],
+        bootstrap=bootstrap,
+        hostNeutralMutationIdentity=neutral,
+        hostNeutralMutationIdentitySha256=neutral_hash,
+        perRunExecutionProvenance=attempt_per_run,
+        perRunExecutionProvenanceSha256=sha256(canonical_json_bytes(attempt_per_run)),
+    )
+    if attempt != expected_attempt:
+        raise MutationPolicyError("archived attempt schema differs from typed route links")
+
+    configurations: dict[str, dict[str, Any]] = {}
+    configuration_hashes: dict[str, str] = {}
+    configuration_outer_keys = {
+        "schemaVersion", "projectPath", "pluginVersion", "pitestVersion", "threads",
+        "mutationThreshold", "targetClasses", "targetTests", "addJUnitPlatformLauncher",
+        "defaultCharacterEncoding", "directPitestGuard", "enforcementPhase",
+        "environmentPolicy", "policySha256", "routeReceiptSha256",
+        "hostNeutralMutationIdentity", "hostNeutralMutationIdentitySha256",
+        "perRunExecutionProvenance", "perRunExecutionProvenanceSha256", "values",
+    }
+    for name in selected_modules:
+        configuration_raw = raw_components[f"configuration:{name}"]
+        configuration = _archived_json(configuration_raw, f"configuration {name}")
+        if not isinstance(configuration, dict) or set(configuration) != configuration_outer_keys:
+            raise MutationPolicyError(f"archived configuration schema differs: {name}")
+        values = configuration.get("values")
+        if (
+            not isinstance(values, dict)
+            or any(not isinstance(key, str) or not isinstance(item, str) for key, item in values.items())
+            or sha256(canonical_json_bytes(sorted(values)))
+            != _ARCHIVED_CONFIGURATION_VALUE_KEYS_SHA256
+        ):
+            raise MutationPolicyError(f"archived configuration effective surface schema differs: {name}")
+        module = policy["modules"][name]
+        expected_threshold = module["floorPercent"]
+        if (
+            configuration.get("schemaVersion") != 1
+            or configuration.get("projectPath") != module["modulePath"]
+            or configuration.get("pluginVersion") != policy["pitest"]["pluginVersion"]
+            or configuration.get("pitestVersion") != policy["pitest"]["pitestVersion"]
+            or configuration.get("threads") != 2
+            or configuration.get("mutationThreshold") != expected_threshold
+            or configuration.get("targetClasses") != module["targetClasses"]
+            or configuration.get("targetTests") != module["targetTests"]
+            or configuration.get("addJUnitPlatformLauncher") is not False
+            or configuration.get("defaultCharacterEncoding") != "UTF-8"
+            or configuration.get("directPitestGuard") != "RejectDirectPitestAction:first"
+            or configuration.get("enforcementPhase") != policy["enforcementPhase"]
+            or configuration.get("environmentPolicy")
+            != policy["executionEnvironmentPolicy"]["policyVersion"]
+            or configuration.get("policySha256") != checked_policy_hash
+            or configuration.get("routeReceiptSha256") != route_receipt_hash
+            or configuration.get("hostNeutralMutationIdentity") != neutral
+            or configuration.get("hostNeutralMutationIdentitySha256")
+            != _gradle_canonical_digest(neutral)
+            or values.get("pit.mutators") != "DEFAULTS"
+            or values.get("pit.targetClasses") != "\u001f".join(module["targetClasses"])
+            or values.get("pit.targetTests") != "\u001f".join(module["targetTests"])
+            or values.get("pit.threads") != "2"
+            or values.get("pit.mutationThreshold")
+            != ("<null>" if expected_threshold is None else str(expected_threshold))
+            or values.get("pit.outputFormats") != "HTML\u001fXML"
+            or values.get("java.defaultCharacterEncoding") != "UTF-8"
+            or values.get("command.managedEncodingArguments") != "-Dfile.encoding=UTF-8"
+        ):
+            raise MutationPolicyError(f"archived configuration typed values differ: {name}")
+        expected_configuration_per_run = _archived_route_per_run(
+            bootstrap,
+            schema="per-run-execution-provenance-configuration-v1",
+            route_receipt_sha256=route_receipt_hash,
+        )
+        if configuration.get("perRunExecutionProvenance") != expected_configuration_per_run:
+            raise MutationPolicyError(f"archived configuration per-run links differ: {name}")
+        if configuration.get("perRunExecutionProvenanceSha256") != _gradle_canonical_digest(
+            expected_configuration_per_run
+        ):
+            raise MutationPolicyError(f"archived configuration per-run digest differs: {name}")
+        configurations[name] = configuration
+        configuration_hashes[name] = sha256(configuration_raw)
+
+    completion = _archived_json(raw_components["completion"], "completion")
+    completion_keys = {
+        "schema", "predecessors", "sourceCommit", "selectedTasks", "gradleExit",
+        "hostNeutralMutationIdentity", "hostNeutralMutationIdentitySha256",
+        "perRunExecutionProvenance", "perRunExecutionProvenanceSha256", "reports",
+    }
+    if not isinstance(completion, dict) or set(completion) != completion_keys:
+        raise MutationPolicyError("archived completion schema differs")
+    reports = completion.get("reports")
+    if not isinstance(reports, list):
+        raise MutationPolicyError("archived completion reports schema differs")
+    _validate_baseline_reports(reports)
+    reports_by_module = {
+        report["module"]: report for report in reports if isinstance(report, dict)
+    }
+    if set(reports_by_module) != set(selected_modules):
+        raise MutationPolicyError("archived completion report module set differs")
+
+    decoded_reports: list[dict[str, Any]] = []
+    for name in selected_modules:
+        expected_report = reports_by_module[name]
+        stored_records = expected_report["records"]
+        provenance_by_identity = {
+            (
+                item["mutatedClass"], item["mutatedMethod"], item["methodDescription"],
+                item["mutator"], tuple(item["indexes"]),
+            ): item
+            for item in stored_records
+        }
+        if len(provenance_by_identity) != len(stored_records):
+            raise MutationPolicyError(f"archived completion duplicate report identity: {name}")
+
+        def archived_provenance(
+            identity: tuple[object, ...],
+            source_file: str,
+        ) -> tuple[str, str, str]:
+            item = provenance_by_identity.get(identity)
+            if item is None:
+                raise MutationPolicyError(f"archived XML mutation is absent from completion: {name}")
+            if Path(item["sourcePath"]).name != source_file:
+                raise MutationPolicyError(f"archived XML SourceFile link differs: {name}")
+            return item["sourcePath"], item["classPath"], item["classSha256"]
+
+        parsed = parse_pitest_xml(
+            raw_components[f"xml:{name}"],
+            module=name,
+            package_root=policy["modules"][name]["packageRoot"],
+            archived_provenance_lookup=archived_provenance,
+        )
+        html = _validate_archived_path_digest_inventory(
+            _archived_json(raw_components[f"html:{name}"], f"HTML inventory {name}"),
+            f"HTML inventory {name}",
+            path_prefix=(
+                policy["modules"][name]["modulePath"].removeprefix(":").replace(":", "/")
+                + "/build/reports/pitest/"
+            ),
+            path_suffix=".html",
+        )
+        semantic = _archived_json(raw_components[f"semantic:{name}"], f"semantic report {name}")
+        if semantic != {"semanticSha256": parsed.semantic_sha256}:
+            raise MutationPolicyError(f"archived semantic report link differs: {name}")
+        decoded = {
+            "module": name,
+            "configurationPath": policy["modules"][name]["configurationPath"],
+            "configurationSha256": configuration_hashes[name],
+            "reportPath": policy["modules"][name]["reportPath"],
+            "rawSha256": parsed.raw_sha256,
+            "semanticSha256": parsed.semantic_sha256,
+            "counters": parsed.counters,
+            "packages": parsed.package_counters,
+            "classes": parsed.class_counters,
+            "rationals": parsed.rational_summary(),
+            "records": [
+                {
+                    "sourcePath": item.source_path,
+                    "classPath": item.class_path,
+                    "classSha256": item.class_sha256,
+                    "mutatedClass": item.mutated_class,
+                    "mutatedMethod": item.mutated_method,
+                    "methodDescription": item.method_description,
+                    "mutator": item.mutator,
+                    "indexes": list(item.indexes),
+                    "status": item.status,
+                }
+                for item in parsed.records
+            ],
+            "html": html,
+        }
+        if decoded != expected_report:
+            raise MutationPolicyError(f"archived XML/semantic/HTML completion links differ: {name}")
+        decoded_reports.append(decoded)
+
+    completion_per_run = _archived_route_per_run(
+        bootstrap,
+        schema="per-run-execution-provenance-completion-v1",
+        route_receipt_sha256=route_receipt_hash,
+        configuration_sha256_by_module=configuration_hashes,
+    )
+    expected_completion = receipt(
+        "pitest-completion-v1",
+        {
+            "attempt": raw_components["attempt"],
+            "policy": checked_policy_raw,
+            "route": raw_components["route"],
+            "routeReceipt": raw_components["routeReceipt"],
+            "tasks": tasks_raw,
+        },
+        sourceCommit=source_commit,
+        selectedTasks=selected_tasks,
+        gradleExit=0,
+        hostNeutralMutationIdentity=neutral,
+        hostNeutralMutationIdentitySha256=neutral_hash,
+        perRunExecutionProvenance=completion_per_run,
+        perRunExecutionProvenanceSha256=sha256(canonical_json_bytes(completion_per_run)),
+        reports=decoded_reports,
+    )
+    if completion != expected_completion:
+        raise MutationPolicyError("archived completion typed links differ")
+
+    observation_git = None
+    measurement = _archived_json(raw_components["measurement"], "measurement")
+    measurement_keys = {
+        "schemaVersion", "sourceCommit", "policySha256", "enforcementPhase",
+        "observationGitConfig", "gitObjectViewIdentity", "completionSha256",
+        "routeSha256", "routeReceiptSha256", "hostNeutralMutationIdentity",
+        "hostNeutralMutationIdentitySha256", "perRunExecutionProvenance",
+        "perRunExecutionProvenanceSha256", "reports",
+    }
+    if not isinstance(measurement, dict) or set(measurement) != measurement_keys:
+        raise MutationPolicyError("archived measurement schema differs")
+    observation_git = measurement.get("observationGitConfig")
+    if not isinstance(observation_git, dict) or set(observation_git) != {"records", "sha256"}:
+        raise MutationPolicyError("archived measurement Git configuration schema differs")
+    records = observation_git.get("records")
+    if (
+        not isinstance(records, list)
+        or records != sorted(records, key=lambda item: item.get("path", "") if isinstance(item, dict) else "")
+        or len(records) != len({item.get("path") for item in records if isinstance(item, dict)})
+        or any(
+            not isinstance(item, dict)
+            or set(item) != {"path", "blob", "mode"}
+            or not isinstance(item.get("path"), str)
+            or item["path"].startswith("/")
+            or ".." in Path(item["path"]).parts
+            or not isinstance(item.get("blob"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", item["blob"]) is None
+            or not isinstance(item.get("mode"), str)
+            or re.fullmatch(r"[0-7]{6}", item["mode"]) is None
+            for item in records
+        )
+        or observation_git.get("sha256") != sha256(canonical_json_bytes(records))
+    ):
+        raise MutationPolicyError("archived measurement Git configuration differs")
+    expected_measurement = {
+        **measurement,
+        "schemaVersion": 1,
+        "sourceCommit": source_commit,
+        "policySha256": checked_policy_hash,
+        "enforcementPhase": policy["enforcementPhase"],
+        "gitObjectViewIdentity": bootstrap["gitObjectView"],
+        "completionSha256": sha256(raw_components["completion"]),
+        "routeSha256": sha256(raw_components["route"]),
+        "routeReceiptSha256": route_receipt_hash,
+        "hostNeutralMutationIdentity": neutral,
+        "hostNeutralMutationIdentitySha256": neutral_hash,
+        "perRunExecutionProvenance": completion_per_run,
+        "perRunExecutionProvenanceSha256": sha256(canonical_json_bytes(completion_per_run)),
+        "reports": decoded_reports,
+    }
+    if measurement != expected_measurement:
+        raise MutationPolicyError("archived measurement typed links differ")
+
+    summary = _archived_json(raw_components["verificationSummary"], "verification summary")
+    summary_keys = {
+        "schemaVersion", "verificationMode", "transitionAxis", "status", "sourceCommit",
+        "policySha256", "predecessorBaselineHash", "routeSha256", "routeReceiptSha256",
+        "attemptSha256", "completionSha256", "hostNeutralMutationIdentity",
+        "hostNeutralMutationIdentitySha256", "perRunExecutionProvenance",
+        "perRunExecutionProvenanceSha256", "historicalLinuxComparison", "reports",
+        "inventoryDelta", "violations",
+    }
+    if (
+        not isinstance(summary, dict)
+        or set(summary) != summary_keys
+        or summary.get("schemaVersion") != 2
+        or summary.get("verificationMode") != "recapture-transition"
+        or summary.get("transitionAxis") != transition.get("axis")
+        or summary.get("status") != "pass"
+        or summary.get("sourceCommit") != source_commit
+        or summary.get("policySha256") != checked_policy_hash
+        or summary.get("predecessorBaselineHash")
+        != transition.get("predecessorBaselineSha256")
+        or summary.get("routeSha256") != sha256(raw_components["route"])
+        or summary.get("routeReceiptSha256") != route_receipt_hash
+        or summary.get("attemptSha256") != sha256(raw_components["attempt"])
+        or summary.get("completionSha256") != sha256(raw_components["completion"])
+        or summary.get("hostNeutralMutationIdentity") != neutral
+        or summary.get("hostNeutralMutationIdentitySha256") != neutral_hash
+        or summary.get("perRunExecutionProvenance") != completion_per_run
+        or summary.get("perRunExecutionProvenanceSha256")
+        != sha256(canonical_json_bytes(completion_per_run))
+        or summary.get("reports") != decoded_reports
+        or summary.get("inventoryDelta") != transition.get("inventoryDelta")
+        or summary.get("violations") != []
+    ):
+        raise MutationPolicyError("archived verification summary typed links differ")
+    if summary.get("historicalLinuxComparison") is not None and bootstrap["profile"] != "linux-x86_64":
+        raise MutationPolicyError("archived verification summary Linux comparison differs")
+    inventory_delta = summary["inventoryDelta"]
+    if not isinstance(inventory_delta, dict) or set(inventory_delta) != set(selected_modules):
+        raise MutationPolicyError("archived verification summary inventory delta differs")
+    for name in selected_modules:
+        _validate_archived_inventory_delta(inventory_delta[name], f"verification summary {name} delta")
+
+    predecessor_receipt = _archived_json(
+        raw_components["predecessorVerificationReceipt"],
+        "predecessor verification receipt",
+    )
+    expected_predecessor_receipt = receipt(
+        "pitest-verification-receipt-v1",
+        {
+            "policy": checked_policy_raw,
+            "route": raw_components["route"],
+            "routeReceipt": raw_components["routeReceipt"],
+            "tasks": tasks_raw,
+            "attempt": raw_components["attempt"],
+            "completion": raw_components["completion"],
+            "baseline": transition["predecessorBaselineSha256"].encode("ascii"),
+            "summary": raw_components["verificationSummary"],
+            **{
+                f"configuration:{name}": raw_components[f"configuration:{name}"]
+                for name in selected_modules
+            },
+            **{f"xml:{name}": raw_components[f"xml:{name}"] for name in selected_modules},
+            **{
+                f"semantic:{name}": canonical_json_bytes({
+                    "semanticSha256": reports_by_module[name]["semanticSha256"],
+                    "records": reports_by_module[name]["records"],
+                })
+                for name in selected_modules
+            },
+            **{f"html:{name}": raw_components[f"html:{name}"] for name in selected_modules},
+        },
+        sourceCommit=source_commit,
+        status="selected-transition-verified",
+        policySha256=checked_policy_hash,
+        hostNeutralMutationIdentitySha256=neutral_hash,
+        perRunExecutionProvenanceSha256=sha256(canonical_json_bytes(completion_per_run)),
+        historicalLinuxComparison=summary.get("historicalLinuxComparison"),
+    )
+    # The baseline predecessor is represented by its immutable raw SHA identity in this
+    # transition receipt; it is not a second copy of the candidate baseline bytes.
+    expected_predecessor_receipt["predecessors"]["baseline"] = transition[
+        "predecessorBaselineSha256"
+    ]
+    if predecessor_receipt != expected_predecessor_receipt:
+        raise MutationPolicyError("archived predecessor verification receipt typed links differ")
+
+    manifest = receipt_value["evidenceManifest"]
+    if (
+        manifest.get("sourceCommit") != source_commit
+        or manifest.get("policySha256") != checked_policy_hash
+        or manifest.get("hostNeutralMutationIdentitySha256") != neutral_hash
+        or manifest.get("perRunExecutionProvenanceSha256")
+        != sha256(canonical_json_bytes(completion_per_run))
+        or manifest.get("predecessorVerificationReceiptHash")
+        != sha256(raw_components["predecessorVerificationReceipt"])
+        or transition.get("candidateBaselineSha256") != candidate
+        or transition.get("sourceCommit") != source_commit
+        or transition.get("policySha256") != checked_policy_hash
+        or transition.get("routeSha256") != sha256(raw_components["route"])
+        or transition.get("completionSha256") != sha256(raw_components["completion"])
+        or transition.get("predecessorVerificationReceiptSha256")
+        != sha256(raw_components["predecessorVerificationReceipt"])
+        or transition.get("newInputIdentity", {}).get("hostNeutralMutationIdentitySha256")
+        != neutral_hash
+    ):
+        raise MutationPolicyError("archived receipt/transition typed links differ")
+    return {
+        "sourceCommit": source_commit,
+        "policySha256": checked_policy_hash,
+        "hostNeutralMutationIdentitySha256": neutral_hash,
+        "perRunExecutionProvenanceSha256": sha256(canonical_json_bytes(completion_per_run)),
+        "mutationInputIdentitySha256": transition["newInputIdentity"][
+            "mutationInputIdentitySha256"
+        ],
+    }
+
+
 def _validate_component_archive(
     git: GitExecutor,
     *,
     candidate: str,
     receipt: dict[str, Any],
     components: dict[str, str],
-) -> None:
+) -> dict[str, bytes]:
     reference = receipt.get("evidenceArchive")
     if not isinstance(reference, dict):
         raise MutationPolicyError("post-checkpoint successor has no independent component archive")
@@ -1374,6 +2128,7 @@ def _validate_component_archive(
     if not isinstance(records, dict) or set(records) != set(components):
         raise MutationPolicyError("capture archive component set differs")
     expected_paths = {archive_path}
+    component_bytes: dict[str, bytes] = {}
     for index, name in enumerate(sorted(components)):
         record = records.get(name)
         component_path = f"config/quality/mutation-evidence/{candidate}/components/{index:02d}.bin"
@@ -1396,6 +2151,7 @@ def _validate_component_archive(
         private_root = str(REPOSITORY_ROOT).encode("utf-8")
         if private_root in component_raw or b"SECRET_TOKEN" in component_raw:
             raise MutationPolicyError(f"capture archive contains a host-private path or secret: {name}")
+        component_bytes[name] = component_raw
         expected_paths.add(component_path)
     actual_paths = set(_checked_tree_paths(
         git,
@@ -1404,9 +2160,15 @@ def _validate_component_archive(
     ))
     if actual_paths != expected_paths:
         raise MutationPolicyError("capture archive file inventory differs")
+    return component_bytes
 
 
-def validate_capture_transition_chain(current_baseline_sha256: str, git: GitExecutor) -> None:
+def validate_capture_transition_chain(
+    current_baseline_sha256: str,
+    git: GitExecutor,
+    *,
+    current_baseline: dict[str, Any] | None = None,
+) -> None:
     policy, _, _ = load_policy()
     historical_captures, historical_transitions, historical_archives = _validate_initial_anchor_and_history(
         git,
@@ -1531,6 +2293,8 @@ def validate_capture_transition_chain(current_baseline_sha256: str, git: GitExec
     cursor = roots[0]
     visited_receipts = {cursor}
     visited_transitions: set[str] = set()
+    prior_new_identity: dict[str, Any] | None = None
+    final_transition: dict[str, Any] | None = None
     while cursor != current_baseline_sha256:
         edge = transitions.get(cursor)
         if edge is None:
@@ -1571,15 +2335,23 @@ def validate_capture_transition_chain(current_baseline_sha256: str, git: GitExec
             for path in policy["capturePolicy"]["legacyCheckpoint"]["captureReceiptSha256ByPath"]
         }
         if candidate not in legacy_candidates:
-            _validate_component_archive(
+            archived_components = _validate_component_archive(
                 git,
                 candidate=candidate,
                 receipt=receipt_value,
                 components=components,
             )
+            _validate_archived_components(
+                archived_components,
+                candidate=candidate,
+                receipt_value=receipt_value,
+                transition=transition,
+            )
             archive_reference = receipt_value["evidenceArchive"]
             if transition.get("evidenceArchive") != archive_reference:
                 raise MutationPolicyError("transition and capture receipt archive links differ")
+        if prior_new_identity is not None and transition["oldInputIdentity"] != prior_new_identity:
+            raise MutationPolicyError("checked transition chain consecutive input identity differs")
         old_receipt = receipts[cursor][1]
         old_manifest = old_receipt.get("evidenceManifest")
         if isinstance(old_manifest, dict) and (
@@ -1591,9 +2363,28 @@ def validate_capture_transition_chain(current_baseline_sha256: str, git: GitExec
             raise MutationPolicyError("checked transition chain contains a cycle")
         visited_transitions.add(cursor)
         visited_receipts.add(candidate)
+        prior_new_identity = transition["newInputIdentity"]
+        final_transition = transition
         cursor = candidate
     if visited_receipts != set(receipts) or visited_transitions != set(transitions):
         raise MutationPolicyError("checked transition chain contains disconnected or successor evidence")
+    if current_baseline is not None:
+        if final_transition is None:
+            raise MutationPolicyError("current mutation baseline has no typed successor transition")
+        if (
+            final_transition["candidateBaselineSha256"] != current_baseline_sha256
+            or final_transition["sourceCommit"] != current_baseline.get("sourceCommit")
+            or final_transition["policySha256"] != current_baseline.get("policySha256")
+            or final_transition["predecessorBaselineSha256"]
+            != current_baseline.get("predecessorBaselineHash")
+            or final_transition["predecessorVerificationReceiptSha256"]
+            != current_baseline.get("predecessorVerificationReceiptHash")
+            or final_transition["newInputIdentity"].get("mutationInputIdentitySha256")
+            != current_baseline.get("mutationInputIdentitySha256")
+            or final_transition["newInputIdentity"].get("hostNeutralMutationIdentitySha256")
+            != current_baseline.get("hostNeutralMutationIdentitySha256")
+        ):
+            raise MutationPolicyError("current mutation baseline differs from typed successor transition")
 
 
 def validate_baseline_capture_receipt(
@@ -1602,6 +2393,7 @@ def validate_baseline_capture_receipt(
     *,
     git: GitExecutor | None = None,
     trusted_components: dict[str, bytes] | None = None,
+    capture_receipt_raw: bytes | None = None,
     validate_transition_chain: bool = True,
 ) -> dict[str, Any]:
     validate_baseline_schema(baseline)
@@ -1609,7 +2401,11 @@ def validate_baseline_capture_receipt(
         raise MutationPolicyError("mutation baseline bytes are not canonical JSON")
     candidate_hash = sha256(baseline_raw)
     receipt_path = CAPTURE_RECEIPT_ROOT / f"{candidate_hash}.json"
-    receipt_raw = read_bytes(receipt_path)
+    receipt_raw = (
+        capture_receipt_raw
+        if capture_receipt_raw is not None
+        else read_bytes(receipt_path)
+    )
     value = read_strict_json(receipt_raw)
     if not isinstance(value, dict):
         raise MutationPolicyError("mutation capture receipt must be an object")
@@ -1720,7 +2516,11 @@ def validate_baseline_capture_receipt(
         raise MutationPolicyError("mutation baseline/capture receipt contains a self or successor hash")
     if validate_transition_chain:
         trust_git = trust_git or _capture_trust_git()
-        validate_capture_transition_chain(candidate_hash, trust_git)
+        validate_capture_transition_chain(
+            candidate_hash,
+            trust_git,
+            current_baseline=baseline,
+        )
     return value
 
 
@@ -2116,7 +2916,12 @@ def verify(
         if not isinstance(baseline, dict):
             raise MutationPolicyError("mutation baseline is malformed")
         _, git = validate_bootstrap(policy, java_home)
-        validate_baseline_capture_receipt(baseline_raw, baseline, git=git)
+        validate_baseline_capture_receipt(
+            baseline_raw,
+            baseline,
+            git=git,
+            capture_receipt_raw=snapshot.capture_receipt_raw,
+        )
         if git.text(GitCommand.MERGE_BASE, "--is-ancestor", baseline["sourceCommit"], route_value["sourceCommit"]) != "":
             raise MutationPolicyError("mutation baseline source is not an ancestor")
         if not baseline_policy_identity_matches(baseline.get("policySha256"), policy_raw, policy["enforcementPhase"]):
@@ -2182,7 +2987,7 @@ def verify(
     elif not observation:
         raise MutationPolicyError("blocking verification requires mutation baseline")
     value = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "pass" if not violations else "fail",
         "sourceCommit": route_value["sourceCommit"],
         "policySha256": policy_hash,
@@ -2190,6 +2995,10 @@ def verify(
         "routeReceiptSha256": sha256(read_bytes(ROUTE_RECEIPT_PATH)),
         "attemptSha256": sha256(read_bytes(ATTEMPT_PATH)),
         "completionSha256": sha256(completion_raw),
+        "predecessorBaselineSha256": snapshot.sha256 if snapshot is not None else None,
+        "predecessorCaptureReceiptSha256": (
+            snapshot.capture_receipt_sha256 if snapshot is not None else None
+        ),
         "hostNeutralMutationIdentity": completion["hostNeutralMutationIdentity"],
         "hostNeutralMutationIdentitySha256": completion["hostNeutralMutationIdentitySha256"],
         "perRunExecutionProvenance": completion["perRunExecutionProvenance"],
@@ -2458,6 +3267,13 @@ def seal_verification(java_home: str) -> dict[str, Any]:
     baseline_snapshot = read_baseline_snapshot() if selected else None
     if selected and baseline_snapshot is None:
         raise MutationPolicyError("blocking verification requires mutation baseline")
+    if selected and (
+        summary.get("predecessorBaselineSha256") != baseline_snapshot.sha256
+        or baseline_snapshot.capture_receipt_raw is None
+        or summary.get("predecessorCaptureReceiptSha256")
+        != baseline_snapshot.capture_receipt_sha256
+    ):
+        raise MutationPolicyError("verification summary baseline identity differs")
     revalidated = verify(
         observation=False,
         java_home=java_home,
@@ -2480,6 +3296,9 @@ def seal_verification(java_home: str) -> dict[str, Any]:
         if baseline_snapshot is None:
             raise MutationPolicyError("selected verification lost its baseline snapshot")
         predecessors["baseline"] = baseline_snapshot.raw
+        if baseline_snapshot.capture_receipt_raw is None:
+            raise MutationPolicyError("selected verification lost its capture receipt snapshot")
+        predecessors["baselineCaptureReceipt"] = baseline_snapshot.capture_receipt_raw
         for report in completion["reports"]:
             name = report["module"]
             module = policy["modules"][name]

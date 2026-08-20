@@ -267,8 +267,11 @@ def parse_pitest_xml(
     *,
     module: str,
     package_root: str,
-    source_lookup: Callable[[str, str], str],
-    class_lookup: Callable[[str], tuple[str, bytes]],
+    source_lookup: Callable[[str, str], str] | None = None,
+    class_lookup: Callable[[str], tuple[str, bytes]] | None = None,
+    archived_provenance_lookup: Callable[
+        [tuple[object, ...], str], tuple[str, str, str]
+    ] | None = None,
     maximum_bytes: int = 64 * 1024 * 1024,
 ) -> PitestReport:
     if len(xml_bytes) > maximum_bytes:
@@ -327,15 +330,44 @@ def parse_pitest_xml(
         source_file = values["sourceFile"]
         if Path(source_file).name != source_file or source_file in {".", ".."}:
             raise MutationPolicyError("sourceFile must be a safe basename")
-        source_path = source_lookup(mutated_class, source_file)
-        if not source_path or Path(source_path).is_absolute() or ".." in Path(source_path).parts:
-            raise MutationPolicyError("resolved source path escapes the repository")
-        class_path, class_bytes = class_lookup(mutated_class)
-        internal_name, compiled_source = _parse_class_source_file(class_bytes)
-        if internal_name != mutated_class.replace(".", "/"):
-            raise MutationPolicyError("class-file this_class differs from mutatedClass")
-        if compiled_source != source_file:
-            raise MutationPolicyError("class-file SourceFile differs from PIT sourceFile")
+        identity = (
+            mutated_class,
+            values["mutatedMethod"],
+            values["methodDescription"],
+            values["mutator"],
+            indexes,
+        )
+        if archived_provenance_lookup is not None:
+            if source_lookup is not None or class_lookup is not None:
+                raise MutationPolicyError("archived PIT provenance cannot mix live lookups")
+            source_path, class_path, class_sha256 = archived_provenance_lookup(
+                identity,
+                source_file,
+            )
+            if (
+                not source_path
+                or Path(source_path).is_absolute()
+                or ".." in Path(source_path).parts
+                or Path(source_path).name != source_file
+                or not class_path
+                or Path(class_path).is_absolute()
+                or ".." in Path(class_path).parts
+                or not re.fullmatch(r"[0-9a-f]{64}", class_sha256)
+            ):
+                raise MutationPolicyError("archived PIT source/class provenance is invalid")
+        else:
+            if source_lookup is None or class_lookup is None:
+                raise MutationPolicyError("live PIT parsing requires source and class lookups")
+            source_path = source_lookup(mutated_class, source_file)
+            if not source_path or Path(source_path).is_absolute() or ".." in Path(source_path).parts:
+                raise MutationPolicyError("resolved source path escapes the repository")
+            class_path, class_bytes = class_lookup(mutated_class)
+            internal_name, compiled_source = _parse_class_source_file(class_bytes)
+            if internal_name != mutated_class.replace(".", "/"):
+                raise MutationPolicyError("class-file this_class differs from mutatedClass")
+            if compiled_source != source_file:
+                raise MutationPolicyError("class-file SourceFile differs from PIT sourceFile")
+            class_sha256 = hashlib.sha256(class_bytes).hexdigest()
         record = MutationRecord(
             source_path=source_path,
             source_file=source_file,
@@ -352,7 +384,7 @@ def parse_pitest_xml(
             killing_test=killing_test,
             description=values["description"],
             class_path=class_path,
-            class_sha256=hashlib.sha256(class_bytes).hexdigest(),
+            class_sha256=class_sha256,
         )
         if record.identity in identities:
             raise MutationPolicyError("duplicate PIT mutation identity")
