@@ -112,19 +112,21 @@ class RoborazziConventionPluginTest {
 
     @Test
     fun projectPathAndNearMatchTaskNamesDoNotSelectScreenshotTests() {
-        val pathProject = newProject("project-path-near-match")
-            .writeRoborazziFixture(listOf(":roborazzi-screen"))
-        val pathResult =
-            pathProject.runner(":roborazzi-screen:testDebugUnitTest", "--rerun-tasks").build()
-        pathResult.assertTaskOutcome(":roborazzi-screen:testDebugUnitTest", TaskOutcome.SUCCESS)
-        assertTestClasses(pathProject, ":roborazzi-screen", includeScreenshot = false)
+        val project =
+            newProject("project-and-task-near-match")
+                .writeRoborazziFixture(listOf(":roborazzi-screen", ":task-near-match"))
+        val result =
+            project.runner(
+                ":roborazzi-screen:testDebugUnitTest",
+                ":task-near-match:notRoborazziVerification",
+                "--rerun-tasks",
+            ).build()
 
-        val taskProject = newProject("task-near-match").writeRoborazziFixture()
-        val taskResult =
-            taskProject.runner("notRoborazziVerification", "--rerun-tasks").build()
-        taskResult.assertTaskOutcome(":notRoborazziVerification", TaskOutcome.SUCCESS)
-        taskResult.assertTaskOutcome(":testDebugUnitTest", TaskOutcome.SUCCESS)
-        assertTestClasses(taskProject, includeScreenshot = false)
+        result.assertTaskOutcome(":roborazzi-screen:testDebugUnitTest", TaskOutcome.SUCCESS)
+        result.assertTaskOutcome(":task-near-match:notRoborazziVerification", TaskOutcome.SUCCESS)
+        result.assertTaskOutcome(":task-near-match:testDebugUnitTest", TaskOutcome.SUCCESS)
+        assertTestClasses(project, ":roborazzi-screen", includeScreenshot = false)
+        assertTestClasses(project, ":task-near-match", includeScreenshot = false)
     }
 
     @Test
@@ -136,24 +138,34 @@ class RoborazziConventionPluginTest {
                 "compareRoborazzi",
                 "verifyAndRecordRoborazzi",
             )
-        val project = newProject("aggregate-families").writeRoborazziFixture()
-        writePng(project.snapshotDirectory().resolve("staging.png"), MAGENTA_ARGB)
+        val fixturePaths =
+            mapOf(
+                "recordRoborazzi" to ":record",
+                "verifyRoborazzi" to ":verify",
+                "compareRoborazzi" to ":compare",
+                "verifyAndRecordRoborazzi" to ":verify-record",
+            )
+        val project =
+            newProject("aggregate-families")
+                .writeRoborazziFixture(fixturePaths.values.toList())
+        fixturePaths.values.forEach { projectPath ->
+            writePng(project.snapshotDirectory(projectPath).resolve("staging.png"), MAGENTA_ARGB)
+        }
+
+        val requestedTasks =
+            families.map { taskName ->
+                "${fixturePaths.getValue(taskName)}:$taskName"
+            }
+        val result =
+            project.runner(*requestedTasks.toTypedArray(), "--continue").buildAndFail()
 
         families.forEach { taskName ->
-            val testResults = project.projectDir.resolve("build/test-results/testDebugUnitTest")
-            if (testResults.exists()) {
-                require(testResults.deleteRecursively()) {
-                    "Unable to remove stale JUnit evidence: $testResults"
-                }
-            }
-
-            val result = project.runner(taskName).buildAndFail()
-
-            result.assertTaskOutcome(":testDebugUnitTest", TaskOutcome.SUCCESS)
-            result.assertTaskOutcome(":${taskName}Debug", TaskOutcome.FAILED)
-            assertTrue(result.output.contains("exact staging magenta pixel(s)"))
-            assertTestClasses(project, includeScreenshot = true)
+            val projectPath = fixturePaths.getValue(taskName)
+            result.assertTaskOutcome("$projectPath:testDebugUnitTest", TaskOutcome.SUCCESS)
+            result.assertTaskOutcome("$projectPath:${taskName}Debug", TaskOutcome.FAILED)
+            assertTestClasses(project, projectPath, includeScreenshot = true)
         }
+        assertTrue(result.output.contains("exact staging magenta pixel(s)"))
     }
 
     @Test
