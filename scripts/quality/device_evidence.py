@@ -569,6 +569,27 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
                 and not isinstance(diagnostic["permissionSelection"], dict)
             ):
                 raise DeviceEvidenceError("failure diagnostic attempt/test identity differs")
+            selection = diagnostic["permissionSelection"]
+            if selection is not None:
+                if set(selection) != {"packageName", "resourceName"}:
+                    raise DeviceEvidenceError("permission selection diagnostic fields differ")
+                if metadata["apiLevel"] <= 28:
+                    packages = {
+                        "com.android.packageinstaller",
+                        "com.google.android.packageinstaller",
+                    }
+                    resources = {"permission_allow_button", "permission_deny_button"}
+                else:
+                    packages = {
+                        "com.android.permissioncontroller",
+                        "com.google.android.permissioncontroller",
+                    }
+                    resources = {
+                        "permission_allow_foreground_only_button",
+                        "permission_deny_button",
+                    }
+                if selection["packageName"] not in packages or selection["resourceName"] not in resources:
+                    raise DeviceEvidenceError("permission selection is outside the closed SDK table")
         status = "FAIL"
     elif quarantine:
         status = "QUARANTINED"

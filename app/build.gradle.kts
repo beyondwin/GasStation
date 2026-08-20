@@ -26,6 +26,7 @@ android {
             applicationIdSuffix = ".demo"
             versionNameSuffix = "-demo"
             testInstrumentationRunner = "com.gasstation.HiltTestRunner"
+            testInstrumentationRunnerArguments["useTestStorageService"] = "true"
             buildConfigField("boolean", "DEMO_MODE", "true")
             buildConfigField("String", "OPINET_API_KEY", "\"\"")
         }
@@ -64,7 +65,9 @@ android {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
+    sourceSets.getByName("androidTest").kotlin.directories.add("src/sharedTest/kotlin")
     sourceSets.getByName("androidTestDemo").kotlin.directories.add("src/demoAndroidTest/kotlin")
+    sourceSets.getByName("testDemo").kotlin.directories.add("src/sharedTest/kotlin")
 }
 
 dependencies {
@@ -98,8 +101,10 @@ dependencies {
     kspTest(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.uiautomator)
     androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
     kspAndroidTest(libs.hilt.android.compiler)
 }

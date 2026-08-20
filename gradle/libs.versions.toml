@@ -31,6 +31,7 @@ turbine = "1.2.1"
 benchmark = "1.4.1"
 uiautomator = "2.4.0"
 orchestrator = "1.6.1"
+androidxTestServices = "1.6.0"
 timber = "5.0.1"
 roborazzi = "1.69.0"
 robolectric = "4.16.1"
@@ -97,6 +98,7 @@ androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", vers
 androidx-macrobenchmark-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "orchestrator" }
+androidx-test-services = { module = "androidx.test.services:test-services", version.ref = "androidxTestServices" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi-core = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }

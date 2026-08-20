@@ -1,5 +1,6 @@
 package com.gasstation
 
+import android.os.Build
 import android.os.SystemClock
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -12,7 +13,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.Until
+import com.gasstation.test.DeviceFailureArtifactRule
+import com.gasstation.test.DeviceFailureContext
+import com.gasstation.test.DevicePrSmoke
+import com.gasstation.test.PermissionButton
+import com.gasstation.test.PermissionUiContract
+import com.gasstation.test.PermissionUiResource
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertFalse
@@ -23,9 +29,6 @@ import com.gasstation.feature.stationlist.R as StationListR
 
 private const val PERMISSION_GUIDANCE_TAG = "station-list-permission-guidance"
 private const val WATCH_TOGGLE_TAG = "station-list-watch-toggle"
-private const val PERMISSION_CONTROLLER_PACKAGE = "com.android.permissioncontroller"
-private const val ALLOW_FOREGROUND_BUTTON = "permission_allow_foreground_only_button"
-private const val DENY_BUTTON = "permission_deny_button"
 private const val PERMISSION_DIALOG_TIMEOUT_MS = 15_000L
 
 @HiltAndroidTest
@@ -37,6 +40,10 @@ class DemoPermissionFlowTest {
     @get:Rule(order = 1)
     val rule = createAndroidComposeRule<MainActivity>()
 
+    @get:Rule(order = 2)
+    val failureArtifacts = DeviceFailureArtifactRule()
+
+    @DevicePrSmoke
     @Test
     fun a_deniedDemoFirstEntry_staysOnPermissionGuidanceWithoutOpeningAndroidPermissionUi() {
         rule.onNodeWithTag(PERMISSION_GUIDANCE_TAG).assertExists()
@@ -50,19 +57,21 @@ class DemoPermissionFlowTest {
         assertNoNearbyContent()
     }
 
+    @DevicePrSmoke
     @Test
     fun b_denyingExplicitPermissionRequest_keepsGuidanceWithoutNearbyContent() {
         rule.onNodeWithText(stationListString(StationListR.string.station_list_permission_action)).performClick()
-        permissionButton(DENY_BUTTON).click()
+        permissionButton(PermissionButton.DENY).click()
 
         rule.onNodeWithTag(PERMISSION_GUIDANCE_TAG).assertExists()
         assertNoNearbyContent()
     }
 
+    @DevicePrSmoke
     @Test
     fun c_grantingExplicitPermissionRequest_revealsFixedDemoNearbyContent() {
         rule.onNodeWithText(stationListString(StationListR.string.station_list_permission_action)).performClick()
-        permissionButton(ALLOW_FOREGROUND_BUTTON).click()
+        permissionButton(PermissionButton.ALLOW).click()
 
         rule.waitUntil(10_000) {
             rule.onAllNodesWithTag(
@@ -80,19 +89,41 @@ class DemoPermissionFlowTest {
         ).assertCountEquals(0)
     }
 
-    private fun permissionButton(resourceName: String): UiObject2 {
+    private fun permissionButton(button: PermissionButton): UiObject2 {
         val device = device()
-        return device.wait(
-            Until.findObject(By.res(PERMISSION_CONTROLLER_PACKAGE, resourceName)),
-            PERMISSION_DIALOG_TIMEOUT_MS,
-        ) ?: device.findObject(By.res(resourceName))
-            ?: error("Android permission UI button '$resourceName' was not shown")
+        val candidates = PermissionUiContract.candidates(Build.VERSION.SDK_INT, button)
+        val deadline = SystemClock.uptimeMillis() + PERMISSION_DIALOG_TIMEOUT_MS
+        var matches: List<Pair<PermissionUiResource, UiObject2>> = emptyList()
+        while (SystemClock.uptimeMillis() < deadline) {
+            matches =
+                candidates.flatMap { candidate ->
+                    device.findObjects(By.res(candidate.packageName, candidate.resourceName))
+                        .filter { objectUnderTest ->
+                            objectUnderTest.isEnabled && !objectUnderTest.visibleBounds.isEmpty
+                        }
+                        .map { objectUnderTest -> candidate to objectUnderTest }
+                }
+            if (matches.isNotEmpty()) break
+            SystemClock.sleep(100)
+        }
+        check(matches.size == 1) {
+            "Expected exactly one visible enabled permission button for SDK ${Build.VERSION.SDK_INT}; " +
+                "attempted=$candidates matches=${matches.map { it.first }}"
+        }
+        DeviceFailureContext.recordPermissionSelection(matches.single().first)
+        return matches.single().second
     }
 
     private fun hasPermissionDialog(): Boolean {
         val device = device()
-        return device.hasObject(By.res(PERMISSION_CONTROLLER_PACKAGE, ALLOW_FOREGROUND_BUTTON)) ||
-            device.hasObject(By.res(ALLOW_FOREGROUND_BUTTON))
+        return (
+            PermissionUiContract.candidates(Build.VERSION.SDK_INT, PermissionButton.ALLOW) +
+                PermissionUiContract.candidates(Build.VERSION.SDK_INT, PermissionButton.DENY)
+            )
+            .any { candidate ->
+                device.findObjects(By.res(candidate.packageName, candidate.resourceName))
+                    .any { objectUnderTest -> objectUnderTest.isEnabled && !objectUnderTest.visibleBounds.isEmpty }
+            }
     }
 
     private fun stationListString(resourceId: Int): String =

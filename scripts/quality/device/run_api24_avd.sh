@@ -13,6 +13,14 @@ root=$(device_repo_root)
 require_device_environment >/dev/null
 "$script_dir/verify_host.sh" --lane "$lane"
 attempt_root=$(prepare_device_attempt "$lane" "$0")
+attempt_id=$(python3 - "$root/$attempt_root/attempt.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["attemptId"])
+PY
+)
 clear_lane_result_roots "$lane"
 mkdir -p "$root/$attempt_root/logs" "$root/$attempt_root/raw"
 commands="$root/$attempt_root/raw/commands.json"
@@ -125,7 +133,9 @@ for index in "${!tasks[@]}"; do
   set +e
   ANDROID_SERIAL=emulator-5554 "$timeout_command" --signal=TERM --kill-after=30s "${seconds[$index]}s" \
     "$root/gradlew" "$task" --warning-mode fail --no-parallel --max-workers=1 \
-    --rerun-tasks --configuration-cache >"$log" 2>&1
+    --rerun-tasks --configuration-cache \
+    "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=$attempt_id" \
+    >"$log" 2>&1
   status=$?
   set -e
   python3 "$script_dir/record_command.py" \

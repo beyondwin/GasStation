@@ -5,6 +5,7 @@ import android.location.Geocoder
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import com.gasstation.core.model.Coordinates
+import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.location.LocationAddressLookupResult
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -19,7 +20,7 @@ class AndroidAddressResolverDeviceTest {
         assumeTrue(Geocoder.isPresent())
 
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val resolver = AndroidAddressResolver(context)
+        val resolver = AndroidAddressResolver(context, DeviceTestCrashReporter)
 
         val result = withTimeout(GEOCODER_TIMEOUT_MILLIS) {
             resolver.addressFor(
@@ -40,5 +41,11 @@ class AndroidAddressResolverDeviceTest {
 
     private companion object {
         const val GEOCODER_TIMEOUT_MILLIS = 10_000L
+    }
+
+    private object DeviceTestCrashReporter : CrashReporter {
+        override fun recordNonFatal(throwable: Throwable, metadata: Map<String, String>) = Unit
+
+        override fun log(message: String) = Unit
     }
 }

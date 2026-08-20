@@ -44,6 +44,8 @@ import com.gasstation.feature.watchlist.WATCHLIST_CARD_TEST_TAG
 import com.gasstation.map.ExternalMapLaunchResult
 import com.gasstation.map.ExternalMapLauncher
 import com.gasstation.startup.DemoSeedStartupHook
+import com.gasstation.test.DeviceFailureArtifactRule
+import com.gasstation.test.DevicePrSmoke
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -101,11 +103,15 @@ class StationPortfolioFlowTest {
     @get:Rule(order = 2)
     val rule = createAndroidComposeRule<MainActivity>()
 
+    @get:Rule(order = 3)
+    val failureArtifacts = DeviceFailureArtifactRule()
+
     @Before
     fun setUp() {
         hiltRule.inject()
     }
 
+    @DevicePrSmoke
     @Test
     fun demoFlow_can_watch_station_and_open_watchlist() {
         reseedDemoDatabase()

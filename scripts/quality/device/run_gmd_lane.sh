@@ -20,6 +20,14 @@ root=$(device_repo_root)
 require_device_environment >/dev/null
 "$script_dir/verify_host.sh" --lane "$lane"
 attempt_root=$(prepare_device_attempt "$lane" "$0")
+attempt_id=$(python3 - "$root/$attempt_root/attempt.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["attemptId"])
+PY
+)
 finalized=0
 on_exit() {
   local saved=$?
@@ -67,6 +75,7 @@ for index in "${!tasks[@]}"; do
     --rerun-tasks
     --configuration-cache
     --info
+    "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=$attempt_id"
   )
   if [[ -n $filter ]]; then
     arguments+=("-Pandroid.testInstrumentationRunnerArguments.annotation=$filter")

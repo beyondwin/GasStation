@@ -166,11 +166,27 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self.assertEqual("QUARANTINED", result["status"])
         self.assertNotEqual("PASS", result["status"])
 
+    def test_failed_app_test_requires_exact_attempt_bound_png_and_diagnostic(self):
+        def fail_one(facts, completion, junit):
+            junit["failed"] = {junit["tests"][0]}
+
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt("api28-pr-smoke", mutator=fail_one)
+
+        self._reset_attempt_root()
+        result = self._write_complete_attempt(
+            "api28-pr-smoke",
+            mutator=fail_one,
+            include_failure_artifacts=True,
+        )
+        self.assertEqual("FAIL", result["status"])
+
     def _write_complete_attempt(
         self,
         lane,
         mutator=None,
         preserve_junit=False,
+        include_failure_artifacts=False,
         today="2026-08-20",
     ):
         lane_policy = load_policy(self.policy_path, today=today)["lanes"][lane]
@@ -242,6 +258,31 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         (self.attempt_root / "apks/app.apk").write_bytes(b"app-apk")
         (self.attempt_root / "apks/test.apk").write_bytes(b"test-apk")
 
+        failure_artifacts = []
+        if include_failure_artifacts:
+            for identity in junit["failed"]:
+                class_name, method_name = identity.split("#", 1)
+                safe_class = "".join(character if character.isalnum() or character in "_-" else "_" for character in class_name)
+                safe_method = "".join(character if character.isalnum() or character in "_-" else "_" for character in method_name)
+                stem = f"failure-fixture-run-1-{safe_class}-{safe_method}-api{facts['apiLevel']}"
+                (self.attempt_root / f"results/{stem}.png").write_bytes(b"fixture-png")
+                self._write_json(
+                    self.attempt_root / f"results/{stem}.txt",
+                    {
+                        "apiLevel": facts["apiLevel"],
+                        "attemptId": "fixture-run-1",
+                        "className": class_name,
+                        "methodName": method_name,
+                        "permissionSelection": None,
+                    },
+                )
+                failure_artifacts.extend(
+                    (
+                        (f"results/{stem}.png", "failure-png"),
+                        (f"results/{stem}.txt", "failure-diagnostic"),
+                    )
+                )
+
         for relative, kind in (
             ("results/app.xml", "junit"),
             ("raw/device-metadata.json", "device-metadata"),
@@ -252,6 +293,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             ("raw/utp-receipt.txt", "raw-device"),
             ("apks/app.apk", "app-apk"),
             ("apks/test.apk", "test-apk"),
+            *failure_artifacts,
         ):
             path = self.attempt_root / relative
             if path.exists() or path.is_symlink():

@@ -130,6 +130,35 @@ class DeviceScriptTest(unittest.TestCase):
         self.assertNotIn("|| true", text)
         self.assertNotIn("|| true", (DEVICE / "run_api24_avd.sh").read_text(encoding="utf-8"))
 
+    def test_android_test_storage_and_pr_annotation_contract_is_exact(self):
+        app_build = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
+        versions = (ROOT / "gradle/libs.versions.toml").read_text(encoding="utf-8")
+        rule = (ROOT / "app/src/androidTest/java/com/gasstation/test/DeviceFailureArtifactRule.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('androidxTestServices = "1.6.0"', versions)
+        self.assertIn('version.ref = "androidxTestServices"', versions)
+        self.assertIn('testInstrumentationRunnerArguments["useTestStorageService"] = "true"', app_build)
+        self.assertIn("androidTestUtil(libs.androidx.test.services)", app_build)
+        self.assertNotIn("additionalTestOutputDir", app_build)
+        self.assertNotIn("/sdcard", rule)
+        self.assertIn("writeToTestStorage", rule)
+        self.assertIn("PlatformTestStorageRegistry", rule)
+
+        permission = (ROOT / "app/src/demoAndroidTest/kotlin/com/gasstation/DemoPermissionFlowTest.kt").read_text(
+            encoding="utf-8"
+        )
+        location = (ROOT / "app/src/demoAndroidTest/kotlin/com/gasstation/DemoLocationHookIntegrationTest.kt").read_text(
+            encoding="utf-8"
+        )
+        portfolio = (ROOT / "app/src/androidTest/java/com/gasstation/StationPortfolioFlowTest.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(3, permission.count("@DevicePrSmoke"))
+        self.assertEqual(1, location.count("@DevicePrSmoke"))
+        self.assertEqual(1, portfolio.count("@DevicePrSmoke"))
+        self.assertNotIn("By.res(resourceName)", permission)
+
 
 if __name__ == "__main__":
     unittest.main()
