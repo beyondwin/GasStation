@@ -38,6 +38,7 @@
 | proxy endpoint mode는 어디서 보나 | `core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt`, `core/network/src/main/kotlin/com/gasstation/core/network/station/ProxyStationFetcher.kt`, `docs/adr/2026-05-18-backend-proxy-escalation.md` |
 | 현재 완료된 개선과 조건부 backlog는 어디서 보나 | `docs/history/deep-analysis-report.md`, `docs/history/improvement-analysis.md` |
 | CI와 로컬 검증 명령의 기준은 어디서 보나 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
+| API 24/28/36 기기 lane과 artifact 판정은 어디서 보나 | `docs/runbooks/device-verification.md`, `.github/workflows/device-evidence.yml`, `config/quality/device-evidence-policy.json` |
 
 ## 권장 코드 읽기 순서
 

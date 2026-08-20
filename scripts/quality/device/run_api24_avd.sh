@@ -10,8 +10,6 @@ if [[ ${1:-} != --lane || ${2:-} != api24-scheduled || $# -ne 2 ]]; then
 fi
 lane=api24-scheduled
 root=$(device_repo_root)
-require_device_environment >/dev/null
-"$script_dir/verify_host.sh" --lane "$lane"
 attempt_root=$(prepare_device_attempt "$lane" "$0")
 attempt_id=$(python3 - "$root/$attempt_root/attempt.json" <<'PY'
 import json
@@ -21,19 +19,12 @@ from pathlib import Path
 print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["attemptId"])
 PY
 )
-clear_lane_result_roots "$lane"
-mkdir -p "$root/$attempt_root/logs" "$root/$attempt_root/raw"
-commands="$root/$attempt_root/raw/commands.json"
-printf '[]\n' > "$commands"
-
-adb="$ANDROID_SDK_ROOT/platform-tools/adb"
-sdkmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-avdmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
-emulator="$ANDROID_SDK_ROOT/emulator/emulator"
-timeout_command=$(device_timeout_command)
-avd_home="$RUNNER_TEMP/gasstation-device-${GITHUB_RUN_ID:-${GASSTATION_DEVICE_RUN_ID}}-${GITHUB_RUN_ATTEMPT:-${GASSTATION_DEVICE_ATTEMPT}}"
-test ! -e "$avd_home"
-mkdir -m 700 "$avd_home"
+adb=
+sdkmanager=
+avdmanager=
+emulator=
+timeout_command=
+avd_home=
 emulator_pid=
 logcat_pid=
 cleanup_status=PASS
@@ -49,16 +40,20 @@ cleanup() {
     kill "$logcat_pid" 2>/dev/null
     wait "$logcat_pid" 2>/dev/null
   fi
-  "$adb" -s emulator-5554 emu kill >/dev/null 2>&1
-  for _ in {1..30}; do
-    kill -0 "${emulator_pid:-0}" 2>/dev/null || break
-    sleep 1
-  done
+  if [[ -n ${adb:-} ]]; then
+    "$adb" -s emulator-5554 emu kill >/dev/null 2>&1
+  fi
+  if [[ -n ${emulator_pid:-} ]]; then
+    for _ in {1..30}; do
+      kill -0 "$emulator_pid" 2>/dev/null || break
+      sleep 1
+    done
+  fi
   if [[ -n ${emulator_pid:-} ]] && kill -0 "$emulator_pid" 2>/dev/null; then
     kill "$emulator_pid" 2>/dev/null
     wait "$emulator_pid" 2>/dev/null
   fi
-  if [[ -d $avd_home && ! -L $avd_home && $avd_home == "$RUNNER_TEMP"/gasstation-device-* ]]; then
+  if [[ -n ${avd_home:-} && -d $avd_home && ! -L $avd_home && $avd_home == "${RUNNER_TEMP:-}"/gasstation-device-* ]]; then
     rm -rf -- "$avd_home"
   else
     cleanup_status=FAIL
@@ -78,6 +73,22 @@ on_exit() {
   exit "$saved"
 }
 trap on_exit EXIT
+
+require_device_environment >/dev/null
+"$script_dir/verify_host.sh" --lane "$lane"
+clear_lane_result_roots "$lane"
+mkdir -p "$root/$attempt_root/logs" "$root/$attempt_root/raw"
+commands="$root/$attempt_root/raw/commands.json"
+printf '[]\n' > "$commands"
+
+adb="$ANDROID_SDK_ROOT/platform-tools/adb"
+sdkmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+avdmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
+emulator="$ANDROID_SDK_ROOT/emulator/emulator"
+timeout_command=$(device_timeout_command)
+avd_home="$RUNNER_TEMP/gasstation-device-${GITHUB_RUN_ID:-${GASSTATION_DEVICE_RUN_ID}}-${GITHUB_RUN_ATTEMPT:-${GASSTATION_DEVICE_ATTEMPT}}"
+test ! -e "$avd_home"
+mkdir -m 700 "$avd_home"
 
 set +e
 "$timeout_command" --signal=TERM --kill-after=30s 720s \

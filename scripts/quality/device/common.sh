@@ -86,7 +86,10 @@ from pathlib import Path
 root = Path(sys.argv[1]).resolve()
 lane = sys.argv[2]
 policy = json.loads((root / "config/quality/device-evidence-policy.json").read_text(encoding="utf-8"))
-for relative in policy["lanes"][lane]["resultRoots"]:
+for relative in [
+    *policy["lanes"][lane]["resultRoots"],
+    *policy["lanes"][lane]["apkRoots"],
+]:
     candidate = root / relative
     if candidate.is_symlink():
         raise SystemExit(f"refusing symlink result root: {relative}")

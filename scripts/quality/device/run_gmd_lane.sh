@@ -17,8 +17,6 @@ case "$lane" in
 esac
 
 root=$(device_repo_root)
-require_device_environment >/dev/null
-"$script_dir/verify_host.sh" --lane "$lane"
 attempt_root=$(prepare_device_attempt "$lane" "$0")
 attempt_id=$(python3 - "$root/$attempt_root/attempt.json" <<'PY'
 import json
@@ -39,6 +37,8 @@ on_exit() {
   exit "$saved"
 }
 trap on_exit EXIT
+require_device_environment >/dev/null
+"$script_dir/verify_host.sh" --lane "$lane"
 clear_lane_result_roots "$lane"
 mkdir -p "$root/$attempt_root/logs" "$root/$attempt_root/raw"
 commands="$root/$attempt_root/raw/commands.json"

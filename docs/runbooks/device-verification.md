@@ -1,0 +1,61 @@
+# Android 기기 검증 런북
+
+이 문서는 API 24/28/36 에뮬레이터 검증의 운영 소유자입니다. 테스트의 계층별 의미는 [`docs/test-strategy.md`](../test-strategy.md), 정확한 전체 저장소 검증 조합은 [`docs/verification-matrix.md`](../verification-matrix.md)를 따릅니다. 이 경로는 `demo` 앱, Room migration, API 36 Geocoder callback을 제한된 기기 매트릭스에서 확인하며 `prod` 실통신이나 물리 기기 성능을 증명하지 않습니다.
+
+## 지원 호스트와 사전 조건
+
+호스팅 경로는 Linux x86_64, JDK 21, Android SDK command-line tools, `platform-tools`, emulator, KVM 읽기/쓰기 권한, 충분한 디스크를 전제로 합니다. `scripts/quality/device/verify_host.sh`가 lane별 도구와 KVM, 디스크 조건을 변경 전에 검사합니다. API 24 connected lane은 `system-images;android-24;google_apis;x86_64`를 명시적으로 설치하고, API 28/36은 Gradle Managed Device가 각각 AOSP/Google 이미지를 관리합니다.
+
+Darwin arm64, KVM이 없는 호스트, 예약 serial `emulator-5554`가 이미 사용 중인 호스트에서는 runtime lane을 실행하지 않습니다. host unit test, Android-test compile, Gradle task discovery는 구현 준비 증거일 뿐 device `PASS`가 아닙니다.
+
+## 닫힌 lane 매트릭스
+
+| Lane | 기기와 이미지 | 정확한 Gradle 작업 | 정규 inventory | 역할 |
+| --- | --- | --- | ---: | --- |
+| `api28-pr-smoke` | GMD `gasstationPixel2Api28`, Pixel 2, API 28 AOSP | `:app:gasstationPixel2Api28DemoDebugAndroidTest` + `com.gasstation.test.DevicePrSmoke` filter | app 5, skip 0 | PR report-only |
+| `api24-scheduled` | connected AVD `gasstation_api24`, Pixel 2, API 24 Google APIs x86_64, `emulator-5554` | `:app:connectedDemoDebugAndroidTest`, `:core:database:connectedDebugAndroidTest` | app 10 + Room 6, skip 0 | scheduled/manual blocking diagnostic |
+| `api28-scheduled` | GMD `gasstationPixel2Api28`, Pixel 2, API 28 AOSP | `:app:gasstationPixel2Api28DemoDebugAndroidTest`, `:core:database:gasstationPixel2Api28DebugAndroidTest` | app 10 + Room 6, skip 0 | scheduled/manual blocking diagnostic |
+| `api36-scheduled` | GMD `gasstationPixel2Api36`, Pixel 2, API 36 Google | `:app:gasstationPixel2Api36DemoDebugAndroidTest`, `:core:database:gasstationPixel2Api36DebugAndroidTest`, `:core:location:gasstationPixel2Api36DebugAndroidTest` | app 10 + Room 6 + Geocoder 1, skip 0 | scheduled/manual blocking diagnostic |
+
+Task 이름은 AGP 9.3 task discovery에서 확인한 값입니다. GMD group이나 shard는 만들지 않으며, 각 Gradle 작업은 software GPU, 단일 worker, `--no-parallel`, `--rerun-tasks`, configuration cache, warning failure로 한 번만 실행됩니다.
+
+## 정규 실행 명령
+
+깨끗한 checkout과 event SHA/run identity가 있는 지원 호스트에서만 다음 wrapper를 사용합니다.
+
+```bash
+scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke
+scripts/quality/device/run_api24_avd.sh --lane api24-scheduled
+scripts/quality/device/run_gmd_lane.sh --lane api28-scheduled
+scripts/quality/device/run_gmd_lane.sh --lane api36-scheduled
+```
+
+API 24 wrapper는 host preflight 뒤 SDK/AVD를 설치하고 전용 `ANDROID_AVD_HOME`을 만들며, `emulator-5554`의 boot/API/fingerprint/ABI를 확인합니다. app과 Room 작업을 각각 bounded invocation으로 실행한 뒤 logcat을 멈추고 emulator를 종료하며 전용 AVD 디렉터리를 안전 조건 아래 제거합니다. trap, cleanup, completion receipt 중 하나라도 실패하면 `PASS`가 아닙니다. API 28/36 wrapper는 AGP/UTP가 관리하는 각 GMD 작업의 setup과 teardown을 해당 작업 timeout 안에서 소유합니다.
+
+Repository, Gradle, shell, workflow retry와 shard는 금지합니다. polling은 동일한 emulator의 boot/종료 상태만 확인합니다. timeout, cached/up-to-date task, 필수 test skip, platform error, 불완전 cleanup은 모두 실패입니다.
+
+## receipt와 artifact
+
+각 attempt는 `build/device-evidence/<lane>/<run-id>-<attempt>/` 아래에 시작 전 `attempt.json`, 실행 후 `completion.json`, `verification.json` 또는 실패 시 `terminal.json`을 둡니다. receipt는 checkout/event SHA, policy/wrapper/verifier hash, exact task/filter, command exit/outcome, device facts, canonical JUnit identity/counter, APK와 산출물의 상대 경로/SHA-256, cleanup을 결합합니다. 기존 result와 APK root는 실행 전에 지우며 기존 attempt root는 덮어쓰지 않습니다.
+
+원본 AGP 경로는 module별 `build/outputs/androidTest-results/{managedDevice,connected}`, `build/reports/androidTests/{managedDevice,connected}`, allowlisted APK root입니다. workflow artifact는 attempt root와 도달한 AGP root를 함께 올립니다. PR artifact 이름은 `device-api28-pr-<run-id>-<attempt>`이고 14일 보존합니다. scheduled artifact는 lane별 고유 이름으로 30일 보존합니다. upload step의 artifact ID, URL, archive digest는 job summary에 남고 member hash는 `completion.json`이 소유합니다. 파일이 없으면 upload도 실패합니다.
+
+실패 시 먼저 `terminal.json`/`verification.json`, `raw/commands.json`, `logs/gradle-*.log`, JUnit XML, logcat/UTP receipt를 확인합니다. 앱 UI test 실패는 `failure-<attempt>-<class>-<method>-api<level>.png/.txt` 쌍이 Platform Test Storage를 통해 host output에 있어야 합니다. controlled API-28 failure transport와 복구된 성공 attempt가 모두 없으면 이 transport는 `PASS`가 아닙니다.
+
+## 판정, 승격, 격리
+
+`PASS`는 정규 wrapper가 정확한 source commit에서 모든 identity를 zero failure/error/skip으로 실행하고, device/receipt/hash/cleanup 검증까지 통과했을 때만 사용합니다. `FAIL`은 실행했지만 어느 계약이든 실패한 상태, `QUARANTINED`는 활성 overlay로 인한 non-PASS 상태, `NOT RUN`은 지원·권한 있는 attempt 자체가 없는 상태입니다.
+
+초기 PR job만 job-level `continue-on-error: true`인 report-only입니다. 개별 step은 실패를 숨기지 않습니다. scheduled/manual job은 실패 시 red이지만 Task 8에서는 `release-publish` 선행 조건이 아닙니다. PR job을 blocking으로 승격하려면 최신 정책/selector/workflow/test 변경 뒤 세 번 연속 weekly 전체 매트릭스 PASS와 세 번의 서로 다른 PR smoke PASS, 완전한 artifact, zero skip, qualification 기간 전체 무격리, 재시도/폐기 없음, source SHA와 run/artifact identity를 인용한 별도 리뷰 커밋이 필요합니다.
+
+격리는 `config/quality/device-evidence-quarantine.json`에 정규 test identity 하나, owner, issue, reason, created/expiry를 기록하며 최대 7일입니다. wildcard/class/API 단위 격리, `@Ignore`, inventory 삭제, `|| true`는 허용하지 않습니다. 활성 격리는 canonical expected set을 바꾸지 않고 항상 `QUARANTINED`/DEGRADED입니다.
+
+## 현재 runtime 증거와 한계
+
+2026-08-21 Task-8 구현 준비 시점의 상태는 다음과 같습니다.
+
+- API-28 failure-artifact transport: `NOT RUN` — 현재 작업은 Darwin arm64/no-push/no-hosted-run 권한 경계이며 controlled device probe를 실행하지 않았습니다.
+- `api24-scheduled`, `api28-pr-smoke`, `api28-scheduled`, `api36-scheduled`: 모두 `NOT RUN` — host parser/TestKit/compile 증거만 있으며 지원 Linux x86_64/KVM runtime attempt가 없습니다.
+- hosted workflow: `HOSTED NOT RUN` — workflow dispatch, push, 원격 run을 수행하지 않았습니다. PR은 report-only 상태를 유지합니다.
+
+사용하는 AOSP/Google emulator 및 hosted runner/SDK package는 mutable하고 OEM permission-controller를 대표하지 않습니다. 이 매트릭스에는 OEM/물리 API 24/28/36, API 37 lane, live `prod`/Opinet, 실네트워크 주소 품질, 물리 기기 Macrobenchmark 증거가 없습니다. 에뮬레이터 UI smoke 결과로 `docs/performance.md`나 README의 물리 기기 수치를 갱신하지 않습니다.

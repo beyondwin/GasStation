@@ -4,7 +4,7 @@
 
 ## Scope
 
-- 현재 live 집합은 [`documentation-catalog.json`](documentation-catalog.json)이 단일 등록부로 소유한다. `scripts/agent/check_contracts.py`가 검사하는 루트 문서, 이 디렉터리의 허브·워크플로·읽기·아키텍처·모듈·상태·오프라인·테스트·검증·보안·배포·성능·`build-velocity.md`, `core/database/AGENTS.md`, `benchmark/AGENTS.md`, 현재 ADR을 포함한다.
+- 현재 live 집합은 [`documentation-catalog.json`](documentation-catalog.json)이 단일 등록부로 소유한다. `scripts/agent/check_contracts.py`가 검사하는 루트 문서, 이 디렉터리의 허브·워크플로·읽기·아키텍처·모듈·상태·오프라인·테스트·검증·보안·배포·성능·`build-velocity.md`, `runbooks/device-verification.md`, `core/database/AGENTS.md`, `benchmark/AGENTS.md`, 현재 ADR을 포함한다.
 - `docs/onboarding/developer-onboarding-guide.md`는 현재 live 학습·변경 진입점이다. 현재 동작의 소유자는 연결된 live 계약 문서이며, 온보딩 분할 전에는 경로를 보존한다.
 - `docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`, 과거 release note는 작업이 명시적으로 대상으로 삼지 않는 한 history 또는 evidence다. 이력 파일명만으로 현재 승인·완료 상태를 추론하지 않는다.
 

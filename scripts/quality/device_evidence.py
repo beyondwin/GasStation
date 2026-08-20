@@ -113,6 +113,14 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 17, 20, 15, 0, 7, 4, 9, 80],
+        "roots": [
+            "app/build/outputs/androidTest-results/connected/debug/flavors/demo",
+            "app/build/outputs/connected_android_test_additional_output/demoDebugAndroidTest/connected",
+            "app/build/reports/androidTests/connected/debug/flavors/demo",
+            "core/database/build/outputs/androidTest-results/connected/debug",
+            "core/database/build/outputs/connected_android_test_additional_output/debugAndroidTest/connected",
+            "core/database/build/reports/androidTests/connected/debug",
+        ],
     },
     "api28-pr-smoke": {
         "kind": "gmd",
@@ -125,6 +133,11 @@ EXPECTED_LANES = {
         "reportOnly": True,
         "retention": 14,
         "budget": [8, 3, 25, 0, 0, 6, 4, 9, 55],
+        "roots": [
+            "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
+            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
+        ],
     },
     "api28-scheduled": {
         "kind": "gmd",
@@ -140,6 +153,14 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 3, 28, 20, 0, 7, 4, 10, 80],
+        "roots": [
+            "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
+            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api28",
+            "core/database/build/outputs/androidTest-results/managedDevice/debug/gasstationPixel2Api28",
+            "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api36",
+            "core/database/build/reports/androidTests/managedDevice/debug/gasstationPixel2Api28",
+        ],
     },
     "api36-scheduled": {
         "kind": "gmd",
@@ -156,6 +177,17 @@ EXPECTED_LANES = {
         "reportOnly": False,
         "retention": 30,
         "budget": [8, 3, 28, 20, 15, 8, 4, 14, 100],
+        "roots": [
+            "app/build/outputs/androidTest-results/managedDevice/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/outputs/managed_device_android_test_additional_output/debug/flavors/demo/gasstationPixel2Api36",
+            "app/build/reports/androidTests/managedDevice/debug/flavors/demo/gasstationPixel2Api36",
+            "core/database/build/outputs/androidTest-results/managedDevice/debug/gasstationPixel2Api36",
+            "core/database/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api36",
+            "core/database/build/reports/androidTests/managedDevice/debug/gasstationPixel2Api36",
+            "core/location/build/outputs/androidTest-results/managedDevice/debug/gasstationPixel2Api36",
+            "core/location/build/outputs/managed_device_android_test_additional_output/debug/gasstationPixel2Api36",
+            "core/location/build/reports/androidTests/managedDevice/debug/gasstationPixel2Api36",
+        ],
     },
 }
 
@@ -266,6 +298,7 @@ def validate_policy(policy: dict, *, today: str | None = None) -> None:
             or lane["retentionDays"] != expected["retention"]
             or lane["appFlavor"] != "demo"
             or lane["uiFailureArtifactsRequired"] is not True
+            or lane["resultRoots"] != expected["roots"]
         ):
             raise DeviceEvidenceError(f"lane {lane_name} contract drifted")
         budget = lane["budgets"]
@@ -495,6 +528,16 @@ def verify_attempt(policy_path: Path, attempt_root: Path, *, today: str | None =
     ):
         if required not in kinds:
             raise DeviceEvidenceError(f"required artifact kind missing: {required}")
+    if len(kinds["device-metadata"]) != 1 or len(kinds["command-receipt"]) != 1:
+        raise DeviceEvidenceError("device metadata and command receipt must each be unique")
+    try:
+        command_receipt = json.loads(
+            kinds["command-receipt"][0].read_text(encoding="utf-8", errors="strict")
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DeviceEvidenceError(f"invalid command receipt: {error}") from error
+    if command_receipt != commands:
+        raise DeviceEvidenceError("raw command receipt differs from completion commands")
 
     platform_markers = (
         "INSTRUMENTATION_FAILED",

@@ -45,6 +45,10 @@ CI_REQUIRED_FILES = (
         ".codex/hooks.json",
         ".claude/settings.json",
         ".github/workflows/android.yml",
+        ".github/workflows/device-evidence.yml",
+        "config/quality/device-evidence-policy.json",
+        "config/quality/device-evidence-quarantine.json",
+        "docs/runbooks/device-verification.md",
         "docs/AGENTS.md",
         "core/database/AGENTS.md",
         "benchmark/AGENTS.md",
@@ -1680,6 +1684,16 @@ def check_ci_contracts(root: Path) -> list[str]:
     return issues
 
 
+def check_device_evidence_contracts(root: Path) -> list[str]:
+    quality_dir = Path(__file__).resolve().parents[1] / "quality"
+    sys.path.insert(0, str(quality_dir))
+    try:
+        from device_workflow import check_device_contracts
+    finally:
+        sys.path.pop(0)
+    return check_device_contracts(root)
+
+
 def parse_diff_issues(output: str) -> list[str]:
     issues: list[str] = []
     for line in output.splitlines():
@@ -1760,6 +1774,7 @@ def main() -> int:
         issues += check_documentation_contracts(root)
         issues += check_build_contract(root)
         issues += check_shell_syntax(root)
+        issues += check_device_evidence_contracts(root)
         issues += check_diff(root, ci=args.ci)
         if args.ci:
             issues += check_ci_contracts(root)

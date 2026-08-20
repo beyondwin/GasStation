@@ -1,0 +1,234 @@
+name: Android Device Evidence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/device-evidence.yml"
+      - "app/**"
+      - "build-logic/**"
+      - "core/database/**"
+      - "core/location/**"
+      - "config/quality/device-evidence-*.json"
+      - "gradle/**"
+      - "gradle.properties"
+      - "scripts/quality/device/**"
+      - "scripts/quality/device_evidence.py"
+      - "scripts/quality/device_workflow.py"
+      - "scripts/quality/verify_device_evidence.py"
+      - "scripts/agent/check_contracts.py"
+      - "settings.gradle.kts"
+  schedule:
+    - cron: "0 19 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: device-evidence-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CI_JAVA_VERSION: "21"
+
+jobs:
+  device-pr-api28:
+    name: Device API 28 PR smoke (report-only)
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.CI_JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Prove KVM access
+        run: |
+          test -c /dev/kvm
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 660 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Run canonical report-only API 28 smoke
+        timeout-minutes: 40
+        env:
+          GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
+          GASSTATION_DEVICE_ATTEMPT: ${{ github.run_attempt }}
+          GASSTATION_DEVICE_EXPECTED_SHA: ${{ github.sha }}
+        run: scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke
+      - name: Upload API 28 PR attempt evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-api28-pr-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/device-evidence/api28-pr-smoke/${{ github.run_id }}-${{ github.run_attempt }}/**
+            app/build/outputs/androidTest-results/managedDevice/**
+            app/build/reports/androidTests/managedDevice/**
+          if-no-files-found: error
+          retention-days: 14
+      - name: Record uploaded artifact identity
+        if: always()
+        run: |
+          {
+            echo "### API 28 PR device evidence (report-only)"
+            echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
+            echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  device-scheduled-api24:
+    name: Device API 24 scheduled evidence
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.CI_JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Prove KVM access
+        run: |
+          test -c /dev/kvm
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 660 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Run canonical API 24 connected AVD lane
+        timeout-minutes: 67
+        env:
+          GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
+          GASSTATION_DEVICE_ATTEMPT: ${{ github.run_attempt }}
+          GASSTATION_DEVICE_EXPECTED_SHA: ${{ github.sha }}
+        run: scripts/quality/device/run_api24_avd.sh --lane api24-scheduled
+      - name: Upload API 24 scheduled attempt evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-api24-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/device-evidence/api24-scheduled/${{ github.run_id }}-${{ github.run_attempt }}/**
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+            core/database/build/outputs/androidTest-results/connected/**
+            core/database/build/reports/androidTests/connected/**
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record uploaded artifact identity
+        if: always()
+        run: |
+          {
+            echo "### API 24 scheduled device evidence"
+            echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
+            echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  device-scheduled-api28:
+    name: Device API 28 scheduled evidence
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.CI_JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Prove KVM access
+        run: |
+          test -c /dev/kvm
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 660 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Run canonical API 28 scheduled lane
+        timeout-minutes: 66
+        env:
+          GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
+          GASSTATION_DEVICE_ATTEMPT: ${{ github.run_attempt }}
+          GASSTATION_DEVICE_EXPECTED_SHA: ${{ github.sha }}
+        run: scripts/quality/device/run_gmd_lane.sh --lane api28-scheduled
+      - name: Upload API 28 scheduled attempt evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-api28-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/device-evidence/api28-scheduled/${{ github.run_id }}-${{ github.run_attempt }}/**
+            app/build/outputs/androidTest-results/managedDevice/**
+            app/build/reports/androidTests/managedDevice/**
+            core/database/build/outputs/androidTest-results/managedDevice/**
+            core/database/build/reports/androidTests/managedDevice/**
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record uploaded artifact identity
+        if: always()
+        run: |
+          {
+            echo "### API 28 scheduled device evidence"
+            echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
+            echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  device-scheduled-api36:
+    name: Device API 36 scheduled evidence
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.CI_JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Prove KVM access
+        run: |
+          test -c /dev/kvm
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 660 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+      - name: Run canonical API 36 scheduled lane
+        timeout-minutes: 82
+        env:
+          GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
+          GASSTATION_DEVICE_ATTEMPT: ${{ github.run_attempt }}
+          GASSTATION_DEVICE_EXPECTED_SHA: ${{ github.sha }}
+        run: scripts/quality/device/run_gmd_lane.sh --lane api36-scheduled
+      - name: Upload API 36 scheduled attempt evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-api36-scheduled-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/device-evidence/api36-scheduled/${{ github.run_id }}-${{ github.run_attempt }}/**
+            app/build/outputs/androidTest-results/managedDevice/**
+            app/build/reports/androidTests/managedDevice/**
+            core/database/build/outputs/androidTest-results/managedDevice/**
+            core/database/build/reports/androidTests/managedDevice/**
+            core/location/build/outputs/androidTest-results/managedDevice/**
+            core/location/build/reports/androidTests/managedDevice/**
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record uploaded artifact identity
+        if: always()
+        run: |
+          {
+            echo "### API 36 scheduled device evidence"
+            echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
+            echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"

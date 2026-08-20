@@ -1,9 +1,12 @@
 import copy
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from device_evidence import (
     DeviceEvidenceError,
@@ -116,6 +119,8 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
     def test_mutations_fail_closed(self):
         mutators = {
             "wrong-api": lambda facts, completion, junit: facts.update(apiLevel=36),
+            "wrong-serial": lambda facts, completion, junit: facts.update(serial="untrusted-device"),
+            "sharded-run": lambda facts, completion, junit: facts.update(shards=2),
             "self-asserted-device": lambda facts, completion, junit: facts.update(source="policy"),
             "cached-task": lambda facts, completion, junit: completion["commands"][0].update(outcome="FROM-CACHE"),
             "nonzero-command": lambda facts, completion, junit: completion["commands"][0].update(exitCode=1),
@@ -123,6 +128,7 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "missing-test": lambda facts, completion, junit: junit["tests"].pop(),
             "extra-test": lambda facts, completion, junit: junit["tests"].append("com.gasstation.UnreviewedTest#unexpected"),
             "duplicate-test": lambda facts, completion, junit: junit["tests"].append(junit["tests"][0]),
+            "zero-test": lambda facts, completion, junit: junit["tests"].clear(),
             "dirty-post-run": lambda facts, completion, junit: completion.update(postRunStatus=" M source.kt"),
             "cleanup-failure": lambda facts, completion, junit: completion.update(cleanupStatus="FAIL"),
         }
@@ -132,6 +138,49 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
                 self._reset_attempt_root()
                 with self.assertRaises(DeviceEvidenceError):
                     self._write_complete_attempt("api28-pr-smoke", mutator=mutator)
+
+    def test_pre_and_post_receipt_mutations_fail_closed(self):
+        attempt_mutators = {
+            "dirty-checkout": lambda attempt: attempt.update(checkoutStatus=" M app/source.kt"),
+            "wrong-event-sha": lambda attempt: attempt.update(eventSha="4" * 40),
+            "wrong-filter": lambda attempt: attempt.update(filter=None),
+            "wrong-command": lambda attempt: attempt["expectedCommands"].append(":app:unexpected"),
+            "wrong-result-root": lambda attempt: attempt["resultRoots"].append("other/build/results"),
+        }
+        for name, mutator in attempt_mutators.items():
+            with self.subTest(name=name):
+                self._reset_attempt_root()
+                with self.assertRaises(DeviceEvidenceError):
+                    self._write_complete_attempt("api28-pr-smoke", attempt_mutator=mutator)
+
+        self._reset_attempt_root()
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                file_mutator=lambda root: (root / "results/app.xml").write_bytes(b"\xff"),
+            )
+
+        self._reset_attempt_root()
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                file_mutator=lambda root: (root / "logs/gradle-app.log").write_text(
+                    "Unified Test Platform error\n", encoding="utf-8"
+                ),
+            )
+
+    def test_missing_completion_and_mismatched_command_receipt_fail_closed(self):
+        self._write_complete_attempt("api28-pr-smoke")
+        (self.attempt_root / "completion.json").unlink()
+        with self.assertRaises(DeviceEvidenceError):
+            verify_attempt(self.policy_path, self.attempt_root)
+
+        self._reset_attempt_root()
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                file_mutator=lambda root: (root / "raw/commands.json").write_text("[]\n", encoding="utf-8"),
+            )
 
     def test_completion_hash_change_and_symlink_escape_fail_closed(self):
         self._write_complete_attempt("api28-pr-smoke")
@@ -185,6 +234,8 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         self,
         lane,
         mutator=None,
+        attempt_mutator=None,
+        file_mutator=None,
         preserve_junit=False,
         include_failure_artifacts=False,
         today="2026-08-20",
@@ -241,6 +292,8 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
             "startedAt": "2026-08-20T00:00:00Z",
             "toolIdentities": {"java": "fixture-java", "gradle": "9.6.1"},
         }
+        if attempt_mutator:
+            attempt_mutator(attempt)
         self._write_json(self.attempt_root / "attempt.json", attempt)
         completion["attemptSha256"] = sha256_file(self.attempt_root / "attempt.json")
 
@@ -257,6 +310,9 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         (self.attempt_root / "apks").mkdir(parents=True, exist_ok=True)
         (self.attempt_root / "apks/app.apk").write_bytes(b"app-apk")
         (self.attempt_root / "apks/test.apk").write_bytes(b"test-apk")
+
+        if file_mutator:
+            file_mutator(self.attempt_root)
 
         failure_artifacts = []
         if include_failure_artifacts:

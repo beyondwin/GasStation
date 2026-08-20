@@ -23,19 +23,17 @@ test ! -L "$RUNNER_TEMP"
 require_regular_executable "$ANDROID_SDK_ROOT/platform-tools/adb"
 device_timeout_command >/dev/null
 
+[[ $(uname -s) == Linux ]]
+[[ $(uname -m) == x86_64 ]]
+test -c /dev/kvm
+test -r /dev/kvm
+test -w /dev/kvm
+
 if [[ $lane == api24-scheduled ]]; then
-  [[ $(uname -s) == Linux ]]
-  [[ $(uname -m) == x86_64 ]]
   require_regular_executable "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
   require_regular_executable "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
   require_regular_executable "$ANDROID_SDK_ROOT/emulator/emulator"
   require_free_emulator_5554 "$ANDROID_SDK_ROOT/platform-tools/adb"
-else
-  [[ $(uname -s) == Linux ]]
-  [[ $(uname -m) == x86_64 ]]
-  test -c /dev/kvm
-  test -r /dev/kvm
-  test -w /dev/kvm
 fi
 
 python3 - "$RUNNER_TEMP" <<'PY'

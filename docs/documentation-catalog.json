@@ -178,6 +178,14 @@
       "verificationScope": "scripts/agent/verify.sh docs; benchmark assemble와 physical-device 명령·보고 경계는 performance 및 verification 문서와 대조"
     },
     {
+      "path": "docs/runbooks/device-verification.md",
+      "kind": "runbook",
+      "owner": "API 24/28/36 Android 기기 증거 운영과 판정",
+      "authoritativeSources": [".github/workflows/device-evidence.yml", "config/quality/device-evidence-policy.json", "config/quality/device-evidence-quarantine.json", "scripts/quality/device", "scripts/quality/device_evidence.py"],
+      "reviewTriggers": ["기기 lane·API·image·task·inventory 또는 timeout 변경", "receipt·artifact·failure transport·격리·승격 정책 변경", "hosted runtime 상태 또는 지원 호스트 경계 변경"],
+      "verificationScope": "scripts/agent/check-contracts.sh --ci; scripts/quality parser와 fake-tool tests; Android-test compile 및 exact Gradle task discovery; runtime PASS는 정규 wrapper attempt만 인정"
+    },
+    {
       "path": "docs/adr/2026-05-18-backend-proxy-escalation.md",
       "kind": "decision",
       "owner": "Opinet backend proxy 승격 결정",

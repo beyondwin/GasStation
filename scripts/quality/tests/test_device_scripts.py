@@ -1,9 +1,12 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from device.write_manifest import connected_metadata, safe_segment
 from device_evidence import DeviceEvidenceError
@@ -129,6 +132,24 @@ class DeviceScriptTest(unittest.TestCase):
         self.assertNotIn("retry", text.lower())
         self.assertNotIn("|| true", text)
         self.assertNotIn("|| true", (DEVICE / "run_api24_avd.sh").read_text(encoding="utf-8"))
+
+    def test_attempt_cleanup_clears_result_and_apk_roots_before_execution(self):
+        common = (DEVICE / "common.sh").read_text(encoding="utf-8")
+        self.assertIn('*policy["lanes"][lane]["resultRoots"]', common)
+        self.assertIn('*policy["lanes"][lane]["apkRoots"]', common)
+
+    def test_wrappers_open_attempt_before_host_preflight(self):
+        for name in ("run_gmd_lane.sh", "run_api24_avd.sh"):
+            with self.subTest(name=name):
+                text = (DEVICE / name).read_text(encoding="utf-8")
+                self.assertLess(text.index("prepare_device_attempt"), text.index("verify_host.sh"))
+                self.assertLess(text.index("trap on_exit EXIT"), text.index("verify_host.sh"))
+
+    def test_every_lane_requires_linux_x86_64_kvm(self):
+        preflight = (DEVICE / "verify_host.sh").read_text(encoding="utf-8")
+        conditional = preflight.index("if [[ $lane == api24-scheduled ]]")
+        for anchor in ("[[ $(uname -s) == Linux ]]", "[[ $(uname -m) == x86_64 ]]", "test -c /dev/kvm", "test -r /dev/kvm", "test -w /dev/kvm"):
+            self.assertLess(preflight.index(anchor), conditional)
 
     def test_android_test_storage_and_pr_annotation_contract_is_exact(self):
         app_build = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")

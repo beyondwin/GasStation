@@ -63,6 +63,10 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 태그 push와 GitHub Release는 Play Store 업로드를 수행하지 않습니다.
 
+## 기기 진단 workflow와 release 경계
+
+`.github/workflows/device-evidence.yml`의 API 28 PR smoke는 초기 report-only이며, API 24/28/36 scheduled/manual job은 실패를 숨기지 않는 진단 경로입니다. Task 8에서는 어느 job도 `release-publish.needs`가 아니고 tag/Release를 차단하거나 발행 근거를 대체하지 않습니다. API 28 PR status의 blocking 승격은 [Android 기기 검증 런북](runbooks/device-verification.md)의 반복 hosted evidence와 별도 review 조건을 만족한 후의 독립 변경으로만 수행합니다. hosted run이 없으면 `HOSTED NOT RUN`으로 남기며 release PASS로 해석하지 않습니다.
+
 ## Android 산출물
 
 로컬 release APK 확인:

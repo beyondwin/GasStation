@@ -1,0 +1,68 @@
+import tempfile
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from device_workflow import check_device_contracts
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+class DeviceWorkflowContractTest(unittest.TestCase):
+    def test_checked_in_workflow_matches_closed_device_contract(self):
+        self.assertEqual([], check_device_contracts(ROOT))
+
+    def test_required_workflow_mutations_fail_closed(self):
+        workflow = (ROOT / ".github/workflows/device-evidence.yml").read_text(encoding="utf-8")
+        mutations = {
+            "blocking-pr": workflow.replace("    continue-on-error: true\n", "", 1),
+            "allowed-scheduled": workflow.replace(
+                "  device-scheduled-api24:\n",
+                "  device-scheduled-api24:\n    continue-on-error: true\n",
+                1,
+            ),
+            "cancel": workflow.replace("cancel-in-progress: false", "cancel-in-progress: true"),
+            "cancel-comment-decoy": workflow.replace("  cancel-in-progress: false\n", "", 1) + "\n#   cancel-in-progress: false\n",
+            "wrong-timeout": workflow.replace("    timeout-minutes: 55", "    timeout-minutes: 54", 1),
+            "missing-filter-lane": workflow.replace("--lane api28-pr-smoke", "--lane api28-scheduled", 1),
+            "missing-kvm": workflow.replace("          test -w /dev/kvm\n", "", 1),
+            "echoed-kvm": workflow.replace("          test -c /dev/kvm", "          echo 'test -c /dev/kvm'", 1),
+            "bad-upload": workflow.replace("          if-no-files-found: error", "          if-no-files-found: warn", 1),
+            "missing-digest": workflow.replace("steps.upload.outputs.artifact-digest", "steps.upload.outputs.unknown", 1),
+            "wrong-step-timeout": workflow.replace("        timeout-minutes: 40", "        timeout-minutes: 39", 1),
+            "retry-pipe": workflow.replace(
+                "run: scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke",
+                "run: scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke || true",
+                1,
+            ),
+            "step-error-suppression": workflow.replace(
+                "      - name: Run canonical report-only API 28 smoke\n",
+                "      - name: Run canonical report-only API 28 smoke\n        continue-on-error: true\n",
+                1,
+            ),
+        }
+        for name, mutated in mutations.items():
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    (root / ".github/workflows").mkdir(parents=True)
+                    (root / ".github/workflows/device-evidence.yml").write_text(mutated, encoding="utf-8")
+                    (root / ".github/workflows/android.yml").write_text(
+                        (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8"),
+                        encoding="utf-8",
+                    )
+                    (root / "config/quality").mkdir(parents=True)
+                    for name in ("device-evidence-policy.json", "device-evidence-quarantine.json"):
+                        (root / f"config/quality/{name}").write_text(
+                            (ROOT / f"config/quality/{name}").read_text(encoding="utf-8"),
+                            encoding="utf-8",
+                        )
+                    (root / "gradle.properties").write_text("", encoding="utf-8")
+                    self.assertNotEqual([], check_device_contracts(root))
+
+
+if __name__ == "__main__":
+    unittest.main()

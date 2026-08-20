@@ -70,6 +70,7 @@ EXPECTED_LIVE_PATHS = {
     "docs/deployment.md",
     "docs/performance.md",
     "docs/build-velocity.md",
+    "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md",
     "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
@@ -1470,7 +1471,7 @@ def canonical_gradle_tasks(texts: dict[str, str]) -> set[str]:
                 start = words.index("./gradlew") + 1
                 option_takes_value = {
                     "--build-file", "-b", "--configuration-cache-problems",
-                    "--console", "--dependency-verification", "--gradle-user-home",
+                    "--console", "--dependency-verification", "--gradle-user-home", "--group",
                     "-g", "--include-build", "--init-script", "-I", "--max-workers",
                     "--priority", "--project-cache-dir", "--project-dir", "-p",
                     "--settings-file", "-c", "--tests", "--warning-mode",

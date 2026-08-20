@@ -656,3 +656,34 @@ Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64
 `actions/setup-java@v5`의 `steps.mutation_java.outputs.path`는 env로 전달하지 않습니다. sanitized custom shell에서 mode 077 directory를 만들고 `set -C`로 `build/quality/pitest-runtime/bootstrap/java-home.selector`를 한 번 생성합니다. selector는 0600 이하 regular non-symlink 단일 line인지 검증한 뒤 삭제되며, mutation run step은 `GASSTATION_PITEST_BOOTSTRAP=sealed-v1`을 포함한 absolute `/usr/bin/env -i` → `/bin/bash --noprofile --norc -euo pipefail {0}` shell을 사용합니다. pre-existing/retargeted/중복 selector, workflow/job/step env Java transport, PATH-selected Python/Git/Gradle, hostile JVM/Gradle/Git/Python environment는 fail closed입니다.
 
 Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 Task 9가 소유합니다.
+
+## Bounded Android device evidence
+
+Task 8의 host-only 구현 준비 gate는 실제 device `PASS`와 분리합니다.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/quality/tests -v
+scripts/agent/test.sh
+scripts/agent/check-contracts.sh --ci
+python3 scripts/docs/validate.py --check-gradle-tasks
+./gradlew \
+  :app:testDemoDebugUnitTest :app:testProdDebugUnitTest \
+  :app:compileDemoDebugAndroidTestKotlin \
+  :core:database:testDebugUnitTest :core:database:compileDebugAndroidTestKotlin \
+  :core:location:testDebugUnitTest :core:location:compileDebugAndroidTestKotlin \
+  verifyRoborazziDebug :benchmark:assemble \
+  --warning-mode fail
+./gradlew :app:tasks :core:database:tasks :core:location:tasks \
+  --group verification --warning-mode fail
+```
+
+지원 Linux x86_64/KVM 호스트에서 runtime status를 만들 때는 다음 정규 entry만 사용합니다.
+
+```bash
+scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke
+scripts/quality/device/run_api24_avd.sh --lane api24-scheduled
+scripts/quality/device/run_gmd_lane.sh --lane api28-scheduled
+scripts/quality/device/run_gmd_lane.sh --lane api36-scheduled
+```
+
+산출물은 `build/device-evidence/<lane>/<run-id>-<attempt>/`, 각 module의 `build/outputs/androidTest-results/{managedDevice,connected}`, `build/reports/androidTests/{managedDevice,connected}`, 정책에 열거한 APK root에서 확인합니다. 정확한 identity/count, API/image/serial, cleanup, hash가 결합된 `verification.json`만 runtime `PASS`를 만들 수 있습니다. host compile, task discovery, fixture/parser 성공 또는 artifact 업로드만으로는 `PASS`가 아니며 실행할 수 없으면 이유와 함께 `NOT RUN`입니다. 전체 lane/timeout/triage/promotion 계약은 [Android 기기 검증 런북](runbooks/device-verification.md)을 따릅니다.

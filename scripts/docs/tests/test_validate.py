@@ -57,6 +57,7 @@ LIVE_PATHS = [
     "docs/deployment.md",
     "docs/performance.md",
     "docs/build-velocity.md",
+    "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md",
     "benchmark/AGENTS.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
@@ -843,7 +844,7 @@ class ValidatorTest(unittest.TestCase):
         validator = load_validator()
         owned_commands = (
             "<!-- command-owner: verification.full -->\n"
-            "```bash\n./gradlew --warning-mode fail :app:first --continue\n```\n"
+            "```bash\n./gradlew --warning-mode fail --group verification :app:first --continue\n```\n"
             "Some explanation.\n"
             "```bash\n./gradlew --max-workers 2 -Pprofile=ci :app:second --tests com.example.Test :app:third\n```\n"
         )

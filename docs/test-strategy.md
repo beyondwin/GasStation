@@ -56,6 +56,12 @@ Roborazzi 이름의 screenshot test는 일반 unit-test task에서 제외합니�
 
 ## flavor별 관점
 
+## 제한된 API 24/28/36 기기 증거
+
+기기 계층은 host/Robolectric 계약을 대체하지 않고 platform SQLite migration, permission-controller UI, API 33+ Geocoder callback의 최소 실제 Android 경계를 추가합니다. API 28 PR report-only lane은 정확한 annotation 5개, scheduled lane은 API 24/28에서 app 10 + Room 6, API 36에서 app 10 + Room 6 + Geocoder 1을 zero skip으로 요구합니다. API 24는 명시적으로 provision한 connected AVD, API 28/36은 서로 묶지 않은 Pixel 2 GMD를 사용합니다. inventory, 실패 artifact, 격리와 판정의 운영 계약은 [Android 기기 검증 런북](runbooks/device-verification.md)이 소유합니다.
+
+컴파일, task discovery, parser/fake-tool test는 구현 준비 증거이며 runtime `PASS`가 아닙니다. 지원·권한 있는 정규 wrapper attempt가 없으면 lane 상태는 `NOT RUN`으로 기록합니다.
+
 ### `demo`
 
 `demo`는 가장 넓게 검증합니다.
