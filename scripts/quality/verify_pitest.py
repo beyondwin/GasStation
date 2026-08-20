@@ -628,6 +628,7 @@ def module_report(policy: dict[str, Any], name: str, route_value: dict[str, Any]
         if path.is_symlink() or not path.is_file():
             raise MutationPolicyError("PIT HTML report contains a symlink or non-file")
         html_records.append({"path": relative(path), "sha256": sha256(path.read_bytes())})
+    html_records.sort(key=lambda item: item["path"])
     if not html_records:
         raise MutationPolicyError(f"PIT HTML report is missing for {name}")
     configuration_path = REPOSITORY_ROOT / module["configurationPath"]
