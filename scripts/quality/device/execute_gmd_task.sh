@@ -21,6 +21,7 @@ adb="$ANDROID_SDK_ROOT/platform-tools/adb"
 
 arguments=(
   "$task"
+  --no-daemon
   -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
   --warning-mode fail
   --no-parallel
@@ -36,7 +37,7 @@ if [[ -n $filter ]]; then
 fi
 
 set +e
-"$root/gradlew" "${arguments[@]}" >"$log" 2>&1
+GASSTATION_DEVICE_OWNER_TOKEN=$attempt_id "$root/gradlew" "${arguments[@]}" >"$log" 2>&1
 gradle_status=$?
 set -e
 python3 "$script_dir/record_command.py" \
@@ -44,7 +45,7 @@ python3 "$script_dir/record_command.py" \
 
 final_processes="$root/$attempt_root/raw/gmd-task-$index-processes.json"
 final_devices="$root/$attempt_root/raw/gmd-task-$index-adb-devices.txt"
-python3 "$script_dir/gmd_processes.py" --output "$final_processes"
+python3 "$script_dir/gmd_processes.py" --output "$final_processes" --owner-token "$attempt_id"
 "$adb" devices -l >"$final_devices"
 
 set +e

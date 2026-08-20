@@ -387,7 +387,7 @@ def gmd_metadata(attempt_root: Path, lane_name: str, lane: dict) -> dict:
 
 def derive_cleanup_status(attempt_root: Path, kind: str, tasks: list[str]) -> str:
     if kind == "gmd":
-        from device.gmd_processes import introduced_processes, validate_processes
+        from device.gmd_processes import validate_processes
 
         receipts = parse_gmd_task_receipts(attempt_root, tasks)
         cleanup = read_json_object(attempt_root / "raw/gmd-teardown.json", "GMD cleanup receipt")
@@ -414,7 +414,7 @@ def derive_cleanup_status(attempt_root: Path, kind: str, tasks: list[str]) -> st
             and cleanup["adbTargets"] == []
             and failures == []
             and live == []
-            and killed == introduced_processes(baseline, observed)
+            and killed == observed
         )
         tasks_passed = all(
             receipt["teardown"] == {"status": "SUCCESS", "timedOut": False}

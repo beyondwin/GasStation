@@ -17,6 +17,8 @@ from device_evidence import DeviceEvidenceError, canonical_json_bytes  # noqa: E
 
 MAX_PROCESS_BYTES = 2 * 1024 * 1024
 PROCESS_FIELDS = {"pid", "executable", "avdName"}
+OWNER_TOKEN_ENV = b"GASSTATION_DEVICE_OWNER_TOKEN="
+OWNER_TOKEN = re.compile(r"[A-Za-z0-9._-]{1,80}")
 
 
 def _avd_name(arguments: str) -> str | None:
@@ -53,7 +55,23 @@ def parse_processes(text: str) -> list[dict]:
     return sorted(processes, key=lambda item: (item["pid"], item["executable"]))
 
 
-def discover_processes() -> list[dict]:
+def _has_owner_token(pid: int, owner_token: str, proc_root: Path) -> bool:
+    environment_path = proc_root / str(pid) / "environ"
+    if environment_path.is_symlink() or not environment_path.is_file():
+        return False
+    with environment_path.open("rb") as source:
+        raw = source.read(MAX_PROCESS_BYTES + 1)
+    if not raw or len(raw) > MAX_PROCESS_BYTES:
+        return False
+    expected = OWNER_TOKEN_ENV + owner_token.encode("ascii")
+    return expected in raw.split(b"\0")
+
+
+def discover_processes(
+    *, owner_token: str | None = None, proc_root: Path = Path("/proc")
+) -> list[dict]:
+    if owner_token is not None and not OWNER_TOKEN.fullmatch(owner_token):
+        raise DeviceEvidenceError("process owner token is malformed")
     result = subprocess.run(
         ["ps", "-eo", "pid=,comm=,args="],
         capture_output=True,
@@ -67,14 +85,21 @@ def discover_processes() -> list[dict]:
         text = result.stdout.decode("utf-8", errors="strict")
     except UnicodeDecodeError as error:
         raise DeviceEvidenceError("process discovery output is not UTF-8") from error
-    return parse_processes(text)
+    processes = parse_processes(text)
+    if owner_token is None:
+        return processes
+    return [
+        process
+        for process in processes
+        if _has_owner_token(process["pid"], owner_token, proc_root)
+    ]
 
 
 def validate_processes(value: object) -> list[dict]:
     if not isinstance(value, list):
         raise DeviceEvidenceError("process snapshot must be a list")
     result: list[dict] = []
-    seen: set[tuple[int, str]] = set()
+    seen: set[tuple[int, str, str]] = set()
     for item in value:
         if (
             not isinstance(item, dict)
@@ -88,7 +113,7 @@ def validate_processes(value: object) -> list[dict]:
             or not re.fullmatch(r"[A-Za-z0-9._-]+", item["avdName"])
         ):
             raise DeviceEvidenceError("process snapshot identity is malformed")
-        identity = (item["pid"], item["executable"])
+        identity = (item["pid"], item["executable"], item["avdName"])
         if identity in seen:
             raise DeviceEvidenceError("process snapshot contains duplicate identity")
         seen.add(identity)
@@ -101,11 +126,14 @@ def validate_processes(value: object) -> list[dict]:
 def introduced_processes(
     baseline: list[dict], observed: list[dict], *, avd_name: str | None = None
 ) -> list[dict]:
-    baseline_identities = {(item["pid"], item["executable"]) for item in validate_processes(baseline)}
+    baseline_identities = {
+        (item["pid"], item["executable"], item["avdName"])
+        for item in validate_processes(baseline)
+    }
     return [
         item
         for item in validate_processes(observed)
-        if (item["pid"], item["executable"]) not in baseline_identities
+        if (item["pid"], item["executable"], item["avdName"]) not in baseline_identities
         and (avd_name is None or item["avdName"] == avd_name)
     ]
 
@@ -135,8 +163,9 @@ def write_snapshot(path: Path, processes: list[dict]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--owner-token")
     arguments = parser.parse_args()
-    write_snapshot(arguments.output, discover_processes())
+    write_snapshot(arguments.output, discover_processes(owner_token=arguments.owner_token))
     return 0
 
 

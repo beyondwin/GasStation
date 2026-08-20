@@ -92,6 +92,7 @@ run_device_phase "$lane" collection python3 "$script_dir/write_manifest.py" \
   collect-lane --attempt-root "$attempt_root" --commands "raw/commands.json"
 collection_status=$?
 run_device_phase "$lane" cleanup python3 "$script_dir/cleanup_gmd_lane.py" \
+  --attempt-root "$root/$attempt_root" \
   --baseline-processes "$baseline_processes" \
   --lane "$lane" \
   --adb "$ANDROID_SDK_ROOT/platform-tools/adb" \

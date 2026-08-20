@@ -13,7 +13,7 @@ ROOT = QUALITY.parents[1]
 sys.path.insert(0, str(QUALITY))
 
 from device_evidence import DeviceEvidenceError, canonical_json_bytes, load_policy, read_text, sha256_file  # noqa: E402
-from device.gmd_processes import introduced_processes, read_snapshot  # noqa: E402
+from device.gmd_processes import read_snapshot  # noqa: E402
 
 
 DEVICE_FIELDS = {
@@ -84,12 +84,12 @@ def main() -> int:
     source_path = candidates[0][0]
     relative = Path("collected") / source_path.relative_to(ROOT)
 
-    baseline = read_snapshot(arguments.baseline_processes)
+    read_snapshot(arguments.baseline_processes)
     final = read_snapshot(arguments.final_processes)
     adb_lines = read_lines(arguments.final_adb_devices)
     adb_targets = [line for line in adb_lines if line != "List of devices attached"]
     timed_out = arguments.exit_code in {124, 137}
-    teardown_passed = not timed_out and not introduced_processes(baseline, final) and not adb_targets
+    teardown_passed = not timed_out and not final and not adb_targets
     receipt = {
         "schemaVersion": 1,
         "producer": "gasstation-gmd-observation",

@@ -129,6 +129,10 @@ class DeviceWorkflowContractTest(unittest.TestCase):
             "narrow-final": ("execute_gmd_task.sh", 'python3 "$script_dir/gmd_processes.py" --output "$final_processes"', "pgrep -af '(^|/)emulator( |$)' >\"$final_processes\""),
             "missing-gmd-lane": ("execute_gmd_task.sh", '  "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane"\n', ""),
             "unbound-gmd-cleanup": ("run_gmd_lane.sh", '  --lane "$lane" \\\n', ""),
+            "unbound-gmd-cleanup-attempt": ("run_gmd_lane.sh", '  --attempt-root "$root/$attempt_root" \\\n', ""),
+            "missing-gmd-owner-environment": ("execute_gmd_task.sh", "GASSTATION_DEVICE_OWNER_TOKEN=$attempt_id ", ""),
+            "missing-gmd-owner-snapshot": ("execute_gmd_task.sh", ' --owner-token "$attempt_id"', ""),
+            "gradle-daemon-owner-escape": ("execute_gmd_task.sh", "  --no-daemon\n", ""),
             "missing-api24-lane": ("run_api24_avd.sh", '    "-Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane" \\\n', ""),
             "pid-gated-cleanup": (
                 "run_api24_avd.sh",

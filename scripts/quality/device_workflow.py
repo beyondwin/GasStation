@@ -299,6 +299,7 @@ def check_device_contracts(root: Path) -> list[str]:
     gmd_wrapper = lifecycle_paths["run_gmd_lane.sh"].read_text(encoding="utf-8", errors="strict")
     gmd_task = lifecycle_paths["execute_gmd_task.sh"].read_text(encoding="utf-8", errors="strict")
     gmd_cleanup = lifecycle_paths["cleanup_gmd_lane.py"].read_text(encoding="utf-8", errors="strict")
+    gmd_processes = (device_dir / "gmd_processes.py").read_text(encoding="utf-8", errors="strict")
     connected_wrapper = lifecycle_paths["run_api24_avd.sh"].read_text(encoding="utf-8", errors="strict")
     if gmd_wrapper.count('gmd_processes.py" --output "$baseline_processes"') != 1 or "pgrep" in gmd_wrapper:
         issues.append("scripts/quality/device/run_gmd_lane.sh:1: shared GMD baseline discovery differs")
@@ -309,17 +310,26 @@ def check_device_contracts(root: Path) -> list[str]:
         for anchor in (
             "from device.gmd_processes import (",
             "discover_processes,",
-            "introduced_processes,",
             "read_snapshot,",
+            "validate_processes,",
         )
     ):
         issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup bypasses shared process identity")
     if (
         gmd_wrapper.count('  --lane "$lane" \\') != 1
-        or gmd_cleanup.count("avd_name=avd_name") != 5
+        or gmd_wrapper.count('  --attempt-root "$root/$attempt_root" \\') != 1
+        or gmd_cleanup.count("owner_token=owner_token") != 5
         or 'load_policy(ROOT / "config/quality/device-evidence-policy.json")' not in gmd_cleanup
+        or 'read_json_value(attempt_root / "attempt.json"' not in gmd_cleanup
+        or "OWNER_TOKEN_ENV = b\"GASSTATION_DEVICE_OWNER_TOKEN=\"" not in gmd_processes
     ):
-        issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup process ownership is not AVD-bound")
+        issues.append("scripts/quality/device/cleanup_gmd_lane.py:1: cleanup process ownership is not attempt-bound")
+    if (
+        gmd_task.count("GASSTATION_DEVICE_OWNER_TOKEN=$attempt_id") != 1
+        or gmd_task.count('--owner-token "$attempt_id"') != 1
+        or gmd_task.count("  --no-daemon") != 1
+    ):
+        issues.append("scripts/quality/device/execute_gmd_task.sh:1: GMD process owner token is not causal")
     if gmd_task.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:
         issues.append("scripts/quality/device/execute_gmd_task.sh:1: GMD instrumentation lane identity missing")
     if connected_wrapper.count("android.testInstrumentationRunnerArguments.deviceEvidenceLane=$lane") != 1:
