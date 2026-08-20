@@ -577,6 +577,49 @@ assert_contains "$(cat "$fixture/docs-report-broad.out")" "exact ordered quality
 assert_error_locations "$(cat "$fixture/docs-report-broad.out")"
 git -C "$fixture/repo" restore docs/verification-matrix.md
 
+for duplicate_contract in mapping verification report operator; do
+  case "$duplicate_contract" in
+    mapping)
+      duplicate_file="$fixture/repo/docs/module-contracts.md"
+      duplicate_heading="Exact public ABI mappings"
+      duplicate_body=":core:network|core/network/api/network.api"
+      expected_diagnostic="exact ordered ABI mapping block"
+      ;;
+    verification)
+      duplicate_file="$fixture/repo/docs/verification-matrix.md"
+      duplicate_heading="Production dependency and public ABI verification"
+      duplicate_body="updateKotlinAbi"
+      expected_diagnostic="exact ordered verification block"
+      ;;
+    report)
+      duplicate_file="$fixture/repo/docs/verification-matrix.md"
+      duplicate_heading="Quality report upload paths"
+      duplicate_body="build/reports/quality/*.json"
+      expected_diagnostic="exact ordered quality report block"
+      ;;
+    operator)
+      duplicate_file="$fixture/repo/docs/verification-matrix.md"
+      duplicate_heading="ABI baseline operator mutation, not verification"
+      duplicate_body=":all:updateKotlinAbi"
+      expected_diagnostic="exact ordered ABI operator block"
+      ;;
+  esac
+  cat >> "$duplicate_file" <<EOF
+
+## $duplicate_heading
+
+\`\`\`text
+$duplicate_body
+\`\`\`
+EOF
+  if GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci > "$fixture/duplicate-$duplicate_contract.out" 2>&1; then
+    fail "CI accepted a duplicate authoritative $duplicate_contract section"
+  fi
+  assert_contains "$(cat "$fixture/duplicate-$duplicate_contract.out")" "$expected_diagnostic"
+  assert_error_locations "$(cat "$fixture/duplicate-$duplicate_contract.out")"
+  git -C "$fixture/repo" restore docs/module-contracts.md docs/verification-matrix.md
+done
+
 for job_if in \
   'if: false' \
   'if: ${{ false }}' \

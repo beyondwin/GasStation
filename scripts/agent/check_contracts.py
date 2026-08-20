@@ -1132,12 +1132,22 @@ def check_dependency_and_abi_repository_contracts(root: Path) -> list[str]:
 
 def markdown_fenced_block(document: str, heading: str) -> list[str] | None:
     """Return the one exact text fence owned by a level-two heading."""
-    match = re.search(
-        rf"(?ms)^## {re.escape(heading)}\s*$\n\s*```text\s*$\n(?P<body>.*?)^```\s*$",
-        document,
-    )
-    if match is None:
+    headings = list(re.finditer(rf"(?m)^## {re.escape(heading)}\s*$", document))
+    if len(headings) != 1:
         return None
+    owned = headings[0]
+    next_heading = re.search(r"(?m)^## .+$", document[owned.end() :])
+    section_end = owned.end() + next_heading.start() if next_heading else len(document)
+    section = document[owned.end() : section_end]
+    fences = list(
+        re.finditer(
+            r"(?ms)^```text\s*$\n(?P<body>.*?)^```\s*$",
+            section,
+        )
+    )
+    if len(fences) != 1 or section[: fences[0].start()].strip():
+        return None
+    match = fences[0]
     body = match.group("body")
     if not body.endswith("\n") or "\r" in body:
         return None
