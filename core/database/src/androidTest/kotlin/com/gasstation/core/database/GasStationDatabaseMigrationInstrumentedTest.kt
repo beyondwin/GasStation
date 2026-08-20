@@ -13,7 +13,10 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class GasStationDatabaseMigrationInstrumentedTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val deviceEvidence = DeviceEvidenceReceiptRule()
+
+    @get:Rule(order = 1)
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
         GasStationDatabase::class.java,

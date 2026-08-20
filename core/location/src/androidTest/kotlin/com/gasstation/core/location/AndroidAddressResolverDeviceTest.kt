@@ -11,9 +11,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 
 class AndroidAddressResolverDeviceTest {
+    @get:Rule
+    val deviceEvidence = DeviceEvidenceReceiptRule()
+
     @Test
     fun api33GeocoderCallbackPathReturnsTerminalResult() = runBlocking {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)

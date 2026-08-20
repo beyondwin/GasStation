@@ -14,6 +14,12 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.gasstation.core.database"
+    defaultConfig {
+        testInstrumentationRunnerArguments["useTestStorageService"] = "true"
+    }
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
     sourceSets.named("androidTest") {
         assets.directories.add("$projectDir/schemas")
     }
@@ -40,4 +46,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.room.testing)
+    androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
 }

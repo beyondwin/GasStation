@@ -5,6 +5,12 @@ plugins {
 
 android {
     namespace = "com.gasstation.core.location"
+    defaultConfig {
+        testInstrumentationRunnerArguments["useTestStorageService"] = "true"
+    }
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
 }
 
 dependencies {
@@ -18,4 +24,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
+    androidTestUtil(libs.androidx.test.orchestrator)
+    androidTestUtil(libs.androidx.test.services)
 }
