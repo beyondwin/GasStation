@@ -216,8 +216,14 @@ class AcyclicCaptureTest(unittest.TestCase):
         (destination / "config/quality/mutation-policy.json").write_bytes(
             (ROOT / "config/quality/mutation-policy.json").read_bytes()
         )
-        subprocess.run(["git", "add", "config/quality/mutation-policy.json"], cwd=destination, check=True)
-        subprocess.run(["git", "commit", "--quiet", "-m", "install round3 policy fixture"], cwd=destination, check=True)
+        changed = subprocess.run(
+            ["git", "diff", "--quiet", "--", "config/quality/mutation-policy.json"],
+            cwd=destination,
+            check=False,
+        ).returncode
+        if changed:
+            subprocess.run(["git", "add", "config/quality/mutation-policy.json"], cwd=destination, check=True)
+            subprocess.run(["git", "commit", "--quiet", "-m", "install round3 policy fixture"], cwd=destination, check=True)
 
     def _validate_clone_baseline(self, repository: Path) -> None:
         baseline_path = repository / "config/quality/mutation-baseline.json"
