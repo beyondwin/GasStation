@@ -737,6 +737,8 @@ python3 scripts/quality/verify_build_inputs.py release-bind \
 
 현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, literal local main base, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
 
+Image gate는 index/selected-manifest/config/sole-layer descriptor를 서로 다른 역할로 검사한다. `image inspect`의 index descriptor와 containerd-store 관측값은 `manifest inspect --verbose`에서 선택한 exact `linux/amd64` manifest 및 그 config/layer를 대신할 수 없다. Container는 selected manifest digest가 아니라 exact index reference로 `--platform linux/amd64` 생성하고, start 전에 inspect한 `.Image`가 reviewed OCI config digest이며 `.Platform=linux`여야 한다. 이후 inner architecture 증명이 별도로 통과해야 한다.
+
 ```bash
 python3 scripts/quality/build_inputs/local_colima_evidence.py \
   --policy config/quality/build-inputs.json \

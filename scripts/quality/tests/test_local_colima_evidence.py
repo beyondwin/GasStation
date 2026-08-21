@@ -10,7 +10,11 @@ from pathlib import Path
 from scripts.quality.build_inputs.contracts import BuildInputError, canonical_json_bytes, load_policy
 from scripts.quality.build_inputs.local_colima_evidence import (
     CLEANUP_PHASES,
+    CONFIG_DESCRIPTOR,
     DELETE_ARGV,
+    INDEX_DESCRIPTOR,
+    LAYER_DESCRIPTORS,
+    SELECTED_MANIFEST_DESCRIPTOR,
     START_ARGV,
     _recover_prior_attempts,
     _runtime_data_identity,
@@ -26,7 +30,9 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_cli,
     validate_cleanup_proof,
     validate_context_inventory,
+    validate_container_selection,
     validate_effective_config,
+    validate_image_identity,
     validate_runtime_absence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
@@ -36,6 +42,46 @@ from scripts.quality.verify_build_inputs import _run_group
 SOURCE = "1" * 40
 BASE = "7b8c149c9f792aaf43cc00a94ba671929008979e"
 POLICY_SHA = "2" * 64
+
+
+def image_inspect_fixture() -> str:
+    return json.dumps(
+        [
+            {
+                "Architecture": "",
+                "Descriptor": dict(INDEX_DESCRIPTOR),
+                "Id": INDEX_DESCRIPTOR["digest"],
+                "Os": "",
+                "Size": 7112,
+            },
+        ],
+    )
+
+
+def manifest_inspect_fixture() -> str:
+    return json.dumps(
+        [
+            {
+                "Descriptor": dict(SELECTED_MANIFEST_DESCRIPTOR),
+                "OCIManifest": {
+                    "config": dict(CONFIG_DESCRIPTOR),
+                    "layers": [dict(row) for row in LAYER_DESCRIPTORS],
+                    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                    "schemaVersion": 2,
+                },
+                "Ref": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
+            },
+            {
+                "Descriptor": {
+                    "digest": "sha256:" + "9" * 64,
+                    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                    "platform": {"architecture": "arm64", "os": "linux"},
+                    "size": 424,
+                },
+                "OCIManifest": {},
+            },
+        ],
+    )
 
 
 class LocalColimaEvidenceContractTest(unittest.TestCase):
@@ -48,6 +94,17 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual(list(START_ARGV), host["startArgv"])
         self.assertEqual(list(DELETE_ARGV), host["deleteArgv"])
         self.assertEqual([], host["hostMounts"])
+        self.assertEqual(
+            {
+                "configDescriptor": CONFIG_DESCRIPTOR,
+                "indexDescriptor": INDEX_DESCRIPTOR,
+                "indexReference": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
+                "layerDescriptors": list(LAYER_DESCRIPTORS),
+                "platform": "linux/amd64",
+                "selectedManifestDescriptor": SELECTED_MANIFEST_DESCRIPTOR,
+            },
+            host["image"],
+        )
         self.assertEqual(
             "scripts/quality/build_inputs/local_colima_evidence.py",
             next(
@@ -74,6 +131,19 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         partial = json.loads(json.dumps(baseline))
         partial["localEvidenceHost"]["requiredEvidenceRows"].remove("releaseBinding")
         mutations.append(partial)
+        missing_index = json.loads(json.dumps(baseline))
+        del missing_index["localEvidenceHost"]["image"]["indexDescriptor"]
+        mutations.append(missing_index)
+        manifest_as_config = json.loads(json.dumps(baseline))
+        manifest_as_config["localEvidenceHost"]["image"]["configDescriptor"] = {
+            key: value
+            for key, value in manifest_as_config["localEvidenceHost"]["image"]["selectedManifestDescriptor"].items()
+            if key != "platform"
+        }
+        mutations.append(manifest_as_config)
+        legacy_alias = json.loads(json.dumps(baseline))
+        legacy_alias["localEvidenceHost"]["image"]["configurationDigest"] = SELECTED_MANIFEST_DESCRIPTOR["digest"]
+        mutations.append(legacy_alias)
         with tempfile.TemporaryDirectory() as directory:
             for index, mutation in enumerate(mutations):
                 path = Path(directory) / f"mutation-{index}.json"
@@ -375,6 +445,79 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             docker_argv(Path("relative"), "version")
         with self.assertRaises(BuildInputError):
             docker_argv(Path("/opaque/client"), "system", "prune")
+
+    def test_image_identity_separates_index_store_manifest_config_and_layer_roles(self) -> None:
+        identity = validate_image_identity(image_inspect_fixture(), manifest_inspect_fixture())
+        self.assertEqual(INDEX_DESCRIPTOR, identity["indexDescriptor"])
+        self.assertEqual(SELECTED_MANIFEST_DESCRIPTOR, identity["selectedManifestDescriptor"])
+        self.assertEqual(CONFIG_DESCRIPTOR, identity["configDescriptor"])
+        self.assertEqual(list(LAYER_DESCRIPTORS), identity["layerDescriptors"])
+        self.assertEqual(
+            {"architecture": "", "id": INDEX_DESCRIPTOR["digest"], "os": "", "size": 7112},
+            identity["storeObservation"],
+        )
+
+    def test_image_identity_mutations_fail_closed_and_valid_fixture_recovers(self) -> None:
+        baseline_image = json.loads(image_inspect_fixture())
+        baseline_manifest = json.loads(manifest_inspect_fixture())
+        mutations: list[tuple[object, object]] = []
+        for field, value in (
+            ("digest", CONFIG_DESCRIPTOR["digest"]),
+            ("mediaType", "application/vnd.oci.image.manifest.v1+json"),
+            ("size", 6689),
+        ):
+            image = json.loads(json.dumps(baseline_image))
+            image[0]["Descriptor"][field] = value
+            mutations.append((image, baseline_manifest))
+        for descriptor_name, field, value in (
+            ("Descriptor", "digest", CONFIG_DESCRIPTOR["digest"]),
+            ("Descriptor", "mediaType", CONFIG_DESCRIPTOR["mediaType"]),
+            ("Descriptor", "size", 425),
+            ("config", "digest", SELECTED_MANIFEST_DESCRIPTOR["digest"]),
+            ("config", "mediaType", SELECTED_MANIFEST_DESCRIPTOR["mediaType"]),
+            ("config", "size", 2053),
+            ("layer", "digest", CONFIG_DESCRIPTOR["digest"]),
+            ("layer", "mediaType", CONFIG_DESCRIPTOR["mediaType"]),
+            ("layer", "size", 29752808),
+        ):
+            manifest = json.loads(json.dumps(baseline_manifest))
+            target = manifest[0]["Descriptor"] if descriptor_name == "Descriptor" else (
+                manifest[0]["OCIManifest"]["config"] if descriptor_name == "config" else manifest[0]["OCIManifest"]["layers"][0]
+            )
+            target[field] = value
+            mutations.append((baseline_image, manifest))
+        wrong_platform = json.loads(json.dumps(baseline_manifest))
+        wrong_platform[0]["Descriptor"]["platform"]["architecture"] = ""
+        mutations.append((baseline_image, wrong_platform))
+        duplicate_amd64 = json.loads(json.dumps(baseline_manifest))
+        duplicate_amd64.append(json.loads(json.dumps(duplicate_amd64[0])))
+        mutations.append((baseline_image, duplicate_amd64))
+        promoted_store = json.loads(json.dumps(baseline_image))
+        promoted_store[0]["Id"] = CONFIG_DESCRIPTOR["digest"]
+        promoted_store[0]["Architecture"] = "amd64"
+        mutations.append((promoted_store, baseline_manifest))
+        for image, manifest in mutations:
+            with self.subTest(image=image, manifest=manifest), self.assertRaises(BuildInputError):
+                validate_image_identity(json.dumps(image), json.dumps(manifest))
+            self.assertEqual(
+                INDEX_DESCRIPTOR,
+                validate_image_identity(image_inspect_fixture(), manifest_inspect_fixture())["indexDescriptor"],
+            )
+
+    def test_container_selection_binds_config_platform_and_labels(self) -> None:
+        labels = {"gasstation.task9.marker": "3" * 64}
+        valid = json.dumps([{"Config": {"Labels": labels}, "Image": CONFIG_DESCRIPTOR["digest"], "Platform": "linux"}])
+        self.assertEqual(
+            {"image": CONFIG_DESCRIPTOR["digest"], "labels": labels, "platform": "linux"},
+            validate_container_selection(valid, expected_labels=labels),
+        )
+        for mutation in (
+            valid.replace(CONFIG_DESCRIPTOR["digest"], SELECTED_MANIFEST_DESCRIPTOR["digest"]),
+            valid.replace('"Platform": "linux"', '"Platform": ""'),
+            valid.replace("3" * 64, "4" * 64),
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(BuildInputError):
+                validate_container_selection(mutation, expected_labels=labels)
 
     def test_cleanup_is_exactly_ordered_and_requires_data_delete_and_live_absence(self) -> None:
         valid = {

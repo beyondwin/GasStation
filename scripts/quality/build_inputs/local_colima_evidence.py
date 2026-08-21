@@ -42,7 +42,29 @@ VOLUMES = ("gasstation-task9-evidence-work", "gasstation-task9-linux-sdk")
 COLIMA = "/opt/homebrew/bin/colima"
 DOCKER = "/opt/homebrew/bin/docker"
 IMAGE = "docker.io/library/ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517"
-IMAGE_CONFIG = "sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316"
+INDEX_DESCRIPTOR = {
+    "digest": "sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "size": 6688,
+}
+SELECTED_MANIFEST_DESCRIPTOR = {
+    "digest": "sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316",
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "platform": {"architecture": "amd64", "os": "linux"},
+    "size": 424,
+}
+CONFIG_DESCRIPTOR = {
+    "digest": "sha256:a6f81fb630d51837271b89f8193810a5fc493fa4f30a55d7ebcdb3a66f3cc63a",
+    "mediaType": "application/vnd.oci.image.config.v1+json",
+    "size": 2052,
+}
+LAYER_DESCRIPTORS = (
+    {
+        "digest": "sha256:0926a8eb0e608a5c6888d1cd5594184bdf3ed3aa311dba5b42a547caefdc6f2e",
+        "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+        "size": 29752807,
+    },
+)
 MAIN_BASE_REF = "refs/heads/main"
 MAIN_BASE_COMMIT = "7b8c149c9f792aaf43cc00a94ba671929008979e"
 START_ARGV = (
@@ -129,6 +151,91 @@ def validate_cli(argv: Sequence[str]) -> tuple[str, str]:
     if not policy_value or _FULL_SHA.fullmatch(source_commit) is None:
         raise BuildInputError("local evidence source commit must be a lowercase full Git SHA")
     return policy_value, source_commit
+
+
+def _json_list(text: str, label: str) -> list[Any]:
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise BuildInputError(f"{label} JSON is malformed") from error
+    if not isinstance(value, list):
+        raise BuildInputError(f"{label} JSON must be a list")
+    return value
+
+
+def validate_image_identity(image_inspect_text: str, manifest_inspect_text: str) -> dict[str, Any]:
+    """Bind the reviewed OCI index, selected manifest, config, and layer roles."""
+
+    images = _json_list(image_inspect_text, "Docker image inspect")
+    if len(images) != 1 or not isinstance(images[0], dict):
+        raise BuildInputError("Docker image inspect must contain exactly one object")
+    image = images[0]
+    if image.get("Descriptor") != INDEX_DESCRIPTOR:
+        raise BuildInputError("reviewed Ubuntu OCI index descriptor mismatch")
+    if (
+        image.get("Id") != INDEX_DESCRIPTOR["digest"]
+        or image.get("Architecture") != ""
+        or image.get("Os") != ""
+        or not isinstance(image.get("Size"), int)
+        or image["Size"] < 0
+    ):
+        raise BuildInputError("reviewed Ubuntu containerd-store observation mismatch")
+
+    manifests = _json_list(manifest_inspect_text, "Docker manifest inspect")
+    selected = []
+    for row in manifests:
+        if not isinstance(row, dict):
+            raise BuildInputError("Docker manifest inspect row is not an object")
+        descriptor = row.get("Descriptor")
+        if isinstance(descriptor, dict) and descriptor.get("platform") == {
+            "architecture": "amd64",
+            "os": "linux",
+        }:
+            selected.append(row)
+    if len(selected) != 1:
+        raise BuildInputError("Docker manifest inspect must select exactly one linux/amd64 row")
+    row = selected[0]
+    if row.get("Descriptor") != SELECTED_MANIFEST_DESCRIPTOR:
+        raise BuildInputError("reviewed Ubuntu linux/amd64 manifest descriptor mismatch")
+    manifest = row.get("OCIManifest")
+    if not isinstance(manifest, dict):
+        raise BuildInputError("selected Ubuntu row is missing its OCI manifest")
+    if manifest.get("schemaVersion") != 2 or manifest.get("mediaType") != SELECTED_MANIFEST_DESCRIPTOR["mediaType"]:
+        raise BuildInputError("selected Ubuntu OCI manifest envelope mismatch")
+    if manifest.get("config") != CONFIG_DESCRIPTOR:
+        raise BuildInputError("reviewed Ubuntu OCI config descriptor mismatch")
+    if manifest.get("layers") != list(LAYER_DESCRIPTORS):
+        raise BuildInputError("reviewed Ubuntu rootfs layer descriptor mismatch")
+    return {
+        "configDescriptor": dict(CONFIG_DESCRIPTOR),
+        "indexDescriptor": dict(INDEX_DESCRIPTOR),
+        "layerDescriptors": [dict(value) for value in LAYER_DESCRIPTORS],
+        "selectedManifestDescriptor": {
+            **SELECTED_MANIFEST_DESCRIPTOR,
+            "platform": dict(SELECTED_MANIFEST_DESCRIPTOR["platform"]),
+        },
+        "storeObservation": {
+            "architecture": image["Architecture"],
+            "id": image["Id"],
+            "os": image["Os"],
+            "size": image["Size"],
+        },
+    }
+
+
+def validate_container_selection(inspect_text: str, *, expected_labels: Mapping[str, str]) -> dict[str, Any]:
+    values = _json_list(inspect_text, "Docker container inspect")
+    if len(values) != 1 or not isinstance(values[0], dict):
+        raise BuildInputError("Docker container inspect must contain exactly one object")
+    container = values[0]
+    labels = container.get("Config", {}).get("Labels") if isinstance(container.get("Config"), dict) else None
+    if labels != dict(expected_labels):
+        raise BuildInputError("owned evidence container label drift")
+    if container.get("Image") != CONFIG_DESCRIPTOR["digest"]:
+        raise BuildInputError("evidence container did not select the reviewed OCI config")
+    if container.get("Platform") != "linux":
+        raise BuildInputError("evidence container platform did not resolve to Linux")
+    return {"image": container["Image"], "labels": labels, "platform": container["Platform"]}
 
 
 def _reject_inherited_host_environment(inherited: Mapping[str, str]) -> None:
@@ -1052,10 +1159,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         _docker(docker_config, "pull", "--platform", "linux/amd64", IMAGE, timeout=1800)
         image_json = _docker_text(docker_config, "image", "inspect", IMAGE)
-        parsed_image = json.loads(image_json)
-        if len(parsed_image) != 1 or parsed_image[0].get("Architecture") != "amd64" or parsed_image[0].get("Id") != IMAGE_CONFIG:
-            raise BuildInputError("reviewed Ubuntu amd64 configuration identity mismatch")
         image_manifest = _docker_text(docker_config, "manifest", "inspect", "--verbose", IMAGE, timeout=300)
+        image_identity = validate_image_identity(image_json, image_manifest)
 
         labels = _label_arguments(marker)
         for volume in VOLUMES:
@@ -1070,6 +1175,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "--mount", f"type=volume,source={VOLUMES[1]},target=/opt/android-sdk",
             IMAGE,
             "/bin/bash", "-lc", "trap : TERM INT; sleep infinity & wait",
+        )
+        container_selection_json = _docker_text(docker_config, "inspect", CONTAINER)
+        container_selection = validate_container_selection(
+            container_selection_json,
+            expected_labels=_owned_labels(marker),
         )
         _docker(docker_config, "start", CONTAINER)
         _container_exec(docker_config, "mkdir -p /input-repository")
@@ -1144,10 +1254,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             "bundleSha256": sha256_file(bundle),
             "dockerInfoSha256": hashlib.sha256(info_json.encode()).hexdigest(),
             "dockerVersionSha256": hashlib.sha256(version_json.encode()).hexdigest(),
-            "imageConfig": IMAGE_CONFIG,
-            "imageIndex": IMAGE,
+            "imageIdentity": image_identity,
             "imageInspectSha256": hashlib.sha256(image_json.encode()).hexdigest(),
             "imageManifestSha256": hashlib.sha256(image_manifest.encode()).hexdigest(),
+            "imageReference": IMAGE,
+            "containerSelection": container_selection,
+            "containerSelectionInspectSha256": hashlib.sha256(container_selection_json.encode()).hexdigest(),
         }
         host_receipt = {
             "architectureBoundary": "macos-aarch64-vz-rosetta-to-linux-amd64",

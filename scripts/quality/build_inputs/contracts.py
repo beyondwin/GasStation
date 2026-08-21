@@ -415,13 +415,62 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         raise BuildInputError("localEvidenceHost Android command-line tools drift")
     image = _require_keys(
         host["image"],
-        {"configurationDigest", "indexReference", "platform"},
+        {
+            "configDescriptor",
+            "indexDescriptor",
+            "indexReference",
+            "layerDescriptors",
+            "platform",
+            "selectedManifestDescriptor",
+        },
         "localEvidenceHost.image",
     )
+    index_descriptor = _require_keys(
+        image["indexDescriptor"], {"digest", "mediaType", "size"},
+        "localEvidenceHost.image.indexDescriptor",
+    )
+    selected_manifest = _require_keys(
+        image["selectedManifestDescriptor"], {"digest", "mediaType", "platform", "size"},
+        "localEvidenceHost.image.selectedManifestDescriptor",
+    )
+    _require_keys(
+        selected_manifest["platform"], {"architecture", "os"},
+        "localEvidenceHost.image.selectedManifestDescriptor.platform",
+    )
+    config_descriptor = _require_keys(
+        image["configDescriptor"], {"digest", "mediaType", "size"},
+        "localEvidenceHost.image.configDescriptor",
+    )
+    if not isinstance(image["layerDescriptors"], list) or len(image["layerDescriptors"]) != 1:
+        raise BuildInputError("localEvidenceHost image must contain the sole reviewed layer")
+    _require_keys(
+        image["layerDescriptors"][0], {"digest", "mediaType", "size"},
+        "localEvidenceHost.image.layerDescriptors[0]",
+    )
     if image != {
-        "configurationDigest": "sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316",
+        "configDescriptor": {
+            "digest": "sha256:a6f81fb630d51837271b89f8193810a5fc493fa4f30a55d7ebcdb3a66f3cc63a",
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "size": 2052,
+        },
+        "indexDescriptor": {
+            "digest": "sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "size": 6688,
+        },
         "indexReference": "docker.io/library/ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+        "layerDescriptors": [{
+            "digest": "sha256:0926a8eb0e608a5c6888d1cd5594184bdf3ed3aa311dba5b42a547caefdc6f2e",
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "size": 29752807,
+        }],
         "platform": "linux/amd64",
+        "selectedManifestDescriptor": {
+            "digest": "sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316",
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "platform": {"architecture": "amd64", "os": "linux"},
+            "size": 424,
+        },
     }:
         raise BuildInputError("localEvidenceHost image identity drift")
     required_rows = [

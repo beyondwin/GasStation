@@ -48,6 +48,8 @@ Governed evidence session은 정책의 정확한 네 명령만 받으며 suffix�
 
 macOS arm64 controller에서 필수 Linux x64 evidence를 만들 수 있는 유일한 예외는 정책의 `gasstation-task9-linux-amd64` Colima profile이다. 이 경계는 VZ aarch64 guest를 transport로만 쓰고, Rosetta-backed `linux/amd64` Ubuntu digest container 안에서만 Gradle/JDK/Android host-tool evidence를 실행한다. native x64, hosted runner, 일반 container build 또는 hermetic proof로 부르지 않는다.
 
+Ubuntu identity는 한 digest로 축약하지 않는다. 정책과 receipt는 official OCI index descriptor, 그 index에서 선택한 `linux/amd64` manifest descriptor, manifest의 OCI config descriptor, sole compressed rootfs layer descriptor를 각각 digest/media type/size와 함께 기록한다. Containerd store의 index `Id`와 빈 `Architecture`/`Os`는 관측값일 뿐 amd64 선택 증명이 아니다. Exact index reference에 `--platform linux/amd64`로 container를 만든 뒤 container `.Image`가 reviewed OCI config digest이고 `.Platform=linux`인지 검사하며, 이어서 container 내부 x86_64/amd64를 독립적으로 증명한다.
+
 오케스트레이터는 clean full source SHA와 정책만 입력받는다. attempt 번호·경로·profile·context·image·명령·복구 mode는 호출자가 선택할 수 없다. host mount는 없고 source는 exact `HEAD`와 고정 `refs/heads/main=7b8c149c9f792aaf43cc00a94ba671929008979e` 두 ref의 Git bundle 하나만 `docker cp`로 전달한다. default/shared Colima profile과 Docker 자원은 검사·변경·정리 대상이 아니다.
 
 Terminal `PASS`는 metadata no-diff replay, online cold와 same-home offline strict, product strict, configuration-cache reuse, 정확한 네 evidence session, 두 clean-tree APK equality, 별도 third APK release binding, negative mutation suite와 ordered cleanup이 모두 같은 source/policy/attempt에 묶일 때만 가능하다. cleanup은 live daemon에서 exact container와 두 volume 부재를 먼저 증명한 뒤 `colima delete gasstation-task9-linux-amd64 --data --force`를 실행하고 profile/context/runtime data 부재까지 증명한다. 일부 성공, stale/mixed ownership 또는 접근 불가 daemon은 PASS가 아니다.
