@@ -27,6 +27,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_cleanup_proof,
     validate_context_inventory,
     validate_effective_config,
+    validate_runtime_absence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
 from scripts.quality.verify_build_inputs import _run_group
@@ -408,6 +409,29 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         for mutation in mutations:
             with self.subTest(mutation=mutation), self.assertRaises(BuildInputError):
                 validate_cleanup_proof(mutation)
+
+    def test_runtime_absence_checks_profile_lima_instance_disk_and_context(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            colima_home = root / "colima-home"
+            docker_config = root / "docker-client"
+            colima_home.mkdir()
+            docker_config.mkdir()
+            self.assertTrue(validate_runtime_absence(colima_home, docker_config))
+            retained = (
+                colima_home / "gasstation-task9-linux-amd64",
+                colima_home / "_lima/colima-gasstation-task9-linux-amd64",
+                colima_home / "_lima/_disks/colima-gasstation-task9-linux-amd64",
+            )
+            for path in retained:
+                path.mkdir(parents=True)
+                with self.subTest(path=path):
+                    self.assertFalse(validate_runtime_absence(colima_home, docker_config))
+                path.rmdir()
+            meta = docker_config / "contexts/meta/owned/meta.json"
+            meta.parent.mkdir(parents=True)
+            meta.write_text(json.dumps({"Name": "colima-gasstation-task9-linux-amd64"}))
+            self.assertFalse(validate_runtime_absence(colima_home, docker_config))
 
     def test_aggregate_is_all_or_nothing_and_same_identity(self) -> None:
         rows = {

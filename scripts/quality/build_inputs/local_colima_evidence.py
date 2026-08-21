@@ -462,6 +462,17 @@ def validate_cleanup_proof(proof: Mapping[str, Any]) -> None:
             raise BuildInputError(f"cleanup proof is incomplete: {name}")
 
 
+def validate_runtime_absence(colima_home: Path, docker_config: Path) -> bool:
+    retained_runtime_paths = (
+        colima_home / PROFILE,
+        colima_home / "_lima" / f"colima-{PROFILE}",
+        colima_home / "_lima" / "_disks" / f"colima-{PROFILE}",
+    )
+    if any(path.exists() or path.is_symlink() for path in retained_runtime_paths):
+        return False
+    return not any(path.is_file() or path.is_symlink() for path in docker_config.rglob("meta.json"))
+
+
 def aggregate_receipt(
     *,
     source_commit: str,
@@ -738,7 +749,7 @@ def _recover_prior_attempts(
                 raise BuildInputError("recovery could not prove volume absence live")
         _run(STOP_ARGV, env=environment, timeout=900)
         _run(DELETE_ARGV, env=environment, timeout=900)
-        if any(path.name == PROFILE for path in colima_home.rglob("*")):
+        if not validate_runtime_absence(colima_home, docker_config):
             raise BuildInputError("recovery retained attempt-owned runtime data")
         if any(CONTEXT in path.read_text(encoding="utf-8", errors="ignore") for path in docker_config.rglob("meta.json")):
             raise BuildInputError("recovery retained dedicated Docker context")
@@ -1216,11 +1227,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_new(staged / "daemon-proof.json", daemon_proof)
         _run(STOP_ARGV, env=environment, timeout=900)
         _run(DELETE_ARGV, env=environment, timeout=900)
-        profile_root = Path(environment["COLIMA_HOME"]) / "_profiles" / PROFILE
-        profile_absent = not profile_root.exists()
-        context_absent = not any(CONTEXT in path.read_text(encoding="utf-8", errors="ignore") for path in docker_config.rglob("meta.json"))
-        # --data deletion must leave no profile-owned data below the isolated home.
-        runtime_absent = not any(path.name == PROFILE for path in Path(environment["COLIMA_HOME"]).rglob("*"))
+        colima_home = Path(environment["COLIMA_HOME"])
+        profile_absent = not (colima_home / PROFILE).exists() and not (
+            colima_home / "_lima" / f"colima-{PROFILE}"
+        ).exists()
+        context_absent = not any(path.is_file() or path.is_symlink() for path in docker_config.rglob("meta.json"))
+        # --data deletion must leave neither the profile nor its exact Lima disk.
+        runtime_absent = validate_runtime_absence(colima_home, docker_config)
         cleanup = {
             "containerAbsentWhileDaemonLive": container_absent,
             "contextAbsent": context_absent,
