@@ -357,11 +357,11 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
     )
     expected_effective_scalars = {
         "arch": "aarch64", "autoActivate": False, "binfmt": False, "cpu": 8,
-        "cpuType": "host", "disk": 120, "diskImage": "", "docker": {},
-        "env": {}, "forwardAgent": False, "hostname": None, "memory": 16,
+        "cpuType": "", "disk": 120, "diskImage": "", "docker": {},
+        "env": {}, "forwardAgent": False, "hostname": "", "memory": 16,
         "modelRunner": "docker", "mountInotify": True, "mountType": "virtiofs",
-        "mounts": [], "nestedVirtualization": False, "portForwarder": "ssh",
-        "provision": [], "rootDisk": 40, "rosetta": True, "runtime": "docker",
+        "mounts": None, "nestedVirtualization": False, "portForwarder": "ssh",
+        "provision": None, "rootDisk": 40, "rosetta": True, "runtime": "docker",
         "sshConfig": False, "sshPort": 0, "vmType": "vz",
     }
     if any(effective.get(name) != value for name, value in expected_effective_scalars.items()):
@@ -371,8 +371,8 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "version": "v1.35.0+k3s1",
     } or effective["network"] != {
         "address": False,
-        "dns": [],
-        "dnsHosts": {"host.docker.internal": "host.lima.internal"},
+        "dns": None,
+        "dnsHosts": {},
         "gatewayAddress": "192.168.5.2",
         "hostAddresses": False,
         "interface": "en0",

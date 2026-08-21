@@ -98,6 +98,7 @@ REQUIRED_EVIDENCE_ROWS = frozenset(
 )
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _ATTEMPT = re.compile(r"^attempt-[0-9]{6}$")
+_RUNTIME_PARENT = Path("/private/tmp")
 _FORBIDDEN_INHERITED_EXACT = {
     "ALL_PROXY",
     "COLIMA_HOME",
@@ -130,12 +131,7 @@ def validate_cli(argv: Sequence[str]) -> tuple[str, str]:
     return policy_value, source_commit
 
 
-def sanitized_host_environment(
-    attempt_root: Path,
-    *,
-    inherited: Mapping[str, str] | None = None,
-) -> dict[str, str]:
-    inherited = os.environ if inherited is None else inherited
+def _reject_inherited_host_environment(inherited: Mapping[str, str]) -> None:
     for name, value in inherited.items():
         upper = name.upper()
         forbidden = (
@@ -149,11 +145,23 @@ def sanitized_host_environment(
         )
         if value and forbidden:
             raise BuildInputError(f"inherited host configuration is forbidden: {name}")
-    if not attempt_root.is_absolute():
-        raise BuildInputError("attempt root must be absolute")
-    home = attempt_root / "host-home"
-    colima_home = attempt_root / "colima-home"
-    docker_config = attempt_root / "docker-client"
+
+
+def sanitized_host_environment(
+    runtime_root: Path,
+    *,
+    inherited: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    inherited = os.environ if inherited is None else inherited
+    _reject_inherited_host_environment(inherited)
+    if not runtime_root.is_absolute():
+        raise BuildInputError("runtime root must be absolute")
+    if runtime_root.exists() or runtime_root.is_symlink():
+        raise BuildInputError("isolated runtime root must be new")
+    runtime_root.mkdir(mode=0o700)
+    home = runtime_root / "host-home"
+    colima_home = runtime_root / "colima-home"
+    docker_config = runtime_root / "docker-client"
     for path in (home, colima_home, docker_config):
         if path.exists() or path.is_symlink():
             raise BuildInputError("isolated host roots must be new")
@@ -167,6 +175,31 @@ def sanitized_host_environment(
         "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "TZ": "UTC",
     }
+
+
+def isolated_runtime_root(source_commit: str, policy_sha256: str, attempt_id: str) -> Path:
+    """Derive a short, receipt-opaque launcher root from reviewed identities."""
+
+    if _FULL_SHA.fullmatch(source_commit) is None:
+        raise BuildInputError("runtime root source identity is malformed")
+    if re.fullmatch(r"[0-9a-f]{64}", policy_sha256) is None or _ATTEMPT.fullmatch(attempt_id) is None:
+        raise BuildInputError("runtime root policy/attempt identity is malformed")
+    token = hashlib.sha256(
+        canonical_json_bytes(
+            {
+                "attemptId": attempt_id,
+                "policySha256": policy_sha256,
+                "sourceCommit": source_commit,
+                "taskId": "quality-task-9-local-linux-evidence",
+            },
+        ),
+    ).hexdigest()[:24]
+    root = _RUNTIME_PARENT / f"gst9-{token}"
+    # Darwin sockaddr_un.sun_path is 104 bytes including the NUL terminator.
+    longest_socket = root / "colima-home/_lima/colima-gasstation-task9-linux-amd64/sock"
+    if len(os.fsencode(longest_socket)) >= 104:
+        raise BuildInputError("derived runtime root exceeds the Darwin Unix socket boundary")
+    return root
 
 
 def next_attempt(source_root: Path) -> Path:
@@ -321,14 +354,39 @@ def validate_effective_config(text: str, expected: Mapping[str, Any]) -> dict[st
     """Parse the complete persisted Colima mapping with a closed YAML subset."""
 
     root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-2, root)]
+    stack: list[tuple[int, dict[str, Any] | list[Any], dict[str, Any] | None, str | None]] = [
+        (-2, root, None, None),
+    ]
     for line_number, raw in enumerate(text.splitlines(), 1):
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
         if "\t" in raw or raw.rstrip() != raw:
             raise BuildInputError(f"persisted Colima config whitespace drift at line {line_number}")
         indent = len(raw) - len(raw.lstrip(" "))
-        if indent % 2 or ":" not in raw:
+        if indent % 2:
+            raise BuildInputError(f"persisted Colima config syntax drift at line {line_number}")
+        stripped = raw.strip()
+        if stripped.startswith("- "):
+            while stack and indent <= stack[-1][0]:
+                stack.pop()
+            if not stack or indent != stack[-1][0] + 2:
+                raise BuildInputError("persisted Colima block-list indentation drift")
+            _, container, owner, owner_key = stack[-1]
+            if isinstance(container, dict):
+                if container or owner is None or owner_key is None:
+                    raise BuildInputError("persisted Colima block list has no closed list owner")
+                replacement: list[Any] = []
+                owner[owner_key] = replacement
+                stack[-1] = (stack[-1][0], replacement, owner, owner_key)
+                container = replacement
+            if not isinstance(container, list):
+                raise BuildInputError("persisted Colima block list container drift")
+            item = stripped[2:].strip()
+            if not item or ":" in item:
+                raise BuildInputError("persisted Colima block-list item is outside the closed scalar subset")
+            container.append(_yaml_scalar(item))
+            continue
+        if ":" not in raw:
             raise BuildInputError(f"persisted Colima config syntax drift at line {line_number}")
         key, raw_value = raw.strip().split(":", 1)
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9.]*", key) is None:
@@ -338,13 +396,15 @@ def validate_effective_config(text: str, expected: Mapping[str, Any]) -> dict[st
         if not stack or indent != stack[-1][0] + 2:
             raise BuildInputError("persisted Colima config indentation drift")
         parent = stack[-1][1]
+        if not isinstance(parent, dict):
+            raise BuildInputError("persisted Colima list may contain only closed scalar items")
         if key in parent:
             raise BuildInputError(f"duplicate persisted Colima config key: {key}")
         value_text = raw_value.strip()
         if not value_text:
             value: Any = {}
             parent[key] = value
-            stack.append((indent, value))
+            stack.append((indent, value, parent, key))
         else:
             parent[key] = _yaml_scalar(value_text)
     if root != dict(expected):
@@ -424,8 +484,10 @@ def _run(
     except (OSError, subprocess.TimeoutExpired) as error:
         raise BuildInputError(f"closed command failed to execute: {Path(argv[0]).name}") from error
     if check and completed.returncode != 0:
+        tail = completed.stdout.decode("utf-8", "replace")[-4096:].strip()
+        detail = f"; output={tail}" if tail else ""
         raise BuildInputError(
-            f"closed command failed ({completed.returncode}): {Path(argv[0]).name}",
+            f"closed command failed ({completed.returncode}): {Path(argv[0]).name}{detail}",
         )
     return completed
 
@@ -491,11 +553,15 @@ def _runtime_data_identity(colima_home: Path, source_commit: str, policy_sha: st
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
-def _existing_environment(attempt: Path) -> dict[str, str]:
+def _existing_environment(attempt: Path, marker: Mapping[str, Any]) -> dict[str, str]:
+    legacy = attempt / "colima-home"
+    runtime_root = attempt if legacy.exists() else isolated_runtime_root(
+        str(marker["sourceCommit"]), str(marker["policySha256"]), str(marker["attemptId"]),
+    )
     roots = {
-        "HOME": attempt / "host-home",
-        "COLIMA_HOME": attempt / "colima-home",
-        "DOCKER_CONFIG": attempt / "docker-client",
+        "HOME": runtime_root / "host-home",
+        "COLIMA_HOME": runtime_root / "colima-home",
+        "DOCKER_CONFIG": runtime_root / "docker-client",
     }
     for path in roots.values():
         if path.is_symlink() or (path.exists() and not path.is_dir()):
@@ -507,6 +573,22 @@ def _existing_environment(attempt: Path) -> dict[str, str]:
         "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "TZ": "UTC",
     }
+
+
+def _validate_runtime_marker(runtime_root: Path, marker: Mapping[str, Any]) -> None:
+    marker_path = runtime_root / "ownership-marker.json"
+    if not marker_path.is_file() or marker_path.is_symlink():
+        raise BuildInputError("isolated runtime root is missing its ownership marker")
+    if ownership_marker(existing=_load_json(marker_path)) != dict(marker):
+        raise BuildInputError("isolated runtime ownership marker differs from attempt marker")
+    expected_runtime_id = _runtime_data_identity(
+        runtime_root / "colima-home",
+        str(marker["sourceCommit"]),
+        str(marker["policySha256"]),
+        str(marker["attemptId"]),
+    )
+    if marker["runtimeDataId"] != expected_runtime_id:
+        raise BuildInputError("isolated runtime-data identity differs from owned launcher root")
 
 
 def _owned_labels(marker: Mapping[str, Any]) -> dict[str, str]:
@@ -552,9 +634,11 @@ def _recover_prior_attempts(
             or marker["mainBaseCommit"] != MAIN_BASE_COMMIT
         ):
             raise BuildInputError("mixed source/policy/base attempt blocks recovery")
-        environment = _existing_environment(attempt)
+        environment = _existing_environment(attempt, marker)
         colima_home = Path(environment["COLIMA_HOME"])
         docker_config = Path(environment["DOCKER_CONFIG"])
+        runtime_root = colima_home.parent
+        _validate_runtime_marker(runtime_root, marker)
         config_candidates = [
             path for path in colima_home.rglob("colima.yaml")
             if path.is_file() and not path.is_symlink()
@@ -569,6 +653,13 @@ def _recover_prior_attempts(
             validate_cleanup_proof(_load_json(cleanup_path))
             continue
         if not config_candidates:
+            retained_profile_data = any(path.name in {PROFILE, f"colima-{PROFILE}"} for path in colima_home.rglob("*"))
+            retained_context = any(
+                CONTEXT in path.read_text(encoding="utf-8", errors="ignore")
+                for path in docker_config.rglob("meta.json")
+            )
+            if retained_profile_data or retained_context:
+                raise BuildInputError("prior attempt retains unvalidated profile data or Docker context")
             if not (attempt / "recovery.json").exists():
                 _write_new(
                     attempt / "recovery.json",
@@ -857,9 +948,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             policy_sha256=policy_sha,
             host_policy=host,
         )
+        _reject_inherited_host_environment(os.environ)
         attempt = next_attempt(attempts_root)
         attempt.mkdir(mode=0o700)
-        environment = sanitized_host_environment(attempt, inherited=os.environ)
+        runtime_root = isolated_runtime_root(source_commit, policy_sha, attempt.name)
+        environment = sanitized_host_environment(runtime_root, inherited={})
         docker_config = Path(environment["DOCKER_CONFIG"])
         runtime_data_id = _runtime_data_identity(
             Path(environment["COLIMA_HOME"]), source_commit, policy_sha, attempt.name,
@@ -872,12 +965,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             runtime_data_id=runtime_data_id,
         )
         _write_new(attempt / "ownership-marker.json", marker)
+        _write_new(runtime_root / "ownership-marker.json", marker)
         bundle, bundle_heads = _bundle(attempt, source_commit)
 
         if tuple(host.get("startArgv", ())) != START_ARGV or tuple(host.get("stopArgv", ())) != STOP_ARGV or tuple(host.get("deleteArgv", ())) != DELETE_ARGV:
             raise BuildInputError("localEvidenceHost literal Colima argv drift")
-        _run(START_ARGV, env=environment, timeout=1800)
         resources_created = True
+        _run(START_ARGV, env=environment, timeout=1800)
         config_candidates = [
             path
             for path in Path(environment["COLIMA_HOME"]).rglob("colima.yaml")

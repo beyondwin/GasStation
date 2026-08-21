@@ -13,8 +13,10 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     DELETE_ARGV,
     START_ARGV,
     _recover_prior_attempts,
+    _runtime_data_identity,
     aggregate_receipt,
     docker_argv,
+    isolated_runtime_root,
     next_attempt,
     ownership_marker,
     sanitized_host_environment,
@@ -115,7 +117,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
 
     def test_host_environment_is_closed_and_rejects_inherited_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory) / "runtime"
             environment = sanitized_host_environment(root, inherited={})
             self.assertEqual(
                 {"COLIMA_HOME", "DOCKER_CONFIG", "HOME", "LANG", "LC_ALL", "PATH", "TZ"},
@@ -140,6 +142,20 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 ):
                     sanitized_host_environment(root, inherited={name: "poison"})
 
+    def test_runtime_roots_are_short_opaque_marker_derived_and_not_attempt_paths(self) -> None:
+        first = isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-000001")
+        replay = isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-000001")
+        next_attempt_root = isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-000002")
+        self.assertEqual(first, replay)
+        self.assertNotEqual(first, next_attempt_root)
+        self.assertEqual(Path("/private/tmp"), first.parent)
+        self.assertRegex(first.name, r"^gst9-[0-9a-f]{24}$")
+        self.assertLess(len(str(first / "colima-home" / "_lima" / "colima-gasstation-task9-linux-amd64" / "sock")), 104)
+        self.assertNotIn(SOURCE, str(first))
+        self.assertNotIn(POLICY_SHA, str(first))
+        with self.assertRaises(BuildInputError):
+            isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-user")
+
     def test_effective_config_parser_is_complete_duplicate_free_and_exact(self) -> None:
         expected = {
             "arch": "aarch64",
@@ -162,6 +178,11 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             "rosetta: true\n"
         )
         self.assertEqual(expected, validate_effective_config(valid, expected))
+        block_list = valid.replace(
+            "  k3sArgs: [--disable=traefik]\n",
+            "  k3sArgs:\n    - --disable=traefik\n",
+        )
+        self.assertEqual(expected, validate_effective_config(block_list, expected))
         for mutation in (
             valid.replace("rosetta: true", "rosetta: false"),
             valid + "unknown: true\n",
@@ -209,20 +230,37 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             root = Path(directory)
             attempt = root / "attempt-000001"
             attempt.mkdir()
+            runtime_root = isolated_runtime_root(SOURCE, POLICY_SHA, attempt.name)
             marker = ownership_marker(
                 source_commit=SOURCE,
                 policy_sha256=POLICY_SHA,
                 attempt_id=attempt.name,
                 main_base_commit=BASE,
-                runtime_data_id="3" * 64,
+                runtime_data_id=_runtime_data_identity(
+                    runtime_root / "colima-home", SOURCE, POLICY_SHA, attempt.name,
+                ),
             )
             (attempt / "ownership-marker.json").write_bytes(canonical_json_bytes(marker))
-            _recover_prior_attempts(
-                root,
-                source_commit=SOURCE,
-                policy_sha256=POLICY_SHA,
-                host_policy=host,
-            )
+            self.assertFalse(runtime_root.exists())
+            try:
+                sanitized_host_environment(runtime_root, inherited={})
+                (runtime_root / "ownership-marker.json").write_bytes(canonical_json_bytes(marker))
+                _recover_prior_attempts(
+                    root,
+                    source_commit=SOURCE,
+                    policy_sha256=POLICY_SHA,
+                    host_policy=host,
+                )
+            finally:
+                marker_path = runtime_root / "ownership-marker.json"
+                if marker_path.exists():
+                    marker_path.unlink()
+                for name in ("docker-client", "colima-home", "host-home"):
+                    path = runtime_root / name
+                    if path.exists():
+                        path.rmdir()
+                if runtime_root.exists():
+                    runtime_root.rmdir()
             self.assertEqual("PASS", json.loads((attempt / "recovery.json").read_text())["status"])
 
         with tempfile.TemporaryDirectory() as directory:
