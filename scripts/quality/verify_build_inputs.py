@@ -64,6 +64,10 @@ from scripts.quality.build_inputs.testkit_failure import (  # noqa: E402
     export_testkit_failure_evidence,
     validate_live_stage_manifest,
 )
+from scripts.quality.build_inputs.test_class_decomposition import (  # noqa: E402
+    DecompositionError,
+    verify_decomposition,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -214,6 +218,10 @@ def _metadata_counts(policy: Mapping[str, Any]) -> dict[str, int | str]:
 def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
     verify_wrapper(ROOT, policy)
     _verify_static_hashes(policy)
+    try:
+        decomposition = verify_decomposition(ROOT, ROOT / "config/quality/test-class-decomposition.json")
+    except DecompositionError as error:
+        raise BuildInputError(str(error)) from error
     actual_entrypoints = policy.get("evidenceGradleEntrypoints")
     expected_entrypoints = evidence_entrypoints()
     if actual_entrypoints != expected_entrypoints:
@@ -265,6 +273,7 @@ def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
         "dynamicDependencySelectors": 0,
         "schemaVersion": 1,
         "status": "PASS",
+        "testClassDecomposition": decomposition,
     }
 
 

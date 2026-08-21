@@ -19,14 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class GasStationRootQualityConventionPluginTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
-    private val sharedGradleUserHome by lazy {
-        temporaryFolder.newFolder("root-quality-gradle-user-home")
-    }
-
+class RootQualityTaskSurfaceTest : RootQualityTestSupport() {
     @Test
     fun rootPluginKeepsExactTaskSurfaceAndRunsEveryGuardWithoutAggregates() {
         val project = newProject("task-surface")
@@ -67,7 +60,9 @@ class GasStationRootQualityConventionPluginTest {
             )
         }
     }
+}
 
+class RootQualityRootApplicationTest : RootQualityTestSupport() {
     @Test
     fun subprojectApplicationFailsBeforeAnyGuardCanSucceed() {
         val project = newProject("subproject-application")
@@ -85,7 +80,9 @@ class GasStationRootQualityConventionPluginTest {
         )
         assertFalse(result.tasks.any { it.path.startsWith(":verify") && it.outcome == TaskOutcome.SUCCESS })
     }
+}
 
+class RootQualityFixedPolicyTest : RootQualityTestSupport() {
     @Test
     fun consumingBuildCannotReplaceAnyFixedPolicyModelOrFileInput() {
         RootQualityFixedInputMutation.entries.forEach { mutation ->
@@ -117,7 +114,9 @@ class GasStationRootQualityConventionPluginTest {
             assertFalse(result.tasks.any { it.path.startsWith(":verify") && it.outcome == TaskOutcome.SUCCESS })
         }
     }
+}
 
+class RootQualityModuleBoundaryTest : RootQualityTestSupport() {
     @Test
     fun moduleGuardUsesSettingsProjectsAllowsExceptionAndTestOnlyEdgeWithoutResolving() {
         val modules =
@@ -161,7 +160,9 @@ class GasStationRootQualityConventionPluginTest {
         assertFalse(result.output.contains("filesystem-only"))
         assertFalse(result.output.contains("filesystem-decoy"))
     }
+}
 
+class RootQualityComposeSafeTest : RootQualityTestSupport() {
     @Test
     fun composeGuardAllowsV2NormalCommentsAndExcludedTrees() {
         val project = newProject("compose-safe")
@@ -194,7 +195,9 @@ class GasStationRootQualityConventionPluginTest {
         result.assertTaskOutcome(":verifyNoDeprecatedComposeTestApis", TaskOutcome.SUCCESS)
         assertTrue(result.output.contains(COMPOSE_SUCCESS))
     }
+}
 
+class RootQualityComposeForbiddenTest : RootQualityTestSupport() {
     @Test
     fun composeGuardRejectsEveryDeprecatedPrefixFromRealUnitTestSources() {
         val sources =
@@ -220,7 +223,9 @@ class GasStationRootQualityConventionPluginTest {
             )
         }
     }
+}
 
+class RootQualityComposeDiagnosticsTest : RootQualityTestSupport() {
     @Test
     fun composeGuardCoversAndroidTestAndReportsSortedRelativePathsAndLines() {
         val project = newProject("compose-relative")
@@ -248,7 +253,9 @@ class GasStationRootQualityConventionPluginTest {
         assertFalse(result.output.contains(project.projectDir.absolutePath))
         assertFalse(result.output.contains('\\'))
     }
+}
 
+class RootQualityRuntimeIdentityTest : RootQualityTestSupport() {
     @Test
     fun runtimeGuardRequiresExactClosedInstallerRolesAndSdkThreshold() {
         val project = newProject("runtime-boundaries")
@@ -271,7 +278,9 @@ class GasStationRootQualityConventionPluginTest {
             assertTrue("runtime mutation $index missing $diagnostic", result.output.contains(diagnostic))
         }
     }
+}
 
+class RootQualityRuntimeRejectionTest : RootQualityTestSupport() {
     @Test
     fun runtimeGuardFailsClosedForMissingAndNonNumericInputs() {
         val project = newProject("runtime-invalid")
@@ -292,7 +301,9 @@ class GasStationRootQualityConventionPluginTest {
             assertTrue("invalid case $index missing $diagnostic", result.output.contains(diagnostic))
         }
     }
+}
 
+class RootQualityConfigurationCacheTest : RootQualityTestSupport() {
     @Test
     fun allThreeGuardsStoreAndReuseConfigurationCacheWithNamedSuccessOutcomes() {
         val project = newProject("cache-success")
@@ -354,7 +365,9 @@ class GasStationRootQualityConventionPluginTest {
         }
 
     }
+}
 
+class RootQualityAbiUpdaterTest : RootQualityTestSupport() {
     @Test
     fun abiUpdaterRequiresExactOperatorVectorAndRejectsVerificationGraphBeforeDumpWrites() {
         val project = newProject("abi-update-operator")
@@ -483,7 +496,9 @@ class GasStationRootQualityConventionPluginTest {
             )
         }
     }
+}
 
+class RootQualityRelocationTest : RootQualityTestSupport() {
     @Test
     fun equivalentFixturesRelocateWithoutAbsoluteSuccessOrFailureEvidence() {
         listOf("relocation-a", "relocation-b").forEach { name ->
@@ -498,27 +513,36 @@ class GasStationRootQualityConventionPluginTest {
             )
         }
     }
+}
 
-    private fun newProject(name: String): GradlePluginTestProject =
+abstract class RootQualityTestSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    private val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("root-quality-gradle-user-home")
+    }
+
+    protected fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),
             sharedGradleUserHome,
         )
 
-    private fun assertTaskLine(result: BuildResult, task: String, description: String) {
+    protected fun assertTaskLine(result: BuildResult, task: String, description: String) {
         assertTrue(
             "missing exact task surface for $task: ${result.output}",
             result.output.lineSequence().any { it == "$task - $description" },
         )
     }
 
-    private fun assertThreeSuccessOutcomes(result: BuildResult) {
+    protected fun assertThreeSuccessOutcomes(result: BuildResult) {
         result.assertTaskOutcome(":verifyModuleBoundaries", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":verifyNoDeprecatedComposeTestApis", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":verifyCiRobolectricRuntime", TaskOutcome.SUCCESS)
     }
 
-    private fun assertContractApiOutcomes(result: BuildResult) {
+    protected fun assertContractApiOutcomes(result: BuildResult) {
         listOf(
             ":core:model",
             ":core:observability",
@@ -532,13 +556,13 @@ class GasStationRootQualityConventionPluginTest {
         assertFalse(result.tasks.any { it.path.endsWith(":updateKotlinAbi") })
     }
 
-    private fun assertSuccessSentinels(result: BuildResult, expectedModuleCount: Int) {
+    protected fun assertSuccessSentinels(result: BuildResult, expectedModuleCount: Int) {
         assertTrue(result.output.contains("(${expectedModuleCount}개 모듈 검사)"))
         assertTrue(result.output.contains(COMPOSE_SUCCESS))
         assertTrue(result.output.contains("CI/Robolectric runtime OK"))
     }
 
-    private fun workflow(
+    protected fun workflow(
         runtime: String = "21.0.12.1+1",
         toolchain: String = "17.0.20+8",
         runner: String = "ubuntu-24.04",
@@ -558,7 +582,7 @@ class GasStationRootQualityConventionPluginTest {
             if (extraStep.isNotEmpty()) appendLine(extraStep)
         }
 
-    private fun workflowWithoutCiVersion(): String =
+    protected fun workflowWithoutCiVersion(): String =
         """
         name: Android CI
         env:
@@ -570,11 +594,11 @@ class GasStationRootQualityConventionPluginTest {
               - uses: ./.github/actions/setup-build-inputs
         """.trimIndent()
 
-    companion object {
-        private const val COMPOSE_SUCCESS =
+    protected companion object {
+        const val COMPOSE_SUCCESS =
             "Compose test API guard OK: deprecated v1 test-environment imports not found."
 
-        private val FORBIDDEN_IMPORTS =
+        val FORBIDDEN_IMPORTS =
             listOf(
                 "import androidx.compose.ui.test.junit4.AndroidComposeTestRule",
                 "import androidx.compose.ui.test.junit4.createAndroidComposeRule",
@@ -586,7 +610,7 @@ class GasStationRootQualityConventionPluginTest {
                 "import androidx.compose.ui.test.runEmptyComposeUiTest",
             )
 
-        private val CONTRACT_API_MODULES =
+        val CONTRACT_API_MODULES =
             listOf(
                 ":core:model",
                 ":core:observability",

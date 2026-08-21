@@ -21,14 +21,7 @@ import org.junit.rules.TemporaryFolder
 import org.jacoco.core.data.ExecutionData
 import org.jacoco.core.data.ExecutionDataWriter
 
-class CoverageConventionTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
-    private val sharedGradleUserHome by lazy {
-        temporaryFolder.newFolder("coverage-gradle-user-home")
-    }
-
+class CoverageSemanticIdentityTest : CoverageTestSupport() {
     @Test
     fun typedXmlReportAndKotlinSemanticIdentityMatchThePythonGoldenContract() {
         assertEquals("CoverageXmlReportTask", CoverageXmlReportTask::class.simpleName)
@@ -66,7 +59,9 @@ class CoverageConventionTest {
         assertFalse(coverageXmlSemanticRecords(xml, ":sample|main").contentEquals(coverageXmlSemanticRecords(swapped, ":sample|main")))
         assertFalse(coverageXmlSemanticSha256(xml, ":sample|main") == coverageXmlSemanticSha256(swapped, ":sample|main"))
     }
+}
 
+class CoveragePackageLexerTest : CoverageTestSupport() {
     @Test
     fun producerPackageLexerSkipsNestedCommentsTextBlocksAndRejectsJavaUnicodeEscapes() {
         val kotlin =
@@ -91,7 +86,9 @@ class CoverageConventionTest {
         }.exceptionOrNull()
         assertTrue(error?.message.orEmpty().contains("Unicode escape"))
     }
+}
 
+class CoverageExecutionMergeTest : CoverageTestSupport() {
     @Test
     fun executionProducerMergesCompatibleBlocksByProbeOrAndRejectsIncompatibleDuplicates() {
         val compatible = temporaryFolder.newFile("compatible.exec")
@@ -115,7 +112,9 @@ class CoverageConventionTest {
         }.exceptionOrNull()
         assertTrue(error?.message.orEmpty().contains("Incompatible duplicate"))
     }
+}
 
+class CoverageProviderTopologyTest : CoverageTestSupport() {
     @Test
     fun providerReportsBindJvmAndroidAndBothAppVariantsWithoutBenchmarkOrInternalPaths() {
         val project = newProject("provider-matrix").writeCoverageFixture()
@@ -172,7 +171,9 @@ class CoverageConventionTest {
         }
         project.assertRealVerifierMutationBoundary()
     }
+}
 
+class CoverageReportMutationTest : CoverageTestSupport() {
     @Test
     fun typedXmlReportTaskRejectsLiveCardinalityIdentityExecAndClassMutations() {
         val project = newProject("typed-report-invalid-inputs").writeCoverageFixture(CoverageFixture(jvmOnly = true))
@@ -254,7 +255,9 @@ class CoverageConventionTest {
             assertEquals("unrelated test executed for $probeCase", null, result.task(":sample:jvm:unrelatedCoverageTest"))
         }
     }
+}
 
+class CoverageVerifierMutationTest : CoverageTestSupport() {
     @Test
     fun gradleVerifierTaskUsesRealVerifierAndRejectsPostEntryMutations() {
         val project = newProject("real-gradle-verifier").writeCoverageFixture(CoverageFixture(jvmOnly = true))
@@ -359,7 +362,9 @@ class CoverageConventionTest {
         project.git("commit", "-qm", "move fixture head")
         rejectMutation("CLI source commit must equal HEAD")
     }
+}
 
+class CoverageCacheBehaviorTest : CoverageTestSupport() {
     @Test
     fun producersBecomeUpToDateVerifierAlwaysRunsAndConfigurationCacheStoresThenReuses() {
         val project = newProject("cache-and-always-run").writeCoverageFixture()
@@ -407,39 +412,9 @@ class CoverageConventionTest {
         assertEquals(cacheIdentities, project.semanticIdentities())
         assertEquals("4", project.stubInvocationMarker().readText())
     }
+}
 
-    private fun GradlePluginTestProject.assertRealVerifierMutationBoundary() {
-        assertEquals(0, realVerifierBoundary().first)
-
-        val entryText = entryFiles().first { it.readText().contains("\"reportId\":\":sample:jvm|main\"") }.readText()
-        val artifact = Regex("\\\"inputClassArtifacts\\\":\\[\\{\\\"entryCount\\\":\\d+,\\\"kind\\\":\\\"directory\\\",\\\"path\\\":\\\"([^\\\"]+)\\\"")
-            .find(entryText)!!.groupValues[1]
-        val inputClass = projectDir.resolve(artifact).walkTopDown().first { it.isFile && it.extension == "class" }
-        val inputBytes = inputClass.readBytes()
-        inputClass.delete()
-        val removedInput = realVerifierBoundary()
-        assertEquals(removedInput.second, 1, removedInput.first)
-        assertTrue(removedInput.second.contains("input class artifact identity mismatch"))
-        inputClass.writeBytes(inputBytes)
-
-        val prepared = Regex("\\\"preparedClassDirectory\\\":\\\"([^\\\"]+)\\\"")
-            .find(entryText)!!.groupValues[1]
-        val extraClass = projectDir.resolve("$prepared/fixture/PostEntryMutation.class")
-        extraClass.parentFile.mkdirs()
-        extraClass.writeBytes(byteArrayOf(1, 2, 3))
-        val mutated = realVerifierBoundary()
-        assertEquals(mutated.second, 1, mutated.first)
-        assertTrue(mutated.second.contains("physical prepared class inventory"))
-        extraClass.delete()
-
-        projectDir.resolve("sample/jvm/src/main/kotlin/fixture/JvmLogic.kt").appendText("\n")
-        git("add", ".")
-        git("commit", "-qm", "move fixture head")
-        val stale = realVerifierBoundary()
-        assertEquals(stale.second, 1, stale.first)
-        assertTrue(stale.second.contains("manifest sourceCommit differs from fixture HEAD"))
-    }
-
+class CoverageModuleOwnershipTest : CoverageTestSupport() {
     @Test
     fun explicitEmptyModuleFailsOwnershipWhileImplicitGroupingProjectIsNotAModule() {
         val project =
@@ -457,7 +432,9 @@ class CoverageConventionTest {
         assertTrue(result.output, result.output.contains("coverage owner or reviewed exclusion"))
         assertFalse(result.output.contains(":sample must have a coverage owner"))
     }
+}
 
+class CoverageAndroidExecutionDataTest : CoverageTestSupport() {
     @Test
     fun androidCoverageKeepsRobolectricNoLocationClassesInJacocoExecutionData() {
         val project =
@@ -478,7 +455,9 @@ class CoverageConventionTest {
         result.assertTaskOutcome(":android:assertCoverageNoLocationScope", TaskOutcome.SUCCESS)
         result.assertTaskOutcome(":app:assertCoverageNoLocationScope", TaskOutcome.SUCCESS)
     }
+}
 
+class CoveragePreparedClassesTest : CoverageTestSupport() {
     @Test
     fun preparedClassProducerRejectsTraversalDuplicatesAndRemovesStaleInputs() {
         fun assertCollision(first: String, second: String) {
@@ -535,7 +514,9 @@ class CoverageConventionTest {
         project.runner(":sample:jvm:prepareCoverageMainClasses", "--rerun-tasks").build()
         assertFalse("removed input survived in prepared output", staleOutput.exists())
     }
+}
 
+class CoverageGeneratedSourceTest : CoverageTestSupport() {
     @Test
     fun generatedSourceRootIsRejectedFromAuthoredManifestInventory() {
         val project = newProject("generated-source").writeCoverageFixture(CoverageFixture(jvmOnly = true))
@@ -574,46 +555,87 @@ class CoverageConventionTest {
 
         assertTrue(result.output.contains("Generated or test source cannot enter authored production coverage"))
     }
+}
 
-    private fun newProject(name: String): GradlePluginTestProject =
+abstract class CoverageTestSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    private val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("coverage-gradle-user-home")
+    }
+
+    protected fun GradlePluginTestProject.assertRealVerifierMutationBoundary() {
+        assertEquals(0, realVerifierBoundary().first)
+
+        val entryText = entryFiles().first { it.readText().contains("\"reportId\":\":sample:jvm|main\"") }.readText()
+        val artifact = Regex("\\\"inputClassArtifacts\\\":\\[\\{\\\"entryCount\\\":\\d+,\\\"kind\\\":\\\"directory\\\",\\\"path\\\":\\\"([^\\\"]+)\\\"")
+            .find(entryText)!!.groupValues[1]
+        val inputClass = projectDir.resolve(artifact).walkTopDown().first { it.isFile && it.extension == "class" }
+        val inputBytes = inputClass.readBytes()
+        inputClass.delete()
+        val removedInput = realVerifierBoundary()
+        assertEquals(removedInput.second, 1, removedInput.first)
+        assertTrue(removedInput.second.contains("input class artifact identity mismatch"))
+        inputClass.writeBytes(inputBytes)
+
+        val prepared = Regex("\\\"preparedClassDirectory\\\":\\\"([^\\\"]+)\\\"")
+            .find(entryText)!!.groupValues[1]
+        val extraClass = projectDir.resolve("$prepared/fixture/PostEntryMutation.class")
+        extraClass.parentFile.mkdirs()
+        extraClass.writeBytes(byteArrayOf(1, 2, 3))
+        val mutated = realVerifierBoundary()
+        assertEquals(mutated.second, 1, mutated.first)
+        assertTrue(mutated.second.contains("physical prepared class inventory"))
+        extraClass.delete()
+
+        projectDir.resolve("sample/jvm/src/main/kotlin/fixture/JvmLogic.kt").appendText("\n")
+        git("add", ".")
+        git("commit", "-qm", "move fixture head")
+        val stale = realVerifierBoundary()
+        assertEquals(stale.second, 1, stale.first)
+        assertTrue(stale.second.contains("manifest sourceCommit differs from fixture HEAD"))
+    }
+
+    protected fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),
             sharedGradleUserHome,
         )
 
-    private fun GradlePluginTestProject.entryFiles(): List<File> =
+    protected fun GradlePluginTestProject.entryFiles(): List<File> =
         projectDir.walkTopDown()
             .filter { it.isFile && it.name == "manifest-entry.json" }
             .toList()
             .sortedBy { it.relativeTo(projectDir).invariantSeparatorsPath }
 
-    private fun GradlePluginTestProject.semanticIdentities(): List<String> =
+    protected fun GradlePluginTestProject.semanticIdentities(): List<String> =
         entryFiles().flatMap { entry ->
             Regex(
                 "\\\"(?:executionSemanticSha256|reportSemanticSha256)\\\":\\\"([0-9a-f]{64})\\\"",
             ).findAll(entry.readText()).map { it.groupValues[1] }.toList()
         }
 
-    private fun GradlePluginTestProject.stubInvocationMarker(): File =
+    protected fun GradlePluginTestProject.stubInvocationMarker(): File =
         projectDir.resolve("build/reports/coverage/stub-invocations.txt")
 
-    private fun GradlePluginTestProject.stubArgumentsMarker(): File =
+    protected fun GradlePluginTestProject.stubArgumentsMarker(): File =
         projectDir.resolve("build/reports/coverage/stub-arguments.txt")
 
-    private fun GradlePluginTestProject.git(vararg arguments: String): String {
+    protected fun GradlePluginTestProject.git(vararg arguments: String): String {
         val process = ProcessBuilder(listOf("git") + arguments).directory(projectDir).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
         check(process.waitFor() == 0) { "git ${arguments.joinToString(" ")} failed: $output" }
         return output
     }
 
-    private fun GradlePluginTestProject.runProcess(vararg arguments: String): Pair<Int, String> {
+    protected fun GradlePluginTestProject.runProcess(vararg arguments: String): Pair<Int, String> {
         val process = ProcessBuilder(arguments.toList()).directory(projectDir).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
         return process.waitFor() to output
     }
 
-    private fun GradlePluginTestProject.installRealVerifierArchitecture() {
+    protected fun GradlePluginTestProject.installRealVerifierArchitecture() {
         projectDir.resolve("scripts/quality/verify_coverage.py")
             .writeBytes(projectDir.resolve("scripts/quality/real_verify_coverage.py").readBytes())
         projectDir.resolve("config/quality/coverage-baseline.json").delete()
@@ -630,17 +652,17 @@ class CoverageConventionTest {
         git("commit", "-qm", "install real verifier architecture")
     }
 
-    private fun replaceJsonHash(original: ByteArray, key: String, digest: String): ByteArray {
+    protected fun replaceJsonHash(original: ByteArray, key: String, digest: String): ByteArray {
         val pattern = Regex("(\\\"$key\\\":\\\")[0-9a-f]{64}(\\\")")
         val text = original.toString(Charsets.UTF_8)
         check(pattern.findAll(text).count() == 1) { "expected one $key in manifest entry" }
         return pattern.replace(text, "${'$'}1$digest${'$'}2").toByteArray()
     }
 
-    private fun sha256(bytes: ByteArray): String =
+    protected fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
-    private fun GradlePluginTestProject.realVerifierBoundary(): Pair<Int, String> {
+    protected fun GradlePluginTestProject.realVerifierBoundary(): Pair<Int, String> {
         val process = ProcessBuilder("python3", "scripts/quality/check_real_boundary.py")
             .directory(projectDir)
             .redirectErrorStream(true)
@@ -649,7 +671,7 @@ class CoverageConventionTest {
         return process.waitFor() to output
     }
 
-    private fun writeJar(file: File, vararg entries: Pair<String, ByteArray>) {
+    protected fun writeJar(file: File, vararg entries: Pair<String, ByteArray>) {
         file.parentFile.mkdirs()
         ZipOutputStream(file.outputStream()).use { output ->
             entries.forEach { (path, bytes) ->
@@ -660,7 +682,7 @@ class CoverageConventionTest {
         }
     }
 
-    private companion object {
+    protected companion object {
         val REAL_JVM_BLOCKING_POLICY =
             """
             {
