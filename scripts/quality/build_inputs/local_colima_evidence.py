@@ -65,6 +65,16 @@ LAYER_DESCRIPTORS = (
         "size": 29752807,
     },
 )
+FAMILIAR_REPO_DIGEST = f"ubuntu@{INDEX_DESCRIPTOR['digest']}"
+STORE_OBSERVATION = {
+    "architecture": "",
+    "config": {},
+    "id": INDEX_DESCRIPTOR["digest"],
+    "os": "",
+    "repoDigests": [FAMILIAR_REPO_DIGEST],
+    "rootFS": {},
+    "size": 7112,
+}
 CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
 OWNED_LABEL_KEYS = (
     "io.gasstation.attempt",
@@ -185,10 +195,10 @@ def validate_image_identity(image_inspect_text: str, manifest_inspect_text: str)
         image.get("Id") != INDEX_DESCRIPTOR["digest"]
         or image.get("Architecture") != ""
         or image.get("Os") != ""
-        or image.get("Config") != {}
-        or image.get("RepoDigests") != [IMAGE]
-        or image.get("RootFS") != {}
-        or image.get("Size") != 7112
+        or image.get("Config") != STORE_OBSERVATION["config"]
+        or image.get("RepoDigests") != STORE_OBSERVATION["repoDigests"]
+        or image.get("RootFS") != STORE_OBSERVATION["rootFS"]
+        or image.get("Size") != STORE_OBSERVATION["size"]
     ):
         raise BuildInputError("reviewed Ubuntu containerd-store observation mismatch")
 

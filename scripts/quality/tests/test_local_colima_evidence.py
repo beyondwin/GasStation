@@ -57,7 +57,7 @@ def image_inspect_fixture() -> str:
                 "Descriptor": dict(INDEX_DESCRIPTOR),
                 "Id": INDEX_DESCRIPTOR["digest"],
                 "Os": "",
-                "RepoDigests": ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+                "RepoDigests": ["ubuntu@" + INDEX_DESCRIPTOR["digest"]],
                 "RootFS": {},
                 "Size": 7112,
             },
@@ -123,6 +123,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "layerDescriptors": list(LAYER_DESCRIPTORS),
                 "platform": "linux/amd64",
                 "selectedManifestDescriptor": SELECTED_MANIFEST_DESCRIPTOR,
+                "storeObservation": {
+                    "architecture": "",
+                    "config": {},
+                    "id": INDEX_DESCRIPTOR["digest"],
+                    "os": "",
+                    "repoDigests": ["ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+                    "rootFS": {},
+                    "size": 7112,
+                },
             },
             host["image"],
         )
@@ -174,6 +183,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         missing_owned_label = json.loads(json.dumps(baseline))
         missing_owned_label["localEvidenceHost"]["ownedLabelKeys"].pop()
         mutations.append(missing_owned_label)
+        for repo_digests in (
+            [],
+            ["ubuntu@sha256:" + "0" * 64],
+            ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+            ["ubuntu@" + INDEX_DESCRIPTOR["digest"], "extra@" + INDEX_DESCRIPTOR["digest"]],
+        ):
+            store_observation = json.loads(json.dumps(baseline))
+            store_observation["localEvidenceHost"]["image"]["storeObservation"]["repoDigests"] = repo_digests
+            mutations.append(store_observation)
         with tempfile.TemporaryDirectory() as directory:
             for index, mutation in enumerate(mutations):
                 path = Path(directory) / f"mutation-{index}.json"
@@ -488,7 +506,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "config": {},
                 "id": INDEX_DESCRIPTOR["digest"],
                 "os": "",
-                "repoDigests": ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+                "repoDigests": ["ubuntu@" + INDEX_DESCRIPTOR["digest"]],
                 "rootFS": {},
                 "size": 7112,
             },
@@ -542,6 +560,14 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         ):
             image = json.loads(json.dumps(baseline_image))
             image[0][field] = value
+            mutations.append((image, baseline_manifest))
+        for repo_digests in (
+            ["ubuntu@sha256:" + "0" * 64],
+            ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+            ["ubuntu@" + INDEX_DESCRIPTOR["digest"], "extra@" + INDEX_DESCRIPTOR["digest"]],
+        ):
+            image = json.loads(json.dumps(baseline_image))
+            image[0]["RepoDigests"] = repo_digests
             mutations.append((image, baseline_manifest))
         for image, manifest in mutations:
             with self.subTest(image=image, manifest=manifest), self.assertRaises(BuildInputError):

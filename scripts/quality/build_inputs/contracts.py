@@ -433,6 +433,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "layerDescriptors",
             "platform",
             "selectedManifestDescriptor",
+            "storeObservation",
         },
         "localEvidenceHost.image",
     )
@@ -466,6 +467,11 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         image["layerDescriptors"][0], {"digest", "mediaType", "size"},
         "localEvidenceHost.image.layerDescriptors[0]",
     )
+    _require_keys(
+        image["storeObservation"],
+        {"architecture", "config", "id", "os", "repoDigests", "rootFS", "size"},
+        "localEvidenceHost.image.storeObservation",
+    )
     if image != {
         "configDescriptor": {
             "digest": "sha256:a6f81fb630d51837271b89f8193810a5fc493fa4f30a55d7ebcdb3a66f3cc63a",
@@ -495,6 +501,17 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "platform": {"architecture": "amd64", "os": "linux"},
             "size": 424,
+        },
+        "storeObservation": {
+            "architecture": "",
+            "config": {},
+            "id": "sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+            "os": "",
+            "repoDigests": [
+                "ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+            ],
+            "rootFS": {},
+            "size": 7112,
         },
     }:
         raise BuildInputError("localEvidenceHost image identity drift")
