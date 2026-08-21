@@ -275,7 +275,19 @@ tasks.withType<Test>().configureEach {
         doFirst {
             workerTrace.parentFile.mkdirs()
             check(workerTrace.createNewFile()) { "TestKit worker trace already exists" }
-            check(liveJunit.mkdir()) { "TestKit live JUnit stage already exists" }
+            val liveJunitParent = liveJunit.parentFile
+            if (!liveJunitParent.exists()) {
+                check(liveJunitParent.mkdir()) { "TestKit live JUnit parent could not be created" }
+            }
+            check(
+                Files.isDirectory(liveJunitParent.toPath()) &&
+                    !Files.isSymbolicLink(liveJunitParent.toPath()),
+            ) {
+                "TestKit live JUnit parent is missing or unsafe"
+            }
+            check(liveJunit.mkdir()) {
+                "TestKit live JUnit stage is not fresh"
+            }
         }
         finalizedBy(finalizeTask9TestKitFailureEvidence)
         addTestListener(
