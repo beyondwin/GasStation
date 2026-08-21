@@ -98,7 +98,7 @@ REQUIRED_EVIDENCE_ROWS = frozenset(
 )
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _ATTEMPT = re.compile(r"^attempt-[0-9]{6}$")
-_RUNTIME_PARENT = Path("/private/tmp")
+_RUNTIME_PARENT = Path("/tmp")
 _FORBIDDEN_INHERITED_EXACT = {
     "ALL_PROXY",
     "COLIMA_HOME",
@@ -193,10 +193,10 @@ def isolated_runtime_root(source_commit: str, policy_sha256: str, attempt_id: st
                 "taskId": "quality-task-9-local-linux-evidence",
             },
         ),
-    ).hexdigest()[:24]
-    root = _RUNTIME_PARENT / f"gst9-{token}"
+    ).hexdigest()[:12]
+    root = _RUNTIME_PARENT / f"g9-{token}"
     # Darwin sockaddr_un.sun_path is 104 bytes including the NUL terminator.
-    longest_socket = root / "colima-home/_lima/colima-gasstation-task9-linux-amd64/sock"
+    longest_socket = root / "colima-home/_lima/colima-gasstation-task9-linux-amd64/lima-guestagent.sock"
     if len(os.fsencode(longest_socket)) >= 104:
         raise BuildInputError("derived runtime root exceeds the Darwin Unix socket boundary")
     return root
@@ -914,7 +914,7 @@ def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> 
 
 def _safe_error(error: BaseException) -> str:
     message = str(error).replace(str(ROOT), "<repository>")
-    message = re.sub(r"(?:/Users/|/private/var/|/tmp/)[^\s'\"]+", "<opaque-path>", message)
+    message = re.sub(r"(?:/Users/|/private/(?:var|tmp)/|/tmp/)[^\s'\"]+", "<opaque-path>", message)
     return message
 
 

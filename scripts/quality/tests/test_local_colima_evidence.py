@@ -14,6 +14,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     START_ARGV,
     _recover_prior_attempts,
     _runtime_data_identity,
+    _safe_error,
     aggregate_receipt,
     docker_argv,
     isolated_runtime_root,
@@ -148,13 +149,22 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         next_attempt_root = isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-000002")
         self.assertEqual(first, replay)
         self.assertNotEqual(first, next_attempt_root)
-        self.assertEqual(Path("/private/tmp"), first.parent)
-        self.assertRegex(first.name, r"^gst9-[0-9a-f]{24}$")
-        self.assertLess(len(str(first / "colima-home" / "_lima" / "colima-gasstation-task9-linux-amd64" / "sock")), 104)
+        self.assertEqual(Path("/tmp"), first.parent)
+        self.assertRegex(first.name, r"^g9-[0-9a-f]{12}$")
+        self.assertLess(
+            len(str(first / "colima-home" / "_lima" / "colima-gasstation-task9-linux-amd64" / "lima-guestagent.sock")),
+            104,
+        )
         self.assertNotIn(SOURCE, str(first))
         self.assertNotIn(POLICY_SHA, str(first))
         with self.assertRaises(BuildInputError):
             isolated_runtime_root(SOURCE, POLICY_SHA, "attempt-user")
+
+    def test_private_tmp_diagnostics_are_fully_redacted(self) -> None:
+        safe = _safe_error(BuildInputError('fatal socket "/private/tmp/gst9-secret/agent.sock"'))
+        self.assertNotIn("/private", safe)
+        self.assertNotIn("gst9-secret", safe)
+        self.assertIn("<opaque-path>", safe)
 
     def test_effective_config_parser_is_complete_duplicate_free_and_exact(self) -> None:
         expected = {
