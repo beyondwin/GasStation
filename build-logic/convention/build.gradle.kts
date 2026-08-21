@@ -57,6 +57,7 @@ val testKitVerificationSeeds =
         "org.junit:junit-bom:5.11.0-M2",
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2",
         "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.9.0",
+        "com.android.tools.build:aapt2:9.3.0-15703166:linux",
     ).mapIndexed { index, coordinate ->
         configurations.create("testKitVerificationSeed$index") {
             isCanBeConsumed = false
@@ -64,13 +65,14 @@ val testKitVerificationSeeds =
         }.also { configuration -> dependencies.add(configuration.name, coordinate) }
     }
 
-tasks.register("captureTestKitDependencyVerificationMetadata") {
-    group = "verification"
-    description = "Captures the reviewed TestKit-only dependency graph for checksum generation."
-    doLast {
-        testKitVerificationSeeds.forEach { configuration -> configuration.files.forEach(File::getName) }
+val captureTestKitDependencyVerificationMetadata =
+    tasks.register("captureTestKitDependencyVerificationMetadata") {
+        group = "verification"
+        description = "Captures the reviewed TestKit-only dependency graph for checksum generation."
+        doLast {
+            testKitVerificationSeeds.forEach { configuration -> configuration.files.forEach(File::getName) }
+        }
     }
-}
 
 val finalizeTask9TestKitFailureEvidence =
     tasks.register("finalizeTask9TestKitFailureEvidence") {
@@ -126,6 +128,7 @@ val finalizeTask9TestKitFailureEvidence =
     }
 
 tasks.withType<Test>().configureEach {
+    mustRunAfter(captureTestKitDependencyVerificationMetadata)
     val outerTimeoutProperty = providers.gradleProperty("gasstation.task9LocalLinuxConventionTestTimeoutMinutes").orNull
     val outerTimeoutMarker = providers.environmentVariable("GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER").orNull
     require((outerTimeoutProperty == null) == (outerTimeoutMarker == null)) {

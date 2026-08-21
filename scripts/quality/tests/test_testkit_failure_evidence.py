@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from unittest import mock
 from pathlib import Path
 
@@ -363,6 +364,40 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                 self.assertIn(literal, source)
         self.assertNotIn('project.path == ":",', source)
         self.assertIn('keys.joinToString(separator = ",", prefix = "{", postfix = "}\\n")', source)
+
+    def test_linux_aapt2_is_seeded_before_nested_fixture_metadata_is_copied(self) -> None:
+        source = (REPOSITORY_ROOT / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+        self.assertIn('"com.android.tools.build:aapt2:9.3.0-15703166:linux"', source)
+        self.assertIn("mustRunAfter(captureTestKitDependencyVerificationMetadata)", source)
+
+        metadata = ET.parse(REPOSITORY_ROOT / "gradle/verification-metadata.xml").getroot()
+        components = [
+            component
+            for component in metadata.findall("./{*}components/{*}component")
+            if component.attrib
+            == {
+                "group": "com.android.tools.build",
+                "name": "aapt2",
+                "version": "9.3.0-15703166",
+            }
+        ]
+        self.assertEqual(1, len(components))
+        artifacts = {
+            artifact.attrib.get("name"): [node.attrib.get("value") for node in artifact.findall("./{*}sha256")]
+            for artifact in components[0].findall("./{*}artifact")
+        }
+        self.assertEqual(
+            {
+                "aapt2-9.3.0-15703166-linux.jar",
+                "aapt2-9.3.0-15703166-osx.jar",
+                "aapt2-9.3.0-15703166.pom",
+            },
+            set(artifacts),
+        )
+        for name, checksums in artifacts.items():
+            with self.subTest(name=name):
+                self.assertEqual(1, len(checksums))
+                self.assertRegex(checksums[0] or "", r"^[0-9a-f]{64}$")
 
     def test_live_stage_manifest_rehashes_exact_xml_and_worker_stream(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
