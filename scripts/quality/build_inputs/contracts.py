@@ -376,6 +376,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "deleteArgv",
             "dockerClient",
             "effectiveConfig",
+            "hostMinimum",
             "hostMounts",
             "image",
             "localHostReceiptPath",
@@ -400,7 +401,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "/opt/homebrew/bin/colima", "start", profile,
         "--arch", "aarch64", "--vm-type", "vz", "--vz-rosetta",
         "--binfmt=false", "--template=false", "--ssh-config=false",
-        "--ssh-agent=false", "--cpus", "8", "--memory", "16",
+        "--ssh-agent=false", "--cpus", "14", "--memory", "32",
         "--disk", "120", "--root-disk", "40", "--runtime", "docker",
         "--activate=false", "--mount", "none",
     ]
@@ -433,6 +434,12 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         raise BuildInputError("localEvidenceHost owned label key inventory drift")
     if host["attemptPattern"] != "attempt-[0-9]{6}":
         raise BuildInputError("localEvidenceHost generated attempt contract drift")
+    if host["hostMinimum"] != {
+        "logicalCpu": 14,
+        "physicalCpu": 14,
+        "physicalMemoryBytes": 51539607552,
+    }:
+        raise BuildInputError("localEvidenceHost exact host minimum drift")
     expected_bootstrap = [
         {"archiveSha256": "6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50", "archiveSize": 139430, "name": "ca-certificates", "version": "20260601~24.04.1"},
         {"archiveSha256": "dd809918a149964c9d248662a6937082ca46f8ed76bd6d875928566035e0342f", "archiveSize": 226504, "name": "curl", "version": "8.5.0-2ubuntu10.12"},
@@ -457,9 +464,9 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "localEvidenceHost.effectiveConfig",
     )
     expected_effective_scalars = {
-        "arch": "aarch64", "autoActivate": False, "binfmt": False, "cpu": 8,
+        "arch": "aarch64", "autoActivate": False, "binfmt": False, "cpu": 14,
         "cpuType": "", "disk": 120, "diskImage": "", "docker": {},
-        "env": {}, "forwardAgent": False, "hostname": "", "memory": 16,
+        "env": {}, "forwardAgent": False, "hostname": "", "memory": 32,
         "modelRunner": "docker", "mountInotify": True, "mountType": "virtiofs",
         "mounts": None, "nestedVirtualization": False, "portForwarder": "ssh",
         "provision": None, "rootDisk": 40, "rosetta": True, "runtime": "docker",

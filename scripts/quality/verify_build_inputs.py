@@ -56,6 +56,7 @@ from scripts.quality.build_inputs.generate_policy import (  # noqa: E402
     docs_parent_edges,
     evidence_entrypoints,
 )
+from scripts.quality.build_inputs.testkit_failure import export_testkit_failure_evidence  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -69,6 +70,7 @@ _SENSITIVE_ASSIGNMENT = re.compile(
     r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
 )
 _ABSOLUTE_DIAGNOSTIC_PATH = re.compile(r"(?<![A-Za-z0-9:/])/(?:[^\s'\"]+)")
+_TESTKIT_FAILURE_OUTPUT = re.compile(r"/evidence-work/testkit-failures/metadata-capture-[12]")
 
 
 def exact_evidence_command(policy: Mapping[str, Any], command: Sequence[str]) -> tuple[str, ...]:
@@ -485,9 +487,24 @@ def _apply_reviewed_metadata_superset(candidate: Path, destination: Path) -> tup
     return component_additions, len(additions)
 
 
+def _testkit_failure_output_path(value: str) -> Path:
+    if _TESTKIT_FAILURE_OUTPUT.fullmatch(value) is None:
+        raise BuildInputError("TestKit failure output is outside the exact evidence location")
+    return Path(value)
+
+
 def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str]]) -> None:
     session, installed, environment = _prepare_session(policy, prefix="gasstation-metadata-capture-")
     capture_source = session / "source"
+    requested_failure_output = os.environ.get("GASSTATION_TESTKIT_FAILURE_OUTPUT")
+    failure_output = (
+        _testkit_failure_output_path(requested_failure_output)
+        if requested_failure_output is not None
+        else None
+    )
+    worker_trace = session / "testkit-worker-events.tsv"
+    if failure_output is not None:
+        environment["GASSTATION_TESTKIT_WORKER_TRACE"] = str(worker_trace)
     try:
         _copy_capture_source(capture_source)
         source_commit = subprocess.run(
@@ -517,6 +534,20 @@ def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str
             "metadata capture: PASS "
             f"new-components={component_count} new-artifacts={artifact_count}",
         )
+    except Exception as error:
+        if failure_output is not None:
+            try:
+                export_testkit_failure_evidence(
+                    capture_source / "build-logic/convention/build/test-results/test",
+                    worker_trace,
+                    failure_output,
+                )
+            except Exception as export_error:
+                raise BuildInputError(
+                    "metadata capture failed and TestKit failure evidence could not be sealed; "
+                    f"original={_safe_diagnostic(error)}; export={_safe_diagnostic(export_error)}",
+                ) from export_error
+        raise
     finally:
         shutil.rmtree(session, ignore_errors=True)
 

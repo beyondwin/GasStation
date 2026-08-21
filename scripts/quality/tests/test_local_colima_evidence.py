@@ -23,6 +23,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     CONTAINER_INHERITED_LABELS,
     DELETE_ARGV,
     INDEX_DESCRIPTOR,
+    HOST_MINIMUM,
     LAYER_DESCRIPTORS,
     SELECTED_MANIFEST_DESCRIPTOR,
     START_ARGV,
@@ -51,6 +52,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_effective_config,
     validate_image_identity,
     validate_inner_architecture,
+    validate_host_resources,
     validate_runtime_absence,
     validate_governed_command_evidence,
 )
@@ -138,7 +140,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
 
             def complete_after_start(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
                 self.assertTrue(
-                    (attempt / "command-evidence/metadata-capture-1.started.json").is_file(),
+                    (attempt / "command-evidence/strict-complete.started.json").is_file(),
                     "the immutable STARTED receipt must exist before Docker execution",
                 )
                 return completed
@@ -147,11 +149,11 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "scripts.quality.build_inputs.local_colima_evidence._container_exec_completed",
                 side_effect=complete_after_start,
             ):
-                with self.assertRaisesRegex(BuildInputError, "metadata-capture-1"):
+                with self.assertRaisesRegex(BuildInputError, "strict-complete"):
                     _run_governed_container_command(
                         Path("/tmp/docker-client"),
                         attempt=attempt,
-                        name="metadata-capture-1",
+                        name="strict-complete",
                         shell="python3 scripts/quality/verify_build_inputs.py metadata-capture",
                     )
 
@@ -159,7 +161,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             rows = validate_governed_command_evidence(evidence)
             self.assertEqual("FAIL", rows[0]["status"])
             self.assertEqual(9, rows[0]["exitCode"])
-            log = (evidence / "metadata-capture-1.log").read_text()
+            log = (evidence / "strict-complete.log").read_text()
             self.assertIn("terminal failure", log)
             self.assertIn("<redacted-secret>", log)
             self.assertIn("<redacted-path>", log)
@@ -171,9 +173,9 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             manifest = json.loads((package / "failed-attempt-package.json").read_text())
             paths = {row["path"] for row in manifest["files"]}
             self.assertIn("failure.json", paths)
-            self.assertIn("command-evidence/metadata-capture-1.log", paths)
+            self.assertIn("command-evidence/strict-complete.log", paths)
             self.assertEqual(
-                hashlib.sha256((package / "command-evidence/metadata-capture-1.log").read_bytes()).hexdigest(),
+                hashlib.sha256((package / "command-evidence/strict-complete.log").read_bytes()).hexdigest(),
                 next(row["sha256"] for row in manifest["files"] if row["path"].endswith(".log")),
             )
 
@@ -182,41 +184,41 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             evidence = Path(directory)
             started = {
                 "commandSha256": "1" * 64,
-                "name": "metadata-capture-1",
+                "name": "strict-complete",
                 "schemaVersion": 1,
                 "status": "STARTED",
             }
-            (evidence / "metadata-capture-1.started.json").write_bytes(canonical_json_bytes(started))
+            (evidence / "strict-complete.started.json").write_bytes(canonical_json_bytes(started))
             result = {
                 "commandSha256": "1" * 64,
                 "exitCode": 2,
                 "logSha256": hashlib.sha256(b"generic\n").hexdigest(),
                 "logSize": 8,
-                "name": "metadata-capture-1",
+                "name": "strict-complete",
                 "schemaVersion": 1,
                 "status": "FAIL",
                 "truncated": False,
             }
-            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "missing log"):
                 validate_governed_command_evidence(evidence)
 
             generic = b"build-input verification failed: governed command failed: gradlew\n"
-            (evidence / "metadata-capture-1.log").write_bytes(generic)
+            (evidence / "strict-complete.log").write_bytes(generic)
             result["logSha256"] = hashlib.sha256(generic).hexdigest()
             result["logSize"] = len(generic)
-            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "generic-only"):
                 validate_governed_command_evidence(evidence)
 
             detailed = b"terminal dependency verification cause\n"
-            (evidence / "metadata-capture-1.log").write_bytes(detailed)
+            (evidence / "strict-complete.log").write_bytes(detailed)
             result.update(
                 logSha256=hashlib.sha256(detailed).hexdigest(),
                 logSize=len(detailed),
                 status="PASS",
             )
-            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "nonzero"):
                 validate_governed_command_evidence(evidence)
 
@@ -603,6 +605,11 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual(BASE, host["mainBaseCommit"])
         self.assertEqual("refs/heads/main", host["mainBaseRef"])
         self.assertEqual(list(START_ARGV), host["startArgv"])
+        self.assertEqual(HOST_MINIMUM, host["hostMinimum"])
+        self.assertEqual(14, host["effectiveConfig"]["cpu"])
+        self.assertEqual(32, host["effectiveConfig"]["memory"])
+        self.assertEqual("14", host["startArgv"][host["startArgv"].index("--cpus") + 1])
+        self.assertEqual("32", host["startArgv"][host["startArgv"].index("--memory") + 1])
         self.assertEqual(list(DELETE_ARGV), host["deleteArgv"])
         self.assertEqual([], host["hostMounts"])
         self.assertEqual(sorted(_owned_labels({
@@ -687,6 +694,13 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         missing_owned_label = json.loads(json.dumps(baseline))
         missing_owned_label["localEvidenceHost"]["ownedLabelKeys"].pop()
         mutations.append(missing_owned_label)
+        weak_host = json.loads(json.dumps(baseline))
+        weak_host["localEvidenceHost"]["hostMinimum"]["physicalMemoryBytes"] -= 1
+        mutations.append(weak_host)
+        stale_guest = json.loads(json.dumps(baseline))
+        stale_guest["localEvidenceHost"]["effectiveConfig"]["cpu"] = 8
+        stale_guest["localEvidenceHost"]["effectiveConfig"]["memory"] = 16
+        mutations.append(stale_guest)
         for repo_digests in (
             [],
             ["ubuntu@sha256:" + "0" * 64],
@@ -702,6 +716,23 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 path.write_bytes(canonical_json_bytes(mutation))
                 with self.subTest(index=index), self.assertRaises(BuildInputError):
                     load_policy(path, root=Path.cwd())
+
+    def test_host_resources_bind_policy_minima_and_fresh_sysctl_observation(self) -> None:
+        receipt = validate_host_resources("14\n14\n51539607552\n", HOST_MINIMUM)
+        self.assertEqual(HOST_MINIMUM, receipt["minimum"])
+        self.assertEqual(HOST_MINIMUM, receipt["observed"])
+
+        for output, policy in (
+            ("13\n14\n51539607552\n", HOST_MINIMUM),
+            ("14\n13\n51539607552\n", HOST_MINIMUM),
+            ("14\n14\n51539607551\n", HOST_MINIMUM),
+            ("14\n14\n51539607552\n", {**HOST_MINIMUM, "logicalCpu": 13}),
+            ("14\n14\n51539607552\n", {**HOST_MINIMUM, "physicalMemoryBytes": 34359738368}),
+            ("14\n14\n", HOST_MINIMUM),
+            ("14\nphysical\n51539607552\n", HOST_MINIMUM),
+        ):
+            with self.subTest(output=output, policy=policy), self.assertRaises(BuildInputError):
+                validate_host_resources(output, policy)
 
     def test_complete_strict_matrix_reuses_the_same_home_for_offline_replay(self) -> None:
         session = Path(tempfile.mkdtemp())

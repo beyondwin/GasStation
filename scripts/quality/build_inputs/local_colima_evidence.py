@@ -32,6 +32,10 @@ from scripts.quality.build_inputs.contracts import (  # noqa: E402
     load_policy,
     sha256_file,
 )
+from scripts.quality.build_inputs.testkit_failure import (  # noqa: E402
+    finalize_testkit_failure_evidence,
+    validate_testkit_failure_evidence,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -76,6 +80,11 @@ STORE_OBSERVATION = {
     "rootFS": {},
     "size": 7112,
 }
+HOST_MINIMUM = {
+    "logicalCpu": 14,
+    "physicalCpu": 14,
+    "physicalMemoryBytes": 51539607552,
+}
 CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
 COMMAND_LOG_LIMIT = 65536
 _COMMAND_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -109,9 +118,9 @@ START_ARGV = (
     "--ssh-config=false",
     "--ssh-agent=false",
     "--cpus",
-    "8",
+    "14",
     "--memory",
-    "16",
+    "32",
     "--disk",
     "120",
     "--root-disk",
@@ -805,6 +814,20 @@ def validate_effective_config(text: str, expected: Mapping[str, Any]) -> dict[st
     return root
 
 
+def validate_host_resources(text: str, expected: Mapping[str, Any]) -> dict[str, Any]:
+    """Bind exact policy minima to a fresh, closed macOS sysctl observation."""
+
+    if dict(expected) != HOST_MINIMUM:
+        raise BuildInputError("local evidence host minimum policy drift")
+    lines = text.splitlines()
+    if len(lines) != 3 or any(re.fullmatch(r"[1-9][0-9]*", line) is None for line in lines):
+        raise BuildInputError("local evidence host resource observation is malformed")
+    observed = dict(zip(HOST_MINIMUM, (int(line) for line in lines), strict=True))
+    if any(observed[field] < minimum for field, minimum in HOST_MINIMUM.items()):
+        raise BuildInputError("local evidence host resources are below the reviewed minimum")
+    return {"minimum": dict(HOST_MINIMUM), "observed": observed}
+
+
 def validate_cleanup_proof(proof: Mapping[str, Any]) -> None:
     if proof.get("phases") != list(CLEANUP_PHASES):
         raise BuildInputError("cleanup phase order is incomplete or changed")
@@ -1175,9 +1198,20 @@ def _container_exec_completed(
     command: str,
     *,
     timeout: int | None = None,
+    testkit_failure_output: str | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     # This non-raising form is reserved for governed evidence commands so their
     # terminal output can be persisted before a nonzero exit is propagated.
+    if testkit_failure_output is not None and re.fullmatch(
+        r"/evidence-work/testkit-failures/metadata-capture-[12]",
+        testkit_failure_output,
+    ) is None:
+        raise BuildInputError("governed TestKit failure output is outside the exact evidence location")
+    testkit_environment = (
+        ["--env", f"GASSTATION_TESTKIT_FAILURE_OUTPUT={testkit_failure_output}"]
+        if testkit_failure_output is not None
+        else []
+    )
     return _docker(
         config,
         "exec",
@@ -1189,6 +1223,7 @@ def _container_exec_completed(
         "--env", "LANG=C.UTF-8",
         "--env", "LC_ALL=C.UTF-8",
         "--env", "TZ=UTC",
+        *testkit_environment,
         CONTAINER,
         "/bin/bash",
         "-lc",
@@ -1218,6 +1253,7 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
     started_paths = sorted(directory.glob("*.started.json"))
     result_paths = sorted(directory.glob("*.result.json"))
     log_paths = sorted(directory.glob("*.log"))
+    testkit_paths = sorted(directory.glob("*.testkit.json"))
     names = {path.name.removesuffix(".started.json") for path in started_paths}
     if not names or len(started_paths) != len(names):
         raise BuildInputError("governed command start inventory is empty or duplicate")
@@ -1226,6 +1262,7 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
     if {path.name.removesuffix(".log") for path in log_paths} != names:
         raise BuildInputError("governed command evidence has a missing log")
     rows: list[dict[str, Any]] = []
+    expected_testkit_names: set[str] = set()
     for name in sorted(names):
         started_path = directory / f"{name}.started.json"
         result_path = directory / f"{name}.result.json"
@@ -1268,8 +1305,72 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
             raise BuildInputError("governed command truncation flag is malformed")
         if exit_code != 0 and log.decode("utf-8", "replace").strip() == _GENERIC_ONLY_FAILURE:
             raise BuildInputError("governed command failure collapsed to generic-only output")
+        if exit_code != 0 and name in {"metadata-capture-1", "metadata-capture-2"}:
+            expected_testkit_names.add(name)
         rows.append(dict(result))
+    actual_testkit_names = {path.name.removesuffix(".testkit.json") for path in testkit_paths}
+    if actual_testkit_names != expected_testkit_names:
+        raise BuildInputError("failed metadata command TestKit evidence inventory differs")
+    for name in sorted(expected_testkit_names):
+        descriptor_path = directory / f"{name}.testkit.json"
+        descriptor = _load_json(descriptor_path)
+        relative = f"testkit-failures/{name}/testkit-failure-summary.json"
+        if descriptor != {
+            "name": name,
+            "path": relative,
+            "schemaVersion": 1,
+            "sha256": descriptor.get("sha256"),
+            "size": descriptor.get("size"),
+            "status": "FAIL",
+            "truncated": descriptor.get("truncated"),
+        } or canonical_json_bytes(descriptor) != descriptor_path.read_bytes():
+            raise BuildInputError("TestKit failure evidence descriptor is malformed")
+        summary_path = directory.parent / relative
+        summary = validate_testkit_failure_evidence(summary_path.parent, require_final=True)
+        summary_body = summary_path.read_bytes()
+        if (
+            descriptor.get("sha256") != hashlib.sha256(summary_body).hexdigest()
+            or descriptor.get("size") != len(summary_body)
+            or descriptor.get("truncated")
+            != any(row["truncated"] for row in summary["artifacts"])
+        ):
+            raise BuildInputError("TestKit failure evidence descriptor hash, size, or truncation differs")
     return rows
+
+
+def _copy_container_testkit_failure(
+    config: Path,
+    *,
+    attempt: Path,
+    name: str,
+) -> dict[str, Any]:
+    if name not in {"metadata-capture-1", "metadata-capture-2"}:
+        raise BuildInputError("TestKit failure evidence command identity is not closed")
+    destination = attempt / "testkit-failures" / name
+    if destination.exists() or destination.is_symlink():
+        raise BuildInputError("TestKit failure evidence destination already exists")
+    destination.parent.mkdir(parents=True, mode=0o700)
+    _docker(
+        config,
+        "cp",
+        f"{CONTAINER}:/evidence-work/testkit-failures/{name}",
+        str(destination),
+    )
+    finalize_testkit_failure_evidence(destination, name=name)
+    summary = validate_testkit_failure_evidence(destination, require_final=True)
+    summary_path = destination / "testkit-failure-summary.json"
+    summary_body = summary_path.read_bytes()
+    descriptor = {
+        "name": name,
+        "path": f"testkit-failures/{name}/testkit-failure-summary.json",
+        "schemaVersion": 1,
+        "sha256": hashlib.sha256(summary_body).hexdigest(),
+        "size": len(summary_body),
+        "status": "FAIL",
+        "truncated": any(row["truncated"] for row in summary["artifacts"]),
+    }
+    _write_new(attempt / "command-evidence" / f"{name}.testkit.json", descriptor)
+    return descriptor
 
 
 def _run_governed_container_command(
@@ -1290,7 +1391,17 @@ def _run_governed_container_command(
         {"commandSha256": command_sha, "name": name, "schemaVersion": 1, "status": "STARTED"},
     )
     try:
-        completed = _container_exec_completed(config, f"cd /evidence-work/repository && {shell}", timeout=timeout)
+        failure_output = (
+            f"/evidence-work/testkit-failures/{name}"
+            if name in {"metadata-capture-1", "metadata-capture-2"}
+            else None
+        )
+        completed = _container_exec_completed(
+            config,
+            f"cd /evidence-work/repository && {shell}",
+            timeout=timeout,
+            testkit_failure_output=failure_output,
+        )
         raw_output = completed.stdout
         exit_code = completed.returncode
     except BuildInputError as error:
@@ -1309,6 +1420,8 @@ def _run_governed_container_command(
         "truncated": truncated,
     }
     _write_new(evidence / f"{name}.result.json", result)
+    if exit_code != 0 and name in {"metadata-capture-1", "metadata-capture-2"}:
+        _copy_container_testkit_failure(config, attempt=attempt, name=name)
     validate_governed_command_evidence(evidence)
     if exit_code != 0:
         raise BuildInputError(f"governed container command failed ({exit_code}): {name}")
@@ -1479,6 +1592,15 @@ def _write_failed_attempt_package(attempt: Path, failure: Mapping[str, Any]) -> 
     evidence = attempt / "command-evidence"
     if evidence.is_dir() and not evidence.is_symlink():
         shutil.copytree(evidence, package / "command-evidence")
+    testkit = attempt / "testkit-failures"
+    if testkit.is_dir() and not testkit.is_symlink():
+        for path in sorted(testkit.iterdir()):
+            validate_testkit_failure_evidence(path, require_final=True)
+        shutil.copytree(testkit, package / "testkit-failures")
+        marker = attempt / "ownership-marker.json"
+        if marker.is_symlink() or not marker.is_file():
+            raise BuildInputError("failed-attempt TestKit package ownership marker is missing")
+        shutil.copy2(marker, package / "ownership-marker.json")
     manifest = {
         "files": _manifest(package),
         "schemaVersion": 1,
@@ -1500,6 +1622,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     docker_config: Path | None = None
     marker: dict[str, Any] | None = None
     rows: dict[str, dict[str, Any]] | None = None
+    host_resources: dict[str, Any] | None = None
     try:
         policy_value, source_commit = validate_cli(sys.argv[1:] if argv is None else argv)
         policy_path = _safe_policy_path(policy_value)
@@ -1508,6 +1631,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not isinstance(host, dict):
             raise BuildInputError("localEvidenceHost policy is missing")
         _preflight(policy, source_commit)
+        host_resources = validate_host_resources(
+            _run(
+                ["/usr/sbin/sysctl", "-n", "hw.logicalcpu", "hw.physicalcpu", "hw.memsize"],
+            ).stdout.decode("utf-8", "strict"),
+            host.get("hostMinimum") if isinstance(host.get("hostMinimum"), dict) else {},
+        )
         policy_sha = sha256_file(policy_path)
         colima_identity = _run([COLIMA, "version"]).stdout.decode("utf-8", "replace")
         lima_identity = _run(["/opt/homebrew/bin/limactl", "--version"]).stdout.decode("utf-8", "replace")
@@ -1747,6 +1876,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mainBaseCommit": MAIN_BASE_COMMIT,
             "mainBaseRef": MAIN_BASE_REF,
             "markerSha256": marker["markerSha256"],
+            "hostResources": host_resources,
             "policySha256": policy_sha,
             "profile": PROFILE,
             "runtimeDataId": runtime_data_id,
@@ -1861,6 +1991,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if attempt is not None:
             failure = {
                 "error": _safe_error(error),
+                **({"hostResources": host_resources} if host_resources is not None else {}),
                 "resourcesCreated": resources_created,
                 "schemaVersion": 1,
                 "status": "FAIL",

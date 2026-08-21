@@ -737,6 +737,8 @@ python3 scripts/quality/verify_build_inputs.py release-bind \
 
 현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, literal local main base, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
 
+Entrypoint는 profile 생성 전에 host의 logical CPU, physical CPU, physical memory를 fixed `sysctl` argv로 다시 관측하고 정책 최소 14/14/`51539607552`와 비교한다. 전용 profile의 literal argv와 persisted config는 14 vCPU/32 GiB여야 하고 default profile은 입력이나 증거가 아니다. Metadata TestKit failure는 cleanup 전에 exact 15분/5 fork/90-test contract, canonical redacted JUnit suite/case timing, worker, exception/nested-log owner와 hash를 `testkit-failure-summary.json`에 보존해야 한다. 이 failure package는 원인 분석 증거일 뿐 Linux aggregate `PASS`가 아니다.
+
 Image gate는 index/selected-manifest/config/sole-layer descriptor를 서로 다른 역할로 검사한다. `image inspect`는 Docker 29.2.1 containerd store의 exact familiar singleton `RepoDigests=ubuntu@sha256:…`를 포함한 store 관측값을 요구하며, 이를 full pull name으로 정규화하면 실패한다. 이 index/store 관측은 `manifest inspect --verbose`에서 선택한 exact `linux/amd64` manifest 및 그 config/layer를 대신할 수 없다. Container는 selected manifest digest가 아니라 exact index reference로 `--platform linux/amd64` 생성한다. Start 전 container inspect는 별도로 `.Image=index digest`, `.Config.Image=full index reference`, `.Platform=linux`, marker-bound owned label 6개와 inherited Ubuntu version label 1개를 요구한다. Volume은 inherited label 없이 owned 6개만 허용한다. Start 후 exact `uname=x86_64`와 `dpkg=amd64`를 별도 검사하며, OCI config identity는 manifest descriptor에서만 증명한다.
 
 ```bash

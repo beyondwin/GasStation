@@ -19,6 +19,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (  # noqa: E402
     CONTAINER,
     CONTEXT,
     DELETE_ARGV,
+    HOST_MINIMUM,
     IMAGE,
     INDEX_DESCRIPTOR,
     LAYER_DESCRIPTORS,
@@ -38,6 +39,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (  # noqa: E402
 OUTPUT = ROOT / "config/quality/build-inputs.json"
 STATIC_SOURCES = (
     ".github/actions/setup-build-inputs/action.yml",
+    "build-logic/convention/build.gradle.kts",
     "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt",
     "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt",
     "scripts/agent/verify-room-schemas.sh",
@@ -53,6 +55,7 @@ STATIC_SOURCES = (
     "scripts/quality/build_inputs/reproducibility.py",
     "scripts/quality/build_inputs/run_gradle.sh",
     "scripts/quality/build_inputs/runtime.py",
+    "scripts/quality/build_inputs/testkit_failure.py",
     "scripts/quality/build_inputs/workflow.py",
     "scripts/quality/device/execute_gmd_task.sh",
     "scripts/quality/device/run_api24_avd.sh",
@@ -486,7 +489,7 @@ def policy() -> dict[str, object]:
                 "arch": "aarch64",
                 "autoActivate": False,
                 "binfmt": False,
-                "cpu": 8,
+                "cpu": 14,
                 "cpuType": "",
                 "disk": 120,
                 "diskImage": "",
@@ -500,7 +503,7 @@ def policy() -> dict[str, object]:
                     "port": 0,
                     "version": "v1.35.0+k3s1",
                 },
-                "memory": 16,
+                "memory": 32,
                 "modelRunner": "docker",
                 "mountInotify": True,
                 "mountType": "virtiofs",
@@ -526,6 +529,7 @@ def policy() -> dict[str, object]:
                 "vmType": "vz",
             },
             "hostMounts": [],
+            "hostMinimum": dict(HOST_MINIMUM),
             "image": {
                 "configDescriptor": CONFIG_DESCRIPTOR,
                 "containerSelection": {

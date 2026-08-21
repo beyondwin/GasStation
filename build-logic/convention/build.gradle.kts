@@ -1,6 +1,12 @@
 import java.time.Duration
+import java.util.Base64
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestOutputEvent
+import org.gradle.api.tasks.testing.TestOutputListener
+import org.gradle.api.tasks.testing.TestResult
 
 plugins {
     `kotlin-dsl`
@@ -65,6 +71,94 @@ tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(15))
     maxParallelForks = 5
     systemProperty("gasstation.convention.test.maxParallelForks", maxParallelForks)
+
+    val workerTracePath = providers.environmentVariable("GASSTATION_TESTKIT_WORKER_TRACE").orNull
+    if (workerTracePath != null) {
+        val workerTrace = file(workerTracePath)
+        val traceSession = workerTrace.parentFile
+        val traceSessionId = traceSession.name.removePrefix("gasstation-metadata-capture-")
+        require(
+            workerTrace.name == "testkit-worker-events.tsv" &&
+                traceSession.parentFile.path == "/tmp" &&
+                traceSession.name.startsWith("gasstation-metadata-capture-") &&
+                traceSessionId.isNotEmpty() &&
+                traceSessionId.all { it.isLetterOrDigit() || it in "._-" },
+        ) {
+            "TestKit worker trace path is outside the sealed metadata session"
+        }
+        val workerTraceLock = Any()
+        val encoder = Base64.getUrlEncoder().withoutPadding()
+        fun encoded(value: String): String = encoder.encodeToString(value.toByteArray(Charsets.UTF_8))
+        fun workerName(descriptor: TestDescriptor): String {
+            var current = descriptor.parent
+            while (current != null) {
+                if (Regex("Gradle Test Executor [1-9][0-9]*").matches(current.name)) return current.name
+                current = current.parent
+            }
+            throw GradleException("TestKit worker identity is unavailable")
+        }
+        fun appendTrace(line: String) {
+            synchronized(workerTraceLock) {
+                workerTrace.appendText(line + "\n", Charsets.UTF_8)
+            }
+        }
+
+        doFirst {
+            workerTrace.parentFile.mkdirs()
+            check(workerTrace.createNewFile()) { "TestKit worker trace already exists" }
+        }
+        addTestListener(
+            object : TestListener {
+                override fun beforeSuite(suite: TestDescriptor) = Unit
+
+                override fun afterSuite(suite: TestDescriptor, result: TestResult) = Unit
+
+                override fun beforeTest(testDescriptor: TestDescriptor) {
+                    val className = testDescriptor.className ?: throw GradleException("TestKit class identity is unavailable")
+                    appendTrace(
+                        listOf(
+                            "START",
+                            encoded(workerName(testDescriptor)),
+                            encoded(className),
+                            encoded(testDescriptor.name),
+                            System.currentTimeMillis().toString(),
+                        ).joinToString("\t"),
+                    )
+                }
+
+                override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {
+                    val className = testDescriptor.className ?: throw GradleException("TestKit class identity is unavailable")
+                    appendTrace(
+                        listOf(
+                            "END",
+                            encoded(workerName(testDescriptor)),
+                            encoded(className),
+                            encoded(testDescriptor.name),
+                            result.resultType.name,
+                            (result.endTime - result.startTime).toString(),
+                        ).joinToString("\t"),
+                    )
+                }
+            },
+        )
+        addTestOutputListener(
+            object : TestOutputListener {
+                override fun onOutput(testDescriptor: TestDescriptor, outputEvent: TestOutputEvent) {
+                    val className = testDescriptor.className ?: throw GradleException("TestKit output class identity is unavailable")
+                    appendTrace(
+                        listOf(
+                            "OUTPUT",
+                            encoded(workerName(testDescriptor)),
+                            encoded(className),
+                            encoded(testDescriptor.name),
+                            outputEvent.destination.name,
+                            encoded(outputEvent.message),
+                        ).joinToString("\t"),
+                    )
+                }
+            },
+        )
+    }
 }
 
 gradlePlugin {

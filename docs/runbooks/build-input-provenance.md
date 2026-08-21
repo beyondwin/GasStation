@@ -63,6 +63,10 @@ Terminal `PASS`는 metadata no-diff replay, online cold와 same-home offline str
 
 각 governed Docker/Gradle 단계는 Docker 실행 전에 command name과 shell SHA-256을 immutable `STARTED` receipt로 만들고, 종료 후 exit code, redacted combined stdout/stderr log의 size/SHA-256, truncation 여부를 별도 result receipt로 묶는다. 로그는 terminal cause를 보존하는 최대 64 KiB tail이며 host/container absolute path, secret assignment, signed redirect query value를 내보내지 않는다. Nonzero, missing log, hash/size drift, STARTED/result 불일치, Gradle의 generic-only 한 줄로 축약된 실패는 모두 fail closed다. 단계 receipt에 도달하기 전 실패해도 host attempt의 `failure-package/`가 지금까지의 command evidence, terminal `FAIL`, manifest를 보존한다. 성공 package도 같은 command evidence를 포함한다.
 
+전용 profile을 만들기 전에 host는 `/usr/sbin/sysctl -n hw.logicalcpu hw.physicalcpu hw.memsize`의 정확한 세 값을 새로 읽는다. 정책 최소치는 logical CPU 14, physical CPU 14, physical memory `51539607552` bytes이고, 전용 guest만 exact `--cpus 14 --memory 32`와 persisted `cpu=14`, `memory=32`를 사용한다. Host 관측값과 최소치는 local-host receipt에서 분리해 기록하며 default/shared profile에서 추론하거나 그 profile을 resize하지 않는다. 120 GiB data disk와 40 GiB root disk는 그대로다.
+
+`metadata-capture-1` 또는 `metadata-capture-2`의 15분 TestKit task가 실패하면 임시 capture tree를 지우기 전에 worker별 START/END timing과 모든 task-owned JUnit XML을 수집한다. Container 밖에는 canonical redacted XML, outer test owner가 붙은 bounded exception/nested-log extract, hash/size/truncation inventory와 `testkit-failure-summary.json`만 복사한다. Summary는 source/policy/attempt/marker, governed command/log, `timeoutSeconds=900`, `maxParallelForks=5`, `expectedTests=90`을 함께 묶는다. Raw absolute path, secret, signed value와 stack frame은 고정 redaction token으로 바꾸며 missing/extra/duplicate/symlink/unparseable XML, worker/case/owner/count 불일치, missing log 또는 rehash drift는 partial PASS가 아니라 terminal `FAIL`이다.
+
 `build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 Task 8 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
 
 ## 문서 Gradle bridge와 Task 10 handoff
