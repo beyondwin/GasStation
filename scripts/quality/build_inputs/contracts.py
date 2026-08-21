@@ -29,6 +29,7 @@ TOP_LEVEL_KEYS = {
     "evidenceSessionCommands",
     "gradleWrapper",
     "jdks",
+    "localEvidenceHost",
     "reproducibleArtifact",
     "runner",
     "schemaVersion",
@@ -180,6 +181,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "metadataPath",
             "mode",
             "nestedTestKit",
+            "offlineRepresentative",
             "strictGroups",
             "verifyMetadata",
         },
@@ -217,6 +219,8 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         for index, argv in enumerate(rows):
             if not isinstance(argv, list) or not argv or argv[0] != "./gradlew" or any(not isinstance(item, str) or not item for item in argv):
                 raise BuildInputError(f"dependencyVerification.{section}[{index}] must be a literal wrapper argv")
+    if dependency["offlineRepresentative"] != ["./gradlew", "help"]:
+        raise BuildInputError("dependencyVerification.offlineRepresentative drift")
     groups = _require_keys(dependency["strictGroups"], {"complete", "product-regressions"}, "dependencyVerification.strictGroups")
     for name, rows in groups.items():
         if not isinstance(rows, list) or not rows:
@@ -266,6 +270,169 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "os": "Linux",
     }:
         raise BuildInputError("runner must retain the explicit mutable ubuntu-24.04 Linux x64 boundary")
+
+    host = _require_keys(
+        policy["localEvidenceHost"],
+        {
+            "aggregateReceiptPath",
+            "allowedHostEnvironment",
+            "attemptPattern",
+            "bootstrapPackages",
+            "cleanupPhases",
+            "commandLineTools",
+            "container",
+            "context",
+            "deleteArgv",
+            "dockerClient",
+            "effectiveConfig",
+            "hostMounts",
+            "image",
+            "localHostReceiptPath",
+            "mainBaseCommit",
+            "mainBaseRef",
+            "profile",
+            "requiredEvidenceRows",
+            "sourceBundleRefs",
+            "startArgv",
+            "stopArgv",
+            "toolVersions",
+            "transport",
+            "volumes",
+        },
+        "localEvidenceHost",
+    )
+    profile = "gasstation-task9-linux-amd64"
+    context = "colima-gasstation-task9-linux-amd64"
+    main_base = "7b8c149c9f792aaf43cc00a94ba671929008979e"
+    expected_start = [
+        "/opt/homebrew/bin/colima", "start", profile,
+        "--arch", "aarch64", "--vm-type", "vz", "--vz-rosetta",
+        "--binfmt=false", "--template=false", "--ssh-config=false",
+        "--ssh-agent=false", "--cpus", "8", "--memory", "16",
+        "--disk", "120", "--root-disk", "40", "--runtime", "docker",
+        "--activate=false", "--mount", "none",
+    ]
+    if (
+        host["profile"] != profile
+        or host["context"] != context
+        or host["container"] != "gasstation-task9-evidence"
+        or host["volumes"] != ["gasstation-task9-evidence-work", "gasstation-task9-linux-sdk"]
+        or host["hostMounts"] != []
+        or host["mainBaseRef"] != "refs/heads/main"
+        or host["mainBaseCommit"] != main_base
+        or host["sourceBundleRefs"] != ["HEAD", "refs/heads/main"]
+        or host["startArgv"] != expected_start
+        or host["stopArgv"] != ["/opt/homebrew/bin/colima", "stop", profile]
+        or host["deleteArgv"] != ["/opt/homebrew/bin/colima", "delete", profile, "--data", "--force"]
+    ):
+        raise BuildInputError("localEvidenceHost closed profile/base/argv drift")
+    if host["allowedHostEnvironment"] != [
+        "COLIMA_HOME", "DOCKER_CONFIG", "HOME", "LANG", "LC_ALL", "PATH", "TZ",
+    ]:
+        raise BuildInputError("localEvidenceHost sanitized environment drift")
+    if host["attemptPattern"] != "attempt-[0-9]{6}":
+        raise BuildInputError("localEvidenceHost generated attempt contract drift")
+    expected_bootstrap = [
+        {"archiveSha256": "6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50", "archiveSize": 139430, "name": "ca-certificates", "version": "20260601~24.04.1"},
+        {"archiveSha256": "dd809918a149964c9d248662a6937082ca46f8ed76bd6d875928566035e0342f", "archiveSize": 226504, "name": "curl", "version": "8.5.0-2ubuntu10.12"},
+        {"archiveSha256": "099bb129f543adc4c14203334b0fa0a909f8bf038c4d56bc9cc7c774ebf78f87", "archiveSize": 3679758, "name": "git", "version": "1:2.43.0-1ubuntu7.3"},
+        {"archiveSha256": "cdd2d347a357da6b9b1f2bd9e08c10a2a3a4686fad050791d30915d0ce0bb506", "archiveSize": 4231022, "name": "locales", "version": "2.39-0ubuntu8.8"},
+        {"archiveSha256": "e691b9cc40841c41bbdc50bd794c876cb1b1801306ea27b06e9a1458180df1e9", "archiveSize": 23004, "name": "python3", "version": "3.12.3-0ubuntu2.1"},
+        {"archiveSha256": "a505b9d491386167bd8e14e3383315a4a7d6539e4406745901ccf009a7988271", "archiveSize": 174454, "name": "unzip", "version": "6.0-28ubuntu4.1"},
+        {"archiveSha256": "778edae086bc8f34d80f36f301bc8fb3eff2d906c146dfb533ea6840b6d64e00", "archiveSize": 267424, "name": "xz-utils", "version": "5.6.1+really5.4.5-1ubuntu0.3"},
+    ]
+    if host["bootstrapPackages"] != expected_bootstrap:
+        raise BuildInputError("localEvidenceHost bootstrap package allowlist drift")
+    effective = _require_keys(
+        host["effectiveConfig"],
+        {
+            "arch", "autoActivate", "binfmt", "cpu", "cpuType", "disk",
+            "diskImage", "docker", "env", "forwardAgent", "hostname",
+            "kubernetes", "memory", "modelRunner", "mountInotify", "mountType",
+            "mounts", "nestedVirtualization", "network", "portForwarder",
+            "provision", "rootDisk", "rosetta", "runtime", "sshConfig",
+            "sshPort", "vmType",
+        },
+        "localEvidenceHost.effectiveConfig",
+    )
+    expected_effective_scalars = {
+        "arch": "aarch64", "autoActivate": False, "binfmt": False, "cpu": 8,
+        "cpuType": "host", "disk": 120, "diskImage": "", "docker": {},
+        "env": {}, "forwardAgent": False, "hostname": None, "memory": 16,
+        "modelRunner": "docker", "mountInotify": True, "mountType": "virtiofs",
+        "mounts": [], "nestedVirtualization": False, "portForwarder": "ssh",
+        "provision": [], "rootDisk": 40, "rosetta": True, "runtime": "docker",
+        "sshConfig": False, "sshPort": 0, "vmType": "vz",
+    }
+    if any(effective.get(name) != value for name, value in expected_effective_scalars.items()):
+        raise BuildInputError("localEvidenceHost complete effective config drift")
+    if effective["kubernetes"] != {
+        "enabled": False, "k3sArgs": ["--disable=traefik"], "port": 0,
+        "version": "v1.35.0+k3s1",
+    } or effective["network"] != {
+        "address": False,
+        "dns": [],
+        "dnsHosts": {"host.docker.internal": "host.lima.internal"},
+        "gatewayAddress": "192.168.5.2",
+        "hostAddresses": False,
+        "interface": "en0",
+        "mode": "shared",
+        "preferredRoute": False,
+    }:
+        raise BuildInputError("localEvidenceHost nested effective config drift")
+    if host["cleanupPhases"] != [
+        "staged-package-verified", "container-absent-live-daemon",
+        "volumes-absent-live-daemon", "daemon-proof-exported",
+        "profile-stopped-and-data-deleted", "profile-context-runtime-data-absent",
+        "terminal-package-verified",
+    ]:
+        raise BuildInputError("localEvidenceHost cleanup state machine drift")
+    if host["toolVersions"] != {
+        "colima": "0.10.1", "dockerClient": "29.4.0",
+        "dockerServer": "29.2.1", "lima": "2.1.1",
+    }:
+        raise BuildInputError("localEvidenceHost host tool versions drift")
+    if host["transport"] != {
+        "guestArchitecture": "aarch64", "innerArchitecture": "amd64",
+        "qemuBinfmt": False, "rosetta": True, "vmType": "vz",
+    }:
+        raise BuildInputError("localEvidenceHost transport boundary drift")
+    if host["dockerClient"] != {"path": "/opt/homebrew/bin/docker", "version": "29.4.0"}:
+        raise BuildInputError("localEvidenceHost Docker client identity drift")
+    command_tools = _require_keys(
+        host["commandLineTools"],
+        {"archiveSha256", "archiveSize", "archiveUrl", "revision"},
+        "localEvidenceHost.commandLineTools",
+    )
+    _require_https(command_tools["archiveUrl"], "localEvidenceHost.commandLineTools.archiveUrl")
+    _require_sha256(command_tools["archiveSha256"], "localEvidenceHost.commandLineTools.archiveSha256")
+    if command_tools != {
+        "archiveSha256": "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583",
+        "archiveSize": 181833628,
+        "archiveUrl": "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip",
+        "revision": "15859902",
+    }:
+        raise BuildInputError("localEvidenceHost Android command-line tools drift")
+    image = _require_keys(
+        host["image"],
+        {"configurationDigest", "indexReference", "platform"},
+        "localEvidenceHost.image",
+    )
+    if image != {
+        "configurationDigest": "sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316",
+        "indexReference": "docker.io/library/ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+        "platform": "linux/amd64",
+    }:
+        raise BuildInputError("localEvidenceHost image identity drift")
+    required_rows = [
+        "configurationCache", "evidenceSessions", "metadataCapture", "mutations",
+        "offlineStrict", "onlineColdStrict", "productStrict", "releaseBinding",
+        "reproducibility",
+    ]
+    if host["requiredEvidenceRows"] != required_rows:
+        raise BuildInputError("localEvidenceHost all-or-nothing evidence rows drift")
+    for field in ("aggregateReceiptPath", "localHostReceiptPath"):
+        _require_relative_path(host[field], f"localEvidenceHost.{field}")
 
     docs = _require_keys(
         policy["docsValidation"],

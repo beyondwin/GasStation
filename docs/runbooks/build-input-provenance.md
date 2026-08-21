@@ -44,9 +44,19 @@ Governed evidence session은 정책의 정확한 네 명령만 받으며 suffix�
 
 정확한 실행 명령은 [검증 매트릭스](../verification-matrix.md)에만 둔다.
 
+## 전용 로컬 Linux evidence host
+
+macOS arm64 controller에서 필수 Linux x64 evidence를 만들 수 있는 유일한 예외는 정책의 `gasstation-task9-linux-amd64` Colima profile이다. 이 경계는 VZ aarch64 guest를 transport로만 쓰고, Rosetta-backed `linux/amd64` Ubuntu digest container 안에서만 Gradle/JDK/Android host-tool evidence를 실행한다. native x64, hosted runner, 일반 container build 또는 hermetic proof로 부르지 않는다.
+
+오케스트레이터는 clean full source SHA와 정책만 입력받는다. attempt 번호·경로·profile·context·image·명령·복구 mode는 호출자가 선택할 수 없다. host mount는 없고 source는 exact `HEAD`와 고정 `refs/heads/main=7b8c149c9f792aaf43cc00a94ba671929008979e` 두 ref의 Git bundle 하나만 `docker cp`로 전달한다. default/shared Colima profile과 Docker 자원은 검사·변경·정리 대상이 아니다.
+
+Terminal `PASS`는 metadata no-diff replay, online cold와 same-home offline strict, product strict, configuration-cache reuse, 정확한 네 evidence session, 두 clean-tree APK equality, 별도 third APK release binding, negative mutation suite와 ordered cleanup이 모두 같은 source/policy/attempt에 묶일 때만 가능하다. cleanup은 live daemon에서 exact container와 두 volume 부재를 먼저 증명한 뒤 `colima delete gasstation-task9-linux-amd64 --data --force`를 실행하고 profile/context/runtime data 부재까지 증명한다. 일부 성공, stale/mixed ownership 또는 접근 불가 daemon은 PASS가 아니다.
+
+`build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 Task 8 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
+
 ## 문서 Gradle bridge와 Task 10 handoff
 
-Governed 문서 검증은 byte-stable `scripts/quality/build_inputs/docs_gradle_validation_bridge.py`만 Gradle child를 소유한다. facade는 고정 경로 `scripts/docs/validate.py`, callable은 `validate_repository(root: Path, discovered_gradle_tasks: frozenset[str] | None) -> int`다. 직접 facade 실행은 local diagnostic일 뿐 accepted receipt를 만들지 않는다.
+Governed 문서 검증은 byte-stable `scripts/quality/build_inputs/docs_gradle_validation_bridge.py`만 Gradle child를 소유한다. facade는 고정 경로 `scripts/docs/validate.py`, callable은 `validate_repository(root: pathlib.Path, *, discovered_gradle_tasks: frozenset[str] | None) -> list[str]`다. 직접 facade 실행은 local diagnostic일 뿐 accepted receipt를 만들지 않는다.
 
 Bridge는 `scripts/docs/extensions/`를 repository-relative sorted order로 정확히 한 번 로드하고, 실행된 모든 `scripts/docs/**/*.py` production source를 dynamic closure receipt에 기록한다. tests/cache/bytecode는 제외한다. guarded import는 docs 밖 repository Python, 특히 `scripts/quality/**` import를 거부한다.
 

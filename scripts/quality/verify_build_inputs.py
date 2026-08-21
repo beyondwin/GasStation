@@ -377,6 +377,23 @@ def _run_group(
                 cwd=ROOT,
                 metadata_write=metadata_write,
             )
+        if label == "strict-complete":
+            dependency = policy.get("dependencyVerification")
+            representative = (
+                dependency.get("offlineRepresentative")
+                if isinstance(dependency, dict)
+                else None
+            )
+            offline = _row_argv(representative, context="offlineRepresentative")
+            if "--offline" in offline:
+                raise BuildInputError("offlineRepresentative must not pre-embed --offline")
+            _run_closed_command(
+                [*offline, "--offline"],
+                installed=installed,
+                environment=environment,
+                cwd=ROOT,
+            )
+            print("offline representative: PASS")
     finally:
         shutil.rmtree(session, ignore_errors=True)
 

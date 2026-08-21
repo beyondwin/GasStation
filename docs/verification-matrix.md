@@ -735,6 +735,16 @@ python3 scripts/quality/verify_build_inputs.py release-bind \
 
 동일한 size/SHA-256만 same-host/workspace-independent unsigned prod-release 재현성 `PASS`다. demo-debug, signed APK, cross-OS/runner 재현성은 이 판정에 포함하지 않는다. Hosted build-input evidence와 Task 8 device lane을 실행하지 않았으면 각각 `NOT RUN`으로 남긴다.
 
+현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, literal local main base, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
+
+```bash
+python3 scripts/quality/build_inputs/local_colima_evidence.py \
+  --policy config/quality/build-inputs.json \
+  --source-commit "$(git rev-parse HEAD)"
+```
+
+성공 시 `build/reports/build-inputs/local-linux-host.json`과 `build/reports/build-inputs/local-linux-evidence-package.json`이 같은 source/policy/attempt를 가져야 한다. 이 결과는 `local-colima-vz-rosetta-emulated-linux-amd64`이며 hosted/native-x64/cross-host/hermetic 또는 device evidence가 아니다.
+
 ## Bounded Android device evidence
 
 Task 8의 host-only 구현 준비 gate는 실제 device `PASS`와 분리합니다.
