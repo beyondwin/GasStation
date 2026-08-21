@@ -359,6 +359,37 @@ class WrapperAndInvocationTest(unittest.TestCase):
                 scan_dynamic_dependency_selectors(fixture),
             )
 
+    def test_scanner_ignores_preserved_codex_evidence_but_not_active_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            preserved = fixture / ".codex/task-cache/attempt/raw-survivor/build.gradle.kts"
+            preserved.parent.mkdir(parents=True)
+            preserved.write_text('implementation("example:artifact:1.+")\n', encoding="utf-8")
+            active = fixture / "feature/sample/build.gradle.kts"
+            active.parent.mkdir(parents=True)
+            active.write_text('implementation("example:artifact:2.+")\n', encoding="utf-8")
+
+            self.assertEqual(
+                ["feature/sample/build.gradle.kts:1: dynamic dependency selector: example:artifact:2.+"],
+                scan_dynamic_dependency_selectors(fixture),
+            )
+
+    def test_dynamic_selector_scanner_does_not_cross_escaped_or_adjacent_literals(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            source = fixture / "build.gradle.kts"
+            source.write_text(
+                'val escaped = "\\\"" + value.replace("\\\\", "\\\\\\\\")\n'
+                'val adjacent = ")" + "("\n'
+                'val actual = "example:artifact:3.+"\n',
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                ["build.gradle.kts:3: dynamic dependency selector: example:artifact:3.+"],
+                scan_dynamic_dependency_selectors(fixture),
+            )
+
     def test_scanner_checks_active_src_test_code_but_ignores_fixture_literals(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixture = Path(directory)

@@ -345,6 +345,20 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             with self.subTest(literal=literal):
                 self.assertIn(literal, source)
 
+    def test_outer_timeout_binds_the_actual_included_build_task_identity(self) -> None:
+        source = (REPOSITORY_ROOT / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+        for literal in (
+            'path == ":convention:test"',
+            'project.path == ":convention"',
+            'project.rootProject.name == "build-logic"',
+            'project.gradle.buildPath == ":build-logic"',
+            'project.gradle.buildPath + path == ":build-logic:convention:test"',
+            'project.gradle.parent != null',
+        ):
+            with self.subTest(literal=literal):
+                self.assertIn(literal, source)
+        self.assertNotIn('project.path == ":",', source)
+
     def test_live_stage_manifest_rehashes_exact_xml_and_worker_stream(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             stage = Path(directory)

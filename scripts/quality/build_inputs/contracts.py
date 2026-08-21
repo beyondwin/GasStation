@@ -1048,6 +1048,7 @@ _ACTIVE_SOURCE_SUFFIXES = {
     ".yml",
 }
 _EXCLUDED_SOURCE_PARTS = {
+    ".codex",
     ".git",
     ".gradle",
     "build",
@@ -1209,8 +1210,11 @@ def scan_dependency_verification_bypasses(root: Path) -> list[str]:
     return issues
 
 
-_DYNAMIC_VERSION = re.compile(
-    r"(?P<quote>['\"])(?P<value>[^'\"\r\n]*(?:\+|SNAPSHOT|latest|[\[\](,)\s][0-9]+\.[0-9]+)[^'\"\r\n]*)(?P=quote)",
+_QUOTED_LITERAL = re.compile(
+    r"(?P<quote>['\"])(?P<value>(?:\\.|(?!(?P=quote))[^\\\r\n])*)(?P=quote)",
+)
+_DYNAMIC_SELECTOR = re.compile(
+    r"(?:\+|SNAPSHOT|latest|[\[\](,)\s][0-9]+\.[0-9]+)",
     re.IGNORECASE,
 )
 
@@ -1225,9 +1229,9 @@ def scan_dynamic_dependency_selectors(root: Path) -> list[str]:
     ]
     for path in candidates:
         text = path.read_text(encoding="utf-8")
-        for match in _DYNAMIC_VERSION.finditer(_without_comment_only_lines(text)):
+        for match in _QUOTED_LITERAL.finditer(_without_comment_only_lines(text)):
             value = match.group("value")
-            if value.startswith(("https://", "http://")):
+            if value.startswith(("https://", "http://")) or _DYNAMIC_SELECTOR.search(value) is None:
                 continue
             line = text.count("\n", 0, match.start()) + 1
             issues.append(

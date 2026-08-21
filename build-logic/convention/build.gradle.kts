@@ -136,7 +136,11 @@ tasks.withType<Test>().configureEach {
         require(outerTimeoutProperty == "30") { "Task-9 local Linux outer timeout must be exact 30" }
         require(
             outerTimeoutMarker == "/evidence-work/task9-local-linux-ownership-marker.json" &&
-                name == "test" && project.name == "convention" && project.path == ":",
+                name == "test" && path == ":convention:test" &&
+                project.name == "convention" && project.path == ":convention" &&
+                project.rootProject.name == "build-logic" && project.gradle.buildPath == ":build-logic" &&
+                project.gradle.buildPath + path == ":build-logic:convention:test" &&
+                project.gradle.parent != null,
         ) {
             "Task-9 local Linux outer timeout task or marker path differs"
         }
