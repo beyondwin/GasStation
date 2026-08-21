@@ -305,10 +305,17 @@ def command_line_tools_bootstrap_commands() -> tuple[str, ...]:
         "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/avdmanager)\" = 755",
         "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/NOTICE.txt)\" = 644",
         "mv /evidence-work/downloads/cmdline/cmdline-tools /opt/android-sdk/cmdline-tools/latest",
+        "python3 -m scripts.quality.build_inputs.android_repository fetch "
+        "--policy config/quality/build-inputs.json "
+        "--output /evidence-work/android-repository-source.json",
         f"yes | {_SDKMANAGER_ENVIRONMENT} {sdkmanager} --sdk_root=/opt/android-sdk --licenses >/dev/null "
         "|| test \"${PIPESTATUS[1]}\" -eq 0",
         f"{_SDKMANAGER_ENVIRONMENT} {sdkmanager} --sdk_root=/opt/android-sdk "
-        "'build-tools;36.0.0' 'platforms;android-37' 'platform-tools'",
+        "'build-tools;36.0.0' 'platforms;android-37.0' 'platform-tools'",
+        "python3 -m scripts.quality.build_inputs.android_repository installed "
+        "--policy config/quality/build-inputs.json "
+        "--source-receipt /evidence-work/android-repository-source.json "
+        "--sdk-root /opt/android-sdk --output /evidence-work/android-installed-packages.json",
     )
 
 
@@ -326,6 +333,15 @@ def _json_list(text: str, label: str) -> list[Any]:
         raise BuildInputError(f"{label} JSON is malformed") from error
     if not isinstance(value, list):
         raise BuildInputError(f"{label} JSON must be a list")
+    return value
+
+
+def _reject_duplicate_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise BuildInputError(f"duplicate receipt key: {key}")
+        value[key] = item
     return value
 
 
@@ -1425,8 +1441,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             + "; "
             "test -f /opt/android-sdk/cmdline-tools/latest/package.xml; "
             "test -f /opt/android-sdk/build-tools/36.0.0/package.xml; "
-            "test -f /opt/android-sdk/platforms/android-37/package.xml; "
+            "test -f /opt/android-sdk/platforms/android-37.0/package.xml; "
             "test -f /opt/android-sdk/platform-tools/package.xml; "
+            "test -f /evidence-work/android-repository-source.json; "
+            "test -f /evidence-work/android-installed-packages.json; "
             "test \"$(find /opt/android-sdk -name package.xml -type f | wc -l | tr -d ' ')\" = 4; "
             "test ! -d /opt/android-sdk/emulator; test -z \"$(find /opt/android-sdk/system-images -mindepth 1 -print -quit 2>/dev/null || true)\"; "
             "uname -m; python3 -c 'import platform; assert platform.machine() in {\"x86_64\",\"amd64\"}'"
@@ -1434,6 +1452,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         bootstrap_output = _container_exec(docker_config, bootstrap, timeout=3600)
         if "x86_64" not in bootstrap_output:
             raise BuildInputError("inner container did not prove Linux x86_64")
+
+        android_source_text = _container_exec(
+            docker_config,
+            "cat /evidence-work/android-repository-source.json",
+        )
+        android_installed_text = _container_exec(
+            docker_config,
+            "cat /evidence-work/android-installed-packages.json",
+        )
+        try:
+            android_source_receipt = json.loads(
+                android_source_text,
+                object_pairs_hook=_reject_duplicate_object_pairs,
+            )
+            android_installed_receipt = json.loads(
+                android_installed_text,
+                object_pairs_hook=_reject_duplicate_object_pairs,
+            )
+        except json.JSONDecodeError as error:
+            raise BuildInputError("Android source or installed receipt JSON is malformed") from error
+        for label, text, receipt in (
+            ("source", android_source_text, android_source_receipt),
+            ("installed", android_installed_text, android_installed_receipt),
+        ):
+            if not isinstance(receipt, dict) or canonical_json_bytes(receipt) != text.encode("utf-8"):
+                raise BuildInputError(f"Android {label} receipt is not canonical")
+            if receipt.get("status") != "PASS":
+                raise BuildInputError(f"Android {label} receipt did not pass")
 
         rows, details = _run_evidence(docker_config, source_commit, policy_sha, attempt)
         runtime_facts = _container_exec(
@@ -1480,6 +1526,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "effectiveConfig": effective_config,
             "effectiveConfigSha256": sha256_file(profile_config),
             "facts": container_facts,
+            "androidInstalledPackages": android_installed_receipt,
+            "androidRepositorySource": android_source_receipt,
             "mainBaseCommit": MAIN_BASE_COMMIT,
             "mainBaseRef": MAIN_BASE_REF,
             "markerSha256": marker["markerSha256"],
@@ -1500,6 +1548,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         staged = attempt / "package"
         staged.mkdir(mode=0o700)
+        _write_new(staged / "android-repository-source.json", android_source_receipt)
+        _write_new(staged / "android-installed-packages.json", android_installed_receipt)
         _write_new(staged / "local-linux-host-pending.json", host_receipt)
         _write_new(staged / "evidence-rows.json", {"rows": rows, "schemaVersion": 1, "status": "PASS"})
         shutil.copytree(attempt / "logs", staged / "logs")

@@ -228,7 +228,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
 
     android = _require_keys(
         policy["android"],
-        {"buildTools", "compileSdk", "minSdk", "packages", "targetSdk"},
+        {"buildTools", "compileSdk", "minSdk", "packages", "repositoryInventory", "targetSdk"},
         "android",
     )
     if (android["compileSdk"], android["minSdk"], android["targetSdk"], android["buildTools"]) != (37, 24, 36, "36.0.0"):
@@ -243,13 +243,22 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "cmdline-tools;latest",
         "emulator",
         "platform-tools",
-        "platforms;android-37",
+        "platforms;android-37.0",
         "system-images;android-24;google_apis;x86_64",
         "system-images;android-28;default;x86_64",
         "system-images;android-36;google_apis;x86_64",
     }
     if {row.get("coordinate") for row in packages if isinstance(row, dict)} != expected_coordinates:
         raise BuildInputError("Android package coordinate inventory drift")
+    platform_package = next(
+        row for row in packages if isinstance(row, dict) and row.get("coordinate") == "platforms;android-37.0"
+    )
+    if platform_package != {
+        "coordinate": "platforms;android-37.0",
+        "revision": "2",
+        "runtimeEvidence": "NOT RUN",
+    }:
+        raise BuildInputError("Android platform package policy drift")
     logical = {
         row["coordinate"]: row.get("logicalIdentity")
         for row in packages
@@ -261,6 +270,47 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "system-images;android-36;google_apis;x86_64": "system-images;android-36;google;x86_64",
     }:
         raise BuildInputError("Task-8 logical-to-installed system-image mapping drift")
+    repository_inventory = _require_keys(
+        android["repositoryInventory"],
+        {"absentCoordinates", "acceptedRecord", "repositorySha256", "repositoryUrl"},
+        "android.repositoryInventory",
+    )
+    expected_repository_inventory = {
+        "absentCoordinates": ["platforms;android-37"],
+        "acceptedRecord": {
+            "archive": {
+                "relativeUrl": "platform-37.0_r02.zip",
+                "repositorySha1": "ed8ebf7f8822a4de5686d427f237d2fa30ff7410",
+                "resolvedUrl": "https://dl.google.com/android/repository/platform-37.0_r02.zip",
+                "size": 67281901,
+            },
+            "channel": "channel-0",
+            "coordinate": "platforms;android-37.0",
+            "displayName": "Android SDK Platform 37.0",
+            "layoutlibApi": 15,
+            "revisionMajor": 2,
+            "typeKind": "platformDetailsType",
+            "typeDetails": {
+                "apiLevel": "37.0",
+                "baseExtension": True,
+                "codename": "",
+                "extensionLevel": 22,
+            },
+        },
+        "repositorySha256": "386d7b5b908d9b0b2c297b6cd62a7e50e7426d0d7992cc4bac03493545e069b5",
+        "repositoryUrl": "https://dl.google.com/android/repository/repository2-3.xml",
+    }
+    if repository_inventory != expected_repository_inventory:
+        raise BuildInputError("Android repository inventory must equal the reviewed exact record")
+    _require_https(repository_inventory["repositoryUrl"], "android.repositoryInventory.repositoryUrl")
+    _require_https(
+        repository_inventory["acceptedRecord"]["archive"]["resolvedUrl"],
+        "android.repositoryInventory.acceptedRecord.archive.resolvedUrl",
+    )
+    _require_sha256(repository_inventory["repositorySha256"], "android.repositoryInventory.repositorySha256")
+    archive_sha1 = repository_inventory["acceptedRecord"]["archive"]["repositorySha1"]
+    if not isinstance(archive_sha1, str) or HEX40.fullmatch(archive_sha1) is None:
+        raise BuildInputError("Android repository archive SHA-1 field must be lowercase 40-hex")
 
     runner = policy["runner"]
     if runner != {

@@ -143,6 +143,38 @@ class CanonicalPolicyTest(unittest.TestCase):
                 ):
                     load_policy(candidate, root=ROOT)
 
+    def test_android_repository_source_and_platform_record_fail_closed(self) -> None:
+        baseline = json.loads(POLICY.read_text(encoding="utf-8"))
+        mutations = []
+        old_coordinate = json.loads(json.dumps(baseline))
+        platform = next(
+            row for row in old_coordinate["android"]["packages"]
+            if row["coordinate"] == "platforms;android-37.0"
+        )
+        platform["coordinate"] = "platforms;android-37"
+        mutations.append(old_coordinate)
+        wrong_revision = json.loads(json.dumps(baseline))
+        wrong_revision["android"]["repositoryInventory"]["acceptedRecord"]["revisionMajor"] = 1
+        mutations.append(wrong_revision)
+        wrong_hash = json.loads(json.dumps(baseline))
+        wrong_hash["android"]["repositoryInventory"]["repositorySha256"] = "0" * 64
+        mutations.append(wrong_hash)
+        wrong_archive = json.loads(json.dumps(baseline))
+        wrong_archive["android"]["repositoryInventory"]["acceptedRecord"]["archive"]["resolvedUrl"] = (
+            "https://example.com/platform-37.0_r02.zip"
+        )
+        mutations.append(wrong_archive)
+        missing_absence = json.loads(json.dumps(baseline))
+        missing_absence["android"]["repositoryInventory"]["absentCoordinates"] = []
+        mutations.append(missing_absence)
+
+        with tempfile.TemporaryDirectory() as directory:
+            for index, mutation in enumerate(mutations):
+                candidate = Path(directory) / f"android-repository-mutation-{index}.json"
+                candidate.write_bytes(canonical_json_bytes(mutation))
+                with self.subTest(index=index), self.assertRaisesRegex(BuildInputError, "Android"):
+                    load_policy(candidate, root=ROOT)
+
     def test_repository_verification_rejects_deleted_or_reclassified_entrypoint_rows(self) -> None:
         baseline = load_policy(POLICY, root=ROOT)
         mutations = []

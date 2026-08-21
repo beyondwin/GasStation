@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import stat
 import tempfile
@@ -10,6 +11,10 @@ import zipfile
 from unittest import mock
 from pathlib import Path
 
+from scripts.quality.build_inputs.android_repository import (
+    capture_installed_android_packages,
+    validate_android_repository_inventory,
+)
 from scripts.quality.build_inputs.contracts import BuildInputError, canonical_json_bytes, load_policy
 from scripts.quality.build_inputs.local_colima_evidence import (
     CLEANUP_PHASES,
@@ -52,6 +57,26 @@ from scripts.quality.verify_build_inputs import _run_group
 SOURCE = "1" * 40
 BASE = "7b8c149c9f792aaf43cc00a94ba671929008979e"
 POLICY_SHA = "2" * 64
+
+
+def repository_xml_fixture(*, coordinate: str = "platforms;android-37.0", revision: int = 2) -> bytes:
+    return f"""<?xml version='1.0' encoding='utf-8'?>
+<sdk:sdk-repository xmlns:sdk="http://schemas.android.com/sdk/android/repo/repository2/03" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <remotePackage path="{coordinate}">
+    <type-details xsi:type="sdk:platformDetailsType">
+      <api-level>37.0</api-level><codename></codename><extension-level>22</extension-level>
+      <base-extension>true</base-extension><layoutlib api="15"/>
+    </type-details>
+    <revision><major>{revision}</major></revision>
+    <display-name>Android SDK Platform 37.0</display-name>
+    <channelRef ref="channel-0"/>
+    <archives><archive><complete><size>67281901</size>
+      <checksum type="sha1">ed8ebf7f8822a4de5686d427f237d2fa30ff7410</checksum>
+      <url>platform-37.0_r02.zip</url>
+    </complete></archive></archives>
+  </remotePackage>
+</sdk:sdk-repository>
+""".encode()
 
 
 def image_inspect_fixture() -> str:
@@ -98,6 +123,106 @@ def manifest_inspect_fixture() -> str:
 
 
 class LocalColimaEvidenceContractTest(unittest.TestCase):
+    def test_android_repository_inventory_is_exact_and_source_bound(self) -> None:
+        body = repository_xml_fixture()
+        contract = json.loads(json.dumps(generated_policy()["android"]["repositoryInventory"]))
+        contract["repositorySha256"] = hashlib.sha256(body).hexdigest()
+        receipt = validate_android_repository_inventory(body, contract)
+        self.assertEqual("PASS", receipt["status"])
+        self.assertEqual(["platforms;android-37"], receipt["absentCoordinates"])
+        self.assertEqual("platforms;android-37.0", receipt["acceptedRecord"]["coordinate"])
+        self.assertEqual(len(body), receipt["repositorySize"])
+
+        record = body.split(b"<remotePackage", 1)[1].split(b"</remotePackage>", 1)[0]
+        duplicate = body.replace(
+            b"</sdk:sdk-repository>",
+            b"<remotePackage" + record + b"</remotePackage>\n</sdk:sdk-repository>",
+        )
+        mutations = (
+            repository_xml_fixture(coordinate="platforms;android-37"),
+            repository_xml_fixture(revision=1),
+            body.replace(b"<api-level>37.0", b"<api-level>37.1"),
+            body.replace(b"<extension-level>22", b"<extension-level>21"),
+            body.replace(b"layoutlib api=\"15\"", b"layoutlib api=\"14\""),
+            body.replace(b"Android SDK Platform 37.0", b"Android SDK Platform 37.1"),
+            body.replace(b"channel-0", b"channel-1"),
+            body.replace(b"platform-37.0_r02.zip", b"platform-37.zip"),
+            body.replace(b"<size>67281901", b"<size>67281900"),
+            body.replace(b"<base-extension>true", b"<base-extension>false"),
+            body.replace(b"ed8ebf7f8822a4de5686d427f237d2fa30ff7410", b"0" * 40),
+            duplicate,
+        )
+        for index, mutation in enumerate(mutations):
+            mutated_contract = json.loads(json.dumps(contract))
+            mutated_contract["repositorySha256"] = hashlib.sha256(mutation).hexdigest()
+            with self.subTest(index=index), self.assertRaises(BuildInputError):
+                validate_android_repository_inventory(mutation, mutated_contract)
+        with self.assertRaisesRegex(BuildInputError, "SHA-256"):
+            validate_android_repository_inventory(body + b" ", contract)
+
+    def test_installed_android_packages_bind_exact_platform_coordinate_and_source(self) -> None:
+        body = repository_xml_fixture()
+        android = json.loads(json.dumps(generated_policy()["android"]))
+        contract = android["repositoryInventory"]
+        contract["repositorySha256"] = hashlib.sha256(body).hexdigest()
+        source_receipt = validate_android_repository_inventory(body, contract)
+        package_rows = {
+            "cmdline-tools/latest": (
+                "cmdline-tools;19.0",
+                "<revision><major>19</major></revision><display-name>Android SDK Command-line Tools</display-name>",
+            ),
+            "build-tools/36.0.0": (
+                "build-tools;36.0.0",
+                "<revision><major>36</major></revision><display-name>Android SDK Build-Tools 36</display-name>",
+            ),
+            "platforms/android-37.0": (
+                "platforms;android-37.0",
+                "<type-details xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='sdk:platformDetailsType'>"
+                "<api-level>37.0</api-level><codename></codename><extension-level>22</extension-level>"
+                "<base-extension>true</base-extension><layoutlib api='15'/></type-details>"
+                "<revision><major>2</major></revision><display-name>Android SDK Platform 37.0</display-name>",
+            ),
+            "platform-tools": (
+                "platform-tools",
+                "<revision><major>36</major></revision><display-name>Android SDK Platform-Tools</display-name>",
+            ),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            sdk = Path(directory)
+            for relative, (coordinate, details) in package_rows.items():
+                package = sdk / relative / "package.xml"
+                package.parent.mkdir(parents=True)
+                package.write_text(
+                    f"<repository><localPackage path='{coordinate}'>{details}</localPackage></repository>\n",
+                    encoding="utf-8",
+                )
+            for relative in (
+                "build-tools/36.0.0/aapt2",
+                "build-tools/36.0.0/apksigner",
+                "build-tools/36.0.0/zipalign",
+                "cmdline-tools/latest/bin/avdmanager",
+                "cmdline-tools/latest/bin/sdkmanager",
+                "platform-tools/adb",
+            ):
+                binary = sdk / relative
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_bytes(relative.encode())
+            receipt = capture_installed_android_packages(android, sdk, source_receipt)
+            self.assertEqual("PASS", receipt["status"])
+            self.assertEqual("platforms;android-37.0", receipt["requestedPlatformCoordinate"])
+            self.assertEqual(4, len(receipt["packages"]))
+            self.assertEqual(6, len(receipt["binaries"]))
+            self.assertTrue(all("packageXmlSha256" in row for row in receipt["packages"]))
+
+            platform = sdk / "platforms/android-37.0/package.xml"
+            original = platform.read_text(encoding="utf-8")
+            platform.write_text(original.replace("<major>2", "<major>1"), encoding="utf-8")
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(android, sdk, source_receipt)
+            platform.write_text(original.replace("android-37.0", "android-37"), encoding="utf-8")
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(android, sdk, source_receipt)
+
     @staticmethod
     def _write_command_line_tools_zip(
         path: Path,
@@ -185,6 +310,14 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertLess(install_index, archive_index)
         self.assertTrue(sdkmanager_indexes)
         self.assertTrue(all(install_index < index for index in sdkmanager_indexes))
+        repository_index = next(index for index, command in enumerate(commands) if "android_repository fetch" in command)
+        installed_index = next(index for index, command in enumerate(commands) if "android_repository installed" in command)
+        package_install_index = next(
+            index for index, command in enumerate(commands) if "'platforms;android-37.0'" in command
+        )
+        self.assertLess(repository_index, package_install_index)
+        self.assertLess(package_install_index, installed_index)
+        self.assertFalse(any("'platforms;android-37'" in command for command in commands))
         expected_environment = (
             "env JAVA_HOME=/evidence-work/bootstrap-jdks/"
             "runtime-ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94 "
@@ -217,6 +350,12 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         wrong_runtime = list(baseline)
         wrong_runtime[sdkmanager_index] = wrong_runtime[sdkmanager_index].replace("runtime-ce79869e", "runtime-00000000")
         mutations.append(wrong_runtime)
+        stale_platform = [command.replace("platforms;android-37.0", "platforms;android-37") for command in baseline]
+        mutations.append(stale_platform)
+        missing_repository_source = [command for command in baseline if "android_repository fetch" not in command]
+        mutations.append(missing_repository_source)
+        missing_installed_capture = [command for command in baseline if "android_repository installed" not in command]
+        mutations.append(missing_installed_capture)
         extra = [*baseline, "java -version"]
         mutations.append(extra)
         for index, mutation in enumerate(mutations):

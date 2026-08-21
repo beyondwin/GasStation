@@ -42,6 +42,7 @@ STATIC_SOURCES = (
     "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt",
     "scripts/agent/verify-room-schemas.sh",
     "scripts/agent/verify.sh",
+    "scripts/quality/build_inputs/android_repository.py",
     "scripts/quality/build_inputs/archive.py",
     "scripts/quality/build_inputs/contracts.py",
     "scripts/quality/build_inputs/docs_gradle_validation_bridge.py",
@@ -161,6 +162,34 @@ def github_release_redirect(
     }
 
 
+def android_repository_inventory() -> dict[str, object]:
+    return {
+        "absentCoordinates": ["platforms;android-37"],
+        "acceptedRecord": {
+            "archive": {
+                "relativeUrl": "platform-37.0_r02.zip",
+                "repositorySha1": "ed8ebf7f8822a4de5686d427f237d2fa30ff7410",
+                "resolvedUrl": "https://dl.google.com/android/repository/platform-37.0_r02.zip",
+                "size": 67281901,
+            },
+            "channel": "channel-0",
+            "coordinate": "platforms;android-37.0",
+            "displayName": "Android SDK Platform 37.0",
+            "layoutlibApi": 15,
+            "revisionMajor": 2,
+            "typeKind": "platformDetailsType",
+            "typeDetails": {
+                "apiLevel": "37.0",
+                "baseExtension": True,
+                "codename": "",
+                "extensionLevel": 22,
+            },
+        },
+        "repositorySha256": "386d7b5b908d9b0b2c297b6cd62a7e50e7426d0d7992cc4bac03493545e069b5",
+        "repositoryUrl": "https://dl.google.com/android/repository/repository2-3.xml",
+    }
+
+
 def evidence_entrypoints() -> list[dict[str, object]]:
     """Return the finite governed direct/nested Gradle-process inventory."""
 
@@ -268,11 +297,12 @@ def policy() -> dict[str, object]:
                 {"coordinate": "cmdline-tools;latest", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "emulator", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "platform-tools", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
-                {"coordinate": "platforms;android-37", "revision": "NOT RUN", "runtimeEvidence": "NOT RUN"},
+                {"coordinate": "platforms;android-37.0", "revision": "2", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "system-images;android-24;google_apis;x86_64", "logicalIdentity": "system-images;android-24;google_apis;x86_64", "revision": "27", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "system-images;android-28;default;x86_64", "logicalIdentity": "system-images;android-28;aosp;x86_64", "revision": "4", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "system-images;android-36;google_apis;x86_64", "logicalIdentity": "system-images;android-36;google;x86_64", "revision": "7", "runtimeEvidence": "NOT RUN"},
             ],
+            "repositoryInventory": android_repository_inventory(),
             "targetSdk": 36,
         },
         "codecovCli": {

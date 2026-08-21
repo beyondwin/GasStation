@@ -28,6 +28,8 @@ TestKit은 root metadata를 fixture에 byte-for-byte 복사하고 hash를 비교
 
 SDK package는 logical Task 8 image와 실제 sdkmanager coordinate를 구분한다. API 24는 `google_apis`, API 28 AOSP는 실제 `default`, API 36은 `google_apis` 좌표를 사용한다. package revision/hash는 reached lane의 실제 설치 metadata가 있을 때만 receipt에 기록하며 mutable repository 상태는 재검토 대상이다.
 
+API 37 platform은 integer `compileSdk=37`에서 package path를 추정하지 않는다. Policy capture 직전에 exact `https://dl.google.com/android/repository/repository2-3.xml`을 새로 받아 reviewed body SHA-256과 old exact `platforms;android-37` 부재를 확인하고, `platforms;android-37.0` API `37.0`, extension `22`, layoutlib `15`, revision `2`, `Android SDK Platform 37.0`, `channel-0`, `platform-37.0_r02.zip`/`67281901`/repository SHA-1 record를 source receipt에 묶는다. SHA-1은 Google XML 필드를 보존한 source metadata일 뿐 Task 9의 archive authentication 주장이 아니다. Local Linux bootstrap은 exact `platforms;android-37.0`을 요청하고 task-owned installed `package.xml` coordinate/revision/SHA-256과 selected binary hashes를 별도로 기록한다. XML body나 inventory가 바뀌면 old coordinate로 fallback하지 말고 policy review로 돌아간다.
+
 Codecov upload는 선택적·비차단이다. action full SHA만으로 충분하지 않고 정책에 고정한 Codecov CLI binary URL, size, SHA-256을 검증한 뒤 action의 `binary` input으로 전달한다. `use_pypi`와 임의 downloader는 허용하지 않으며 token은 coverage job에만 둔다.
 
 ## Receipt와 evidence session
