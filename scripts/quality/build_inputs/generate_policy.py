@@ -291,6 +291,21 @@ def policy() -> dict[str, object]:
         "android": {
             "buildTools": "36.0.0",
             "compileSdk": 37,
+            "installedInventory": {
+                "packageXmlFiles": [
+                    {"coordinate": "build-tools;36.0.0", "mode": "0644", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/package.xml"},
+                    {"coordinate": "platform-tools", "mode": "0644", "ownerRole": "platform-tools", "relativePath": "platform-tools/package.xml"},
+                    {"coordinate": "platforms;android-37.0", "mode": "0644", "ownerRole": "platforms;android-37.0", "relativePath": "platforms/android-37.0/package.xml"},
+                ],
+                "selectedBinaries": [
+                    {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/aapt2"},
+                    {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/apksigner"},
+                    {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/zipalign"},
+                    {"mode": "0755", "ownerRole": "command-line-tools-archive", "relativePath": "cmdline-tools/latest/bin/avdmanager"},
+                    {"mode": "0755", "ownerRole": "command-line-tools-archive", "relativePath": "cmdline-tools/latest/bin/sdkmanager"},
+                    {"mode": "0755", "ownerRole": "platform-tools", "relativePath": "platform-tools/adb"},
+                ],
+            },
             "minSdk": 24,
             "packages": [
                 {"coordinate": "build-tools;36.0.0", "revision": "36.0.0", "runtimeEvidence": "NOT RUN"},
@@ -444,10 +459,24 @@ def policy() -> dict[str, object]:
             ],
             "cleanupPhases": list(CLEANUP_PHASES),
             "commandLineTools": {
+                "archiveMemberCount": 141,
+                "archiveMemberListingSha256": "b51105b72a8345fb59f33bbfeb72644d1ffc5f144349f95c501b667c68c56cb0",
                 "archiveSha256": "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583",
                 "archiveSize": 181833628,
                 "archiveUrl": "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip",
-                "revision": "15859902",
+                "sourceProperties": {
+                    "coordinate": "cmdline-tools;22.0",
+                    "fields": [
+                        "Pkg.Revision=22.0",
+                        "Pkg.Path=cmdline-tools;22.0",
+                        "Pkg.Desc=Android SDK Command-line Tools",
+                    ],
+                    "mode": "0644",
+                    "relativePath": "cmdline-tools/latest/source.properties",
+                    "sha256": "166bcdfe54f73296b09e5e6aa6d96b9a752b78b418c56e9f3f3a13c15fac74e5",
+                    "size": 86,
+                    "storedMode": "100755",
+                },
             },
             "container": CONTAINER,
             "context": CONTEXT,

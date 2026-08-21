@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import stat
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -179,10 +180,14 @@ def fetch_android_repository_inventory(contract: Mapping[str, Any]) -> dict[str,
 
 
 def capture_installed_android_packages(
-    android_policy: Mapping[str, Any],
+    policy: Mapping[str, Any],
     sdk_root: Path,
     source_receipt: Mapping[str, Any],
 ) -> dict[str, Any]:
+    android_policy = policy.get("android")
+    host_policy = policy.get("localEvidenceHost")
+    if not isinstance(android_policy, dict) or not isinstance(host_policy, dict):
+        raise BuildInputError("Android installed inventory policy is missing")
     contract = android_policy.get("repositoryInventory")
     if not isinstance(contract, dict) or source_receipt.get("status") != "PASS":
         raise BuildInputError("Android repository source receipt is missing")
@@ -192,12 +197,19 @@ def capture_installed_android_packages(
         or source_receipt.get("absentCoordinates") != contract.get("absentCoordinates")
     ):
         raise BuildInputError("Android repository source receipt drift")
-    expected_roots = {
-        "build-tools/36.0.0": "build-tools;36.0.0",
-        "cmdline-tools/latest": None,
-        "platform-tools": "platform-tools",
-        "platforms/android-37.0": _PLATFORM_COORDINATE,
-    }
+    installed_inventory = android_policy.get("installedInventory")
+    command_line_tools = host_policy.get("commandLineTools")
+    if not isinstance(installed_inventory, dict) or not isinstance(command_line_tools, dict):
+        raise BuildInputError("Android installed inventory policy is missing")
+    package_contracts = installed_inventory.get("packageXmlFiles")
+    binary_contracts = installed_inventory.get("selectedBinaries")
+    source_contract = command_line_tools.get("sourceProperties")
+    if (
+        not isinstance(package_contracts, list)
+        or not isinstance(binary_contracts, list)
+        or not isinstance(source_contract, dict)
+    ):
+        raise BuildInputError("Android installed role inventory is missing")
     if sdk_root.is_symlink() or not sdk_root.is_dir():
         raise BuildInputError("Android SDK root must be a regular directory")
     if any(path.is_symlink() for path in sdk_root.rglob("*")):
@@ -207,22 +219,52 @@ def capture_installed_android_packages(
         for path in sdk_root.rglob("package.xml")
         if path.is_file() and not path.is_symlink()
     )
-    expected_files = sorted(f"{root}/package.xml" for root in expected_roots)
+    expected_files = sorted(str(row.get("relativePath")) for row in package_contracts if isinstance(row, dict))
     if actual_files != expected_files:
         raise BuildInputError("installed Android package.xml inventory drift")
+
+    source_path = sdk_root / str(source_contract.get("relativePath"))
+    if source_path.is_symlink() or not source_path.is_file():
+        raise BuildInputError("installed command-line tools source.properties is missing or unsafe")
+    source_bytes = source_path.read_bytes()
+    source_mode = f"{stat.S_IMODE(source_path.stat().st_mode):04o}"
+    expected_source_bytes = ("\n".join(source_contract.get("fields", [])) + "\n").encode("utf-8")
+    if (
+        source_bytes != expected_source_bytes
+        or len(source_bytes) != source_contract.get("size")
+        or hashlib.sha256(source_bytes).hexdigest() != source_contract.get("sha256")
+        or source_mode != source_contract.get("mode")
+    ):
+        raise BuildInputError("installed command-line tools source.properties drift")
+    command_line_source = {
+        "coordinate": source_contract["coordinate"],
+        "fields": list(source_contract["fields"]),
+        "mode": source_mode,
+        "ownerRole": "command-line-tools-archive",
+        "relativePath": source_contract["relativePath"],
+        "sha256": sha256_file(source_path),
+        "size": source_path.stat().st_size,
+    }
+
     rows: list[dict[str, Any]] = []
-    for relative_root, expected_coordinate in expected_roots.items():
-        package_xml = sdk_root / relative_root / "package.xml"
+    for package_contract in package_contracts:
+        if not isinstance(package_contract, dict):
+            raise BuildInputError("installed Android package role inventory drift")
+        expected_coordinate = package_contract.get("coordinate")
+        relative_path = package_contract.get("relativePath")
+        if not isinstance(expected_coordinate, str) or not isinstance(relative_path, str):
+            raise BuildInputError("installed Android package role inventory drift")
+        package_xml = sdk_root / relative_path
+        package_mode = f"{stat.S_IMODE(package_xml.stat().st_mode):04o}"
+        if package_mode != package_contract.get("mode"):
+            raise BuildInputError("installed Android package.xml mode drift")
         root = _parse_xml(package_xml.read_bytes(), context="installed Android package")
         local_packages = [node for node in root.iter() if _local_name(node.tag) == "localPackage"]
         if len(local_packages) != 1:
             raise BuildInputError("installed Android package identity is ambiguous")
         package = local_packages[0]
         coordinate = package.attrib.get("path")
-        if expected_coordinate is None:
-            if not isinstance(coordinate, str) or not coordinate.startswith("cmdline-tools;") or coordinate == "cmdline-tools;latest":
-                raise BuildInputError("installed command-line tools coordinate drift")
-        elif coordinate != expected_coordinate:
+        if coordinate != expected_coordinate:
             raise BuildInputError("installed Android package coordinate drift")
         revision = _one(package, "revision", context="installed Android package")
         channel_rows = _children(package, "channelRef")
@@ -238,9 +280,14 @@ def capture_installed_android_packages(
             "coordinate": coordinate,
             "displayName": _text(package, "display-name", context="installed Android package"),
             "obsolete": obsolete == "true",
-            "packageXmlSha256": sha256_file(package_xml),
-            "packageXmlSize": package_xml.stat().st_size,
-            "relativeRoot": relative_root,
+            "ownerRole": package_contract["ownerRole"],
+            "packageXml": {
+                "mode": package_mode,
+                "relativePath": relative_path,
+                "sha256": sha256_file(package_xml),
+                "size": package_xml.stat().st_size,
+            },
+            "relativeRoot": relative_path.removesuffix("/package.xml"),
             "revision": _revision_record(revision, context="installed Android package"),
         }
         if coordinate == _PLATFORM_COORDINATE:
@@ -252,21 +299,21 @@ def capture_installed_android_packages(
                 raise BuildInputError("installed Android platform metadata drift")
             row["platformRecord"] = platform
         rows.append(row)
-    binary_paths = (
-        "build-tools/36.0.0/aapt2",
-        "build-tools/36.0.0/apksigner",
-        "build-tools/36.0.0/zipalign",
-        "cmdline-tools/latest/bin/avdmanager",
-        "cmdline-tools/latest/bin/sdkmanager",
-        "platform-tools/adb",
-    )
     binaries: list[dict[str, Any]] = []
-    for relative in binary_paths:
+    for binary_contract in binary_contracts:
+        if not isinstance(binary_contract, dict) or not isinstance(binary_contract.get("relativePath"), str):
+            raise BuildInputError("installed Android selected binary role inventory drift")
+        relative = binary_contract["relativePath"]
         binary = sdk_root / relative
         if binary.is_symlink() or not binary.is_file():
             raise BuildInputError("installed Android selected binary is missing or unsafe")
+        binary_mode = f"{stat.S_IMODE(binary.stat().st_mode):04o}"
+        if binary_mode != binary_contract.get("mode"):
+            raise BuildInputError("installed Android selected binary mode drift")
         binaries.append(
             {
+                "mode": binary_mode,
+                "ownerRole": binary_contract["ownerRole"],
                 "relativePath": relative,
                 "sha256": sha256_file(binary),
                 "size": binary.stat().st_size,
@@ -274,6 +321,7 @@ def capture_installed_android_packages(
         )
     return {
         "binaries": binaries,
+        "commandLineToolsSource": command_line_source,
         "packages": sorted(rows, key=lambda row: str(row["coordinate"])),
         "requestedPlatformCoordinate": _PLATFORM_COORDINATE,
         "repositorySha256": contract["repositorySha256"],
@@ -306,7 +354,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         receipt = fetch_android_repository_inventory(policy["android"]["repositoryInventory"])
     else:
         source = load_canonical_receipt(Path(arguments.source_receipt))
-        receipt = capture_installed_android_packages(policy["android"], Path(arguments.sdk_root), source)
+        receipt = capture_installed_android_packages(policy, Path(arguments.sdk_root), source)
     write_canonical_receipt(Path(arguments.output), receipt)
     return 0
 

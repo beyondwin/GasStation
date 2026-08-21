@@ -228,7 +228,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
 
     android = _require_keys(
         policy["android"],
-        {"buildTools", "compileSdk", "minSdk", "packages", "repositoryInventory", "targetSdk"},
+        {"buildTools", "compileSdk", "installedInventory", "minSdk", "packages", "repositoryInventory", "targetSdk"},
         "android",
     )
     if (android["compileSdk"], android["minSdk"], android["targetSdk"], android["buildTools"]) != (37, 24, 36, "36.0.0"):
@@ -250,6 +250,15 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
     }
     if {row.get("coordinate") for row in packages if isinstance(row, dict)} != expected_coordinates:
         raise BuildInputError("Android package coordinate inventory drift")
+    command_line_package = next(
+        row for row in packages if isinstance(row, dict) and row.get("coordinate") == "cmdline-tools;latest"
+    )
+    if command_line_package != {
+        "coordinate": "cmdline-tools;latest",
+        "revision": "NOT RUN",
+        "runtimeEvidence": "NOT RUN",
+    }:
+        raise BuildInputError("Android command-line tools package policy drift")
     platform_package = next(
         row for row in packages if isinstance(row, dict) and row.get("coordinate") == "platforms;android-37.0"
     )
@@ -270,6 +279,38 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "system-images;android-36;google_apis;x86_64": "system-images;android-36;google;x86_64",
     }:
         raise BuildInputError("Task-8 logical-to-installed system-image mapping drift")
+    installed_inventory = _require_keys(
+        android["installedInventory"],
+        {"packageXmlFiles", "selectedBinaries"},
+        "android.installedInventory",
+    )
+    package_xml_files = _require_sorted_unique(
+        installed_inventory["packageXmlFiles"],
+        "android.installedInventory.packageXmlFiles",
+        key=lambda row: row.get("relativePath", "") if isinstance(row, dict) else "",
+    )
+    expected_package_xml_files = [
+        {"coordinate": "build-tools;36.0.0", "mode": "0644", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/package.xml"},
+        {"coordinate": "platform-tools", "mode": "0644", "ownerRole": "platform-tools", "relativePath": "platform-tools/package.xml"},
+        {"coordinate": "platforms;android-37.0", "mode": "0644", "ownerRole": "platforms;android-37.0", "relativePath": "platforms/android-37.0/package.xml"},
+    ]
+    if package_xml_files != expected_package_xml_files:
+        raise BuildInputError("Android installed package.xml role inventory drift")
+    selected_binaries = _require_sorted_unique(
+        installed_inventory["selectedBinaries"],
+        "android.installedInventory.selectedBinaries",
+        key=lambda row: row.get("relativePath", "") if isinstance(row, dict) else "",
+    )
+    expected_selected_binaries = [
+        {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/aapt2"},
+        {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/apksigner"},
+        {"mode": "0755", "ownerRole": "build-tools;36.0.0", "relativePath": "build-tools/36.0.0/zipalign"},
+        {"mode": "0755", "ownerRole": "command-line-tools-archive", "relativePath": "cmdline-tools/latest/bin/avdmanager"},
+        {"mode": "0755", "ownerRole": "command-line-tools-archive", "relativePath": "cmdline-tools/latest/bin/sdkmanager"},
+        {"mode": "0755", "ownerRole": "platform-tools", "relativePath": "platform-tools/adb"},
+    ]
+    if selected_binaries != expected_selected_binaries:
+        raise BuildInputError("Android selected binary role inventory drift")
     repository_inventory = _require_keys(
         android["repositoryInventory"],
         {"absentCoordinates", "acceptedRecord", "repositorySha256", "repositoryUrl"},
@@ -461,16 +502,41 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         raise BuildInputError("localEvidenceHost Docker client identity drift")
     command_tools = _require_keys(
         host["commandLineTools"],
-        {"archiveSha256", "archiveSize", "archiveUrl", "revision"},
+        {
+            "archiveMemberCount",
+            "archiveMemberListingSha256",
+            "archiveSha256",
+            "archiveSize",
+            "archiveUrl",
+            "sourceProperties",
+        },
         "localEvidenceHost.commandLineTools",
     )
     _require_https(command_tools["archiveUrl"], "localEvidenceHost.commandLineTools.archiveUrl")
     _require_sha256(command_tools["archiveSha256"], "localEvidenceHost.commandLineTools.archiveSha256")
+    _require_sha256(
+        command_tools["archiveMemberListingSha256"],
+        "localEvidenceHost.commandLineTools.archiveMemberListingSha256",
+    )
     if command_tools != {
+        "archiveMemberCount": 141,
+        "archiveMemberListingSha256": "b51105b72a8345fb59f33bbfeb72644d1ffc5f144349f95c501b667c68c56cb0",
         "archiveSha256": "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583",
         "archiveSize": 181833628,
         "archiveUrl": "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip",
-        "revision": "15859902",
+        "sourceProperties": {
+            "coordinate": "cmdline-tools;22.0",
+            "fields": [
+                "Pkg.Revision=22.0",
+                "Pkg.Path=cmdline-tools;22.0",
+                "Pkg.Desc=Android SDK Command-line Tools",
+            ],
+            "mode": "0644",
+            "relativePath": "cmdline-tools/latest/source.properties",
+            "sha256": "166bcdfe54f73296b09e5e6aa6d96b9a752b78b418c56e9f3f3a13c15fac74e5",
+            "size": 86,
+            "storedMode": "100755",
+        },
     }:
         raise BuildInputError("localEvidenceHost Android command-line tools drift")
     image = _require_keys(

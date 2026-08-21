@@ -160,17 +160,14 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         with self.assertRaisesRegex(BuildInputError, "SHA-256"):
             validate_android_repository_inventory(body + b" ", contract)
 
-    def test_installed_android_packages_bind_exact_platform_coordinate_and_source(self) -> None:
+    def test_installed_android_packages_bind_source_three_packages_and_six_binary_roles(self) -> None:
         body = repository_xml_fixture()
-        android = json.loads(json.dumps(generated_policy()["android"]))
+        policy = json.loads(json.dumps(generated_policy()))
+        android = policy["android"]
         contract = android["repositoryInventory"]
         contract["repositorySha256"] = hashlib.sha256(body).hexdigest()
         source_receipt = validate_android_repository_inventory(body, contract)
         package_rows = {
-            "cmdline-tools/latest": (
-                "cmdline-tools;19.0",
-                "<revision><major>19</major></revision><display-name>Android SDK Command-line Tools</display-name>",
-            ),
             "build-tools/36.0.0": (
                 "build-tools;36.0.0",
                 "<revision><major>36</major></revision><display-name>Android SDK Build-Tools 36</display-name>",
@@ -189,6 +186,14 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             sdk = Path(directory)
+            source_properties = sdk / "cmdline-tools/latest/source.properties"
+            source_properties.parent.mkdir(parents=True)
+            source_properties.write_bytes(
+                b"Pkg.Revision=22.0\n"
+                b"Pkg.Path=cmdline-tools;22.0\n"
+                b"Pkg.Desc=Android SDK Command-line Tools\n"
+            )
+            source_properties.chmod(0o644)
             for relative, (coordinate, details) in package_rows.items():
                 package = sdk / relative / "package.xml"
                 package.parent.mkdir(parents=True)
@@ -196,6 +201,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                     f"<repository><localPackage path='{coordinate}'>{details}</localPackage></repository>\n",
                     encoding="utf-8",
                 )
+                package.chmod(0o644)
             for relative in (
                 "build-tools/36.0.0/aapt2",
                 "build-tools/36.0.0/apksigner",
@@ -207,21 +213,87 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 binary = sdk / relative
                 binary.parent.mkdir(parents=True, exist_ok=True)
                 binary.write_bytes(relative.encode())
-            receipt = capture_installed_android_packages(android, sdk, source_receipt)
+                binary.chmod(0o755)
+            receipt = capture_installed_android_packages(policy, sdk, source_receipt)
             self.assertEqual("PASS", receipt["status"])
             self.assertEqual("platforms;android-37.0", receipt["requestedPlatformCoordinate"])
-            self.assertEqual(4, len(receipt["packages"]))
+            self.assertEqual(3, len(receipt["packages"]))
             self.assertEqual(6, len(receipt["binaries"]))
-            self.assertTrue(all("packageXmlSha256" in row for row in receipt["packages"]))
+            self.assertEqual(
+                {
+                    "coordinate": "cmdline-tools;22.0",
+                    "fields": [
+                        "Pkg.Revision=22.0",
+                        "Pkg.Path=cmdline-tools;22.0",
+                        "Pkg.Desc=Android SDK Command-line Tools",
+                    ],
+                    "mode": "0644",
+                    "ownerRole": "command-line-tools-archive",
+                    "relativePath": "cmdline-tools/latest/source.properties",
+                    "sha256": "166bcdfe54f73296b09e5e6aa6d96b9a752b78b418c56e9f3f3a13c15fac74e5",
+                    "size": 86,
+                },
+                receipt["commandLineToolsSource"],
+            )
+            self.assertEqual(
+                {
+                    "build-tools;36.0.0",
+                    "platform-tools",
+                    "platforms;android-37.0",
+                },
+                {row["ownerRole"] for row in receipt["packages"]},
+            )
+            self.assertTrue(all(row["packageXml"]["mode"] == "0644" for row in receipt["packages"]))
+            self.assertTrue(all(row["mode"] == "0755" for row in receipt["binaries"]))
+            self.assertEqual(
+                [
+                    "build-tools/36.0.0/aapt2",
+                    "build-tools/36.0.0/apksigner",
+                    "build-tools/36.0.0/zipalign",
+                    "cmdline-tools/latest/bin/avdmanager",
+                    "cmdline-tools/latest/bin/sdkmanager",
+                    "platform-tools/adb",
+                ],
+                [row["relativePath"] for row in receipt["binaries"]],
+            )
 
             platform = sdk / "platforms/android-37.0/package.xml"
             original = platform.read_text(encoding="utf-8")
             platform.write_text(original.replace("<major>2", "<major>1"), encoding="utf-8")
             with self.assertRaises(BuildInputError):
-                capture_installed_android_packages(android, sdk, source_receipt)
+                capture_installed_android_packages(policy, sdk, source_receipt)
             platform.write_text(original.replace("android-37.0", "android-37"), encoding="utf-8")
             with self.assertRaises(BuildInputError):
-                capture_installed_android_packages(android, sdk, source_receipt)
+                capture_installed_android_packages(policy, sdk, source_receipt)
+
+            platform.write_text(original, encoding="utf-8")
+            source_properties.write_bytes(source_properties.read_bytes().replace(b"22.0", b"21.0", 1))
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(policy, sdk, source_receipt)
+            source_properties.write_bytes(
+                b"Pkg.Revision=22.0\nPkg.Path=cmdline-tools;22.0\n"
+                b"Pkg.Desc=Android SDK Command-line Tools\n"
+            )
+            source_properties.chmod(0o755)
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(policy, sdk, source_receipt)
+
+            source_properties.chmod(0o644)
+            fake_package = sdk / "cmdline-tools/latest/package.xml"
+            fake_package.write_text("<repository/>\n", encoding="utf-8")
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(policy, sdk, source_receipt)
+            fake_package.unlink()
+
+            platform.chmod(0o600)
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(policy, sdk, source_receipt)
+            platform.chmod(0o644)
+
+            aapt2 = sdk / "build-tools/36.0.0/aapt2"
+            aapt2.chmod(0o644)
+            with self.assertRaises(BuildInputError):
+                capture_installed_android_packages(policy, sdk, source_receipt)
 
     @staticmethod
     def _write_command_line_tools_zip(
@@ -236,6 +308,13 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             # The reviewed Google archive marks ordinary payload files executable;
             # extraction must narrow those modes to non-executable regular files.
             ("cmdline-tools/NOTICE.txt", stat.S_IFREG | 0o755, b"notice\n", 3),
+            (
+                "cmdline-tools/source.properties",
+                stat.S_IFREG | 0o755,
+                b"Pkg.Revision=22.0\nPkg.Path=cmdline-tools;22.0\n"
+                b"Pkg.Desc=Android SDK Command-line Tools\n",
+                3,
+            ),
         ]
         rows.extend(extras or [])
         with zipfile.ZipFile(path, "w") as archive, warnings.catch_warnings():
@@ -267,6 +346,64 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 0o644,
                 stat.S_IMODE((destination / "cmdline-tools/NOTICE.txt").stat().st_mode),
             )
+            self.assertEqual(
+                0o644,
+                stat.S_IMODE((destination / "cmdline-tools/source.properties").stat().st_mode),
+            )
+
+    def test_command_line_tools_archive_inventory_rejects_fabricated_package_xml(self) -> None:
+        source_bytes = (
+            b"Pkg.Revision=22.0\nPkg.Path=cmdline-tools;22.0\n"
+            b"Pkg.Desc=Android SDK Command-line Tools\n"
+        )
+
+        def contract_for(archive_path: Path) -> dict[str, object]:
+            with zipfile.ZipFile(archive_path) as archive:
+                names = [row.filename for row in archive.infolist()]
+            return {
+                "archiveMemberCount": len(names),
+                "archiveMemberListingSha256": hashlib.sha256(
+                    ("\n".join(names) + "\n").encode("utf-8"),
+                ).hexdigest(),
+                "archiveSha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+                "archiveSize": archive_path.stat().st_size,
+                "archiveUrl": "https://dl.google.com/android/repository/fixture.zip",
+                "sourceProperties": {
+                    "coordinate": "cmdline-tools;22.0",
+                    "fields": [
+                        "Pkg.Revision=22.0",
+                        "Pkg.Path=cmdline-tools;22.0",
+                        "Pkg.Desc=Android SDK Command-line Tools",
+                    ],
+                    "mode": "0644",
+                    "relativePath": "cmdline-tools/latest/source.properties",
+                    "sha256": hashlib.sha256(source_bytes).hexdigest(),
+                    "size": len(source_bytes),
+                    "storedMode": "100755",
+                },
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            valid = root / "valid.zip"
+            self._write_command_line_tools_zip(valid)
+            safe_extract_command_line_tools(
+                valid,
+                root / "valid-out",
+                command_line_tools=contract_for(valid),
+            )
+
+            fabricated = root / "fabricated-package.zip"
+            self._write_command_line_tools_zip(
+                fabricated,
+                extras=[("cmdline-tools/package.xml", stat.S_IFREG | 0o755, b"<repository/>\n", 3)],
+            )
+            with self.assertRaisesRegex(BuildInputError, "archive inventory"):
+                safe_extract_command_line_tools(
+                    fabricated,
+                    root / "fabricated-out",
+                    command_line_tools=contract_for(fabricated),
+                )
 
     def test_command_line_tools_extraction_rejects_unsafe_archive_mutations(self) -> None:
         mutations = {

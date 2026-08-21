@@ -190,7 +190,12 @@ def validate_cli(argv: Sequence[str]) -> tuple[str, str]:
     return policy_value, source_commit
 
 
-def safe_extract_command_line_tools(archive: Path, destination: Path) -> None:
+def safe_extract_command_line_tools(
+    archive: Path,
+    destination: Path,
+    *,
+    command_line_tools: Mapping[str, Any] | None = None,
+) -> None:
     """Extract the reviewed command-line tools archive with narrowed file modes.
 
     The upstream archive marks every regular file 0755.  Only the two reviewed
@@ -208,6 +213,32 @@ def safe_extract_command_line_tools(archive: Path, destination: Path) -> None:
     try:
         with zipfile.ZipFile(archive) as source:
             members = source.infolist()
+            if command_line_tools is not None:
+                names = [member.filename for member in members]
+                source_contract = command_line_tools.get("sourceProperties")
+                if not isinstance(source_contract, dict):
+                    raise BuildInputError("command-line tools source-properties policy is missing")
+                listing = ("\n".join(names) + "\n").encode("utf-8")
+                source_members = [member for member in members if member.filename == "cmdline-tools/source.properties"]
+                package_xml_members = [member for member in members if member.filename.endswith("/package.xml")]
+                if (
+                    archive.stat().st_size != command_line_tools.get("archiveSize")
+                    or sha256_file(archive) != command_line_tools.get("archiveSha256")
+                    or len(members) != command_line_tools.get("archiveMemberCount")
+                    or hashlib.sha256(listing).hexdigest() != command_line_tools.get("archiveMemberListingSha256")
+                    or len(source_members) != 1
+                    or package_xml_members
+                ):
+                    raise BuildInputError("command-line tools archive inventory drift")
+                source_member = source_members[0]
+                source_bytes = source.read(source_member)
+                if (
+                    source_member.file_size != source_contract.get("size")
+                    or hashlib.sha256(source_bytes).hexdigest() != source_contract.get("sha256")
+                    or f"{source_member.external_attr >> 16:06o}" != source_contract.get("storedMode")
+                    or source_bytes != ("\n".join(source_contract.get("fields", [])) + "\n").encode("utf-8")
+                ):
+                    raise BuildInputError("command-line tools archive source.properties drift")
             paths: dict[tuple[str, ...], tuple[zipfile.ZipInfo, bool]] = {}
             folded: set[tuple[str, ...]] = set()
             for member in members:
@@ -298,13 +329,19 @@ def command_line_tools_bootstrap_commands() -> tuple[str, ...]:
         "assert hashlib.sha256(d).hexdigest()=='4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583'; "
         "p.write_bytes(d)\"",
         "python3 -c \"from pathlib import Path; "
+        "from scripts.quality.build_inputs.contracts import load_policy; "
         "from scripts.quality.build_inputs.local_colima_evidence import safe_extract_command_line_tools; "
+        "p=load_policy(Path('config/quality/build-inputs.json'),root=Path.cwd()); "
         "safe_extract_command_line_tools(Path('/evidence-work/downloads/cmdline.zip'), "
-        "Path('/evidence-work/downloads/cmdline'))\"",
+        "Path('/evidence-work/downloads/cmdline'),command_line_tools=p['localEvidenceHost']['commandLineTools'])\"",
         "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/sdkmanager)\" = 755",
         "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/avdmanager)\" = 755",
         "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/NOTICE.txt)\" = 644",
         "mv /evidence-work/downloads/cmdline/cmdline-tools /opt/android-sdk/cmdline-tools/latest",
+        "test \"$(stat -c '%a' /opt/android-sdk/cmdline-tools/latest/source.properties)\" = 644",
+        "test \"$(stat -c '%s' /opt/android-sdk/cmdline-tools/latest/source.properties)\" = 86",
+        "test \"$(sha256sum /opt/android-sdk/cmdline-tools/latest/source.properties | cut -d' ' -f1)\" = "
+        "166bcdfe54f73296b09e5e6aa6d96b9a752b78b418c56e9f3f3a13c15fac74e5",
         "python3 -m scripts.quality.build_inputs.android_repository fetch "
         "--policy config/quality/build-inputs.json "
         "--output /evidence-work/android-repository-source.json",
@@ -1439,13 +1476,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "test ! -e .git/objects/info/alternates; test -z \"$(git replace -l)\"; "
             + command_line_tools_bootstrap
             + "; "
-            "test -f /opt/android-sdk/cmdline-tools/latest/package.xml; "
+            "test -f /opt/android-sdk/cmdline-tools/latest/source.properties; "
+            "test ! -e /opt/android-sdk/cmdline-tools/latest/package.xml; "
             "test -f /opt/android-sdk/build-tools/36.0.0/package.xml; "
             "test -f /opt/android-sdk/platforms/android-37.0/package.xml; "
             "test -f /opt/android-sdk/platform-tools/package.xml; "
             "test -f /evidence-work/android-repository-source.json; "
             "test -f /evidence-work/android-installed-packages.json; "
-            "test \"$(find /opt/android-sdk -name package.xml -type f | wc -l | tr -d ' ')\" = 4; "
+            "test \"$(find /opt/android-sdk -name package.xml -type f | wc -l | tr -d ' ')\" = 3; "
             "test ! -d /opt/android-sdk/emulator; test -z \"$(find /opt/android-sdk/system-images -mindepth 1 -print -quit 2>/dev/null || true)\"; "
             "uname -m; python3 -c 'import platform; assert platform.machine() in {\"x86_64\",\"amd64\"}'"
         )
@@ -1488,8 +1526,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             "dpkg-query -W -f='${Package}=${Version}\\n' ca-certificates curl git locales python3 unzip xz-utils | sort; "
             "sha256sum /bin/bash /bin/tar /usr/bin/curl /usr/bin/git /usr/bin/python3.12 /usr/bin/unzip /usr/bin/xz; "
             "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk --list_installed; "
-            "find /opt/android-sdk -name package.xml -type f -print0 | sort -z | xargs -0 sha256sum; "
-            "sha256sum /opt/android-sdk/build-tools/36.0.0/aapt2 "
+            "stat -c '%a %s %n' /opt/android-sdk/cmdline-tools/latest/source.properties "
+            "/opt/android-sdk/build-tools/36.0.0/package.xml /opt/android-sdk/platforms/android-37.0/package.xml "
+            "/opt/android-sdk/platform-tools/package.xml /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager "
+            "/opt/android-sdk/cmdline-tools/latest/bin/avdmanager /opt/android-sdk/build-tools/36.0.0/aapt2 "
+            "/opt/android-sdk/build-tools/36.0.0/apksigner /opt/android-sdk/build-tools/36.0.0/zipalign "
+            "/opt/android-sdk/platform-tools/adb; "
+            "sha256sum /opt/android-sdk/cmdline-tools/latest/source.properties "
+            "/opt/android-sdk/build-tools/36.0.0/package.xml /opt/android-sdk/platforms/android-37.0/package.xml "
+            "/opt/android-sdk/platform-tools/package.xml /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager "
+            "/opt/android-sdk/cmdline-tools/latest/bin/avdmanager "
+            "/opt/android-sdk/build-tools/36.0.0/aapt2 "
             "/opt/android-sdk/build-tools/36.0.0/apksigner "
             "/opt/android-sdk/build-tools/36.0.0/zipalign /opt/android-sdk/platform-tools/adb; "
             "/opt/android-sdk/platform-tools/adb version",

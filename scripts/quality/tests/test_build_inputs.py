@@ -175,6 +175,46 @@ class CanonicalPolicyTest(unittest.TestCase):
                 with self.subTest(index=index), self.assertRaisesRegex(BuildInputError, "Android"):
                     load_policy(candidate, root=ROOT)
 
+    def test_android_installed_inventory_and_command_line_source_fail_closed(self) -> None:
+        baseline = json.loads(POLICY.read_text(encoding="utf-8"))
+        command_tools = baseline["localEvidenceHost"]["commandLineTools"]
+        self.assertEqual(141, command_tools["archiveMemberCount"])
+        self.assertEqual(
+            "cmdline-tools/latest/source.properties",
+            command_tools["sourceProperties"]["relativePath"],
+        )
+        self.assertEqual("cmdline-tools;22.0", command_tools["sourceProperties"]["coordinate"])
+        inventory = baseline["android"]["installedInventory"]
+        self.assertEqual(3, len(inventory["packageXmlFiles"]))
+        self.assertEqual(6, len(inventory["selectedBinaries"]))
+
+        mutations = []
+        for path, value in (
+            (("localEvidenceHost", "commandLineTools", "archiveMemberCount"), 140),
+            (("localEvidenceHost", "commandLineTools", "archiveMemberListingSha256"), "0" * 64),
+            (("localEvidenceHost", "commandLineTools", "sourceProperties", "mode"), "0755"),
+            (("localEvidenceHost", "commandLineTools", "sourceProperties", "coordinate"), "cmdline-tools;latest"),
+        ):
+            mutation = json.loads(json.dumps(baseline))
+            target = mutation
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+            mutations.append(mutation)
+        missing_package = json.loads(json.dumps(baseline))
+        missing_package["android"]["installedInventory"]["packageXmlFiles"].pop()
+        mutations.append(missing_package)
+        swapped_binary = json.loads(json.dumps(baseline))
+        swapped_binary["android"]["installedInventory"]["selectedBinaries"][0]["ownerRole"] = "platform-tools"
+        mutations.append(swapped_binary)
+
+        with tempfile.TemporaryDirectory() as directory:
+            for index, mutation in enumerate(mutations):
+                candidate = Path(directory) / f"android-installed-mutation-{index}.json"
+                candidate.write_bytes(canonical_json_bytes(mutation))
+                with self.subTest(index=index), self.assertRaisesRegex(BuildInputError, "Android"):
+                    load_policy(candidate, root=ROOT)
+
     def test_repository_verification_rejects_deleted_or_reclassified_entrypoint_rows(self) -> None:
         baseline = load_policy(POLICY, root=ROOT)
         mutations = []
