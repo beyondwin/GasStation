@@ -314,6 +314,40 @@ def docker_argv(config_root: Path, *arguments: str) -> list[str]:
     return [DOCKER, "--config", str(config_root), "--context", CONTEXT, *arguments]
 
 
+def validate_context_inventory(text: str, *, expected_endpoint: str) -> dict[str, str]:
+    rows: dict[str, dict[str, Any]] = {}
+    for line in text.splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise BuildInputError("Docker context inventory JSON is malformed") from error
+        if not isinstance(row, dict) or set(row) != {
+            "Current", "Description", "DockerEndpoint", "Error", "Name",
+        }:
+            raise BuildInputError("Docker context inventory schema drift")
+        name = row["Name"]
+        if not isinstance(name, str) or name in rows:
+            raise BuildInputError("Docker context inventory name is malformed or duplicate")
+        rows[name] = row
+    if set(rows) != {CONTEXT, "default"}:
+        raise BuildInputError("Docker context inventory contains another or missing context")
+    if rows[CONTEXT] != {
+        "Current": True,
+        "Description": f"colima [profile={PROFILE}]",
+        "DockerEndpoint": expected_endpoint,
+        "Error": "",
+        "Name": CONTEXT,
+    } or rows["default"] != {
+        "Current": False,
+        "Description": "Current DOCKER_HOST based configuration",
+        "DockerEndpoint": "unix:///var/run/docker.sock",
+        "Error": "",
+        "Name": "default",
+    }:
+        raise BuildInputError("Docker context activation/transport identity drift")
+    return {"active": CONTEXT, "builtinInactive": "default"}
+
+
 def _yaml_scalar(value: str) -> Any:
     if value == "null":
         return None
@@ -1000,9 +1034,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             or info_value.get("OSType") != "linux"
         ):
             raise BuildInputError("dedicated Docker daemon/client transport identity drift")
-        contexts = _docker_text(docker_config, "context", "ls", "--format", "{{.Name}}")
-        if contexts.splitlines() != [CONTEXT]:
-            raise BuildInputError("Docker client root contains another or missing context")
+        context_identity = validate_context_inventory(
+            _docker_text(docker_config, "context", "ls", "--format", "{{json .}}"),
+            expected_endpoint=f"unix://{environment['COLIMA_HOME']}/{PROFILE}/docker.sock",
+        )
 
         _docker(docker_config, "pull", "--platform", "linux/amd64", IMAGE, timeout=1800)
         image_json = _docker_text(docker_config, "image", "inspect", IMAGE)
@@ -1110,6 +1145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "colimaVersion": "0.10.1",
             "container": CONTAINER,
             "context": CONTEXT,
+            "contextIdentity": context_identity,
             "details": details,
             "dockerClientVersion": "29.4.0",
             "dockerServerVersion": "29.2.1",

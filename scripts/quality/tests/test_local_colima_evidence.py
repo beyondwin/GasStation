@@ -25,6 +25,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_bundle_heads,
     validate_cli,
     validate_cleanup_proof,
+    validate_context_inventory,
     validate_effective_config,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
@@ -177,6 +178,40 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             exact.write_text("profile: exact\n")
             lima_copy.write_text("profile: lima-copy\n")
             self.assertEqual(exact, _profile_config(home))
+
+    def test_context_inventory_allows_only_active_owned_and_inactive_builtin_default(self) -> None:
+        endpoint = "unix:///tmp/opaque/colima-home/gasstation-task9-linux-amd64/docker.sock"
+        valid = "\n".join(
+            json.dumps(row, sort_keys=True)
+            for row in (
+                {
+                    "Current": True,
+                    "Description": "colima [profile=gasstation-task9-linux-amd64]",
+                    "DockerEndpoint": endpoint,
+                    "Error": "",
+                    "Name": "colima-gasstation-task9-linux-amd64",
+                },
+                {
+                    "Current": False,
+                    "Description": "Current DOCKER_HOST based configuration",
+                    "DockerEndpoint": "unix:///var/run/docker.sock",
+                    "Error": "",
+                    "Name": "default",
+                },
+            )
+        )
+        self.assertEqual(
+            {"active": "colima-gasstation-task9-linux-amd64", "builtinInactive": "default"},
+            validate_context_inventory(valid, expected_endpoint=endpoint),
+        )
+        for mutation in (
+            valid.replace('"Current": false', '"Current": true'),
+            valid + "\n" + json.dumps({"Name": "foreign"}),
+            valid.splitlines()[0],
+            valid.replace(endpoint, "unix:///var/run/docker.sock"),
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(BuildInputError):
+                validate_context_inventory(mutation, expected_endpoint=endpoint)
 
     def test_effective_config_parser_is_complete_duplicate_free_and_exact(self) -> None:
         expected = {
