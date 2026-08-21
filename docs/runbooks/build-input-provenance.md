@@ -61,6 +61,8 @@ Ubuntu identity는 한 digest로 축약하지 않는다. 정책과 receipt는 of
 
 Terminal `PASS`는 metadata no-diff replay, online cold와 same-home offline strict, product strict, configuration-cache reuse, 정확한 네 evidence session, 두 clean-tree APK equality, 별도 third APK release binding, negative mutation suite와 ordered cleanup이 모두 같은 source/policy/attempt에 묶일 때만 가능하다. cleanup은 live daemon에서 exact container와 두 volume 부재를 먼저 증명한 뒤 `colima delete gasstation-task9-linux-amd64 --data --force`를 실행하고 profile/context/runtime data 부재까지 증명한다. 일부 성공, stale/mixed ownership 또는 접근 불가 daemon은 PASS가 아니다.
 
+각 governed Docker/Gradle 단계는 Docker 실행 전에 command name과 shell SHA-256을 immutable `STARTED` receipt로 만들고, 종료 후 exit code, redacted combined stdout/stderr log의 size/SHA-256, truncation 여부를 별도 result receipt로 묶는다. 로그는 terminal cause를 보존하는 최대 64 KiB tail이며 host/container absolute path, secret assignment, signed redirect query value를 내보내지 않는다. Nonzero, missing log, hash/size drift, STARTED/result 불일치, Gradle의 generic-only 한 줄로 축약된 실패는 모두 fail closed다. 단계 receipt에 도달하기 전 실패해도 host attempt의 `failure-package/`가 지금까지의 command evidence, terminal `FAIL`, manifest를 보존한다. 성공 package도 같은 command evidence를 포함한다.
+
 `build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 Task 8 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
 
 ## 문서 Gradle bridge와 Task 10 handoff

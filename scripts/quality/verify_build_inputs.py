@@ -64,6 +64,11 @@ _SENSITIVE_DIAGNOSTIC = re.compile(
     r"(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9]+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
+_GOVERNED_OUTPUT_LIMIT = 65536
+_SENSITIVE_ASSIGNMENT = re.compile(
+    r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
+)
+_ABSOLUTE_DIAGNOSTIC_PATH = re.compile(r"(?<![A-Za-z0-9:/])/(?:[^\s'\"]+)")
 
 
 def exact_evidence_command(policy: Mapping[str, Any], command: Sequence[str]) -> tuple[str, ...]:
@@ -346,7 +351,16 @@ def _run_closed_command(
     except OSError as error:
         raise BuildInputError(f"governed command could not start: {Path(argv[0]).name}") from error
     if completed.returncode != 0:
-        raise BuildInputError(f"governed command failed: {Path(argv[0]).name}")
+        diagnostic = _safe_diagnostic(BuildInputError(completed.stdout or "<no-output>"))
+        diagnostic = _SENSITIVE_ASSIGNMENT.sub(r"\1\2<redacted-secret>", diagnostic)
+        diagnostic = _ABSOLUTE_DIAGNOSTIC_PATH.sub("<redacted-path>", diagnostic)
+        encoded = diagnostic.encode("utf-8", "replace")
+        if len(encoded) > _GOVERNED_OUTPUT_LIMIT:
+            tail = encoded[-(_GOVERNED_OUTPUT_LIMIT - len(b"[truncated]\n")):]
+            diagnostic = "[truncated]\n" + tail.decode("utf-8", "replace")
+        raise BuildInputError(
+            f"governed command failed: {Path(argv[0]).name}; output={diagnostic}",
+        )
     return completed.stdout
 
 

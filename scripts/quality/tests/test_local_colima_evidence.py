@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import subprocess
 import stat
 import tempfile
 import unittest
@@ -26,6 +27,8 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     SELECTED_MANIFEST_DESCRIPTOR,
     START_ARGV,
     _recover_prior_attempts,
+    _run_governed_container_command,
+    _write_failed_attempt_package,
     _container_labels,
     _owned_labels,
     _runtime_data_identity,
@@ -49,6 +52,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_image_identity,
     validate_inner_architecture,
     validate_runtime_absence,
+    validate_governed_command_evidence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
 from scripts.quality.verify_build_inputs import _run_group
@@ -123,6 +127,99 @@ def manifest_inspect_fixture() -> str:
 
 
 class LocalColimaEvidenceContractTest(unittest.TestCase):
+    def test_failed_governed_command_is_recorded_before_raise_with_terminal_cause(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            attempt = Path(directory)
+            completed = subprocess.CompletedProcess(
+                args=["docker"],
+                returncode=9,
+                stdout=b"prefix\nterminal failure token=secret-value /opt/android-sdk/private\n",
+            )
+
+            def complete_after_start(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+                self.assertTrue(
+                    (attempt / "command-evidence/metadata-capture-1.started.json").is_file(),
+                    "the immutable STARTED receipt must exist before Docker execution",
+                )
+                return completed
+
+            with mock.patch(
+                "scripts.quality.build_inputs.local_colima_evidence._container_exec_completed",
+                side_effect=complete_after_start,
+            ):
+                with self.assertRaisesRegex(BuildInputError, "metadata-capture-1"):
+                    _run_governed_container_command(
+                        Path("/tmp/docker-client"),
+                        attempt=attempt,
+                        name="metadata-capture-1",
+                        shell="python3 scripts/quality/verify_build_inputs.py metadata-capture",
+                    )
+
+            evidence = attempt / "command-evidence"
+            rows = validate_governed_command_evidence(evidence)
+            self.assertEqual("FAIL", rows[0]["status"])
+            self.assertEqual(9, rows[0]["exitCode"])
+            log = (evidence / "metadata-capture-1.log").read_text()
+            self.assertIn("terminal failure", log)
+            self.assertIn("<redacted-secret>", log)
+            self.assertIn("<redacted-path>", log)
+            self.assertNotIn("secret-value", log)
+
+            failure = {"error": "governed failure", "schemaVersion": 1, "status": "FAIL"}
+            _write_failed_attempt_package(attempt, failure)
+            package = attempt / "failure-package"
+            manifest = json.loads((package / "failed-attempt-package.json").read_text())
+            paths = {row["path"] for row in manifest["files"]}
+            self.assertIn("failure.json", paths)
+            self.assertIn("command-evidence/metadata-capture-1.log", paths)
+            self.assertEqual(
+                hashlib.sha256((package / "command-evidence/metadata-capture-1.log").read_bytes()).hexdigest(),
+                next(row["sha256"] for row in manifest["files"] if row["path"].endswith(".log")),
+            )
+
+    def test_governed_command_evidence_rejects_missing_log_generic_collapse_and_nonzero_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory)
+            started = {
+                "commandSha256": "1" * 64,
+                "name": "metadata-capture-1",
+                "schemaVersion": 1,
+                "status": "STARTED",
+            }
+            (evidence / "metadata-capture-1.started.json").write_bytes(canonical_json_bytes(started))
+            result = {
+                "commandSha256": "1" * 64,
+                "exitCode": 2,
+                "logSha256": hashlib.sha256(b"generic\n").hexdigest(),
+                "logSize": 8,
+                "name": "metadata-capture-1",
+                "schemaVersion": 1,
+                "status": "FAIL",
+                "truncated": False,
+            }
+            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            with self.assertRaisesRegex(BuildInputError, "missing log"):
+                validate_governed_command_evidence(evidence)
+
+            generic = b"build-input verification failed: governed command failed: gradlew\n"
+            (evidence / "metadata-capture-1.log").write_bytes(generic)
+            result["logSha256"] = hashlib.sha256(generic).hexdigest()
+            result["logSize"] = len(generic)
+            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            with self.assertRaisesRegex(BuildInputError, "generic-only"):
+                validate_governed_command_evidence(evidence)
+
+            detailed = b"terminal dependency verification cause\n"
+            (evidence / "metadata-capture-1.log").write_bytes(detailed)
+            result.update(
+                logSha256=hashlib.sha256(detailed).hexdigest(),
+                logSize=len(detailed),
+                status="PASS",
+            )
+            (evidence / "metadata-capture-1.result.json").write_bytes(canonical_json_bytes(result))
+            with self.assertRaisesRegex(BuildInputError, "nonzero"):
+                validate_governed_command_evidence(evidence)
+
     def test_android_repository_inventory_is_exact_and_source_bound(self) -> None:
         body = repository_xml_fixture()
         contract = json.loads(json.dumps(generated_policy()["android"]["repositoryInventory"]))

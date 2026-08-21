@@ -45,7 +45,11 @@ from scripts.quality.build_inputs.receipts import (
 )
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
-from scripts.quality.verify_build_inputs import _apply_reviewed_metadata_superset, verify_repository
+from scripts.quality.verify_build_inputs import (
+    _apply_reviewed_metadata_superset,
+    _run_closed_command,
+    verify_repository,
+)
 from scripts.agent.check_contracts import check_documentation_contracts
 
 
@@ -241,6 +245,27 @@ class CanonicalPolicyTest(unittest.TestCase):
 
 
 class WrapperAndInvocationTest(unittest.TestCase):
+    def test_governed_command_failure_preserves_redacted_bounded_terminal_cause(self) -> None:
+        completed = mock.Mock(
+            returncode=7,
+            stdout=("prefix\n" + ("x" * 70000) + "\nterminal-cause token=very-secret /tmp/private/file\n"),
+        )
+        with mock.patch("scripts.quality.verify_build_inputs.subprocess.run", return_value=completed):
+            with self.assertRaises(BuildInputError) as raised:
+                _run_closed_command(
+                    ["python3", "governed.py"],
+                    installed=mock.Mock(),
+                    environment={},
+                    cwd=ROOT,
+                )
+
+        message = str(raised.exception)
+        self.assertIn("terminal-cause", message)
+        self.assertIn("<redacted-secret>", message)
+        self.assertIn("<redacted-path>", message)
+        self.assertNotIn("very-secret", message)
+        self.assertLessEqual(len(message.encode("utf-8")), 65536 + 512)
+
     def test_wrapper_matches_official_policy_bytes(self) -> None:
         verify_wrapper(ROOT, load_policy(POLICY, root=ROOT))
 

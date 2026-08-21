@@ -77,6 +77,14 @@ STORE_OBSERVATION = {
     "size": 7112,
 }
 CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
+COMMAND_LOG_LIMIT = 65536
+_COMMAND_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+_COMMAND_SECRET = re.compile(
+    r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
+)
+_SIGNED_QUERY_VALUE = re.compile(r"([?&](?:jwt|sig|se|ske|skoid|sktid)=)[^&\s]+", re.IGNORECASE)
+_ABSOLUTE_COMMAND_PATH = re.compile(r"(?<![A-Za-z0-9:/])/(?:[^\s'\"]+)")
+_GENERIC_ONLY_FAILURE = "build-input verification failed: governed command failed: gradlew"
 OWNED_LABEL_KEYS = (
     "io.gasstation.attempt",
     "io.gasstation.main-base",
@@ -1162,6 +1170,151 @@ def _container_exec(config: Path, command: str, *, timeout: int | None = None) -
     )
 
 
+def _container_exec_completed(
+    config: Path,
+    command: str,
+    *,
+    timeout: int | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    # This non-raising form is reserved for governed evidence commands so their
+    # terminal output can be persisted before a nonzero exit is propagated.
+    return _docker(
+        config,
+        "exec",
+        "--env", "ANDROID_HOME=/opt/android-sdk",
+        "--env", "ANDROID_SDK_ROOT=/opt/android-sdk",
+        "--env", "CI=true",
+        "--env", "RUNNER_ARCH=X64",
+        "--env", "RUNNER_OS=Linux",
+        "--env", "LANG=C.UTF-8",
+        "--env", "LC_ALL=C.UTF-8",
+        "--env", "TZ=UTC",
+        CONTAINER,
+        "/bin/bash",
+        "-lc",
+        command,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def _bounded_redacted_command_log(output: bytes) -> tuple[bytes, bool]:
+    text = output.decode("utf-8", "replace")
+    text = text.replace(str(ROOT), "<repository>")
+    text = _COMMAND_SECRET.sub(r"\1\2<redacted-secret>", text)
+    text = _SIGNED_QUERY_VALUE.sub(r"\1<redacted-secret>", text)
+    text = _ABSOLUTE_COMMAND_PATH.sub("<redacted-path>", text)
+    encoded = text.encode("utf-8", "replace")
+    if len(encoded) <= COMMAND_LOG_LIMIT:
+        return encoded, False
+    prefix = b"[truncated-prefix]\n"
+    tail = encoded[-(COMMAND_LOG_LIMIT - len(prefix)):]
+    return prefix + tail.decode("utf-8", "replace").encode("utf-8"), True
+
+
+def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
+    if not directory.is_dir() or directory.is_symlink():
+        raise BuildInputError("governed command evidence directory is missing")
+    started_paths = sorted(directory.glob("*.started.json"))
+    result_paths = sorted(directory.glob("*.result.json"))
+    log_paths = sorted(directory.glob("*.log"))
+    names = {path.name.removesuffix(".started.json") for path in started_paths}
+    if not names or len(started_paths) != len(names):
+        raise BuildInputError("governed command start inventory is empty or duplicate")
+    if {path.name.removesuffix(".result.json") for path in result_paths} != names:
+        raise BuildInputError("governed command result inventory differs from starts")
+    if {path.name.removesuffix(".log") for path in log_paths} != names:
+        raise BuildInputError("governed command evidence has a missing log")
+    rows: list[dict[str, Any]] = []
+    for name in sorted(names):
+        started_path = directory / f"{name}.started.json"
+        result_path = directory / f"{name}.result.json"
+        log_path = directory / f"{name}.log"
+        started = _load_json(started_path)
+        result = _load_json(result_path)
+        if (
+            canonical_json_bytes(started) != started_path.read_bytes()
+            or canonical_json_bytes(result) != result_path.read_bytes()
+        ):
+            raise BuildInputError("governed command evidence JSON is noncanonical")
+        if started != {
+            "commandSha256": started.get("commandSha256"),
+            "name": name,
+            "schemaVersion": 1,
+            "status": "STARTED",
+        } or re.fullmatch(r"[0-9a-f]{64}", str(started.get("commandSha256"))) is None:
+            raise BuildInputError("governed command start receipt is malformed")
+        if set(result) != {
+            "commandSha256", "exitCode", "logSha256", "logSize", "name",
+            "schemaVersion", "status", "truncated",
+        } or result.get("name") != name or result.get("schemaVersion") != 1:
+            raise BuildInputError("governed command result receipt is malformed")
+        if result.get("commandSha256") != started["commandSha256"]:
+            raise BuildInputError("governed command digest changed after execution")
+        exit_code = result.get("exitCode")
+        status_value = result.get("status")
+        if not isinstance(exit_code, int) or isinstance(exit_code, bool):
+            raise BuildInputError("governed command exit code is malformed")
+        if (exit_code == 0 and status_value != "PASS") or (exit_code != 0 and status_value != "FAIL"):
+            raise BuildInputError("governed command nonzero/status relationship is invalid")
+        log = log_path.read_bytes()
+        if (
+            len(log) > COMMAND_LOG_LIMIT
+            or result.get("logSize") != len(log)
+            or result.get("logSha256") != hashlib.sha256(log).hexdigest()
+        ):
+            raise BuildInputError("governed command log size or hash differs")
+        if not isinstance(result.get("truncated"), bool):
+            raise BuildInputError("governed command truncation flag is malformed")
+        if exit_code != 0 and log.decode("utf-8", "replace").strip() == _GENERIC_ONLY_FAILURE:
+            raise BuildInputError("governed command failure collapsed to generic-only output")
+        rows.append(dict(result))
+    return rows
+
+
+def _run_governed_container_command(
+    config: Path,
+    *,
+    attempt: Path,
+    name: str,
+    shell: str,
+    timeout: int = 14400,
+) -> str:
+    if _COMMAND_NAME.fullmatch(name) is None or not shell or "\x00" in shell:
+        raise BuildInputError("governed command identity is malformed")
+    evidence = attempt / "command-evidence"
+    evidence.mkdir(mode=0o700, exist_ok=True)
+    command_sha = hashlib.sha256(shell.encode("utf-8")).hexdigest()
+    _write_new(
+        evidence / f"{name}.started.json",
+        {"commandSha256": command_sha, "name": name, "schemaVersion": 1, "status": "STARTED"},
+    )
+    try:
+        completed = _container_exec_completed(config, f"cd /evidence-work/repository && {shell}", timeout=timeout)
+        raw_output = completed.stdout
+        exit_code = completed.returncode
+    except BuildInputError as error:
+        raw_output = f"command execution error: {_safe_error(error)}\n".encode("utf-8")
+        exit_code = -1
+    log, truncated = _bounded_redacted_command_log(raw_output or f"<no-output>\nexitCode={exit_code}\n".encode())
+    _write_bytes_new(evidence / f"{name}.log", log)
+    result = {
+        "commandSha256": command_sha,
+        "exitCode": exit_code,
+        "logSha256": hashlib.sha256(log).hexdigest(),
+        "logSize": len(log),
+        "name": name,
+        "schemaVersion": 1,
+        "status": "PASS" if exit_code == 0 else "FAIL",
+        "truncated": truncated,
+    }
+    _write_new(evidence / f"{name}.result.json", result)
+    validate_governed_command_evidence(evidence)
+    if exit_code != 0:
+        raise BuildInputError(f"governed container command failed ({exit_code}): {name}")
+    return raw_output.decode("utf-8", "replace")
+
+
 def _manifest(directory: Path, *, exclude: set[str] | None = None) -> list[dict[str, Any]]:
     exclude = exclude or set()
     rows: list[dict[str, Any]] = []
@@ -1218,16 +1371,16 @@ def _row(source: str, policy_sha: str, **extra: Any) -> dict[str, Any]:
 
 
 def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
-    repo = "/evidence-work/repository"
     cli = "python3 scripts/quality/verify_build_inputs.py"
     policy = "config/quality/build-inputs.json"
-    logs = attempt / "logs"
-    logs.mkdir(mode=0o700)
-
     def command(name: str, shell: str, timeout: int = 14400) -> str:
-        output = _container_exec(config, f"cd {repo} && {shell}", timeout=timeout)
-        _write_bytes_new(logs / f"{name}.log", output.encode("utf-8", "replace"))
-        return output
+        return _run_governed_container_command(
+            config,
+            attempt=attempt,
+            name=name,
+            shell=shell,
+            timeout=timeout,
+        )
 
     metadata_before = command("metadata-capture-1", f"{cli} metadata-capture --policy {policy}")
     metadata_hash_one = command("metadata-hash-1", "sha256sum gradle/verification-metadata.xml").split()[0]
@@ -1311,11 +1464,27 @@ def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> 
         "reproducibility": _row(source, policy_sha, receipt=reproduction_path),
     }
     details = {
+        "commandEvidence": validate_governed_command_evidence(attempt / "command-evidence"),
         "releaseBindingReceipt": binding_path,
         "reproducibilityReceipt": reproduction_path,
         "thirdApk": apk,
     }
     return rows, details
+
+
+def _write_failed_attempt_package(attempt: Path, failure: Mapping[str, Any]) -> None:
+    package = attempt / "failure-package"
+    package.mkdir(mode=0o700)
+    _write_new(package / "failure.json", failure)
+    evidence = attempt / "command-evidence"
+    if evidence.is_dir() and not evidence.is_symlink():
+        shutil.copytree(evidence, package / "command-evidence")
+    manifest = {
+        "files": _manifest(package),
+        "schemaVersion": 1,
+        "status": "FAIL",
+    }
+    _write_new(package / "failed-attempt-package.json", manifest)
 
 
 def _safe_error(error: BaseException) -> str:
@@ -1599,7 +1768,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_new(staged / "android-installed-packages.json", android_installed_receipt)
         _write_new(staged / "local-linux-host-pending.json", host_receipt)
         _write_new(staged / "evidence-rows.json", {"rows": rows, "schemaVersion": 1, "status": "PASS"})
-        shutil.copytree(attempt / "logs", staged / "logs")
+        validate_governed_command_evidence(attempt / "command-evidence")
+        shutil.copytree(attempt / "command-evidence", staged / "command-evidence")
         _docker(
             docker_config,
             "cp",
@@ -1697,6 +1867,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
             try:
                 _write_new(attempt / "failure.json", failure)
+                _write_failed_attempt_package(attempt, failure)
             except (BuildInputError, OSError):
                 pass
         print(f"local Linux evidence failed: {_safe_error(error)}", file=sys.stderr)
