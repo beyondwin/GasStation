@@ -11,12 +11,15 @@ from scripts.quality.build_inputs.contracts import BuildInputError, canonical_js
 from scripts.quality.build_inputs.local_colima_evidence import (
     CLEANUP_PHASES,
     CONFIG_DESCRIPTOR,
+    CONTAINER_INHERITED_LABELS,
     DELETE_ARGV,
     INDEX_DESCRIPTOR,
     LAYER_DESCRIPTORS,
     SELECTED_MANIFEST_DESCRIPTOR,
     START_ARGV,
     _recover_prior_attempts,
+    _container_labels,
+    _owned_labels,
     _runtime_data_identity,
     _safe_error,
     _profile_config,
@@ -33,6 +36,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_container_selection,
     validate_effective_config,
     validate_image_identity,
+    validate_inner_architecture,
     validate_runtime_absence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
@@ -49,9 +53,12 @@ def image_inspect_fixture() -> str:
         [
             {
                 "Architecture": "",
+                "Config": {},
                 "Descriptor": dict(INDEX_DESCRIPTOR),
                 "Id": INDEX_DESCRIPTOR["digest"],
                 "Os": "",
+                "RepoDigests": ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+                "RootFS": {},
                 "Size": 7112,
             },
         ],
@@ -94,9 +101,23 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual(list(START_ARGV), host["startArgv"])
         self.assertEqual(list(DELETE_ARGV), host["deleteArgv"])
         self.assertEqual([], host["hostMounts"])
+        self.assertEqual(sorted(_owned_labels({
+            "attemptId": "attempt-000001",
+            "mainBaseCommit": BASE,
+            "markerSha256": "3" * 64,
+            "policySha256": POLICY_SHA,
+            "sourceCommit": SOURCE,
+            "taskId": "quality-task-9-local-linux-evidence",
+        })), host["ownedLabelKeys"])
         self.assertEqual(
             {
                 "configDescriptor": CONFIG_DESCRIPTOR,
+                "containerSelection": {
+                    "configImage": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
+                    "image": INDEX_DESCRIPTOR["digest"],
+                    "inheritedLabels": CONTAINER_INHERITED_LABELS,
+                    "platform": "linux",
+                },
                 "indexDescriptor": INDEX_DESCRIPTOR,
                 "indexReference": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
                 "layerDescriptors": list(LAYER_DESCRIPTORS),
@@ -144,6 +165,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         legacy_alias = json.loads(json.dumps(baseline))
         legacy_alias["localEvidenceHost"]["image"]["configurationDigest"] = SELECTED_MANIFEST_DESCRIPTOR["digest"]
         mutations.append(legacy_alias)
+        wrong_container_image = json.loads(json.dumps(baseline))
+        wrong_container_image["localEvidenceHost"]["image"]["containerSelection"]["image"] = CONFIG_DESCRIPTOR["digest"]
+        mutations.append(wrong_container_image)
+        missing_inherited_label = json.loads(json.dumps(baseline))
+        missing_inherited_label["localEvidenceHost"]["image"]["containerSelection"]["inheritedLabels"] = {}
+        mutations.append(missing_inherited_label)
+        missing_owned_label = json.loads(json.dumps(baseline))
+        missing_owned_label["localEvidenceHost"]["ownedLabelKeys"].pop()
+        mutations.append(missing_owned_label)
         with tempfile.TemporaryDirectory() as directory:
             for index, mutation in enumerate(mutations):
                 path = Path(directory) / f"mutation-{index}.json"
@@ -453,7 +483,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual(CONFIG_DESCRIPTOR, identity["configDescriptor"])
         self.assertEqual(list(LAYER_DESCRIPTORS), identity["layerDescriptors"])
         self.assertEqual(
-            {"architecture": "", "id": INDEX_DESCRIPTOR["digest"], "os": "", "size": 7112},
+            {
+                "architecture": "",
+                "config": {},
+                "id": INDEX_DESCRIPTOR["digest"],
+                "os": "",
+                "repoDigests": ["docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"]],
+                "rootFS": {},
+                "size": 7112,
+            },
             identity["storeObservation"],
         )
 
@@ -496,6 +534,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         promoted_store[0]["Id"] = CONFIG_DESCRIPTOR["digest"]
         promoted_store[0]["Architecture"] = "amd64"
         mutations.append((promoted_store, baseline_manifest))
+        for field, value in (
+            ("Config", {"Labels": {"unexpected": "label"}}),
+            ("RootFS", {"Type": "layers"}),
+            ("RepoDigests", []),
+            ("Size", 7113),
+        ):
+            image = json.loads(json.dumps(baseline_image))
+            image[0][field] = value
+            mutations.append((image, baseline_manifest))
         for image, manifest in mutations:
             with self.subTest(image=image, manifest=manifest), self.assertRaises(BuildInputError):
                 validate_image_identity(json.dumps(image), json.dumps(manifest))
@@ -505,19 +552,66 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             )
 
     def test_container_selection_binds_config_platform_and_labels(self) -> None:
-        labels = {"gasstation.task9.marker": "3" * 64}
-        valid = json.dumps([{"Config": {"Labels": labels}, "Image": CONFIG_DESCRIPTOR["digest"], "Platform": "linux"}])
+        marker = {
+            "attemptId": "attempt-000001",
+            "mainBaseCommit": BASE,
+            "markerSha256": "3" * 64,
+            "policySha256": POLICY_SHA,
+            "sourceCommit": SOURCE,
+            "taskId": "quality-task-9-local-linux-evidence",
+        }
+        owned_labels = _owned_labels(marker)
+        labels = _container_labels(marker)
+        valid = json.dumps([
+            {
+                "Config": {
+                    "Image": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
+                    "Labels": labels,
+                },
+                "Image": INDEX_DESCRIPTOR["digest"],
+                "Platform": "linux",
+            },
+        ])
         self.assertEqual(
-            {"image": CONFIG_DESCRIPTOR["digest"], "labels": labels, "platform": "linux"},
-            validate_container_selection(valid, expected_labels=labels),
+            {
+                "configImage": "docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"],
+                "image": INDEX_DESCRIPTOR["digest"],
+                "inheritedLabels": CONTAINER_INHERITED_LABELS,
+                "ownedLabels": owned_labels,
+                "platform": "linux",
+            },
+            validate_container_selection(valid, expected_owned_labels=owned_labels),
         )
-        for mutation in (
-            valid.replace(CONFIG_DESCRIPTOR["digest"], SELECTED_MANIFEST_DESCRIPTOR["digest"]),
+        mutations = [
+            valid.replace(INDEX_DESCRIPTOR["digest"], SELECTED_MANIFEST_DESCRIPTOR["digest"], 1),
+            valid.replace("docker.io/library/ubuntu@" + INDEX_DESCRIPTOR["digest"], SELECTED_MANIFEST_DESCRIPTOR["digest"]),
             valid.replace('"Platform": "linux"', '"Platform": ""'),
             valid.replace("3" * 64, "4" * 64),
+            valid.replace('"org.opencontainers.image.version": "24.04"', '"org.opencontainers.image.version": "latest"'),
+        ]
+        missing_inherited = json.loads(valid)
+        del missing_inherited[0]["Config"]["Labels"]["org.opencontainers.image.version"]
+        mutations.append(json.dumps(missing_inherited))
+        extra_inherited = json.loads(valid)
+        extra_inherited[0]["Config"]["Labels"]["org.opencontainers.image.revision"] = "unexpected"
+        mutations.append(json.dumps(extra_inherited))
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaises(BuildInputError):
+                validate_container_selection(mutation, expected_owned_labels=owned_labels)
+
+    def test_inner_architecture_requires_exact_uname_and_dpkg_facts(self) -> None:
+        self.assertEqual(
+            {"dpkg": "amd64", "uname": "x86_64"},
+            validate_inner_architecture("uname=x86_64\ndpkg=amd64\n"),
+        )
+        for mutation in (
+            "uname=aarch64\ndpkg=amd64\n",
+            "uname=x86_64\ndpkg=arm64\n",
+            "uname=x86_64\ndpkg=amd64\nextra=true\n",
+            "x86_64 amd64\n",
         ):
             with self.subTest(mutation=mutation), self.assertRaises(BuildInputError):
-                validate_container_selection(mutation, expected_labels=labels)
+                validate_inner_architecture(mutation)
 
     def test_cleanup_is_exactly_ordered_and_requires_data_delete_and_live_absence(self) -> None:
         valid = {

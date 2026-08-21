@@ -290,6 +290,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "localHostReceiptPath",
             "mainBaseCommit",
             "mainBaseRef",
+            "ownedLabelKeys",
             "profile",
             "requiredEvidenceRows",
             "sourceBundleRefs",
@@ -330,6 +331,15 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "COLIMA_HOME", "DOCKER_CONFIG", "HOME", "LANG", "LC_ALL", "PATH", "TZ",
     ]:
         raise BuildInputError("localEvidenceHost sanitized environment drift")
+    if host["ownedLabelKeys"] != [
+        "io.gasstation.attempt",
+        "io.gasstation.main-base",
+        "io.gasstation.marker-sha256",
+        "io.gasstation.policy-sha256",
+        "io.gasstation.source-commit",
+        "io.gasstation.task",
+    ]:
+        raise BuildInputError("localEvidenceHost owned label key inventory drift")
     if host["attemptPattern"] != "attempt-[0-9]{6}":
         raise BuildInputError("localEvidenceHost generated attempt contract drift")
     expected_bootstrap = [
@@ -417,6 +427,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         host["image"],
         {
             "configDescriptor",
+            "containerSelection",
             "indexDescriptor",
             "indexReference",
             "layerDescriptors",
@@ -441,6 +452,14 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         image["configDescriptor"], {"digest", "mediaType", "size"},
         "localEvidenceHost.image.configDescriptor",
     )
+    container_selection = _require_keys(
+        image["containerSelection"], {"configImage", "image", "inheritedLabels", "platform"},
+        "localEvidenceHost.image.containerSelection",
+    )
+    _require_keys(
+        container_selection["inheritedLabels"], {"org.opencontainers.image.version"},
+        "localEvidenceHost.image.containerSelection.inheritedLabels",
+    )
     if not isinstance(image["layerDescriptors"], list) or len(image["layerDescriptors"]) != 1:
         raise BuildInputError("localEvidenceHost image must contain the sole reviewed layer")
     _require_keys(
@@ -452,6 +471,12 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "digest": "sha256:a6f81fb630d51837271b89f8193810a5fc493fa4f30a55d7ebcdb3a66f3cc63a",
             "mediaType": "application/vnd.oci.image.config.v1+json",
             "size": 2052,
+        },
+        "containerSelection": {
+            "configImage": "docker.io/library/ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+            "image": "sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+            "inheritedLabels": {"org.opencontainers.image.version": "24.04"},
+            "platform": "linux",
         },
         "indexDescriptor": {
             "digest": "sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",

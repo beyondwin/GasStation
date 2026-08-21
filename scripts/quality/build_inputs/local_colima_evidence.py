@@ -65,6 +65,15 @@ LAYER_DESCRIPTORS = (
         "size": 29752807,
     },
 )
+CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
+OWNED_LABEL_KEYS = (
+    "io.gasstation.attempt",
+    "io.gasstation.main-base",
+    "io.gasstation.marker-sha256",
+    "io.gasstation.policy-sha256",
+    "io.gasstation.source-commit",
+    "io.gasstation.task",
+)
 MAIN_BASE_REF = "refs/heads/main"
 MAIN_BASE_COMMIT = "7b8c149c9f792aaf43cc00a94ba671929008979e"
 START_ARGV = (
@@ -176,8 +185,10 @@ def validate_image_identity(image_inspect_text: str, manifest_inspect_text: str)
         image.get("Id") != INDEX_DESCRIPTOR["digest"]
         or image.get("Architecture") != ""
         or image.get("Os") != ""
-        or not isinstance(image.get("Size"), int)
-        or image["Size"] < 0
+        or image.get("Config") != {}
+        or image.get("RepoDigests") != [IMAGE]
+        or image.get("RootFS") != {}
+        or image.get("Size") != 7112
     ):
         raise BuildInputError("reviewed Ubuntu containerd-store observation mismatch")
 
@@ -216,26 +227,49 @@ def validate_image_identity(image_inspect_text: str, manifest_inspect_text: str)
         },
         "storeObservation": {
             "architecture": image["Architecture"],
+            "config": image["Config"],
             "id": image["Id"],
             "os": image["Os"],
+            "repoDigests": image["RepoDigests"],
+            "rootFS": image["RootFS"],
             "size": image["Size"],
         },
     }
 
 
-def validate_container_selection(inspect_text: str, *, expected_labels: Mapping[str, str]) -> dict[str, Any]:
+def validate_container_selection(
+    inspect_text: str,
+    *,
+    expected_owned_labels: Mapping[str, str],
+) -> dict[str, Any]:
     values = _json_list(inspect_text, "Docker container inspect")
     if len(values) != 1 or not isinstance(values[0], dict):
         raise BuildInputError("Docker container inspect must contain exactly one object")
     container = values[0]
-    labels = container.get("Config", {}).get("Labels") if isinstance(container.get("Config"), dict) else None
-    if labels != dict(expected_labels):
+    config = container.get("Config")
+    labels = config.get("Labels") if isinstance(config, dict) else None
+    expected_labels = {**dict(expected_owned_labels), **CONTAINER_INHERITED_LABELS}
+    if labels != expected_labels:
         raise BuildInputError("owned evidence container label drift")
-    if container.get("Image") != CONFIG_DESCRIPTOR["digest"]:
-        raise BuildInputError("evidence container did not select the reviewed OCI config")
+    if container.get("Image") != INDEX_DESCRIPTOR["digest"]:
+        raise BuildInputError("evidence container did not retain the reviewed index identity")
+    if not isinstance(config, dict) or config.get("Image") != IMAGE:
+        raise BuildInputError("evidence container did not retain the full reviewed index reference")
     if container.get("Platform") != "linux":
         raise BuildInputError("evidence container platform did not resolve to Linux")
-    return {"image": container["Image"], "labels": labels, "platform": container["Platform"]}
+    return {
+        "configImage": config["Image"],
+        "image": container["Image"],
+        "inheritedLabels": dict(CONTAINER_INHERITED_LABELS),
+        "ownedLabels": dict(expected_owned_labels),
+        "platform": container["Platform"],
+    }
+
+
+def validate_inner_architecture(output: str) -> dict[str, str]:
+    if output != "uname=x86_64\ndpkg=amd64\n":
+        raise BuildInputError("inner container architecture identity drift")
+    return {"dpkg": "amd64", "uname": "x86_64"}
 
 
 def _reject_inherited_host_environment(inherited: Mapping[str, str]) -> None:
@@ -761,6 +795,10 @@ def _owned_labels(marker: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
+def _container_labels(marker: Mapping[str, Any]) -> dict[str, str]:
+    return {**_owned_labels(marker), **CONTAINER_INHERITED_LABELS}
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -831,13 +869,14 @@ def _recover_prior_attempts(
         )
         _run(START_ARGV, env=environment, timeout=1800)
         _verify_docker_client_root(docker_config)
-        expected_labels = _owned_labels(marker)
+        expected_container_labels = _container_labels(marker)
+        expected_volume_labels = _owned_labels(marker)
 
         container_inspect = _docker(docker_config, "inspect", CONTAINER, check=False)
         if container_inspect.returncode == 0:
             values = json.loads(container_inspect.stdout.decode("utf-8"))
             labels = values[0].get("Config", {}).get("Labels", {}) if len(values) == 1 else {}
-            if labels != expected_labels:
+            if labels != expected_container_labels:
                 raise BuildInputError("foreign or mixed container labels block recovery")
             _docker(docker_config, "stop", CONTAINER, timeout=300, check=False)
             _docker(docker_config, "rm", CONTAINER)
@@ -849,7 +888,7 @@ def _recover_prior_attempts(
             if inspected.returncode == 0:
                 values = json.loads(inspected.stdout.decode("utf-8"))
                 labels = values[0].get("Labels", {}) if len(values) == 1 else {}
-                if labels != expected_labels:
+                if labels != expected_volume_labels:
                     raise BuildInputError("foreign or mixed volume labels block recovery")
                 _docker(docker_config, "volume", "rm", volume)
             if _docker(docker_config, "volume", "inspect", volume, check=False).returncode == 0:
@@ -1179,9 +1218,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         container_selection_json = _docker_text(docker_config, "inspect", CONTAINER)
         container_selection = validate_container_selection(
             container_selection_json,
-            expected_labels=_owned_labels(marker),
+            expected_owned_labels=_owned_labels(marker),
         )
         _docker(docker_config, "start", CONTAINER)
+        inner_architecture_output = _container_exec(
+            docker_config,
+            "set -euo pipefail; "
+            "test \"$(uname -m)\" = x86_64; "
+            "test \"$(dpkg --print-architecture)\" = amd64; "
+            "printf 'uname=x86_64\\ndpkg=amd64\\n'",
+        )
+        inner_architecture = validate_inner_architecture(inner_architecture_output)
         _container_exec(docker_config, "mkdir -p /input-repository")
         _docker(docker_config, "cp", str(bundle), f"{CONTAINER}:/input-repository/source.bundle")
 
@@ -1260,6 +1307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "imageReference": IMAGE,
             "containerSelection": container_selection,
             "containerSelectionInspectSha256": hashlib.sha256(container_selection_json.encode()).hexdigest(),
+            "innerArchitecture": inner_architecture,
         }
         host_receipt = {
             "architectureBoundary": "macos-aarch64-vz-rosetta-to-linux-amd64",
@@ -1309,8 +1357,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         # Ordered, exact, ownership-revalidated cleanup through the live daemon.
         owned_labels = _owned_labels(marker)
+        container_labels = _container_labels(marker)
         container_value = json.loads(_docker_text(docker_config, "inspect", CONTAINER))
-        if len(container_value) != 1 or container_value[0].get("Config", {}).get("Labels", {}) != owned_labels:
+        if len(container_value) != 1 or container_value[0].get("Config", {}).get("Labels", {}) != container_labels:
             raise BuildInputError("owned evidence container label drift before cleanup")
         _docker(docker_config, "stop", CONTAINER, timeout=300)
         _docker(docker_config, "rm", CONTAINER)

@@ -15,6 +15,7 @@ from scripts.quality.build_inputs.contracts import canonical_json_bytes, sha256_
 from scripts.quality.build_inputs.local_colima_evidence import (  # noqa: E402
     CLEANUP_PHASES,
     CONFIG_DESCRIPTOR,
+    CONTAINER_INHERITED_LABELS,
     CONTAINER,
     CONTEXT,
     DELETE_ARGV,
@@ -23,6 +24,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (  # noqa: E402
     LAYER_DESCRIPTORS,
     MAIN_BASE_COMMIT,
     MAIN_BASE_REF,
+    OWNED_LABEL_KEYS,
     PROFILE,
     REQUIRED_EVIDENCE_ROWS,
     SELECTED_MANIFEST_DESCRIPTOR,
@@ -397,6 +399,12 @@ def policy() -> dict[str, object]:
             "hostMounts": [],
             "image": {
                 "configDescriptor": CONFIG_DESCRIPTOR,
+                "containerSelection": {
+                    "configImage": IMAGE,
+                    "image": INDEX_DESCRIPTOR["digest"],
+                    "inheritedLabels": CONTAINER_INHERITED_LABELS,
+                    "platform": "linux",
+                },
                 "indexDescriptor": INDEX_DESCRIPTOR,
                 "indexReference": IMAGE,
                 "layerDescriptors": list(LAYER_DESCRIPTORS),
@@ -406,6 +414,7 @@ def policy() -> dict[str, object]:
             "localHostReceiptPath": "build/reports/build-inputs/local-linux-host.json",
             "mainBaseCommit": MAIN_BASE_COMMIT,
             "mainBaseRef": MAIN_BASE_REF,
+            "ownedLabelKeys": list(OWNED_LABEL_KEYS),
             "profile": PROFILE,
             "requiredEvidenceRows": sorted(REQUIRED_EVIDENCE_ROWS),
             "sourceBundleRefs": ["HEAD", MAIN_BASE_REF],
