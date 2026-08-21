@@ -4,11 +4,14 @@ import hashlib
 import io
 import json
 import os
+import base64
 import shutil
 import tarfile
 import tempfile
 import threading
 import unittest
+import urllib.parse
+import uuid
 from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,7 +27,12 @@ from scripts.quality.build_inputs.contracts import (
     validate_protected_environment,
     verify_wrapper,
 )
-from scripts.quality.build_inputs.downloader import DownloadError, download_verified
+from scripts.quality.build_inputs.downloader import (
+    DownloadError,
+    download_verified,
+    download_verified_github_release_asset,
+    validate_github_release_asset_redirect,
+)
 from scripts.quality.build_inputs.docs_gradle_validation_bridge import (
     BridgeError,
     _guarded_docs_runtime,
@@ -99,27 +107,39 @@ class CanonicalPolicyTest(unittest.TestCase):
 
     def test_superseded_runtime_and_cross_wired_jdk_roles_fail_closed(self) -> None:
         baseline = json.loads(POLICY.read_text(encoding="utf-8"))
-        mutations = []
+        mutations: list[tuple[dict[str, object], str]] = []
         superseded = json.loads(json.dumps(baseline))
         superseded["jdks"]["runtime"]["version"] = "21.0.12+8"
-        mutations.append(superseded)
+        mutations.append((superseded, "reviewed exact identity"))
         cross_wired = json.loads(json.dumps(baseline))
         cross_wired["jdks"]["compile"], cross_wired["jdks"]["runtime"] = (
             cross_wired["jdks"]["runtime"],
             cross_wired["jdks"]["compile"],
         )
-        mutations.append(cross_wired)
+        mutations.append((cross_wired, "reviewed exact identity"))
         major_only = json.loads(json.dumps(baseline))
         major_only["jdks"]["runtime"]["version"] = "21"
-        mutations.append(major_only)
+        mutations.append((major_only, "reviewed exact identity"))
+        redirect_path = json.loads(json.dumps(baseline))
+        redirect_path["jdks"]["compile"]["releaseAssetRedirect"]["finalPath"] = "/github-production-release-asset/602574963/be5ef440-7bad-40e3-9188-9e7648842040"
+        mutations.append((redirect_path, "reviewed exact contract"))
+        redirect_initial = json.loads(json.dumps(baseline))
+        redirect_initial["jdks"]["runtime"]["releaseAssetRedirect"]["initialUrl"] = redirect_initial["jdks"]["compile"]["archiveUrl"]
+        mutations.append((redirect_initial, "reviewed exact contract"))
+        redirect_key = json.loads(json.dumps(baseline))
+        redirect_key["jdks"]["compile"]["releaseAssetRedirect"]["queryKeys"].pop()
+        mutations.append((redirect_key, "reviewed exact contract"))
+        redirect_header = json.loads(json.dumps(baseline))
+        redirect_header["jdks"]["runtime"]["releaseAssetRedirect"]["finalHeaders"]["contentLength"] -= 1
+        mutations.append((redirect_header, "reviewed exact contract"))
 
         with tempfile.TemporaryDirectory() as directory:
-            for index, mutation in enumerate(mutations):
+            for index, (mutation, expected_error) in enumerate(mutations):
                 candidate = Path(directory) / f"jdk-mutation-{index}.json"
                 candidate.write_bytes(canonical_json_bytes(mutation))
                 with self.subTest(index=index), self.assertRaisesRegex(
                     BuildInputError,
-                    "reviewed exact identity",
+                    expected_error,
                 ):
                     load_policy(candidate, root=ROOT)
 
@@ -349,6 +369,306 @@ class SafeArchiveTest(unittest.TestCase):
 
 
 class VerifiedDownloadTest(unittest.TestCase):
+    SIGNED_KEYS = [
+        "jwt",
+        "response-content-disposition",
+        "response-content-type",
+        "rscd",
+        "rsct",
+        "se",
+        "sig",
+        "ske",
+        "skoid",
+        "sks",
+        "skt",
+        "sktid",
+        "skv",
+        "sp",
+        "spr",
+        "sr",
+        "sv",
+    ]
+
+    @classmethod
+    def _signed_values(cls, filename: str) -> dict[str, str]:
+        jwt = ".".join(("a" * 100, "b" * 100, "c" * 101))
+        return {
+            "jwt": jwt,
+            "response-content-disposition": f"attachment; filename={filename}",
+            "response-content-type": "application/octet-stream",
+            "rscd": f"attachment; filename={filename}",
+            "rsct": "application/octet-stream",
+            "se": "2026-08-21T03:00:00Z",
+            "sig": base64.b64encode(b"s" * 32).decode("ascii"),
+            "ske": "2026-08-21T04:00:00Z",
+            "skoid": str(uuid.UUID("11111111-1111-1111-1111-111111111111")),
+            "sks": "b",
+            "skt": "2026-08-21T02:00:00Z",
+            "sktid": str(uuid.UUID("22222222-2222-2222-2222-222222222222")),
+            "skv": "2018-11-09",
+            "sp": "r",
+            "spr": "https",
+            "sr": "b",
+            "sv": "2018-11-09",
+        }
+
+    @classmethod
+    def _redirect_contract(
+        cls,
+        *,
+        initial_url: str,
+        final_host: str,
+        final_path: str,
+        filename: str,
+        size: int,
+    ) -> dict[str, object]:
+        values = cls._signed_values(filename)
+        return {
+            "finalHeaders": {
+                "acceptRanges": "bytes",
+                "contentLength": size,
+                "contentType": "application/octet-stream",
+            },
+            "finalHost": final_host,
+            "finalPath": final_path,
+            "finalStatus": 200,
+            "fixedQueryValues": {
+                key: values[key]
+                for key in (
+                    "response-content-disposition",
+                    "response-content-type",
+                    "rscd",
+                    "rsct",
+                    "sks",
+                    "skv",
+                    "sp",
+                    "spr",
+                    "sr",
+                    "sv",
+                )
+            },
+            "initialStatus": 302,
+            "initialUrl": initial_url,
+            "jwtLength": 303,
+            "queryKeys": cls.SIGNED_KEYS,
+            "redirectCount": 1,
+            "signatureLength": 44,
+            "timestampKeys": ["skt", "se", "ske"],
+            "uuidKeys": ["skoid", "sktid"],
+        }
+
+    def test_github_release_asset_download_validates_one_hop_and_redacts_receipt(self) -> None:
+        payload = b"reviewed-jdk-archive"
+        filename = "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz"
+        values = self._signed_values(filename)
+        query = urllib.parse.urlencode(values)
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802
+                parsed = urllib.parse.urlsplit(self.path)
+                if parsed.path == "/initial":
+                    self.send_response(302)
+                    self.send_header(
+                        "Location",
+                        f"http://127.0.0.1:{self.server.server_port}/asset/compile?{query}",
+                    )
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Content-Type", "application/octet-stream")
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            source = f"http://127.0.0.1:{server.server_port}/initial"
+            contract = self._redirect_contract(
+                initial_url=source,
+                final_host="127.0.0.1",
+                final_path="/asset/compile",
+                filename=filename,
+                size=len(payload),
+            )
+            with tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / "archive"
+                result = download_verified_github_release_asset(
+                    source,
+                    destination=target,
+                    expected_size=len(payload),
+                    expected_sha256=hashlib.sha256(payload).hexdigest(),
+                    redirect_contract=contract,
+                    allow_loopback_http=True,
+                )
+                self.assertEqual(payload, result.path.read_bytes())
+                encoded = canonical_receipt(result.receipt)
+                for secret in (
+                    values["jwt"],
+                    values["sig"],
+                    values["skoid"],
+                    values["sktid"],
+                    values["skt"],
+                    query,
+                ):
+                    self.assertNotIn(secret.encode(), encoded)
+                self.assertEqual(self.SIGNED_KEYS, result.receipt["location"]["queryKeys"])
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), result.receipt["archiveSha256"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_signed_redirect_parser_rejects_query_role_and_grammar_mutations_without_leakage(self) -> None:
+        filename = "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz"
+        initial = "https://github.com/adoptium/temurin17-binaries/releases/download/tag/asset.tar.gz"
+        contract = self._redirect_contract(
+            initial_url=initial,
+            final_host="release-assets.githubusercontent.com",
+            final_path="/github-production-release-asset/1/compile",
+            filename=filename,
+            size=10,
+        )
+        valid = self._signed_values(filename)
+        mutations: list[tuple[str, dict[str, str], str]] = []
+        for key in self.SIGNED_KEYS:
+            missing = dict(valid)
+            del missing[key]
+            mutations.append((f"missing-{key}", missing, "/github-production-release-asset/1/compile"))
+        for label, key, value in (
+            ("fixed", "sp", "w"),
+            ("jwt", "jwt", "secret.invalid"),
+            ("sig", "sig", "secret-signature"),
+            ("uuid", "skoid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+            ("time", "skt", "2026-08-21T05:00:00Z"),
+            ("blank", "sr", ""),
+            ("filename", "rscd", "attachment; filename=other.tar.gz"),
+        ):
+            candidate = dict(valid)
+            candidate[key] = value
+            mutations.append((label, candidate, "/github-production-release-asset/1/compile"))
+        extra = dict(valid)
+        extra["unknown"] = "x"
+        mutations.append(("extra", extra, "/github-production-release-asset/1/compile"))
+        mutations.append(("cross-role", dict(valid), "/github-production-release-asset/2/runtime"))
+
+        for label, values, path in mutations:
+            location = "https://release-assets.githubusercontent.com" + path + "?" + urllib.parse.urlencode(values)
+            with self.subTest(label=label), self.assertRaises(DownloadError) as raised:
+                validate_github_release_asset_redirect(location, redirect_contract=contract)
+            message = str(raised.exception)
+            self.assertNotIn(values.get("jwt", "never"), message)
+            self.assertNotIn(values.get("sig", "never"), message)
+
+        valid_query = urllib.parse.urlencode(valid)
+        valid_path = "/github-production-release-asset/1/compile"
+        raw_mutations = {
+            "duplicate": valid_query + "&jwt=duplicate",
+            "empty-segment": valid_query + "&&extra=x",
+            "malformed-percent": valid_query.replace("jwt=", "%ZZ=", 1),
+            "control": valid_query.replace("sr=b", "sr=%00", 1),
+        }
+        for label, query in raw_mutations.items():
+            location = f"https://release-assets.githubusercontent.com{valid_path}?{query}"
+            with self.subTest(label=label), self.assertRaises(DownloadError):
+                validate_github_release_asset_redirect(location, redirect_contract=contract)
+        for label, location in (
+            ("relative", f"{valid_path}?{valid_query}"),
+            ("downgrade", f"http://release-assets.githubusercontent.com{valid_path}?{valid_query}"),
+            ("port", f"https://release-assets.githubusercontent.com:443{valid_path}?{valid_query}"),
+            ("fragment", f"https://release-assets.githubusercontent.com{valid_path}?{valid_query}#fragment"),
+            ("literal-host", f"https://RELEASE-ASSETS.GITHUBUSERCONTENT.COM{valid_path}?{valid_query}"),
+        ):
+            with self.subTest(label=label), self.assertRaises(DownloadError):
+                validate_github_release_asset_redirect(location, redirect_contract=contract)
+
+        reverse_time = dict(valid)
+        reverse_time["skt"], reverse_time["ske"] = reverse_time["ske"], reverse_time["skt"]
+        with self.assertRaises(DownloadError):
+            validate_github_release_asset_redirect(
+                f"https://release-assets.githubusercontent.com{valid_path}?{urllib.parse.urlencode(reverse_time)}",
+                redirect_contract=contract,
+            )
+
+    def test_github_release_asset_download_rejects_hop_status_header_and_byte_mutations(self) -> None:
+        payload = b"reviewed-jdk-archive"
+        filename = "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz"
+        query = urllib.parse.urlencode(self._signed_values(filename))
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802
+                parsed = urllib.parse.urlsplit(self.path)
+                mode = parsed.path.rsplit("/", 1)[-1]
+                if parsed.path.startswith("/initial/"):
+                    if mode == "zero":
+                        self.send_response(200)
+                        self.end_headers()
+                        return
+                    self.send_response(302)
+                    self.send_header(
+                        "Location",
+                        f"http://127.0.0.1:{self.server.server_port}/asset/{mode}?{query}",
+                    )
+                    self.end_headers()
+                    return
+                if mode == "second":
+                    self.send_response(302)
+                    self.send_header("Location", self.path)
+                    self.end_headers()
+                    return
+                if mode == "status":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                content = payload[:-1] if mode == "truncated" else payload
+                self.send_response(200)
+                self.send_header("Accept-Ranges", "none" if mode == "header" else "bytes")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Content-Type", "application/octet-stream")
+                self.end_headers()
+                self.wfile.write(content)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                for mode in ("zero", "second", "status", "header", "truncated", "hash"):
+                    source = f"http://127.0.0.1:{server.server_port}/initial/{mode}"
+                    contract = self._redirect_contract(
+                        initial_url=source,
+                        final_host="127.0.0.1",
+                        final_path=f"/asset/{mode}",
+                        filename=filename,
+                        size=len(payload),
+                    )
+                    destination = Path(directory) / mode
+                    digest = "0" * 64 if mode == "hash" else hashlib.sha256(payload).hexdigest()
+                    with self.subTest(mode=mode), self.assertRaises(DownloadError) as raised:
+                        download_verified_github_release_asset(
+                            source,
+                            destination=destination,
+                            expected_size=len(payload),
+                            expected_sha256=digest,
+                            redirect_contract=contract,
+                            allow_loopback_http=True,
+                        )
+                    self.assertNotIn(query, str(raised.exception))
+                    self.assertFalse(destination.exists())
+                    self.assertFalse((destination.parent / f".{destination.name}.partial").exists())
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_loopback_download_checks_exact_size_hash_redirect_and_partial_cleanup(self) -> None:
         payload = b"official-versioned-payload"
 

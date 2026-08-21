@@ -104,6 +104,63 @@ def entrypoint(
     }
 
 
+def github_release_redirect(
+    *,
+    initial_url: str,
+    filename: str,
+    final_path: str,
+    archive_size: int,
+) -> dict[str, object]:
+    return {
+        "finalHeaders": {
+            "acceptRanges": "bytes",
+            "contentLength": archive_size,
+            "contentType": "application/octet-stream",
+        },
+        "finalHost": "release-assets.githubusercontent.com",
+        "finalPath": final_path,
+        "finalStatus": 200,
+        "fixedQueryValues": {
+            "response-content-disposition": f"attachment; filename={filename}",
+            "response-content-type": "application/octet-stream",
+            "rscd": f"attachment; filename={filename}",
+            "rsct": "application/octet-stream",
+            "sks": "b",
+            "skv": "2018-11-09",
+            "sp": "r",
+            "spr": "https",
+            "sr": "b",
+            "sv": "2018-11-09",
+        },
+        "initialStatus": 302,
+        "initialUrl": initial_url,
+        "jwtLength": 303,
+        "queryKeys": [
+            "jwt",
+            "response-content-disposition",
+            "response-content-type",
+            "rscd",
+            "rsct",
+            "se",
+            "sig",
+            "ske",
+            "skoid",
+            "sks",
+            "skt",
+            "sktid",
+            "skv",
+            "sp",
+            "spr",
+            "sr",
+            "sv",
+        ],
+        "redirectCount": 1,
+        "signatureLength": 44,
+        "timestampKeys": ["skt", "se", "ske"],
+        "uuidKeys": ["skoid", "sktid"],
+    }
+
+
 def evidence_entrypoints() -> list[dict[str, object]]:
     """Return the finite governed direct/nested Gradle-process inventory."""
 
@@ -307,6 +364,12 @@ def policy() -> dict[str, object]:
                 "archiveUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
                 "checksumUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz.sha256.txt",
                 "filename": "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                "releaseAssetRedirect": github_release_redirect(
+                    initial_url="https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                    filename="OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                    final_path="/github-production-release-asset/372925194/fa1e0dc6-b748-4eaf-8e2d-0c47f9a31ffa",
+                    archive_size=193273593,
+                ),
                 "major": 17,
                 "os": "Linux",
                 "packageType": "JDK",
@@ -322,6 +385,12 @@ def policy() -> dict[str, object]:
                 "archiveUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
                 "checksumUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz.sha256.txt",
                 "filename": "OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                "releaseAssetRedirect": github_release_redirect(
+                    initial_url="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                    filename="OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                    final_path="/github-production-release-asset/602574963/be5ef440-7bad-40e3-9188-9e7648842040",
+                    archive_size=207473347,
+                ),
                 "major": 21,
                 "os": "Linux",
                 "packageType": "JDK",

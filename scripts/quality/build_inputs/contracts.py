@@ -597,6 +597,26 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         record = policy["jdks"].get(role) if isinstance(policy["jdks"], dict) else None
         if not isinstance(record, dict):
             raise BuildInputError(f"jdks.{role} is missing")
+        _require_keys(
+            record,
+            {
+                "architecture",
+                "archiveRoot",
+                "archiveSha256",
+                "archiveSize",
+                "archiveUrl",
+                "checksumUrl",
+                "filename",
+                "major",
+                "os",
+                "packageType",
+                "releaseAssetRedirect",
+                "vendor",
+                "version",
+                "vm",
+            },
+            f"jdks.{role}",
+        )
         for field in ("archiveSha256", "archiveUrl", "checksumUrl"):
             if field.endswith("Sha256"):
                 _require_sha256(record.get(field), f"jdks.{role}.{field}")
@@ -609,20 +629,88 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         exact = {
             "compile": {
                 "archiveRoot": "jdk-17.0.20+8",
+                "archiveSha256": "be7668bc030d578b83d6d5ef9221d6d6729bbbca8cf94a7d52e16ac68b5a5a35",
+                "archiveSize": 193273593,
+                "archiveUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
+                "checksumUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz.sha256.txt",
+                "finalPath": "/github-production-release-asset/372925194/fa1e0dc6-b748-4eaf-8e2d-0c47f9a31ffa",
                 "filename": "OpenJDK17U-jdk_x64_linux_hotspot_17.0.20_8.tar.gz",
                 "major": 17,
                 "version": "17.0.20+8",
             },
             "runtime": {
                 "archiveRoot": "jdk-21.0.12.1+1",
+                "archiveSha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
+                "archiveSize": 207473347,
+                "archiveUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+                "checksumUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz.sha256.txt",
+                "finalPath": "/github-production-release-asset/602574963/be5ef440-7bad-40e3-9188-9e7648842040",
                 "filename": "OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
                 "major": 21,
                 "version": "21.0.12.1+1",
             },
         }[role]
         for field, expected in exact.items():
+            if field == "finalPath":
+                continue
             if record.get(field) != expected:
                 raise BuildInputError(f"jdks.{role}.{field} must equal the reviewed exact identity")
+        filename = exact["filename"]
+        redirect = _require_keys(
+            record.get("releaseAssetRedirect"),
+            {
+                "finalHeaders",
+                "finalHost",
+                "finalPath",
+                "finalStatus",
+                "fixedQueryValues",
+                "initialStatus",
+                "initialUrl",
+                "jwtLength",
+                "queryKeys",
+                "redirectCount",
+                "signatureLength",
+                "timestampKeys",
+                "uuidKeys",
+            },
+            f"jdks.{role}.releaseAssetRedirect",
+        )
+        expected_redirect = {
+            "finalHeaders": {
+                "acceptRanges": "bytes",
+                "contentLength": exact["archiveSize"],
+                "contentType": "application/octet-stream",
+            },
+            "finalHost": "release-assets.githubusercontent.com",
+            "finalPath": exact["finalPath"],
+            "finalStatus": 200,
+            "fixedQueryValues": {
+                "response-content-disposition": f"attachment; filename={filename}",
+                "response-content-type": "application/octet-stream",
+                "rscd": f"attachment; filename={filename}",
+                "rsct": "application/octet-stream",
+                "sks": "b",
+                "skv": "2018-11-09",
+                "sp": "r",
+                "spr": "https",
+                "sr": "b",
+                "sv": "2018-11-09",
+            },
+            "initialStatus": 302,
+            "initialUrl": exact["archiveUrl"],
+            "jwtLength": 303,
+            "queryKeys": [
+                "jwt", "response-content-disposition", "response-content-type", "rscd", "rsct",
+                "se", "sig", "ske", "skoid", "sks", "skt", "sktid", "skv", "sp", "spr",
+                "sr", "sv",
+            ],
+            "redirectCount": 1,
+            "signatureLength": 44,
+            "timestampKeys": ["skt", "se", "ske"],
+            "uuidKeys": ["skoid", "sktid"],
+        }
+        if redirect != expected_redirect:
+            raise BuildInputError(f"jdks.{role}.releaseAssetRedirect must equal the reviewed exact contract")
 
     actions = _require_keys(policy["actions"], {"transitiveUses", "workflowUses"}, "actions")
     action_keys = {

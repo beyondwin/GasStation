@@ -19,7 +19,7 @@ from .contracts import (
     validate_gradle_arguments,
     validate_protected_environment,
 )
-from .downloader import download_verified
+from .downloader import download_verified_github_release_asset
 from .receipts import write_canonical_receipt
 
 
@@ -163,19 +163,12 @@ def install_verified_jdks(
             if unquote(Path(urlsplit(url).path).name) != filename:
                 raise BuildInputError(f"{role} JDK URL/filename mismatch")
             archive = output_root / f"download-{role}-{filename}"
-            parsed_host = urlsplit(url).hostname
-            if parsed_host is None:
-                raise BuildInputError(f"{role} JDK archive URL has no host")
-            policy_hosts = record.get("allowedRedirectHosts", [])
-            allowed_hosts = {parsed_host, "release-assets.githubusercontent.com", "objects.githubusercontent.com"}
-            if isinstance(policy_hosts, list):
-                allowed_hosts.update(value for value in policy_hosts if isinstance(value, str))
-            download_verified(
+            download = download_verified_github_release_asset(
                 url,
                 destination=archive,
                 expected_size=record["archiveSize"],
                 expected_sha256=_record_string(record, "archiveSha256"),
-                allowed_hosts=allowed_hosts,
+                redirect_contract=record["releaseAssetRedirect"],
             )
             if sha256_file(archive) != _record_string(record, "archiveSha256"):
                 raise BuildInputError(f"{role} JDK digest changed before extraction")
@@ -187,7 +180,9 @@ def install_verified_jdks(
                 archive_root=_record_string(record, "archiveRoot"),
             )
             archive.unlink()
-            role_receipts.append(_validate_extracted_jdk(home, record, role=role))
+            role_receipt = _validate_extracted_jdk(home, record, role=role)
+            role_receipt["download"] = download.receipt
+            role_receipts.append(role_receipt)
             homes[role] = home.resolve(strict=True)
         receipt = {
             "roles": sorted(role_receipts, key=lambda row: row["role"]),
