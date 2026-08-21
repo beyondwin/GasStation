@@ -591,6 +591,13 @@ def _validate_runtime_marker(runtime_root: Path, marker: Mapping[str, Any]) -> N
         raise BuildInputError("isolated runtime-data identity differs from owned launcher root")
 
 
+def _profile_config(colima_home: Path) -> Path:
+    config = colima_home / PROFILE / "colima.yaml"
+    if not config.is_file() or config.is_symlink():
+        raise BuildInputError("dedicated profile did not produce its exact regular persisted config")
+    return config
+
+
 def _owned_labels(marker: Mapping[str, Any]) -> dict[str, str]:
     return {
         "io.gasstation.attempt": str(marker["attemptId"]),
@@ -639,10 +646,8 @@ def _recover_prior_attempts(
         docker_config = Path(environment["DOCKER_CONFIG"])
         runtime_root = colima_home.parent
         _validate_runtime_marker(runtime_root, marker)
-        config_candidates = [
-            path for path in colima_home.rglob("colima.yaml")
-            if path.is_file() and not path.is_symlink()
-        ] if colima_home.exists() else []
+        config = colima_home / PROFILE / "colima.yaml"
+        config_candidates = [config] if config.is_file() and not config.is_symlink() else []
         aggregate_path = attempt / "package/local-linux-evidence-package.json"
         if aggregate_path.is_file():
             aggregate = _load_json(aggregate_path)
@@ -972,15 +977,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise BuildInputError("localEvidenceHost literal Colima argv drift")
         resources_created = True
         _run(START_ARGV, env=environment, timeout=1800)
-        config_candidates = [
-            path
-            for path in Path(environment["COLIMA_HOME"]).rglob("colima.yaml")
-            if path.is_file() and not path.is_symlink()
-        ]
-        if len(config_candidates) != 1:
-            raise BuildInputError("dedicated profile did not produce one regular persisted config")
+        profile_config = _profile_config(Path(environment["COLIMA_HOME"]))
         effective_config = validate_effective_config(
-            config_candidates[0].read_text(encoding="utf-8"),
+            profile_config.read_text(encoding="utf-8"),
             host.get("effectiveConfig") if isinstance(host.get("effectiveConfig"), dict) else {},
         )
         client_inventory = _verify_docker_client_root(docker_config)
@@ -1116,7 +1115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "dockerServerVersion": "29.2.1",
             "emptyHostMounts": True,
             "effectiveConfig": effective_config,
-            "effectiveConfigSha256": sha256_file(config_candidates[0]),
+            "effectiveConfigSha256": sha256_file(profile_config),
             "facts": container_facts,
             "mainBaseCommit": MAIN_BASE_COMMIT,
             "mainBaseRef": MAIN_BASE_REF,

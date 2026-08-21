@@ -15,6 +15,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     _recover_prior_attempts,
     _runtime_data_identity,
     _safe_error,
+    _profile_config,
     aggregate_receipt,
     docker_argv,
     isolated_runtime_root,
@@ -165,6 +166,17 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertNotIn("/private", safe)
         self.assertNotIn("gst9-secret", safe)
         self.assertIn("<opaque-path>", safe)
+
+    def test_profile_config_ignores_lima_runtime_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            exact = home / "gasstation-task9-linux-amd64/colima.yaml"
+            lima_copy = home / "_lima/colima-gasstation-task9-linux-amd64/colima.yaml"
+            exact.parent.mkdir(parents=True)
+            lima_copy.parent.mkdir(parents=True)
+            exact.write_text("profile: exact\n")
+            lima_copy.write_text("profile: lima-copy\n")
+            self.assertEqual(exact, _profile_config(home))
 
     def test_effective_config_parser_is_complete_duplicate_free_and_exact(self) -> None:
         expected = {
