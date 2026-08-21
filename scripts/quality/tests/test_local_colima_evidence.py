@@ -150,9 +150,9 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual(first, replay)
         self.assertNotEqual(first, next_attempt_root)
         self.assertEqual(Path("/tmp"), first.parent)
-        self.assertRegex(first.name, r"^g9-[0-9a-f]{12}$")
+        self.assertRegex(first.name, r"^[0-9a-f]{10}$")
         self.assertLess(
-            len(str(first / "colima-home" / "_lima" / "colima-gasstation-task9-linux-amd64" / "lima-guestagent.sock")),
+            len(str(first.resolve() / "colima-home" / "_lima" / "colima-gasstation-task9-linux-amd64" / "lima-guestagent.sock")),
             104,
         )
         self.assertNotIn(SOURCE, str(first))

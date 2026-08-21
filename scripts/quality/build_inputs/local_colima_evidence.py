@@ -193,10 +193,10 @@ def isolated_runtime_root(source_commit: str, policy_sha256: str, attempt_id: st
                 "taskId": "quality-task-9-local-linux-evidence",
             },
         ),
-    ).hexdigest()[:12]
-    root = _RUNTIME_PARENT / f"g9-{token}"
+    ).hexdigest()[:10]
+    root = _RUNTIME_PARENT / token
     # Darwin sockaddr_un.sun_path is 104 bytes including the NUL terminator.
-    longest_socket = root / "colima-home/_lima/colima-gasstation-task9-linux-amd64/lima-guestagent.sock"
+    longest_socket = root.resolve(strict=False) / "colima-home/_lima/colima-gasstation-task9-linux-amd64/lima-guestagent.sock"
     if len(os.fsencode(longest_socket)) >= 104:
         raise BuildInputError("derived runtime root exceeds the Darwin Unix socket boundary")
     return root
