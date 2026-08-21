@@ -27,6 +27,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     _safe_error,
     _profile_config,
     aggregate_receipt,
+    command_line_tools_bootstrap_commands,
     docker_argv,
     isolated_runtime_root,
     next_attempt,
@@ -36,6 +37,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_bundle_heads,
     validate_cli,
     validate_cleanup_proof,
+    validate_command_line_tools_bootstrap_commands,
     validate_context_inventory,
     validate_container_selection,
     validate_effective_config,
@@ -170,6 +172,56 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             )
             with self.assertRaises(BuildInputError):
                 safe_extract_command_line_tools(bad_sdkmanager, root / "bad-sdkmanager-out")
+
+    def test_command_line_tools_bootstrap_installs_jdk_before_sdkmanager_with_sealed_environment(self) -> None:
+        commands = command_line_tools_bootstrap_commands()
+        install_index = next(index for index, command in enumerate(commands) if " install-jdks " in command)
+        archive_index = next(index for index, command in enumerate(commands) if "cmdline.zip" in command)
+        sdkmanager_indexes = [
+            index
+            for index, command in enumerate(commands)
+            if "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager" in command
+        ]
+        self.assertLess(install_index, archive_index)
+        self.assertTrue(sdkmanager_indexes)
+        self.assertTrue(all(install_index < index for index in sdkmanager_indexes))
+        expected_environment = (
+            "env JAVA_HOME=/evidence-work/bootstrap-jdks/"
+            "runtime-ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94 "
+            "PATH=/evidence-work/bootstrap-jdks/"
+            "runtime-ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94/"
+            "bin:/usr/local/bin:/usr/bin:/bin"
+        )
+        self.assertTrue(all(expected_environment in commands[index] for index in sdkmanager_indexes))
+        self.assertEqual(tuple(commands), validate_command_line_tools_bootstrap_commands(commands))
+
+    def test_command_line_tools_bootstrap_rejects_order_and_environment_mutations(self) -> None:
+        baseline = list(command_line_tools_bootstrap_commands())
+        install_index = next(index for index, command in enumerate(baseline) if " install-jdks " in command)
+        archive_index = next(index for index, command in enumerate(baseline) if "cmdline.zip" in command)
+        sdkmanager_index = next(
+            index
+            for index, command in enumerate(baseline)
+            if "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager" in command
+        )
+        mutations = []
+        missing_install = list(baseline)
+        missing_install.pop(install_index)
+        mutations.append(missing_install)
+        reordered = list(baseline)
+        reordered[install_index], reordered[archive_index] = reordered[archive_index], reordered[install_index]
+        mutations.append(reordered)
+        missing_environment = list(baseline)
+        missing_environment[sdkmanager_index] = missing_environment[sdkmanager_index].replace("env JAVA_HOME=", "env HOME=")
+        mutations.append(missing_environment)
+        wrong_runtime = list(baseline)
+        wrong_runtime[sdkmanager_index] = wrong_runtime[sdkmanager_index].replace("runtime-ce79869e", "runtime-00000000")
+        mutations.append(wrong_runtime)
+        extra = [*baseline, "java -version"]
+        mutations.append(extra)
+        for index, mutation in enumerate(mutations):
+            with self.subTest(index=index), self.assertRaises(BuildInputError):
+                validate_command_line_tools_bootstrap_commands(mutation)
 
     def test_generated_policy_fixes_the_sole_host_and_aggregate_entrypoint(self) -> None:
         host = generated_policy()["localEvidenceHost"]

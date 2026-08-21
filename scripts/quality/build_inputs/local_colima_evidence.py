@@ -147,6 +147,17 @@ _COMMAND_LINE_TOOL_EXECUTABLES = frozenset(
         "cmdline-tools/bin/sdkmanager",
     },
 )
+_BOOTSTRAP_JDK_ROOT = "/evidence-work/bootstrap-jdks"
+_BOOTSTRAP_COMPILE_HOME = (
+    f"{_BOOTSTRAP_JDK_ROOT}/compile-be7668bc030d578b83d6d5ef9221d6d6729bbbca8cf94a7d52e16ac68b5a5a35"
+)
+_BOOTSTRAP_RUNTIME_HOME = (
+    f"{_BOOTSTRAP_JDK_ROOT}/runtime-ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94"
+)
+_SDKMANAGER_ENVIRONMENT = (
+    f"env JAVA_HOME={_BOOTSTRAP_RUNTIME_HOME} "
+    f"PATH={_BOOTSTRAP_RUNTIME_HOME}/bin:/usr/local/bin:/usr/bin:/bin"
+)
 _FORBIDDEN_INHERITED_EXACT = {
     "ALL_PROXY",
     "COLIMA_HOME",
@@ -267,6 +278,45 @@ def safe_extract_command_line_tools(archive: Path, destination: Path) -> None:
         if destination.exists() and not destination.is_symlink():
             shutil.rmtree(destination)
         raise BuildInputError("command-line tools archive extraction failed") from error
+
+
+def command_line_tools_bootstrap_commands() -> tuple[str, ...]:
+    """Return the closed JDK-before-sdkmanager bootstrap sequence."""
+
+    sdkmanager = "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager"
+    return (
+        "python3 scripts/quality/verify_build_inputs.py install-jdks "
+        f"--policy config/quality/build-inputs.json --output-root {_BOOTSTRAP_JDK_ROOT}",
+        f"test -x {_BOOTSTRAP_COMPILE_HOME}/bin/java",
+        f"test -x {_BOOTSTRAP_RUNTIME_HOME}/bin/java",
+        f"test -f {_BOOTSTRAP_JDK_ROOT}/installation.json",
+        "mkdir -p /opt/android-sdk/cmdline-tools /evidence-work/downloads",
+        "python3 -c \"import hashlib,pathlib,urllib.request; "
+        "u='https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip'; "
+        "p=pathlib.Path('/evidence-work/downloads/cmdline.zip'); "
+        "d=urllib.request.urlopen(u,timeout=120).read(); assert len(d)==181833628; "
+        "assert hashlib.sha256(d).hexdigest()=='4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583'; "
+        "p.write_bytes(d)\"",
+        "python3 -c \"from pathlib import Path; "
+        "from scripts.quality.build_inputs.local_colima_evidence import safe_extract_command_line_tools; "
+        "safe_extract_command_line_tools(Path('/evidence-work/downloads/cmdline.zip'), "
+        "Path('/evidence-work/downloads/cmdline'))\"",
+        "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/sdkmanager)\" = 755",
+        "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/avdmanager)\" = 755",
+        "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/NOTICE.txt)\" = 644",
+        "mv /evidence-work/downloads/cmdline/cmdline-tools /opt/android-sdk/cmdline-tools/latest",
+        f"yes | {_SDKMANAGER_ENVIRONMENT} {sdkmanager} --sdk_root=/opt/android-sdk --licenses >/dev/null "
+        "|| test \"${PIPESTATUS[1]}\" -eq 0",
+        f"{_SDKMANAGER_ENVIRONMENT} {sdkmanager} --sdk_root=/opt/android-sdk "
+        "'build-tools;36.0.0' 'platforms;android-37' 'platform-tools'",
+    )
+
+
+def validate_command_line_tools_bootstrap_commands(commands: Sequence[str]) -> tuple[str, ...]:
+    values = tuple(commands)
+    if values != command_line_tools_bootstrap_commands():
+        raise BuildInputError("command-line tools bootstrap order or environment is not sealed")
+    return values
 
 
 def _json_list(text: str, label: str) -> list[Any]:
@@ -1339,6 +1389,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         _container_exec(docker_config, "mkdir -p /input-repository")
         _docker(docker_config, "cp", str(bundle), f"{CONTAINER}:/input-repository/source.bundle")
 
+        command_line_tools_bootstrap = "; ".join(
+            validate_command_line_tools_bootstrap_commands(command_line_tools_bootstrap_commands()),
+        )
         bootstrap = (
             "set -euo pipefail; export DEBIAN_FRONTEND=noninteractive; "
             "apt-get update; apt-get install -y --no-install-recommends "
@@ -1368,15 +1421,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"git merge-base --is-ancestor {MAIN_BASE_COMMIT} {source_commit}; "
             "test -z \"$(git status --porcelain=v1 --untracked-files=all)\"; test -z \"$(git remote)\"; "
             "test ! -e .git/objects/info/alternates; test -z \"$(git replace -l)\"; "
-            "mkdir -p /opt/android-sdk/cmdline-tools /evidence-work/downloads; "
-            "python3 -c \"import hashlib,pathlib,urllib.request; u='https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip'; p=pathlib.Path('/evidence-work/downloads/cmdline.zip'); d=urllib.request.urlopen(u,timeout=120).read(); assert len(d)==181833628; assert hashlib.sha256(d).hexdigest()=='4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583'; p.write_bytes(d)\"; "
-            "python3 -c \"from pathlib import Path; from scripts.quality.build_inputs.local_colima_evidence import safe_extract_command_line_tools; safe_extract_command_line_tools(Path('/evidence-work/downloads/cmdline.zip'), Path('/evidence-work/downloads/cmdline'))\"; "
-            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/sdkmanager)\" = 755; "
-            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/avdmanager)\" = 755; "
-            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/NOTICE.txt)\" = 644; "
-            "mv /evidence-work/downloads/cmdline/cmdline-tools /opt/android-sdk/cmdline-tools/latest; "
-            "yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk --licenses >/dev/null; "
-            "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk 'build-tools;36.0.0' 'platforms;android-37' 'platform-tools'; "
+            + command_line_tools_bootstrap
+            + "; "
             "test -f /opt/android-sdk/cmdline-tools/latest/package.xml; "
             "test -f /opt/android-sdk/build-tools/36.0.0/package.xml; "
             "test -f /opt/android-sdk/platforms/android-37/package.xml; "
