@@ -190,7 +190,10 @@ tasks.withType<Test>().configureEach {
                 is String -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
                 else -> throw GradleException("Task-9 local Linux outer timeout marker value type differs")
             }
-        val canonical = keys.joinToString(prefix = "{", postfix = "}\n") { key -> "\"$key\":${jsonValue(marker[key])}" }
+        val canonical =
+            keys.joinToString(separator = ",", prefix = "{", postfix = "}\n") { key ->
+                "\"$key\":${jsonValue(marker[key])}"
+            }
         require(markerBytes == canonical) { "Task-9 local Linux outer timeout marker is noncanonical" }
         timeoutMinutes = 30L
     }

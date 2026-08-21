@@ -358,6 +358,7 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             with self.subTest(literal=literal):
                 self.assertIn(literal, source)
         self.assertNotIn('project.path == ":",', source)
+        self.assertIn('keys.joinToString(separator = ",", prefix = "{", postfix = "}\\n")', source)
 
     def test_live_stage_manifest_rehashes_exact_xml_and_worker_stream(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
