@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -140,6 +141,12 @@ REQUIRED_EVIDENCE_ROWS = frozenset(
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _ATTEMPT = re.compile(r"^attempt-[0-9]{6}$")
 _RUNTIME_PARENT = Path("/tmp")
+_COMMAND_LINE_TOOL_EXECUTABLES = frozenset(
+    {
+        "cmdline-tools/bin/avdmanager",
+        "cmdline-tools/bin/sdkmanager",
+    },
+)
 _FORBIDDEN_INHERITED_EXACT = {
     "ALL_PROXY",
     "COLIMA_HOME",
@@ -170,6 +177,96 @@ def validate_cli(argv: Sequence[str]) -> tuple[str, str]:
     if not policy_value or _FULL_SHA.fullmatch(source_commit) is None:
         raise BuildInputError("local evidence source commit must be a lowercase full Git SHA")
     return policy_value, source_commit
+
+
+def safe_extract_command_line_tools(archive: Path, destination: Path) -> None:
+    """Extract the reviewed command-line tools archive with narrowed file modes.
+
+    The upstream archive marks every regular file 0755.  Only the two reviewed
+    launchers need an executable bit for this evidence session; ordinary files
+    are deliberately written 0644.  The archive's Unix attributes must still
+    prove that each reviewed launcher was distributed as an executable regular
+    file before that bit is restored.
+    """
+
+    if archive.is_symlink() or not archive.is_file():
+        raise BuildInputError("command-line tools archive must be a regular nonsymlink file")
+    if destination.exists() or destination.is_symlink():
+        raise BuildInputError("command-line tools extraction destination must be new")
+
+    try:
+        with zipfile.ZipFile(archive) as source:
+            members = source.infolist()
+            paths: dict[tuple[str, ...], tuple[zipfile.ZipInfo, bool]] = {}
+            folded: set[tuple[str, ...]] = set()
+            for member in members:
+                name = member.filename
+                if (
+                    not name
+                    or "\x00" in name
+                    or "\\" in name
+                    or name.startswith("/")
+                    or member.flag_bits & 0x1
+                ):
+                    raise BuildInputError("command-line tools archive contains an unsafe member")
+                raw_parts = name.split("/")
+                is_directory = name.endswith("/")
+                if is_directory:
+                    raw_parts = raw_parts[:-1]
+                if not raw_parts or any(part in {"", ".", ".."} for part in raw_parts):
+                    raise BuildInputError("command-line tools archive path is not canonical")
+                if raw_parts[0] != "cmdline-tools" or ":" in raw_parts[0]:
+                    raise BuildInputError("command-line tools archive has an unexpected root")
+                parts = tuple(raw_parts)
+                folded_parts = tuple(part.casefold() for part in parts)
+                if parts in paths or folded_parts in folded:
+                    raise BuildInputError("command-line tools archive contains a duplicate or case collision")
+                if member.create_system != 3:
+                    raise BuildInputError("command-line tools archive member lacks Unix mode identity")
+                mode = member.external_attr >> 16
+                file_type = stat.S_IFMT(mode)
+                permissions = stat.S_IMODE(mode)
+                if is_directory:
+                    if file_type != stat.S_IFDIR or permissions != 0o755 or member.file_size != 0:
+                        raise BuildInputError("command-line tools archive contains an unsupported directory mode")
+                elif file_type != stat.S_IFREG or permissions not in {0o644, 0o755}:
+                    raise BuildInputError("command-line tools archive contains an unsupported regular-file mode")
+                relative = "/".join(parts)
+                if relative in _COMMAND_LINE_TOOL_EXECUTABLES and (is_directory or permissions != 0o755):
+                    raise BuildInputError("reviewed command-line tool is not an executable regular file")
+                paths[parts] = (member, is_directory)
+                folded.add(folded_parts)
+
+            if set(_COMMAND_LINE_TOOL_EXECUTABLES) - {"/".join(parts) for parts in paths}:
+                raise BuildInputError("command-line tools archive is missing a reviewed launcher")
+            for parts in paths:
+                for length in range(1, len(parts)):
+                    ancestor = paths.get(parts[:length])
+                    if ancestor is not None and not ancestor[1]:
+                        raise BuildInputError("command-line tools archive contains a file-directory collision")
+
+            destination.mkdir(mode=0o755)
+            try:
+                for parts, (member, is_directory) in paths.items():
+                    output = destination.joinpath(*parts)
+                    if is_directory:
+                        output.mkdir(parents=True, exist_ok=True, mode=0o755)
+                        continue
+                    output.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+                    with source.open(member, "r") as input_file, output.open("xb") as output_file:
+                        shutil.copyfileobj(input_file, output_file)
+                    output.chmod(0o755 if "/".join(parts) in _COMMAND_LINE_TOOL_EXECUTABLES else 0o644)
+                for directory in [destination, *sorted((path for path in destination.rglob("*") if path.is_dir()))]:
+                    directory.chmod(0o755)
+            except Exception:
+                shutil.rmtree(destination)
+                raise
+    except BuildInputError:
+        raise
+    except (OSError, zipfile.BadZipFile, RuntimeError) as error:
+        if destination.exists() and not destination.is_symlink():
+            shutil.rmtree(destination)
+        raise BuildInputError("command-line tools archive extraction failed") from error
 
 
 def _json_list(text: str, label: str) -> list[Any]:
@@ -1273,7 +1370,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "test ! -e .git/objects/info/alternates; test -z \"$(git replace -l)\"; "
             "mkdir -p /opt/android-sdk/cmdline-tools /evidence-work/downloads; "
             "python3 -c \"import hashlib,pathlib,urllib.request; u='https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip'; p=pathlib.Path('/evidence-work/downloads/cmdline.zip'); d=urllib.request.urlopen(u,timeout=120).read(); assert len(d)==181833628; assert hashlib.sha256(d).hexdigest()=='4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583'; p.write_bytes(d)\"; "
-            "python3 -m zipfile -e /evidence-work/downloads/cmdline.zip /evidence-work/downloads/cmdline; "
+            "python3 -c \"from pathlib import Path; from scripts.quality.build_inputs.local_colima_evidence import safe_extract_command_line_tools; safe_extract_command_line_tools(Path('/evidence-work/downloads/cmdline.zip'), Path('/evidence-work/downloads/cmdline'))\"; "
+            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/sdkmanager)\" = 755; "
+            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/bin/avdmanager)\" = 755; "
+            "test \"$(stat -c '%a' /evidence-work/downloads/cmdline/cmdline-tools/NOTICE.txt)\" = 644; "
             "mv /evidence-work/downloads/cmdline/cmdline-tools /opt/android-sdk/cmdline-tools/latest; "
             "yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk --licenses >/dev/null; "
             "/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk 'build-tools;36.0.0' 'platforms;android-37' 'platform-tools'; "

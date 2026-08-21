@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import tempfile
 import unittest
+import warnings
+import zipfile
 from unittest import mock
 from pathlib import Path
 
@@ -28,6 +31,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     isolated_runtime_root,
     next_attempt,
     ownership_marker,
+    safe_extract_command_line_tools,
     sanitized_host_environment,
     validate_bundle_heads,
     validate_cli,
@@ -92,6 +96,81 @@ def manifest_inspect_fixture() -> str:
 
 
 class LocalColimaEvidenceContractTest(unittest.TestCase):
+    @staticmethod
+    def _write_command_line_tools_zip(
+        path: Path,
+        *,
+        extras: list[tuple[str, int, bytes, int]] | None = None,
+        sdkmanager_mode: int = stat.S_IFREG | 0o755,
+    ) -> None:
+        rows = [
+            ("cmdline-tools/bin/sdkmanager", sdkmanager_mode, b"#!/bin/sh\n", 3),
+            ("cmdline-tools/bin/avdmanager", stat.S_IFREG | 0o755, b"#!/bin/sh\n", 3),
+            # The reviewed Google archive marks ordinary payload files executable;
+            # extraction must narrow those modes to non-executable regular files.
+            ("cmdline-tools/NOTICE.txt", stat.S_IFREG | 0o755, b"notice\n", 3),
+        ]
+        rows.extend(extras or [])
+        with zipfile.ZipFile(path, "w") as archive, warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            for name, mode, payload, create_system in rows:
+                info = zipfile.ZipInfo(name)
+                info.create_system = create_system
+                info.external_attr = mode << 16
+                archive.writestr(info, payload)
+
+    def test_command_line_tools_extraction_restores_only_reviewed_executables(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "command-line-tools.zip"
+            destination = root / "extracted"
+            self._write_command_line_tools_zip(archive)
+
+            safe_extract_command_line_tools(archive, destination)
+
+            self.assertEqual(
+                0o755,
+                stat.S_IMODE((destination / "cmdline-tools/bin/sdkmanager").stat().st_mode),
+            )
+            self.assertEqual(
+                0o755,
+                stat.S_IMODE((destination / "cmdline-tools/bin/avdmanager").stat().st_mode),
+            )
+            self.assertEqual(
+                0o644,
+                stat.S_IMODE((destination / "cmdline-tools/NOTICE.txt").stat().st_mode),
+            )
+
+    def test_command_line_tools_extraction_rejects_unsafe_archive_mutations(self) -> None:
+        mutations = {
+            "traversal": [("../escape", stat.S_IFREG | 0o644, b"x", 3)],
+            "absolute": [("/absolute", stat.S_IFREG | 0o644, b"x", 3)],
+            "backslash": [("cmdline-tools\\escape", stat.S_IFREG | 0o644, b"x", 3)],
+            "symlink": [("cmdline-tools/link", stat.S_IFLNK | 0o777, b"target", 3)],
+            "special": [("cmdline-tools/fifo", stat.S_IFIFO | 0o644, b"", 3)],
+            "unsupported-mode": [("cmdline-tools/too-open", stat.S_IFREG | 0o777, b"x", 3)],
+            "non-unix": [("cmdline-tools/non-unix", stat.S_IFREG | 0o644, b"x", 0)],
+            "duplicate": [("cmdline-tools/NOTICE.txt", stat.S_IFREG | 0o755, b"again", 3)],
+            "case-collision": [("CMDLINE-TOOLS/NOTICE.TXT", stat.S_IFREG | 0o755, b"again", 3)],
+            "file-directory-collision": [("cmdline-tools/bin", stat.S_IFREG | 0o644, b"x", 3)],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for label, extras in mutations.items():
+                archive = root / f"{label}.zip"
+                destination = root / f"{label}-out"
+                self._write_command_line_tools_zip(archive, extras=extras)
+                with self.subTest(label=label), self.assertRaises(BuildInputError):
+                    safe_extract_command_line_tools(archive, destination)
+                self.assertFalse(destination.exists())
+            bad_sdkmanager = root / "bad-sdkmanager.zip"
+            self._write_command_line_tools_zip(
+                bad_sdkmanager,
+                sdkmanager_mode=stat.S_IFREG | 0o644,
+            )
+            with self.assertRaises(BuildInputError):
+                safe_extract_command_line_tools(bad_sdkmanager, root / "bad-sdkmanager-out")
+
     def test_generated_policy_fixes_the_sole_host_and_aggregate_entrypoint(self) -> None:
         host = generated_policy()["localEvidenceHost"]
         self.assertEqual("gasstation-task9-linux-amd64", host["profile"])
