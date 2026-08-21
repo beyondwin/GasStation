@@ -147,6 +147,8 @@ class GradlePluginTestProject private constructor(
         listOf("ANDROID_HOME", "ANDROID_SDK_ROOT").forEach { name ->
             System.getenv(name)?.takeIf(String::isNotBlank)?.let { allowed[name] = it }
         }
+        // The Task-9 local-Linux outer timeout triple is never inherited by nested GradleRunner builds.
+        allowed.remove("GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER")
         return allowed.toMap()
     }
 

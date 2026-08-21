@@ -87,6 +87,9 @@ HOST_MINIMUM = {
 }
 CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
 COMMAND_LOG_LIMIT = 65536
+OUTER_TIMEOUT_PROPERTY = "gasstation.task9LocalLinuxConventionTestTimeoutMinutes"
+OUTER_TIMEOUT_MARKER_ENV = "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER"
+OUTER_TIMEOUT_MARKER_PATH = "/evidence-work/task9-local-linux-ownership-marker.json"
 _COMMAND_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _COMMAND_SECRET = re.compile(
     r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
@@ -655,6 +658,54 @@ def ownership_marker(
     return {**body, "markerSha256": hashlib.sha256(canonical_json_bytes(body)).hexdigest()}
 
 
+def sealed_outer_timeout_marker(
+    marker: Mapping[str, Any],
+    *,
+    governed_command: str,
+    existing: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    validated = ownership_marker(existing=marker)
+    if governed_command not in {"metadata-capture-1", "metadata-capture-2"}:
+        raise BuildInputError("outer timeout governed command is not closed")
+    expected = {
+        "attemptId": validated["attemptId"],
+        "container": validated["container"],
+        "context": validated["context"],
+        "governedCommand": governed_command,
+        "outerConventionTestTimeoutMinutes": 30,
+        "ownershipMarkerSha256": validated["markerSha256"],
+        "policySha256": validated["policySha256"],
+        "profile": validated["profile"],
+        "schemaVersion": 1,
+        "sourceCommit": validated["sourceCommit"],
+        "taskId": validated["taskId"],
+        "taskPath": ":build-logic:convention:test",
+    }
+    if existing is not None and dict(existing) != expected:
+        raise BuildInputError("outer timeout marker identity differs")
+    return expected
+
+
+def validate_outer_timeout_marker(
+    path: Path,
+    *,
+    original_marker: Mapping[str, Any],
+    governed_command: str,
+) -> dict[str, Any]:
+    if path.is_symlink() or not path.is_file():
+        raise BuildInputError("outer timeout marker is missing or unsafe")
+    if stat.S_IMODE(path.stat().st_mode) != 0o600:
+        raise BuildInputError("outer timeout marker must be exact mode 0600")
+    value = _load_json(path)
+    if canonical_json_bytes(value) != path.read_bytes():
+        raise BuildInputError("outer timeout marker is noncanonical")
+    return sealed_outer_timeout_marker(
+        original_marker,
+        governed_command=governed_command,
+        existing=value,
+    )
+
+
 def validate_bundle_heads(
     output: str,
     *,
@@ -1199,6 +1250,7 @@ def _container_exec_completed(
     *,
     timeout: int | None = None,
     testkit_failure_output: str | None = None,
+    outer_timeout_marker: str | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     # This non-raising form is reserved for governed evidence commands so their
     # terminal output can be persisted before a nonzero exit is propagated.
@@ -1210,6 +1262,15 @@ def _container_exec_completed(
     testkit_environment = (
         ["--env", f"GASSTATION_TESTKIT_FAILURE_OUTPUT={testkit_failure_output}"]
         if testkit_failure_output is not None
+        else []
+    )
+    if bool(testkit_failure_output) != bool(outer_timeout_marker):
+        raise BuildInputError("governed outer timeout and TestKit failure output must be configured together")
+    if outer_timeout_marker is not None and outer_timeout_marker != OUTER_TIMEOUT_MARKER_PATH:
+        raise BuildInputError("governed outer timeout marker path differs")
+    timeout_environment = (
+        ["--env", f"{OUTER_TIMEOUT_MARKER_ENV}={outer_timeout_marker}"]
+        if outer_timeout_marker is not None
         else []
     )
     return _docker(
@@ -1224,6 +1285,7 @@ def _container_exec_completed(
         "--env", "LC_ALL=C.UTF-8",
         "--env", "TZ=UTC",
         *testkit_environment,
+        *timeout_environment,
         CONTAINER,
         "/bin/bash",
         "-lc",
@@ -1253,6 +1315,7 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
     started_paths = sorted(directory.glob("*.started.json"))
     result_paths = sorted(directory.glob("*.result.json"))
     log_paths = sorted(directory.glob("*.log"))
+    timeout_paths = sorted(directory.glob("*.timeout.json"))
     testkit_paths = sorted(directory.glob("*.testkit.json"))
     names = {path.name.removesuffix(".started.json") for path in started_paths}
     if not names or len(started_paths) != len(names):
@@ -1261,6 +1324,23 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
         raise BuildInputError("governed command result inventory differs from starts")
     if {path.name.removesuffix(".log") for path in log_paths} != names:
         raise BuildInputError("governed command evidence has a missing log")
+    expected_timeout_names = names & {"metadata-capture-1", "metadata-capture-2"}
+    if {path.name.removesuffix(".timeout.json") for path in timeout_paths} != expected_timeout_names:
+        raise BuildInputError("governed outer timeout marker receipt inventory differs")
+    for name in sorted(expected_timeout_names):
+        descriptor_path = directory / f"{name}.timeout.json"
+        descriptor = _load_json(descriptor_path)
+        marker_path = directory.parent / "timeout-markers" / f"{name}.json"
+        marker_body = marker_path.read_bytes()
+        if descriptor != {
+            "mode": "0600",
+            "path": OUTER_TIMEOUT_MARKER_PATH,
+            "schemaVersion": 1,
+            "sha256": hashlib.sha256(marker_body).hexdigest(),
+            "size": len(marker_body),
+            "status": "PASS",
+        } or canonical_json_bytes(descriptor) != descriptor_path.read_bytes():
+            raise BuildInputError("governed outer timeout marker receipt differs")
     rows: list[dict[str, Any]] = []
     expected_testkit_names: set[str] = set()
     for name in sorted(names):
@@ -1380,6 +1460,7 @@ def _run_governed_container_command(
     name: str,
     shell: str,
     timeout: int = 14400,
+    original_marker: Mapping[str, Any] | None = None,
 ) -> str:
     if _COMMAND_NAME.fullmatch(name) is None or not shell or "\x00" in shell:
         raise BuildInputError("governed command identity is malformed")
@@ -1396,11 +1477,46 @@ def _run_governed_container_command(
             if name in {"metadata-capture-1", "metadata-capture-2"}
             else None
         )
+        timeout_marker = None
+        if failure_output is not None:
+            if original_marker is None:
+                raise BuildInputError("governed outer timeout ownership marker is missing")
+            sealed_marker = sealed_outer_timeout_marker(original_marker, governed_command=name)
+            marker_path = attempt / "timeout-markers" / f"{name}.json"
+            _write_new(marker_path, sealed_marker)
+            marker_path.chmod(0o600)
+            validate_outer_timeout_marker(
+                marker_path,
+                original_marker=original_marker,
+                governed_command=name,
+            )
+            _docker(config, "cp", str(marker_path), f"{CONTAINER}:{OUTER_TIMEOUT_MARKER_PATH}")
+            marker_body = canonical_json_bytes(sealed_marker)
+            copied_marker_sha = _container_exec(
+                config,
+                "set -euo pipefail; "
+                f"test -f {OUTER_TIMEOUT_MARKER_PATH}; test ! -L {OUTER_TIMEOUT_MARKER_PATH}; "
+                f"test \"$(stat -c %a {OUTER_TIMEOUT_MARKER_PATH})\" = 600; "
+                f"sha256sum {OUTER_TIMEOUT_MARKER_PATH} | cut -d' ' -f1",
+            ).strip()
+            if copied_marker_sha != hashlib.sha256(marker_body).hexdigest():
+                raise BuildInputError("governed outer timeout marker container copy differs")
+            marker_descriptor = {
+                "mode": "0600",
+                "path": OUTER_TIMEOUT_MARKER_PATH,
+                "schemaVersion": 1,
+                "sha256": hashlib.sha256(marker_body).hexdigest(),
+                "size": len(marker_body),
+                "status": "PASS",
+            }
+            _write_new(evidence / f"{name}.timeout.json", marker_descriptor)
+            timeout_marker = OUTER_TIMEOUT_MARKER_PATH
         completed = _container_exec_completed(
             config,
             f"cd /evidence-work/repository && {shell}",
             timeout=timeout,
             testkit_failure_output=failure_output,
+            outer_timeout_marker=timeout_marker,
         )
         raw_output = completed.stdout
         exit_code = completed.returncode
@@ -1483,7 +1599,13 @@ def _row(source: str, policy_sha: str, **extra: Any) -> dict[str, Any]:
     return {"policySha256": policy_sha, "sourceCommit": source, "status": "PASS", **extra}
 
 
-def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+def _run_evidence(
+    config: Path,
+    source: str,
+    policy_sha: str,
+    attempt: Path,
+    marker: Mapping[str, Any],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     cli = "python3 scripts/quality/verify_build_inputs.py"
     policy = "config/quality/build-inputs.json"
     def command(name: str, shell: str, timeout: int = 14400) -> str:
@@ -1493,6 +1615,7 @@ def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> 
             name=name,
             shell=shell,
             timeout=timeout,
+            original_marker=marker,
         )
 
     metadata_before = command("metadata-capture-1", f"{cli} metadata-capture --policy {policy}")
@@ -1581,6 +1704,14 @@ def _run_evidence(config: Path, source: str, policy_sha: str, attempt: Path) -> 
         "releaseBindingReceipt": binding_path,
         "reproducibilityReceipt": reproduction_path,
         "thirdApk": apk,
+        "outerTimeoutMarkers": [
+            {
+                "command": name,
+                "marker": _load_json(attempt / "timeout-markers" / f"{name}.json"),
+                "receipt": _load_json(attempt / "command-evidence" / f"{name}.timeout.json"),
+            }
+            for name in ("metadata-capture-1", "metadata-capture-2")
+        ],
     }
     return rows, details
 
@@ -1592,6 +1723,9 @@ def _write_failed_attempt_package(attempt: Path, failure: Mapping[str, Any]) -> 
     evidence = attempt / "command-evidence"
     if evidence.is_dir() and not evidence.is_symlink():
         shutil.copytree(evidence, package / "command-evidence")
+    timeout_markers = attempt / "timeout-markers"
+    if timeout_markers.is_dir() and not timeout_markers.is_symlink():
+        shutil.copytree(timeout_markers, package / "timeout-markers")
     testkit = attempt / "testkit-failures"
     if testkit.is_dir() and not testkit.is_symlink():
         for path in sorted(testkit.iterdir()):
@@ -1817,7 +1951,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if receipt.get("status") != "PASS":
                 raise BuildInputError(f"Android {label} receipt did not pass")
 
-        rows, details = _run_evidence(docker_config, source_commit, policy_sha, attempt)
+        rows, details = _run_evidence(docker_config, source_commit, policy_sha, attempt, marker)
         runtime_facts = _container_exec(
             docker_config,
             "set -euo pipefail; "
@@ -1900,6 +2034,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_new(staged / "evidence-rows.json", {"rows": rows, "schemaVersion": 1, "status": "PASS"})
         validate_governed_command_evidence(attempt / "command-evidence")
         shutil.copytree(attempt / "command-evidence", staged / "command-evidence")
+        shutil.copytree(attempt / "timeout-markers", staged / "timeout-markers")
         _docker(
             docker_config,
             "cp",

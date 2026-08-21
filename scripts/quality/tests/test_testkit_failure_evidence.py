@@ -14,6 +14,7 @@ from pathlib import Path
 from scripts.quality.build_inputs.contracts import BuildInputError, canonical_json_bytes
 from scripts.quality.build_inputs.testkit_failure import (
     export_testkit_failure_evidence,
+    validate_live_stage_manifest,
     validate_testkit_failure_evidence,
 )
 from scripts.quality.build_inputs.local_colima_evidence import (
@@ -21,8 +22,11 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     _run_governed_container_command,
     _write_failed_attempt_package,
     ownership_marker,
+    sealed_outer_timeout_marker,
 )
 from scripts.quality.verify_build_inputs import _capture_metadata, _testkit_failure_output_path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _encoded(value: str) -> str:
@@ -76,6 +80,24 @@ def _write_failure_fixture(root: Path) -> tuple[Path, Path]:
             encoded_rows.append("\t".join((row[0], *identity, row[4], row[5])))
     trace.write_text("\n".join(encoded_rows) + "\n", encoding="utf-8")
     return results, trace
+
+
+def _write_outer_timeout_fixture(attempt: Path, marker: dict[str, object], name: str) -> None:
+    sealed = sealed_outer_timeout_marker(marker, governed_command=name)
+    marker_path = attempt / "timeout-markers" / f"{name}.json"
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    (attempt / "command-evidence").mkdir(parents=True, exist_ok=True)
+    marker_body = canonical_json_bytes(sealed)
+    marker_path.write_bytes(marker_body)
+    receipt = {
+        "mode": "0600",
+        "path": "/evidence-work/task9-local-linux-ownership-marker.json",
+        "schemaVersion": 1,
+        "sha256": hashlib.sha256(marker_body).hexdigest(),
+        "size": len(marker_body),
+        "status": "PASS",
+    }
+    (attempt / "command-evidence" / f"{name}.timeout.json").write_bytes(canonical_json_bytes(receipt))
 
 
 class TestKitFailureEvidenceTest(unittest.TestCase):
@@ -228,6 +250,24 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             with self.assertRaisesRegex(BuildInputError, "stream differs from owned output trace"):
                 export_testkit_failure_evidence(results, trace, root / "ambiguous-log")
 
+    def test_failure_export_rejects_completed_worker_without_live_junit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            results, trace = _write_failure_fixture(root)
+            trace.write_text(
+                trace.read_text()
+                + "\t".join(
+                    ("START", _encoded("Gradle Test Executor 1"), _encoded("com.example.Missing"), _encoded("missing"), "2"),
+                )
+                + "\n"
+                + "\t".join(
+                    ("END", _encoded("Gradle Test Executor 1"), _encoded("com.example.Missing"), _encoded("missing"), "SUCCESS", "1"),
+                )
+                + "\n",
+            )
+            with self.assertRaisesRegex(BuildInputError, "completed worker.*JUnit"):
+                export_testkit_failure_evidence(results, trace, root / "sealed")
+
     def test_metadata_capture_seals_failure_before_deleting_temporary_session(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -245,11 +285,22 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                 metadata_write: bool,
             ) -> str:
                 del installed, metadata_write
-                results, trace = _write_failure_fixture(cwd / "build-logic/convention/build")
-                junit = results / "test"
-                junit.mkdir()
-                (results / "TEST-com.example.SlowTest.xml").replace(junit / "TEST-com.example.SlowTest.xml")
-                trace.replace(Path(environment["GASSTATION_TESTKIT_WORKER_TRACE"]))
+                self.assertEqual(str(output), environment["GASSTATION_TESTKIT_FAILURE_OUTPUT"])
+                stable_results = Path(environment["GASSTATION_TESTKIT_FAILURE_OUTPUT"])
+                results, trace = _write_failure_fixture(stable_results.parent / "generated")
+                stable_results.mkdir()
+                (results / "TEST-com.example.SlowTest.xml").replace(stable_results / ("TEST-" + "1" * 64 + ".xml"))
+                trace.replace(stable_results / "worker-events.tsv")
+                Path(environment["GASSTATION_TESTKIT_WORKER_TRACE"]).write_bytes(
+                    (stable_results / "worker-events.tsv").read_bytes(),
+                )
+                artifacts = []
+                for path in sorted(stable_results.iterdir()):
+                    body = path.read_bytes()
+                    artifacts.append({"path": path.name, "sha256": hashlib.sha256(body).hexdigest(), "size": len(body)})
+                (stable_results / "live-stage-manifest.json").write_bytes(
+                    canonical_json_bytes({"artifacts": artifacts, "schemaVersion": 1, "status": "SEALED"}),
+                )
                 raise BuildInputError("nested TestKit failure")
 
             git_result = subprocess.CompletedProcess(["git"], 0, stdout="1" * 40 + "\n", stderr="")
@@ -274,7 +325,46 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                     _capture_metadata({}, [["./gradlew", ":build-logic:convention:test"]])
 
             self.assertFalse(session.exists())
+            self.assertFalse(Path(str(output) + ".sealed").exists())
             self.assertEqual("FAIL", validate_testkit_failure_evidence(output)["status"])
+
+    def test_convention_test_streams_live_junit_to_the_closed_failure_stage(self) -> None:
+        source = (REPOSITORY_ROOT / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+        for literal in (
+            'providers.environmentVariable("GASSTATION_TESTKIT_FAILURE_OUTPUT")',
+            '"/evidence-work/testkit-failures"',
+            'val liveJunit = failureOutput',
+            'Files.move(',
+            'StandardCopyOption.ATOMIC_MOVE',
+            'result.exceptions',
+            'system-out',
+            'system-err',
+            'finalizedBy(',
+            'live-stage-manifest.json',
+        ):
+            with self.subTest(literal=literal):
+                self.assertIn(literal, source)
+
+    def test_live_stage_manifest_rehashes_exact_xml_and_worker_stream(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            stage = Path(directory)
+            results, trace = _write_failure_fixture(stage / "fixture")
+            xml = next(results.glob("TEST-*.xml"))
+            destination = stage / ("TEST-" + "1" * 64 + ".xml")
+            xml.replace(destination)
+            trace.replace(stage / "worker-events.tsv")
+            shutil.rmtree(stage / "fixture")
+            artifacts = []
+            for path in sorted((destination, stage / "worker-events.tsv")):
+                body = path.read_bytes()
+                artifacts.append({"path": path.name, "sha256": hashlib.sha256(body).hexdigest(), "size": len(body)})
+            manifest = {"artifacts": artifacts, "schemaVersion": 1, "status": "SEALED"}
+            (stage / "live-stage-manifest.json").write_bytes(canonical_json_bytes(manifest))
+
+            self.assertEqual(manifest, validate_live_stage_manifest(stage))
+            destination.write_bytes(destination.read_bytes() + b"mutation")
+            with self.assertRaisesRegex(BuildInputError, "hash or size"):
+                validate_live_stage_manifest(stage)
 
     def test_failure_output_path_and_container_copy_are_closed_and_validated(self) -> None:
         self.assertEqual(
@@ -305,8 +395,9 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                 runtime_data_id="3" * 64,
             )
             (attempt / "ownership-marker.json").write_bytes(canonical_json_bytes(marker))
+            _write_outer_timeout_fixture(attempt, marker, "metadata-capture-1")
             evidence = attempt / "command-evidence"
-            evidence.mkdir()
+            evidence.mkdir(exist_ok=True)
             command_sha = "4" * 64
             log = b"nested timeout\n"
             (evidence / "metadata-capture-1.started.json").write_bytes(
@@ -374,15 +465,22 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                 *,
                 timeout: int,
                 testkit_failure_output: str | None,
+                outer_timeout_marker: str | None,
             ) -> subprocess.CompletedProcess[bytes]:
                 del timeout
                 self.assertEqual(
                     "/evidence-work/testkit-failures/metadata-capture-1",
                     testkit_failure_output,
                 )
+                self.assertEqual(
+                    "/evidence-work/task9-local-linux-ownership-marker.json",
+                    outer_timeout_marker,
+                )
                 return subprocess.CompletedProcess(["docker"], 9, stdout=b"nested timeout\n", stderr=b"")
 
             def docker_copy(_config: Path, *arguments: str, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+                if str(arguments[-1]).startswith("gasstation-task9-evidence:"):
+                    return subprocess.CompletedProcess(["docker"], 0, stdout=b"", stderr=b"")
                 shutil.copytree(source, Path(arguments[-1]))
                 return subprocess.CompletedProcess(["docker"], 0, stdout=b"", stderr=b"")
 
@@ -390,6 +488,18 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                 mock.patch(
                     "scripts.quality.build_inputs.local_colima_evidence._container_exec_completed",
                     side_effect=complete,
+                ),
+                mock.patch(
+                    "scripts.quality.build_inputs.local_colima_evidence.validate_outer_timeout_marker",
+                    return_value={},
+                ),
+                mock.patch(
+                    "scripts.quality.build_inputs.local_colima_evidence._container_exec",
+                    return_value=hashlib.sha256(
+                        canonical_json_bytes(
+                            sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1"),
+                        ),
+                    ).hexdigest(),
                 ),
                 mock.patch(
                     "scripts.quality.build_inputs.local_colima_evidence._docker",
@@ -402,6 +512,7 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
                         attempt=attempt,
                         name="metadata-capture-1",
                         shell="python3 scripts/quality/verify_build_inputs.py metadata-capture",
+                        original_marker=marker,
                     )
 
             evidence = attempt / "command-evidence"
@@ -415,10 +526,12 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             self.assertEqual("2" * 64, final_summary["policySha256"])
             self.assertEqual("attempt-000001", final_summary["attemptId"])
             self.assertEqual(marker["markerSha256"], final_summary["markerSha256"])
-            self.assertEqual(
-                {"expectedTests": 90, "maxParallelForks": 5, "timeoutSeconds": 900},
-                final_summary["testContract"],
-            )
+            self.assertEqual(1800, final_summary["testContract"]["outerTimeoutSeconds"])
+            self.assertEqual(900, final_summary["testContract"]["repositoryAndNestedTimeoutSeconds"])
+            self.assertEqual(5, final_summary["testContract"]["maxParallelForks"])
+            self.assertEqual(90, final_summary["testContract"]["expectedTests"])
+            self.assertEqual("30", final_summary["outerTimeout"]["propertyValue"])
+            self.assertEqual(marker["markerSha256"], final_summary["outerTimeout"]["ownershipMarkerSha256"])
             self.assertEqual(9, final_summary["governedCommand"]["exitCode"])
             self.assertEqual(64, len(final_summary["governedCommand"]["commandSha256"]))
             self.assertEqual(64, len(final_summary["governedCommand"]["logSha256"]))

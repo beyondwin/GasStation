@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import platform
 import re
@@ -9,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import stat
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -19,6 +22,7 @@ if __package__ in {None, ""}:
 
 from scripts.quality.build_inputs.contracts import (  # noqa: E402
     BuildInputError,
+    canonical_json_bytes,
     load_policy,
     scan_dependency_verification_bypasses,
     scan_dynamic_dependency_selectors,
@@ -56,7 +60,10 @@ from scripts.quality.build_inputs.generate_policy import (  # noqa: E402
     docs_parent_edges,
     evidence_entrypoints,
 )
-from scripts.quality.build_inputs.testkit_failure import export_testkit_failure_evidence  # noqa: E402
+from scripts.quality.build_inputs.testkit_failure import (  # noqa: E402
+    export_testkit_failure_evidence,
+    validate_live_stage_manifest,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,6 +78,58 @@ _SENSITIVE_ASSIGNMENT = re.compile(
 )
 _ABSOLUTE_DIAGNOSTIC_PATH = re.compile(r"(?<![A-Za-z0-9:/])/(?:[^\s'\"]+)")
 _TESTKIT_FAILURE_OUTPUT = re.compile(r"/evidence-work/testkit-failures/metadata-capture-[12]")
+_OUTER_TIMEOUT_PROPERTY = "gasstation.task9LocalLinuxConventionTestTimeoutMinutes"
+_OUTER_TIMEOUT_MARKER_ENV = "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER"
+_OUTER_TIMEOUT_MARKER_PATH = "/evidence-work/task9-local-linux-ownership-marker.json"
+
+
+def _outer_timeout_arguments(policy: Mapping[str, Any], failure_output: Path | None) -> list[str]:
+    marker_value = os.environ.get(_OUTER_TIMEOUT_MARKER_ENV)
+    if marker_value is None:
+        return []
+    if failure_output is None or marker_value != _OUTER_TIMEOUT_MARKER_PATH:
+        raise BuildInputError("outer convention timeout marker boundary is incomplete")
+    marker_path = Path(marker_value)
+    if marker_path.is_symlink() or not marker_path.is_file() or stat.S_IMODE(marker_path.stat().st_mode) != 0o600:
+        raise BuildInputError("outer convention timeout marker must be nonsymlink mode 0600")
+    try:
+        marker = json.loads(marker_path.read_bytes(), object_pairs_hook=lambda pairs: _reject_json_pairs(pairs))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise BuildInputError("outer convention timeout marker is malformed") from error
+    command = failure_output.name
+    policy_sha = hashlib.sha256(canonical_json_bytes(policy)).hexdigest()
+    expected_keys = {
+        "attemptId", "container", "context", "governedCommand",
+        "outerConventionTestTimeoutMinutes", "ownershipMarkerSha256",
+        "policySha256", "profile", "schemaVersion", "sourceCommit", "taskId", "taskPath",
+    }
+    if (
+        not isinstance(marker, dict)
+        or set(marker) != expected_keys
+        or canonical_json_bytes(marker) != marker_path.read_bytes()
+        or marker.get("governedCommand") != command
+        or marker.get("outerConventionTestTimeoutMinutes") != 30
+        or marker.get("policySha256") != policy_sha
+        or marker.get("taskId") != "quality-task-9-local-linux-evidence"
+        or marker.get("taskPath") != ":build-logic:convention:test"
+        or marker.get("profile") != "gasstation-task9-linux-amd64"
+        or marker.get("context") != "colima-gasstation-task9-linux-amd64"
+        or marker.get("container") != "gasstation-task9-evidence"
+        or re.fullmatch(r"attempt-[0-9]{6}", str(marker.get("attemptId"))) is None
+        or re.fullmatch(r"[0-9a-f]{40}", str(marker.get("sourceCommit"))) is None
+        or re.fullmatch(r"[0-9a-f]{64}", str(marker.get("ownershipMarkerSha256"))) is None
+    ):
+        raise BuildInputError("outer convention timeout marker identity differs")
+    return [f"-P{_OUTER_TIMEOUT_PROPERTY}=30"]
+
+
+def _reject_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise BuildInputError("outer convention timeout marker contains a duplicate key")
+        value[key] = item
+    return value
 
 
 def exact_evidence_command(policy: Mapping[str, Any], command: Sequence[str]) -> tuple[str, ...]:
@@ -503,8 +562,10 @@ def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str
         else None
     )
     worker_trace = session / "testkit-worker-events.tsv"
-    if failure_output is not None:
-        environment["GASSTATION_TESTKIT_WORKER_TRACE"] = str(worker_trace)
+    live_junit = failure_output
+    sealed_output = Path(str(failure_output) + ".sealed") if failure_output is not None else None
+    outer_timeout_arguments = _outer_timeout_arguments(policy, failure_output)
+    capture_succeeded = False
     try:
         _copy_capture_source(capture_source)
         source_commit = subprocess.run(
@@ -518,10 +579,21 @@ def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str
         ).stdout.strip()
         for command in commands:
             materialized = [token.replace("{sourceCommit}", source_commit) for token in command]
+            is_outer_convention_test = ":build-logic:convention:test" in materialized
+            command_environment = dict(environment)
+            if is_outer_convention_test and failure_output is not None:
+                command_environment["GASSTATION_TESTKIT_WORKER_TRACE"] = str(worker_trace)
+                command_environment["GASSTATION_TESTKIT_FAILURE_OUTPUT"] = str(failure_output)
+                if outer_timeout_arguments:
+                    command_environment[_OUTER_TIMEOUT_MARKER_ENV] = _OUTER_TIMEOUT_MARKER_PATH
+                    materialized.extend(outer_timeout_arguments)
+                    marker_source = json.loads(Path(_OUTER_TIMEOUT_MARKER_PATH).read_bytes())["sourceCommit"]
+                    if marker_source != source_commit:
+                        raise BuildInputError("outer convention timeout marker source commit differs")
             _run_closed_command(
                 materialized,
                 installed=installed,
-                environment=environment,
+                environment=command_environment,
                 cwd=capture_source,
                 metadata_write=True,
             )
@@ -534,14 +606,22 @@ def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str
             "metadata capture: PASS "
             f"new-components={component_count} new-artifacts={artifact_count}",
         )
+        capture_succeeded = True
     except Exception as error:
         if failure_output is not None:
             try:
+                if live_junit is None:
+                    raise BuildInputError("TestKit live JUnit stage identity is missing")
+                if sealed_output is None:
+                    raise BuildInputError("TestKit sealed failure output identity is missing")
+                validate_live_stage_manifest(live_junit)
                 export_testkit_failure_evidence(
-                    capture_source / "build-logic/convention/build/test-results/test",
-                    worker_trace,
-                    failure_output,
+                    live_junit,
+                    live_junit / "worker-events.tsv",
+                    sealed_output,
                 )
+                shutil.rmtree(live_junit)
+                sealed_output.rename(failure_output)
             except Exception as export_error:
                 raise BuildInputError(
                     "metadata capture failed and TestKit failure evidence could not be sealed; "
@@ -549,6 +629,8 @@ def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str
                 ) from export_error
         raise
     finally:
+        if capture_succeeded and live_junit is not None:
+            shutil.rmtree(live_junit, ignore_errors=True)
         shutil.rmtree(session, ignore_errors=True)
 
 

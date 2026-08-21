@@ -41,6 +41,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     isolated_runtime_root,
     next_attempt,
     ownership_marker,
+    sealed_outer_timeout_marker,
     safe_extract_command_line_tools,
     sanitized_host_environment,
     validate_bundle_heads,
@@ -54,6 +55,7 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_inner_architecture,
     validate_host_resources,
     validate_runtime_absence,
+    validate_outer_timeout_marker,
     validate_governed_command_evidence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
@@ -612,6 +614,21 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual("32", host["startArgv"][host["startArgv"].index("--memory") + 1])
         self.assertEqual(list(DELETE_ARGV), host["deleteArgv"])
         self.assertEqual([], host["hostMounts"])
+        self.assertEqual(
+            {
+                "expectedTests": 90,
+                "markerEnvironment": "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER",
+                "markerMode": "0600",
+                "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
+                "maxParallelForks": 5,
+                "outerTimeoutMinutes": 30,
+                "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
+                "propertyValue": "30",
+                "repositoryAndNestedTimeoutMinutes": 15,
+                "taskPath": ":build-logic:convention:test",
+            },
+            host["outerConventionTest"],
+        )
         self.assertEqual(sorted(_owned_labels({
             "attemptId": "attempt-000001",
             "mainBaseCommit": BASE,
@@ -701,6 +718,17 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         stale_guest["localEvidenceHost"]["effectiveConfig"]["cpu"] = 8
         stale_guest["localEvidenceHost"]["effectiveConfig"]["memory"] = 16
         mutations.append(stale_guest)
+        for field, value in (
+            ("outerTimeoutMinutes", 31),
+            ("propertyValue", "030"),
+            ("markerMode", "0640"),
+            ("repositoryAndNestedTimeoutMinutes", 30),
+            ("maxParallelForks", 4),
+            ("expectedTests", 89),
+        ):
+            timeout_mutation = json.loads(json.dumps(baseline))
+            timeout_mutation["localEvidenceHost"]["outerConventionTest"][field] = value
+            mutations.append(timeout_mutation)
         for repo_digests in (
             [],
             ["ubuntu@sha256:" + "0" * 64],
@@ -934,6 +962,49 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         bad["mainBaseCommit"] = "4" * 40
         with self.assertRaisesRegex(BuildInputError, "main base"):
             ownership_marker(existing=bad)
+
+    def test_outer_timeout_marker_is_exact_canonical_mode_0600_and_command_bound(self) -> None:
+        marker = ownership_marker(
+            source_commit=SOURCE,
+            policy_sha256=POLICY_SHA,
+            attempt_id="attempt-000001",
+            main_base_commit=BASE,
+            runtime_data_id="3" * 64,
+        )
+        sealed = sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1")
+        self.assertEqual(30, sealed["outerConventionTestTimeoutMinutes"])
+        self.assertEqual(":build-logic:convention:test", sealed["taskPath"])
+        self.assertEqual(marker["markerSha256"], sealed["ownershipMarkerSha256"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "task9-local-linux-ownership-marker.json"
+            path.write_bytes(canonical_json_bytes(sealed))
+            path.chmod(0o600)
+            self.assertEqual(
+                sealed,
+                validate_outer_timeout_marker(
+                    path,
+                    original_marker=marker,
+                    governed_command="metadata-capture-1",
+                ),
+            )
+            path.chmod(0o640)
+            with self.assertRaisesRegex(BuildInputError, "0600"):
+                validate_outer_timeout_marker(
+                    path,
+                    original_marker=marker,
+                    governed_command="metadata-capture-1",
+                )
+
+        for field, value in (
+            ("governedCommand", "metadata-capture-2"),
+            ("outerConventionTestTimeoutMinutes", 31),
+            ("taskPath", ":build-logic:convention:check"),
+            ("policySha256", "4" * 64),
+        ):
+            mutated = dict(sealed)
+            mutated[field] = value
+            with self.subTest(field=field), self.assertRaises(BuildInputError):
+                sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1", existing=mutated)
 
     def test_prior_no_runtime_attempt_is_preserved_and_mixed_marker_refused(self) -> None:
         host = generated_policy()["localEvidenceHost"]

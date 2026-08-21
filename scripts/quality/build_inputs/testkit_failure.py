@@ -8,7 +8,7 @@ import re
 import xml.etree.ElementTree as ET
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from scripts.quality.build_inputs.contracts import (
     BuildInputError,
@@ -31,6 +31,43 @@ _ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9:/<])/(?:[^\s'\"<>]+)")
 _STACK_FRAMES = re.compile(
     r"(?m)(?:^[ \t]*at\s+\S+\([^\r\n]*\)[ \t]*(?:\r?\n|$))+",
 )
+
+
+def validate_live_stage_manifest(stage: Path) -> dict[str, Any]:
+    """Rehash the Gradle-finalized live stage before the outer exporter reads it."""
+    if not stage.is_dir() or stage.is_symlink():
+        raise BuildInputError("TestKit live stage is missing or unsafe")
+    manifest_path = stage / "live-stage-manifest.json"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise BuildInputError("TestKit live stage manifest is missing or unsafe")
+    manifest = _load_canonical_json(manifest_path, context="TestKit live stage manifest")
+    artifacts = manifest.get("artifacts")
+    if (
+        set(manifest) != {"artifacts", "schemaVersion", "status"}
+        or manifest.get("schemaVersion") != 1
+        or manifest.get("status") != "SEALED"
+        or not isinstance(artifacts, list)
+    ):
+        raise BuildInputError("TestKit live stage manifest schema differs")
+    expected_paths = sorted(
+        path.name
+        for path in stage.iterdir()
+        if path.name != manifest_path.name
+    )
+    if "worker-events.tsv" not in expected_paths or not any(
+        re.fullmatch(r"TEST-[0-9a-f]{64}\.xml", name) for name in expected_paths
+    ):
+        raise BuildInputError("TestKit live stage inventory is incomplete")
+    rows: list[dict[str, Any]] = []
+    for name in expected_paths:
+        path = stage / name
+        if path.is_symlink() or not path.is_file() or "/" in name or "\\" in name:
+            raise BuildInputError("TestKit live stage contains an unsafe artifact")
+        body = path.read_bytes()
+        rows.append({"path": name, "sha256": hashlib.sha256(body).hexdigest(), "size": len(body)})
+    if artifacts != rows:
+        raise BuildInputError("TestKit live stage artifact hash or size differs")
+    return manifest
 
 
 def _write_new(path: Path, body: bytes) -> None:
@@ -388,6 +425,10 @@ def export_testkit_failure_evidence(results: Path, trace: Path, output: Path) ->
         total_duration += Decimal(duration)
         for count_name in ("errors", "failures", "skipped", "tests"):
             totals[count_name] += suite_row[count_name]
+
+    completed_trace_tests = {key for key, row in trace_tests.items() if "result" in row}
+    if completed_xml_tests != completed_trace_tests:
+        raise BuildInputError("TestKit completed worker inventory differs from live JUnit inventory")
 
     for class_name, name, destination in sorted(
         {(row["className"], row["name"], row["destination"]) for row in trace_outputs},
@@ -774,11 +815,49 @@ def _final_context(output: Path, name: str) -> tuple[dict[str, Any], dict[str, A
     return marker, result, log
 
 
+def _outer_timeout_context(output: Path, name: str, ownership_marker: Mapping[str, Any]) -> dict[str, Any]:
+    attempt = output.parents[1]
+    marker_path = attempt / "timeout-markers" / f"{name}.json"
+    descriptor_path = attempt / "command-evidence" / f"{name}.timeout.json"
+    marker = _load_canonical_json(marker_path, context="outer timeout marker")
+    descriptor = _load_canonical_json(descriptor_path, context="outer timeout marker receipt")
+    marker_body = marker_path.read_bytes()
+    if descriptor != {
+        "mode": "0600",
+        "path": "/evidence-work/task9-local-linux-ownership-marker.json",
+        "schemaVersion": 1,
+        "sha256": hashlib.sha256(marker_body).hexdigest(),
+        "size": len(marker_body),
+        "status": "PASS",
+    }:
+        raise BuildInputError("outer timeout marker receipt binding differs")
+    if (
+        marker.get("attemptId") != ownership_marker.get("attemptId")
+        or marker.get("sourceCommit") != ownership_marker.get("sourceCommit")
+        or marker.get("policySha256") != ownership_marker.get("policySha256")
+        or marker.get("ownershipMarkerSha256") != ownership_marker.get("markerSha256")
+        or marker.get("governedCommand") != name
+        or marker.get("outerConventionTestTimeoutMinutes") != 30
+        or marker.get("taskPath") != ":build-logic:convention:test"
+    ):
+        raise BuildInputError("outer timeout marker ownership binding differs")
+    return {
+        "markerEnvironment": "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER",
+        "markerMode": "0600",
+        "markerPath": descriptor["path"],
+        "markerSha256": descriptor["sha256"],
+        "ownershipMarkerSha256": ownership_marker.get("markerSha256"),
+        "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
+        "propertyValue": "30",
+    }
+
+
 def finalize_testkit_failure_evidence(output: Path, *, name: str) -> dict[str, Any]:
     if name not in {"metadata-capture-1", "metadata-capture-2"}:
         raise BuildInputError("final TestKit command identity is not closed")
     summary = validate_testkit_failure_evidence(output)
     marker, result, _ = _final_context(output, name)
+    outer_timeout = _outer_timeout_context(output, name, marker)
     summary_body = (output / "summary.json").read_bytes()
     final = {
         "attemptId": marker.get("attemptId"),
@@ -793,10 +872,18 @@ def finalize_testkit_failure_evidence(output: Path, *, name: str) -> dict[str, A
         },
         "markerSha256": marker.get("markerSha256"),
         "policySha256": marker.get("policySha256"),
+        "outerTimeout": outer_timeout,
         "schemaVersion": 1,
         "sourceCommit": marker.get("sourceCommit"),
         "status": "FAIL",
-        "testContract": {"expectedTests": 90, "maxParallelForks": 5, "timeoutSeconds": 900},
+        "testContract": {
+            "expectedTests": 90,
+            "maxParallelForks": 5,
+            "outerTimeoutSeconds": 1800,
+            "repositoryAndNestedTimeoutSeconds": 900,
+            "retry": False,
+            "shard": False,
+        },
         "testkit": summary,
     }
     _write_new(output / "testkit-failure-summary.json", canonical_json_bytes(final))
@@ -810,6 +897,7 @@ def _validate_final_summary(output: Path, summary: dict[str, Any], final_path: P
     if name not in {"metadata-capture-1", "metadata-capture-2"}:
         raise BuildInputError("final TestKit failure command identity differs")
     marker, result, _ = _final_context(output, name)
+    outer_timeout = _outer_timeout_context(output, name, marker)
     summary_body = (output / "summary.json").read_bytes()
     expected = {
         "attemptId": marker.get("attemptId"),
@@ -824,10 +912,18 @@ def _validate_final_summary(output: Path, summary: dict[str, Any], final_path: P
         },
         "markerSha256": marker.get("markerSha256"),
         "policySha256": marker.get("policySha256"),
+        "outerTimeout": outer_timeout,
         "schemaVersion": 1,
         "sourceCommit": marker.get("sourceCommit"),
         "status": "FAIL",
-        "testContract": {"expectedTests": 90, "maxParallelForks": 5, "timeoutSeconds": 900},
+        "testContract": {
+            "expectedTests": 90,
+            "maxParallelForks": 5,
+            "outerTimeoutSeconds": 1800,
+            "repositoryAndNestedTimeoutSeconds": 900,
+            "retry": False,
+            "shard": False,
+        },
         "testkit": summary,
     }
     if final != expected:

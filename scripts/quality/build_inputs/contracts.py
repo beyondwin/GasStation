@@ -383,6 +383,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "mainBaseCommit",
             "mainBaseRef",
             "ownedLabelKeys",
+            "outerConventionTest",
             "profile",
             "requiredEvidenceRows",
             "sourceBundleRefs",
@@ -432,6 +433,19 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "io.gasstation.task",
     ]:
         raise BuildInputError("localEvidenceHost owned label key inventory drift")
+    if host["outerConventionTest"] != {
+        "expectedTests": 90,
+        "markerEnvironment": "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER",
+        "markerMode": "0600",
+        "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
+        "maxParallelForks": 5,
+        "outerTimeoutMinutes": 30,
+        "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
+        "propertyValue": "30",
+        "repositoryAndNestedTimeoutMinutes": 15,
+        "taskPath": ":build-logic:convention:test",
+    }:
+        raise BuildInputError("localEvidenceHost sealed outer convention timeout drift")
     if host["attemptPattern"] != "attempt-[0-9]{6}":
         raise BuildInputError("localEvidenceHost generated attempt contract drift")
     if host["hostMinimum"] != {
