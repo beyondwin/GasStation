@@ -134,7 +134,21 @@ class GradlePluginTestProject private constructor(
     }
 
     private fun sanitizedEnvironment(): Map<String, String> {
+        val readOnlyDependencyCache =
+            System.getenv("GRADLE_RO_DEP_CACHE")
+                ?.takeIf(String::isNotBlank)
+                ?.let(::File)
+                ?.canonicalFile
+                ?: error("TestKit requires the prepared read-only dependency cache")
+        require(readOnlyDependencyCache.isDirectory && !Files.isSymbolicLink(readOnlyDependencyCache.toPath())) {
+            "TestKit read-only dependency cache is missing or unsafe: $readOnlyDependencyCache"
+        }
+        val seedManifest = readOnlyDependencyCache.resolve("seed-manifest.tsv")
+        require(seedManifest.isFile && !Files.isSymbolicLink(seedManifest.toPath())) {
+            "TestKit read-only dependency-cache manifest is missing or unsafe: $seedManifest"
+        }
         val allowed = mutableMapOf(
+            "GRADLE_RO_DEP_CACHE" to readOnlyDependencyCache.canonicalPath,
             "HOME" to projectDir.parentFile.resolve("home").also(File::mkdirs).canonicalPath,
             "JAVA_HOME" to runtimeJavaHome.canonicalPath,
             "JAVA_HOME_17_X64" to compileJavaHome.canonicalPath,

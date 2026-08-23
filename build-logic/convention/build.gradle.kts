@@ -1,5 +1,6 @@
 import groovy.json.JsonSlurper
 import java.nio.file.Files
+import java.nio.file.Path as NioPath
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermission
 import java.security.MessageDigest
@@ -15,6 +16,115 @@ import org.gradle.api.tasks.testing.TestResult
 
 plugins {
     `kotlin-dsl`
+}
+
+val testKitAapt2Version = "9.3.0-15703166"
+val testKitAapt2Artifacts =
+    mapOf(
+        "aapt2-$testKitAapt2Version-linux.jar" to
+            "e772a3dae8354764f1b0793903218427f483982445207f2e4ffc8c2026755bd4",
+        "aapt2-$testKitAapt2Version-osx.jar" to
+            "1e35bc2ce18c3aae840be2a29659ce50d6043e907a44d98ee1cf375d044fa29c",
+        "aapt2-$testKitAapt2Version.pom" to
+            "94a875f093c76564471eb9c48c630a86e656f73d4bcf20c3bd38b67ee7bb0d78",
+    )
+
+fun NioPath.sha256(): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest(Files.readAllBytes(this))
+        .joinToString("") { byte -> "%02x".format(byte) }
+
+fun deleteClosedTree(root: NioPath) {
+    if (!Files.exists(root)) return
+    check(Files.isDirectory(root) && !Files.isSymbolicLink(root)) {
+        "TestKit read-only dependency-cache output is unsafe: $root"
+    }
+    val paths = Files.walk(root).use { stream -> stream.toList() }
+    paths.forEach { path ->
+        check(!Files.isSymbolicLink(path)) {
+            "TestKit read-only dependency-cache output contains a symbolic link: $path"
+        }
+    }
+    paths.asReversed().forEach(Files::delete)
+}
+
+fun copyClosedCacheTree(
+    source: NioPath,
+    destination: NioPath,
+) {
+    check(Files.isDirectory(source) && !Files.isSymbolicLink(source)) {
+        "TestKit dependency-cache seed source is missing or unsafe: $source"
+    }
+    Files.walk(source).use { paths ->
+        paths.sorted().forEach { path ->
+            check(!Files.isSymbolicLink(path)) {
+                "TestKit dependency-cache seed source contains a symbolic link: $path"
+            }
+            val relative = source.relativize(path)
+            val name = path.fileName?.toString().orEmpty()
+            if (name.endsWith(".lock") || name == "gc.properties") return@forEach
+            val target = destination.resolve(relative)
+            if (Files.isDirectory(path)) {
+                Files.createDirectories(target)
+            } else {
+                check(Files.isRegularFile(path)) {
+                    "TestKit dependency-cache seed source entry is not a regular file: $path"
+                }
+                Files.createDirectories(target.parent)
+                Files.copy(path, target, StandardCopyOption.COPY_ATTRIBUTES)
+            }
+        }
+    }
+}
+
+fun seedInventory(modulesRoot: NioPath): String {
+    check(Files.isDirectory(modulesRoot) && !Files.isSymbolicLink(modulesRoot)) {
+        "TestKit read-only dependency cache is missing or unsafe: $modulesRoot"
+    }
+    val inventoryPaths =
+        Files.walk(modulesRoot).use { paths -> paths.sorted().toList() }
+    inventoryPaths.forEach { path ->
+        check(!Files.isSymbolicLink(path)) {
+            "TestKit read-only dependency cache contains a symbolic link: $path"
+        }
+    }
+    val rows =
+        inventoryPaths
+            .asSequence()
+            .filter { path -> Files.isRegularFile(path) }
+            .map { path ->
+                val relative = modulesRoot.relativize(path).toString().replace(File.separatorChar, '/')
+                check(!relative.endsWith(".lock") && !relative.endsWith("/gc.properties")) {
+                    "TestKit read-only dependency cache contains mutable Gradle state: $relative"
+                }
+                "$relative\t${path.sha256()}\t${Files.size(path)}"
+            }.toList()
+    check(rows.isNotEmpty()) { "TestKit read-only dependency cache is empty" }
+    return rows.joinToString(separator = "\n", postfix = "\n")
+}
+
+fun requireExactAapt2Artifacts(artifactRoot: NioPath) {
+    check(Files.isDirectory(artifactRoot) && !Files.isSymbolicLink(artifactRoot)) {
+        "Exact TestKit AAPT2 cache entry is missing or unsafe: $artifactRoot"
+    }
+    val artifactPaths = Files.walk(artifactRoot).use { paths -> paths.toList() }
+    artifactPaths.forEach { path ->
+        check(!Files.isSymbolicLink(path)) { "Exact TestKit AAPT2 cache entry is a symbolic link: $path" }
+    }
+    val artifacts = artifactPaths.filter { path -> Files.isRegularFile(path) }
+    check(artifacts.size == testKitAapt2Artifacts.size) {
+        "Exact TestKit AAPT2 cache artifact count differs"
+    }
+    check(artifacts.map { path -> path.fileName.toString() }.toSet() == testKitAapt2Artifacts.keys) {
+        "Exact TestKit AAPT2 cache artifact inventory differs"
+    }
+    artifacts.forEach { artifact ->
+        val expected = testKitAapt2Artifacts.getValue(artifact.fileName.toString())
+        check(artifact.sha256() == expected) {
+            "Exact TestKit AAPT2 cache artifact checksum differs: ${artifact.fileName}"
+        }
+    }
 }
 
 group = "com.gasstation.buildlogic"
@@ -57,7 +167,8 @@ val testKitVerificationSeeds =
         "org.junit:junit-bom:5.11.0-M2",
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2",
         "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.9.0",
-        "com.android.tools.build:aapt2:9.3.0-15703166:linux",
+        "com.android.tools.build:aapt2:$testKitAapt2Version:linux",
+        "com.android.tools.build:aapt2:$testKitAapt2Version:osx",
     ).mapIndexed { index, coordinate ->
         configurations.create("testKitVerificationSeed$index") {
             isCanBeConsumed = false
@@ -69,8 +180,86 @@ val captureTestKitDependencyVerificationMetadata =
     tasks.register("captureTestKitDependencyVerificationMetadata") {
         group = "verification"
         description = "Captures the reviewed TestKit-only dependency graph for checksum generation."
+        notCompatibleWithConfigurationCache("TestKit dependency capture must resolve a fresh reviewed graph")
         doLast {
             testKitVerificationSeeds.forEach { configuration -> configuration.files.forEach(File::getName) }
+        }
+    }
+
+val testKitReadOnlyDependencyCache =
+    layout.buildDirectory.dir("testkit-read-only-dependency-cache")
+
+val prepareTestKitReadOnlyDependencyCache =
+    tasks.register("prepareTestKitReadOnlyDependencyCache") {
+        group = "verification"
+        description = "Copies the exact AAPT2 cache into a TestKit-safe shared read-only dependency seed."
+        notCompatibleWithConfigurationCache("TestKit read-only dependency-cache preparation is a fresh seed")
+        dependsOn(captureTestKitDependencyVerificationMetadata)
+        outputs.dir(testKitReadOnlyDependencyCache)
+        outputs.upToDateWhen { false }
+        doLast {
+            val sourceModules = gradle.gradleUserHomeDir.toPath().resolve("caches/modules-2")
+            val sourceAapt2 =
+                sourceModules.resolve(
+                    "files-2.1/com.android.tools.build/aapt2/$testKitAapt2Version",
+                )
+            requireExactAapt2Artifacts(sourceAapt2)
+
+            val metadataCandidates =
+                Files.list(sourceModules).use { paths ->
+                    paths
+                        .filter { path ->
+                            Files.isDirectory(path) &&
+                                path.fileName.toString().startsWith("metadata-") &&
+                                Files.isRegularFile(
+                                    path.resolve(
+                                        "descriptors/com.android.tools.build/aapt2/$testKitAapt2Version/" +
+                                            "d4e342018b23d58be902a60e67105aa1/descriptor.bin",
+                                    ),
+                                )
+                        }.toList()
+                }
+            check(metadataCandidates.size == 1) {
+                "Exact TestKit AAPT2 Gradle metadata-cache generation differs: $metadataCandidates"
+            }
+
+            val seedRoot = testKitReadOnlyDependencyCache.get().asFile.toPath()
+            deleteClosedTree(seedRoot)
+            val destinationModules = seedRoot.resolve("modules-2")
+            copyClosedCacheTree(
+                metadataCandidates.single(),
+                destinationModules.resolve(metadataCandidates.single().fileName),
+            )
+            copyClosedCacheTree(
+                sourceAapt2,
+                destinationModules.resolve(
+                    "files-2.1/com.android.tools.build/aapt2/$testKitAapt2Version",
+                ),
+            )
+            val manifest = seedInventory(destinationModules)
+            Files.writeString(seedRoot.resolve("seed-manifest.tsv"), manifest, Charsets.UTF_8)
+        }
+    }
+
+val verifyTestKitReadOnlyDependencyCache =
+    tasks.register("verifyTestKitReadOnlyDependencyCache") {
+        group = "verification"
+        description = "Rehashes the immutable TestKit AAPT2 dependency seed after nested builds."
+        notCompatibleWithConfigurationCache("TestKit read-only dependency-cache verification rehashes live files")
+        doLast {
+            val seedRoot = testKitReadOnlyDependencyCache.get().asFile.toPath()
+            val manifest = seedRoot.resolve("seed-manifest.tsv")
+            check(Files.isRegularFile(manifest) && !Files.isSymbolicLink(manifest)) {
+                "TestKit read-only dependency-cache manifest is missing or unsafe"
+            }
+            check(Files.readString(manifest, Charsets.UTF_8) == seedInventory(seedRoot.resolve("modules-2"))) {
+                "TestKit read-only dependency cache changed during nested builds"
+            }
+            requireExactAapt2Artifacts(
+                seedRoot.resolve(
+                    "modules-2/files-2.1/com.android.tools.build/aapt2/$testKitAapt2Version",
+                ),
+            )
         }
     }
 
@@ -128,7 +317,12 @@ val finalizeTask9TestKitFailureEvidence =
     }
 
 tasks.withType<Test>().configureEach {
-    mustRunAfter(captureTestKitDependencyVerificationMetadata)
+    dependsOn(prepareTestKitReadOnlyDependencyCache)
+    finalizedBy(verifyTestKitReadOnlyDependencyCache)
+    environment(
+        "GRADLE_RO_DEP_CACHE",
+        testKitReadOnlyDependencyCache.get().asFile.absolutePath,
+    )
     val outerTimeoutProperty = providers.gradleProperty("gasstation.task9LocalLinuxConventionTestTimeoutMinutes").orNull
     val outerTimeoutMarker = providers.environmentVariable("GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER").orNull
     require((outerTimeoutProperty == null) == (outerTimeoutMarker == null)) {

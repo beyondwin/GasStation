@@ -365,10 +365,41 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
         self.assertNotIn('project.path == ":",', source)
         self.assertIn('keys.joinToString(separator = ",", prefix = "{", postfix = "}\\n")', source)
 
-    def test_linux_aapt2_is_seeded_before_nested_fixture_metadata_is_copied(self) -> None:
+    def test_exact_aapt2_read_only_seed_is_wired_to_every_nested_fixture(self) -> None:
         source = (REPOSITORY_ROOT / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
-        self.assertIn('"com.android.tools.build:aapt2:9.3.0-15703166:linux"', source)
-        self.assertIn("mustRunAfter(captureTestKitDependencyVerificationMetadata)", source)
+        fixture = (
+            REPOSITORY_ROOT
+            / "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
+        ).read_text(encoding="utf-8")
+        for literal in (
+            'val testKitAapt2Version = "9.3.0-15703166"',
+            '"com.android.tools.build:aapt2:$testKitAapt2Version:linux"',
+            '"com.android.tools.build:aapt2:$testKitAapt2Version:osx"',
+            'tasks.register("prepareTestKitReadOnlyDependencyCache")',
+            'dependsOn(captureTestKitDependencyVerificationMetadata)',
+            'tasks.register("verifyTestKitReadOnlyDependencyCache")',
+            'finalizedBy(verifyTestKitReadOnlyDependencyCache)',
+            '"GRADLE_RO_DEP_CACHE"',
+            '"seed-manifest.tsv"',
+            'name.endsWith(".lock") || name == "gc.properties"',
+            "val inventoryPaths =",
+            "inventoryPaths.forEach { path ->",
+            'Files.readString(manifest, Charsets.UTF_8) == seedInventory',
+            'check(artifacts.size == testKitAapt2Artifacts.size)',
+        ):
+            with self.subTest(literal=literal):
+                self.assertIn(literal, source)
+        for literal in (
+            'System.getenv("GRADLE_RO_DEP_CACHE")',
+            '"GRADLE_RO_DEP_CACHE" to readOnlyDependencyCache.canonicalPath',
+            '"TestKit requires the prepared read-only dependency cache"',
+            '"seed-manifest.tsv"',
+        ):
+            with self.subTest(fixture_literal=literal):
+                self.assertIn(literal, fixture)
+        self.assertEqual(2, fixture.count(".withEnvironment(sanitizedEnvironment())"))
+        self.assertNotIn("mustRunAfter(captureTestKitDependencyVerificationMetadata)", source)
+        self.assertNotIn("onlyIf { testKitReadOnlyDependencyCache", source)
 
         metadata = ET.parse(REPOSITORY_ROOT / "gradle/verification-metadata.xml").getroot()
         components = [
@@ -394,10 +425,15 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             },
             set(artifacts),
         )
+        expected_checksums = {
+            "aapt2-9.3.0-15703166-linux.jar": "e772a3dae8354764f1b0793903218427f483982445207f2e4ffc8c2026755bd4",
+            "aapt2-9.3.0-15703166-osx.jar": "1e35bc2ce18c3aae840be2a29659ce50d6043e907a44d98ee1cf375d044fa29c",
+            "aapt2-9.3.0-15703166.pom": "94a875f093c76564471eb9c48c630a86e656f73d4bcf20c3bd38b67ee7bb0d78",
+        }
         for name, checksums in artifacts.items():
             with self.subTest(name=name):
-                self.assertEqual(1, len(checksums))
-                self.assertRegex(checksums[0] or "", r"^[0-9a-f]{64}$")
+                self.assertEqual([expected_checksums[name]], checksums)
+                self.assertIn(expected_checksums[name], source)
 
     def test_live_stage_manifest_rehashes_exact_xml_and_worker_stream(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
