@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermission
 import java.security.MessageDigest
 import java.util.Properties
 import org.gradle.testkit.runner.GradleRunner
@@ -397,7 +398,13 @@ class GradlePluginTestProject private constructor(
         require(!Files.isSymbolicLink(candidate) && Files.isRegularFile(candidate, NOFOLLOW_LINKS)) {
             "$owner gradle.properties is not a regular nonsymlink file: $path"
         }
-        require(Files.isReadable(candidate)) {
+        val hasReadPermission =
+            try {
+                Files.getPosixFilePermissions(candidate, NOFOLLOW_LINKS).any(READ_PERMISSIONS::contains)
+            } catch (error: Exception) {
+                throw IllegalArgumentException("$owner gradle.properties permissions are unreadable: $path", error)
+            }
+        require(hasReadPermission && Files.isReadable(candidate)) {
             "$owner gradle.properties is unreadable: $path"
         }
         val properties = Properties()
@@ -514,6 +521,12 @@ class GradlePluginTestProject private constructor(
                 "_JAVA_OPTIONS",
                 "ORG_GRADLE_PROJECT_org.gradle.workers.max",
                 "GRADLE_USER_HOME",
+            )
+        private val READ_PERMISSIONS =
+            setOf(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.GROUP_READ,
+                PosixFilePermission.OTHERS_READ,
             )
 
         private val DEFAULT_SETTINGS =
