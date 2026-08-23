@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import base64
 import shutil
 import tarfile
@@ -55,6 +56,90 @@ from scripts.agent.check_contracts import check_documentation_contracts
 
 ROOT = Path(__file__).resolve().parents[3]
 POLICY = ROOT / "config/quality/build-inputs.json"
+
+EXPECTED_TESTKIT_WORKER_GRAMMAR = {
+    "acceptedDirectConstructionCount": 3,
+    "acceptedPropertyConstructionCount": 16,
+    "acceptedUnsupportedDisjoint": True,
+    "acceptedWorkerControlConstructionCount": 19,
+    "caseSensitive": True,
+    "consumeOptionTokenAsPropertyPayload": False,
+    "consumeTerminatorAsPropertyPayload": False,
+    "directDoubleDashOption": "--max-workers",
+    "directForms": ["doubleDashEquals", "doubleDashSeparated", "singleDashSeparated"],
+    "directSingleDashOption": "-max-workers",
+    "doubleDashLongOptions": ["--system-prop", "--project-prop"],
+    "doubleDashShortOptions": ["--D", "--P"],
+    "equalsOptionCount": 6,
+    "failClosedPayload": ["emptyPayload", "emptyKey"],
+    "failClosedSeparated": ["missingToken", "emptyToken", "terminatorToken", "optionToken"],
+    "fixtureRejectTerminator": True,
+    "fixtureRejectedSeparatedStateCount": 4,
+    "joinedOptionCount": 2,
+    "key": "org.gradle.workers.max",
+    "loneDashConvertedValue": "",
+    "loneDashPayload": "-",
+    "optionTokenPattern": "(?s)-.+",
+    "preserveSeparatedStates": ["loneDashPayload", "payload"],
+    "preserveUnrelated": True,
+    "preservedSeparatedStateCount": 2,
+    "propertyForms": [
+        "shortJoined",
+        "shortSeparated",
+        "shortEquals",
+        "doubleDashShortEquals",
+        "doubleDashShortSeparated",
+        "doubleDashLongEquals",
+        "doubleDashLongSeparated",
+        "singleDashLongSeparated",
+    ],
+    "rejectTargetValueStates": ["absent", "empty", "nonempty"],
+    "separatedOptionCount": 8,
+    "separatedStateCount": 6,
+    "separatedStatePrecedence": [
+        "missingToken",
+        "emptyToken",
+        "loneDashPayload",
+        "terminatorToken",
+        "optionToken",
+        "payload",
+    ],
+    "separatedStates": [
+        "missingToken",
+        "emptyToken",
+        "loneDashPayload",
+        "terminatorToken",
+        "optionToken",
+        "payload",
+    ],
+    "shortEqualsBeforeJoined": True,
+    "shortOptions": ["-D", "-P"],
+    "singleDashLongOptions": ["-system-prop", "-project-prop"],
+    "split": "firstEquals",
+    "terminatorGradleTransition": "AfterOptions",
+    "terminatorPendingProperty": "absent",
+    "terminatorToken": "--",
+    "trim": False,
+    "unacceptedDirectForms": [
+        "singleDashEquals",
+        "doubleDashJoined",
+        "singleDashJoined",
+        "plainSeparated",
+    ],
+    "unacceptedDoubleDashShortJoined": ["--D<payload>", "--P<payload>"],
+    "unacceptedPropertyForms": [
+        "doubleDashShortJoined",
+        "doubleDashLongJoined",
+        "singleDashLongEquals",
+        "singleDashLongJoined",
+    ],
+    "unacceptedSingleDashLongEquals": [
+        "-max-workers=",
+        "-system-prop=",
+        "-project-prop=",
+    ],
+    "unsupportedConstructionCount": 12,
+}
 
 
 class CanonicalPolicyTest(unittest.TestCase):
@@ -108,6 +193,144 @@ class CanonicalPolicyTest(unittest.TestCase):
         )
         self.assertNotIn("scripts/docs/validate.py", paths)
         self.assertFalse(any(path.startswith("scripts/docs/extensions/") for path in paths))
+
+    def test_nested_testkit_worker_control_policy_is_exact_and_outer_is_uncapped(self) -> None:
+        policy = load_policy(POLICY, root=ROOT)
+        rows = {row["id"]: row for row in policy["evidenceGradleEntrypoints"]}
+        nested_ids = {
+            "testkit/shared-normal",
+            "testkit/shared-configuration-cache",
+            "testkit/adversarial",
+        }
+        for identity in sorted(nested_ids):
+            with self.subTest(identity=identity):
+                row = rows[identity]
+                self.assertEqual(2, row["maxWorkers"])
+                self.assertEqual("--max-workers=2", row["maxWorkersArgument"])
+                self.assertEqual(1, row["maxWorkersArgumentCount"])
+                self.assertEqual("final", row["maxWorkersArgumentPosition"])
+                self.assertTrue(row["rejectCallerWorkerControls"])
+                self.assertTrue(row["sanitizeWorkerEnvironment"])
+                self.assertEqual(EXPECTED_TESTKIT_WORKER_GRAMMAR, row["workerPropertyConflictGrammar"])
+                self.assertEqual("--max-workers=2", row["argv"][-1])
+                self.assertEqual(1, row["argv"].count("--max-workers=2"))
+
+        outer = rows["android/static-analysis/convention-testkit"]
+        for forbidden in (
+            "maxWorkers",
+            "maxWorkersArgument",
+            "maxWorkersArgumentCount",
+            "maxWorkersArgumentPosition",
+            "rejectCallerWorkerControls",
+            "sanitizeWorkerEnvironment",
+            "workerPropertyConflictGrammar",
+        ):
+            self.assertNotIn(forbidden, outer)
+        self.assertNotIn("--max-workers=2", outer["argv"])
+
+        def direct(name: str) -> tuple[str, ...]:
+            return (f"--{name}=<value>", f"--{name} <value>", f"-{name} <value>")
+
+        def properties(short: str, long_name: str) -> tuple[str, ...]:
+            return (
+                f"-{short}<payload>",
+                f"-{short} <payload>",
+                f"-{short}=<payload>",
+                f"--{short}=<payload>",
+                f"--{short} <payload>",
+                f"--{long_name}=<payload>",
+                f"--{long_name} <payload>",
+                f"-{long_name} <payload>",
+            )
+
+        derived = {
+            "direct": direct("max-workers"),
+            "system": properties("D", "system-prop"),
+            "project": properties("P", "project-prop"),
+        }
+        expected = {
+            "direct": ("--max-workers=<value>", "--max-workers <value>", "-max-workers <value>"),
+            "system": (
+                "-D<payload>", "-D <payload>", "-D=<payload>", "--D=<payload>",
+                "--D <payload>", "--system-prop=<payload>", "--system-prop <payload>",
+                "-system-prop <payload>",
+            ),
+            "project": (
+                "-P<payload>", "-P <payload>", "-P=<payload>", "--P=<payload>",
+                "--P <payload>", "--project-prop=<payload>", "--project-prop <payload>",
+                "-project-prop <payload>",
+            ),
+        }
+        unsupported = {
+            "-max-workers=<value>", "--max-workers<value>", "-max-workers<value>",
+            "max-workers <value>", "--D<payload>", "--P<payload>",
+            "--system-prop<payload>", "--project-prop<payload>",
+            "-system-prop<payload>", "-project-prop<payload>",
+            "-system-prop=<payload>", "-project-prop=<payload>",
+        }
+        self.assertEqual(expected, derived)
+        accepted = set(derived["direct"] + derived["system"] + derived["project"])
+        self.assertEqual(19, len(accepted))
+        self.assertEqual(12, len(unsupported))
+        self.assertTrue(unsupported.isdisjoint(accepted))
+
+        def state(token: str | None) -> str:
+            if token is None:
+                return "missingToken"
+            if token == "":
+                return "emptyToken"
+            if token == "-":
+                return "loneDashPayload"
+            if token == "--":
+                return "terminatorToken"
+            if re.fullmatch(r"(?s)-.+", token):
+                return "optionToken"
+            return "payload"
+
+        self.assertEqual(
+            EXPECTED_TESTKIT_WORKER_GRAMMAR["separatedStatePrecedence"],
+            [state(token) for token in (None, "", "-", "--", "-x", "example=value")],
+        )
+
+    def test_nested_worker_policy_mutations_fail_closed(self) -> None:
+        baseline = json.loads(POLICY.read_text(encoding="utf-8"))
+        nested_id = "testkit/shared-normal"
+        mutations: list[dict[str, object]] = []
+
+        def mutation(path: tuple[str, ...], value: object) -> None:
+            candidate = json.loads(json.dumps(baseline))
+            row = next(row for row in candidate["evidenceGradleEntrypoints"] if row["id"] == nested_id)
+            target = row
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+            mutations.append(candidate)
+
+        mutation(("maxWorkers",), 3)
+        mutation(("maxWorkersArgument",), "--max-workers=3")
+        mutation(("maxWorkersArgumentCount",), 2)
+        mutation(("maxWorkersArgumentPosition",), "before-java-paths")
+        mutation(("rejectCallerWorkerControls",), False)
+        mutation(("sanitizeWorkerEnvironment",), False)
+        mutation(("workerPropertyConflictGrammar", "directForms"), ["doubleDashEquals"])
+        mutation(("workerPropertyConflictGrammar", "doubleDashShortOptions"), ["--D"])
+        mutation(("workerPropertyConflictGrammar", "singleDashLongOptions"), ["-system-prop"])
+        mutation(("workerPropertyConflictGrammar", "shortEqualsBeforeJoined"), False)
+        mutation(("workerPropertyConflictGrammar", "split"), "lastEquals")
+        mutation(("workerPropertyConflictGrammar", "preserveUnrelated"), False)
+        mutation(("workerPropertyConflictGrammar", "separatedStates"), ["payload"])
+        mutation(("workerPropertyConflictGrammar", "separatedStatePrecedence"), list(reversed(EXPECTED_TESTKIT_WORKER_GRAMMAR["separatedStatePrecedence"])))
+        mutation(("workerPropertyConflictGrammar", "loneDashConvertedValue"), "-")
+        mutation(("workerPropertyConflictGrammar", "fixtureRejectTerminator"), False)
+        mutation(("workerPropertyConflictGrammar", "consumeOptionTokenAsPropertyPayload"), True)
+        mutation(("workerPropertyConflictGrammar", "unsupportedConstructionCount"), 11)
+
+        with tempfile.TemporaryDirectory() as directory:
+            for index, candidate_policy in enumerate(mutations):
+                candidate = Path(directory) / f"worker-mutation-{index}.json"
+                candidate.write_bytes(canonical_json_bytes(candidate_policy))
+                with self.subTest(index=index), self.assertRaisesRegex(BuildInputError, "worker"):
+                    load_policy(candidate, root=ROOT)
 
     def test_superseded_runtime_and_cross_wired_jdk_roles_fail_closed(self) -> None:
         baseline = json.loads(POLICY.read_text(encoding="utf-8"))

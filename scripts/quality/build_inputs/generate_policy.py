@@ -113,6 +113,113 @@ def entrypoint(
     }
 
 
+def worker_property_conflict_grammar() -> dict[str, object]:
+    return {
+        "acceptedDirectConstructionCount": 3,
+        "acceptedPropertyConstructionCount": 16,
+        "acceptedUnsupportedDisjoint": True,
+        "acceptedWorkerControlConstructionCount": 19,
+        "caseSensitive": True,
+        "consumeOptionTokenAsPropertyPayload": False,
+        "consumeTerminatorAsPropertyPayload": False,
+        "directDoubleDashOption": "--max-workers",
+        "directForms": ["doubleDashEquals", "doubleDashSeparated", "singleDashSeparated"],
+        "directSingleDashOption": "-max-workers",
+        "doubleDashLongOptions": ["--system-prop", "--project-prop"],
+        "doubleDashShortOptions": ["--D", "--P"],
+        "equalsOptionCount": 6,
+        "failClosedPayload": ["emptyPayload", "emptyKey"],
+        "failClosedSeparated": ["missingToken", "emptyToken", "terminatorToken", "optionToken"],
+        "fixtureRejectTerminator": True,
+        "fixtureRejectedSeparatedStateCount": 4,
+        "joinedOptionCount": 2,
+        "key": "org.gradle.workers.max",
+        "loneDashConvertedValue": "",
+        "loneDashPayload": "-",
+        "optionTokenPattern": "(?s)-.+",
+        "preserveSeparatedStates": ["loneDashPayload", "payload"],
+        "preserveUnrelated": True,
+        "preservedSeparatedStateCount": 2,
+        "propertyForms": [
+            "shortJoined",
+            "shortSeparated",
+            "shortEquals",
+            "doubleDashShortEquals",
+            "doubleDashShortSeparated",
+            "doubleDashLongEquals",
+            "doubleDashLongSeparated",
+            "singleDashLongSeparated",
+        ],
+        "rejectTargetValueStates": ["absent", "empty", "nonempty"],
+        "separatedOptionCount": 8,
+        "separatedStateCount": 6,
+        "separatedStatePrecedence": [
+            "missingToken",
+            "emptyToken",
+            "loneDashPayload",
+            "terminatorToken",
+            "optionToken",
+            "payload",
+        ],
+        "separatedStates": [
+            "missingToken",
+            "emptyToken",
+            "loneDashPayload",
+            "terminatorToken",
+            "optionToken",
+            "payload",
+        ],
+        "shortEqualsBeforeJoined": True,
+        "shortOptions": ["-D", "-P"],
+        "singleDashLongOptions": ["-system-prop", "-project-prop"],
+        "split": "firstEquals",
+        "terminatorGradleTransition": "AfterOptions",
+        "terminatorPendingProperty": "absent",
+        "terminatorToken": "--",
+        "trim": False,
+        "unacceptedDirectForms": [
+            "singleDashEquals",
+            "doubleDashJoined",
+            "singleDashJoined",
+            "plainSeparated",
+        ],
+        "unacceptedDoubleDashShortJoined": ["--D<payload>", "--P<payload>"],
+        "unacceptedPropertyForms": [
+            "doubleDashShortJoined",
+            "doubleDashLongJoined",
+            "singleDashLongEquals",
+            "singleDashLongJoined",
+        ],
+        "unacceptedSingleDashLongEquals": [
+            "-max-workers=",
+            "-system-prop=",
+            "-project-prop=",
+        ],
+        "unsupportedConstructionCount": 12,
+    }
+
+
+def testkit_entrypoint(
+    identity: str,
+    owner: str,
+    argv: list[str],
+    gradle_home_role: str,
+) -> dict[str, object]:
+    row = entrypoint(identity, owner, "nested", argv, gradle_home_role)
+    row.update(
+        {
+            "maxWorkers": 2,
+            "maxWorkersArgument": "--max-workers=2",
+            "maxWorkersArgumentCount": 1,
+            "maxWorkersArgumentPosition": "final",
+            "rejectCallerWorkerControls": True,
+            "sanitizeWorkerEnvironment": True,
+            "workerPropertyConflictGrammar": worker_property_conflict_grammar(),
+        },
+    )
+    return row
+
+
 def github_release_redirect(
     *,
     initial_url: str,
@@ -239,9 +346,9 @@ def evidence_entrypoints() -> list[dict[str, object]]:
         entrypoint("cli/evidence-session", cli, "nested", ["verify_build_inputs.py", "evidence-session", "--policy", "config/quality/build-inputs.json", "--", "{allowlisted-command}"], "command-fresh"),
         entrypoint("local-colima/aggregate", "scripts/quality/build_inputs/local_colima_evidence.py", "nested", ["python3", "scripts/quality/build_inputs/local_colima_evidence.py", "--policy", "config/quality/build-inputs.json", "--source-commit", "{sourceCommit}"], "command-fresh"),
         entrypoint("local-colima/third-release", "scripts/quality/build_inputs/local_colima_evidence.py", "nested", ["./gradlew", ":app:assembleProdRelease", "--no-build-cache", "--no-configuration-cache", "--rerun-tasks", "--project-cache-dir", "{thirdProjectCache}", "--dependency-verification", "strict", "-Dorg.gradle.java.installations.auto-detect=false", "-Dorg.gradle.java.installations.auto-download=false", "-Dorg.gradle.java.installations.paths={compileHome},{runtimeHome}"], "command-fresh"),
-        entrypoint("testkit/shared-normal", fixture, "nested", ["GradleRunner.withArguments", "{fixture-arguments}", "--dependency-verification=strict"], "testkit-fresh"),
-        entrypoint("testkit/shared-configuration-cache", fixture, "nested", ["GradleRunner.withArguments", "{fixture-arguments}", "--configuration-cache", "--configuration-cache-problems=fail", "--dependency-verification=strict"], "testkit-fresh"),
-        entrypoint("testkit/adversarial", adversarial, "nested", ["GradleRunner.withArguments", "help", "--dependency-verification=strict"], "testkit-adversarial-fresh"),
+        testkit_entrypoint("testkit/shared-normal", fixture, ["GradleRunner.withArguments", "{fixture-arguments}", "--dependency-verification=strict", "--max-workers=2"], "testkit-fresh"),
+        testkit_entrypoint("testkit/shared-configuration-cache", fixture, ["GradleRunner.withArguments", "{fixture-arguments}", "--configuration-cache", "--configuration-cache-problems=fail", "--dependency-verification=strict", "--max-workers=2"], "testkit-fresh"),
+        testkit_entrypoint("testkit/adversarial", adversarial, ["GradleRunner.withArguments", "help", "--dependency-verification=strict", "--max-workers=2"], "testkit-adversarial-fresh"),
     ]
     return sorted(rows, key=lambda row: row["id"])
 

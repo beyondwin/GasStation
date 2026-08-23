@@ -35,6 +35,94 @@ TOP_LEVEL_KEYS = {
     "schemaVersion",
     "staticSourceHashes",
 }
+TESTKIT_WORKER_ENTRYPOINT_IDS = {
+    "testkit/adversarial",
+    "testkit/shared-configuration-cache",
+    "testkit/shared-normal",
+}
+TESTKIT_WORKER_GRAMMAR = {
+    "acceptedDirectConstructionCount": 3,
+    "acceptedPropertyConstructionCount": 16,
+    "acceptedUnsupportedDisjoint": True,
+    "acceptedWorkerControlConstructionCount": 19,
+    "caseSensitive": True,
+    "consumeOptionTokenAsPropertyPayload": False,
+    "consumeTerminatorAsPropertyPayload": False,
+    "directDoubleDashOption": "--max-workers",
+    "directForms": ["doubleDashEquals", "doubleDashSeparated", "singleDashSeparated"],
+    "directSingleDashOption": "-max-workers",
+    "doubleDashLongOptions": ["--system-prop", "--project-prop"],
+    "doubleDashShortOptions": ["--D", "--P"],
+    "equalsOptionCount": 6,
+    "failClosedPayload": ["emptyPayload", "emptyKey"],
+    "failClosedSeparated": ["missingToken", "emptyToken", "terminatorToken", "optionToken"],
+    "fixtureRejectTerminator": True,
+    "fixtureRejectedSeparatedStateCount": 4,
+    "joinedOptionCount": 2,
+    "key": "org.gradle.workers.max",
+    "loneDashConvertedValue": "",
+    "loneDashPayload": "-",
+    "optionTokenPattern": "(?s)-.+",
+    "preserveSeparatedStates": ["loneDashPayload", "payload"],
+    "preserveUnrelated": True,
+    "preservedSeparatedStateCount": 2,
+    "propertyForms": [
+        "shortJoined",
+        "shortSeparated",
+        "shortEquals",
+        "doubleDashShortEquals",
+        "doubleDashShortSeparated",
+        "doubleDashLongEquals",
+        "doubleDashLongSeparated",
+        "singleDashLongSeparated",
+    ],
+    "rejectTargetValueStates": ["absent", "empty", "nonempty"],
+    "separatedOptionCount": 8,
+    "separatedStateCount": 6,
+    "separatedStatePrecedence": [
+        "missingToken",
+        "emptyToken",
+        "loneDashPayload",
+        "terminatorToken",
+        "optionToken",
+        "payload",
+    ],
+    "separatedStates": [
+        "missingToken",
+        "emptyToken",
+        "loneDashPayload",
+        "terminatorToken",
+        "optionToken",
+        "payload",
+    ],
+    "shortEqualsBeforeJoined": True,
+    "shortOptions": ["-D", "-P"],
+    "singleDashLongOptions": ["-system-prop", "-project-prop"],
+    "split": "firstEquals",
+    "terminatorGradleTransition": "AfterOptions",
+    "terminatorPendingProperty": "absent",
+    "terminatorToken": "--",
+    "trim": False,
+    "unacceptedDirectForms": [
+        "singleDashEquals",
+        "doubleDashJoined",
+        "singleDashJoined",
+        "plainSeparated",
+    ],
+    "unacceptedDoubleDashShortJoined": ["--D<payload>", "--P<payload>"],
+    "unacceptedPropertyForms": [
+        "doubleDashShortJoined",
+        "doubleDashLongJoined",
+        "singleDashLongEquals",
+        "singleDashLongJoined",
+    ],
+    "unacceptedSingleDashLongEquals": [
+        "-max-workers=",
+        "-system-prop=",
+        "-project-prop=",
+    ],
+    "unsupportedConstructionCount": 12,
+}
 
 
 class BuildInputError(ValueError):
@@ -899,9 +987,20 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
     if not entrypoints:
         raise BuildInputError("evidenceGradleEntrypoints must not be empty")
     for index, row in enumerate(entrypoints):
+        identity = row.get("id") if isinstance(row, dict) else None
+        base_keys = {"argv", "gradleHomeRole", "id", "owner", "relationship", "sourceSha256"}
+        worker_keys = {
+            "maxWorkers",
+            "maxWorkersArgument",
+            "maxWorkersArgumentCount",
+            "maxWorkersArgumentPosition",
+            "rejectCallerWorkerControls",
+            "sanitizeWorkerEnvironment",
+            "workerPropertyConflictGrammar",
+        }
         row = _require_keys(
             row,
-            {"argv", "gradleHomeRole", "id", "owner", "relationship", "sourceSha256"},
+            base_keys | (worker_keys if identity in TESTKIT_WORKER_ENTRYPOINT_IDS else set()),
             f"evidenceGradleEntrypoints[{index}]",
         )
         owner = _require_relative_path(row["owner"], f"evidenceGradleEntrypoints[{index}].owner")
@@ -918,6 +1017,25 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             raise BuildInputError(f"evidenceGradleEntrypoints[{index}] Gradle-home role is invalid")
         if not isinstance(row["argv"], list) or not row["argv"] or any(not isinstance(item, str) or not item for item in row["argv"]):
             raise BuildInputError(f"evidenceGradleEntrypoints[{index}] argv is invalid")
+        if identity in TESTKIT_WORKER_ENTRYPOINT_IDS:
+            if (
+                row["maxWorkers"] != 2
+                or row["maxWorkersArgument"] != "--max-workers=2"
+                or row["maxWorkersArgumentCount"] != 1
+                or row["maxWorkersArgumentPosition"] != "final"
+                or row["rejectCallerWorkerControls"] is not True
+                or row["sanitizeWorkerEnvironment"] is not True
+                or row["workerPropertyConflictGrammar"] != TESTKIT_WORKER_GRAMMAR
+                or row["argv"][-1] != "--max-workers=2"
+                or row["argv"].count("--max-workers=2") != 1
+            ):
+                raise BuildInputError(
+                    f"evidenceGradleEntrypoints[{index}] nested TestKit worker contract differs",
+                )
+        elif "--max-workers=2" in row["argv"]:
+            raise BuildInputError(
+                f"evidenceGradleEntrypoints[{index}] outer/non-TestKit worker cap leakage",
+            )
 
     hashes = _require_sorted_unique(
         policy["staticSourceHashes"],
