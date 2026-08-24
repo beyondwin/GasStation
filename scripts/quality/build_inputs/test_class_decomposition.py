@@ -75,6 +75,79 @@ REVIEWED_R21_SOURCE_FILES = {
         "25269800e027d8d9e0935ba25753540b50bb9f9961972673368d0026a06f8637",
     ),
 }
+REVIEWED_R21_IMPORT_SHA256 = {
+    "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt": (
+        "ff49d828a8bc0d7e88df172e11da28dc4377873bd6ae16f646325ad0da26e8ad"
+    ),
+    "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt": (
+        "b783b271e4f11e5e7021dbea74fb6636e71ae68c7887f1e46c7286b0d7fd972d"
+    ),
+    "build-logic/convention/src/test/kotlin/KotlinCompilerConventionPluginTest.kt": (
+        "fda3b70926ed8d222f4b2ed16f99242f2ad60045fb1aa7c9ef6248c67692ddda"
+    ),
+    "build-logic/convention/src/test/kotlin/RoborazziConventionPluginTest.kt": (
+        "7f6ff17f2ea4c8671591cca1d5fe7fcfbe4a61b23afea06057159042f436ed06"
+    ),
+}
+REVIEWED_R21_SUPPORT_ANNOTATION_SHA256 = {
+    "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt": (
+        "0596b5ad38e0287dd72c7a92cf5debeb1a4422eefaf01537d842e82539ff5cb9"
+    ),
+    "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt": (
+        "0596b5ad38e0287dd72c7a92cf5debeb1a4422eefaf01537d842e82539ff5cb9"
+    ),
+    "build-logic/convention/src/test/kotlin/KotlinCompilerConventionPluginTest.kt": (
+        "0596b5ad38e0287dd72c7a92cf5debeb1a4422eefaf01537d842e82539ff5cb9"
+    ),
+    "build-logic/convention/src/test/kotlin/RoborazziConventionPluginTest.kt": (
+        "0596b5ad38e0287dd72c7a92cf5debeb1a4422eefaf01537d842e82539ff5cb9"
+    ),
+}
+REVIEWED_R21_ACCESS_SHA256 = {
+    "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt": (
+        24,
+        "97a4ff04245cb7a91b23f07df321c3b5ca9d653b04f9545a7a361ae433b9d2fd",
+    ),
+    "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt": (
+        15,
+        "a3aa0554e31da1387862809aca3f63d1e83e1491d0ba837d19a101d7b36230b3",
+    ),
+    "build-logic/convention/src/test/kotlin/KotlinCompilerConventionPluginTest.kt": (
+        5,
+        "7e30634c16dce9a2d3e2f3c247aa37ce324dd2997b9027682fa51ffd8ea2cf15",
+    ),
+    "build-logic/convention/src/test/kotlin/RoborazziConventionPluginTest.kt": (
+        12,
+        "58717d3875d7d1ca2ea960bf136aed1c4102246caeb48677cf15bdaa794714f5",
+    ),
+}
+REVIEWED_R21_RULE_SHA256 = "83634e032e4a2bd7b1eea117445f36c77d14fa737a2304cc9b04589fddd37a89"
+REVIEWED_R21_BRIDGE_SHA256 = "cf952140198dde7b6b4335996fffd7b08ff73ecdaa138cf00b87b29837ac2f80"
+REVIEWED_R21_USE_SHA256 = "d68bfbb8238fd8cf1b6b6c3b24a8a04e1adfb08a45a4577b991da7bedbe786cc"
+REVIEWED_R21_BRIDGE_VALUES = {
+    "MAIN_SOURCE": (99, "73d84966b3e584fa478caf8fc21635d5228f24cb60307cad4d97bcfe8a21d3a1"),
+    "TEST_ONLY_NEW_API": (182, "e511b2a113c7a6ee9b090734d34370cab680b31149b3bf2ba7520b5adbe8848a"),
+    "MAIN_WARNING": (161, "a77ff550efc6a8bebae605a88055637b22b4700675b1890a660e7eba317516a4"),
+    "SECOND_WARNING": (171, "b8e7d0b156816f0cfce0ef5c4b0795a535731e635aa60e4f3d59b5038fb9599f"),
+    "NEW_ERROR_SOURCE": (176, "d8fae8c9ec316a4cbe871a236b409bd5d6b7bb7b644e92b3388d2f66f815324f"),
+    "REVIEWED_WARNING_BASELINE": (
+        335,
+        "9ffe90f35b31fe4f245617d6d32799174ecf5fbd83bc611b96639868769c0557",
+    ),
+}
+REVIEWED_R21_USES = [
+    (154, "subclass", "com.gasstation.buildlogic.AndroidLintWarningPromotionTest#warningPromotionFailsForApplicationAndLibrary", "MAIN_WARNING"),
+    (181, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedBaselineSuppressesOnlyItsExactWarningLocation", "MAIN_WARNING"),
+    (182, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedBaselineSuppressesOnlyItsExactWarningLocation", "REVIEWED_WARNING_BASELINE"),
+    (189, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedBaselineSuppressesOnlyItsExactWarningLocation", "SECOND_WARNING"),
+    (206, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedWarningBaselineDoesNotHideANewError", "MAIN_WARNING"),
+    (207, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedWarningBaselineDoesNotHideANewError", "NEW_ERROR_SOURCE"),
+    (208, "subclass", "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest#reviewedWarningBaselineDoesNotHideANewError", "REVIEWED_WARNING_BASELINE"),
+    (238, "support-local", "com.gasstation.buildlogic.AndroidLintConventionTestSupport#newLintProject", "MAIN_SOURCE"),
+    (239, "support-local", "com.gasstation.buildlogic.AndroidLintConventionTestSupport#newLintProject", "TEST_ONLY_NEW_API"),
+    (244, "support-local", "com.gasstation.buildlogic.AndroidLintConventionTestSupport#newLintMultiProject", "MAIN_SOURCE"),
+    (245, "support-local", "com.gasstation.buildlogic.AndroidLintConventionTestSupport#newLintMultiProject", "TEST_ONLY_NEW_API"),
+]
 REVIEWED_R21_DURATION_SOURCES = [
     {
         "commit": "3699f5773f4f6564f216d7228eb0b18cce6f970d",
@@ -223,7 +296,7 @@ def _normalized_method(source: str, start: int, end: int) -> bytes:
 
 def _normalized_declaration(source: str, start: int, end: int) -> bytes:
     normalized = _normalized_method(source, start, end).decode()
-    normalized = re.sub(r"(?m)^(?:private|protected)\s+", "", normalized)
+    normalized = re.sub(r"(?m)^(?:internal|private|protected)\s+", "", normalized)
     return normalized.encode()
 
 
@@ -324,6 +397,289 @@ def support_behavior_inventory(path: Path, class_name: str) -> dict[str, str]:
 
 def support_behavior_sha256(path: Path, class_name: str) -> str:
     return _sha256(_canonical_json(support_behavior_inventory(path, class_name)))
+
+
+def kotlin_import_inventory_source(source: str) -> list[dict[str, str]]:
+    if "\r" in source:
+        raise DecompositionError("Kotlin source is not LF-only")
+    masked_lines = _masked_kotlin(source).splitlines()
+    source_lines = source.splitlines()
+    import_lines = [
+        source_line
+        for source_line, masked_line in zip(source_lines, masked_lines, strict=True)
+        if re.match(r"^\s*import\b", masked_line)
+    ]
+    pattern = re.compile(
+        r"^\s*import\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_*][A-Za-z0-9_]*)*)"
+        r"(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*$",
+    )
+    inventory: list[dict[str, str]] = []
+    for line in import_lines:
+        match = pattern.fullmatch(line)
+        if match is None:
+            raise DecompositionError("Kotlin import declaration is not canonicalizable")
+        inventory.append({"alias": match.group(2) or "", "target": match.group(1)})
+    inventory.sort(key=lambda row: (row["target"], row["alias"]))
+    identities = [(row["target"], row["alias"]) for row in inventory]
+    if len(identities) != len(set(identities)):
+        raise DecompositionError("duplicate Kotlin import target/alias")
+    return inventory
+
+
+def kotlin_import_sha256(path: Path) -> str:
+    return _sha256(_canonical_json(kotlin_import_inventory_source(path.read_text(encoding="utf-8"))))
+
+
+def support_annotation_inventory_source(source: str, class_name: str) -> list[dict[str, str]]:
+    masked = _masked_kotlin(source)
+    depths = _depths(masked)
+    _, class_open, class_close = _class_span(masked, class_name)
+    declarations: list[tuple[int, int, str]] = []
+
+    function_pattern = re.compile(
+        r"\bfun\s+((?:[A-Za-z_][A-Za-z0-9_<>?,. ]*\.)?[A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)",
+    )
+    for match in function_pattern.finditer(masked, class_open + 1, class_close):
+        if depths[match.start()] == 1:
+            key = "fun:" + re.sub(r"\s+", " ", f"{match.group(1)}({match.group(2)})").strip()
+            declarations.append((match.start(), 1, key))
+
+    property_pattern = re.compile(r"\bval\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+    spans = [(class_open + 1, class_close, 1, "property")]
+    companion = re.search(r"\bcompanion\s+object\s*\{", masked[class_open + 1 : class_close])
+    if companion is not None:
+        companion_start = class_open + 1 + companion.start()
+        if depths[companion_start] == 1:
+            companion_open = masked.find("{", companion_start, class_close)
+            spans.append((companion_open + 1, _matching_brace(masked, companion_open), 2, "companion"))
+    for start, limit, member_depth, prefix in spans:
+        for match in property_pattern.finditer(masked, start, limit):
+            if depths[match.start()] == member_depth:
+                declarations.append((match.start(), member_depth, f"{prefix}:{match.group(1)}"))
+    declarations.sort()
+
+    annotation_pattern = re.compile(
+        r"@[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)?(?:\s*\([^()\n]*\))?",
+    )
+    inventory: list[dict[str, str]] = []
+    for match in annotation_pattern.finditer(masked, class_open + 1, class_close):
+        member_depth = depths[match.start()]
+        if member_depth not in {1, 2}:
+            continue
+        following = [row for row in declarations if row[0] > match.end() and row[1] == member_depth]
+        if not following:
+            raise DecompositionError("support annotation has no following declaration")
+        declaration_start, _, declaration = following[0]
+        gap = masked[match.end() : declaration_start]
+        gap = annotation_pattern.sub("", gap)
+        gap = re.sub(
+            r"\b(?:abstract|const|final|internal|lateinit|open|override|private|protected|public)\b",
+            "",
+            gap,
+        )
+        if gap.strip():
+            raise DecompositionError("support annotation is detached from its declaration")
+        inventory.append(
+            {
+                "annotation": re.sub(r"\s+", "", source[match.start() : match.end()]),
+                "declaration": declaration,
+            },
+        )
+    return sorted(inventory, key=lambda row: (row["declaration"], row["annotation"]))
+
+
+def support_annotation_sha256(path: Path, class_name: str) -> str:
+    return _sha256(
+        _canonical_json(
+            support_annotation_inventory_source(path.read_text(encoding="utf-8"), class_name),
+        ),
+    )
+
+
+def _tokens_before(masked: str, position: int) -> list[str]:
+    start = masked.rfind("\n", 0, position) + 1
+    prefix = re.sub(
+        r"@[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)?(?:\s*\([^()\n]*\))?",
+        " ",
+        masked[start:position],
+    )
+    return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", prefix)
+
+
+def _access_attributes(tokens: list[str]) -> tuple[str, list[str]]:
+    visibility = next(
+        (token for token in tokens if token in {"public", "private", "protected", "internal"}),
+        "implicit-public",
+    )
+    modifiers = sorted(
+        token
+        for token in tokens
+        if token in {"abstract", "const", "final", "lateinit", "open", "override"}
+    )
+    return visibility, modifiers
+
+
+def support_access_inventory_source(source: str, class_name: str) -> list[dict[str, object]]:
+    masked = _masked_kotlin(source)
+    depths = _depths(masked)
+    class_start, class_open, class_close = _class_span(masked, class_name)
+    rows: list[dict[str, object]] = []
+
+    class_match = re.search(r"\bclass\s+" + re.escape(class_name) + r"\b", masked[class_start:class_open])
+    if class_match is None:
+        raise DecompositionError(f"support class token is missing: {class_name}")
+    class_token = class_start + class_match.start()
+    visibility, modifiers = _access_attributes(_tokens_before(masked, class_token))
+    rows.append(
+        {"declaration": f"class:{class_name}", "modifiers": modifiers, "visibility": visibility},
+    )
+
+    spans = [(class_open + 1, class_close, 1, "property")]
+    companion = re.search(r"\bcompanion\s+object\s*\{", masked[class_open + 1 : class_close])
+    if companion is not None:
+        companion_start = class_open + 1 + companion.start()
+        companion_open = masked.find("{", companion_start, class_close)
+        companion_close = _matching_brace(masked, companion_open)
+        visibility, modifiers = _access_attributes(_tokens_before(masked, companion_start))
+        rows.append(
+            {"declaration": "companion:Companion", "modifiers": modifiers, "visibility": visibility},
+        )
+        spans.append((companion_open + 1, companion_close, 2, "companion"))
+
+    function_pattern = re.compile(
+        r"\bfun\s+((?:[A-Za-z_][A-Za-z0-9_<>?,. ]*\.)?[A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)",
+    )
+    for match in function_pattern.finditer(masked, class_open + 1, class_close):
+        if depths[match.start()] != 1:
+            continue
+        declaration = "fun:" + re.sub(
+            r"\s+",
+            " ",
+            f"{match.group(1)}({match.group(2)})",
+        ).strip()
+        visibility, modifiers = _access_attributes(_tokens_before(masked, match.start()))
+        rows.append(
+            {"declaration": declaration, "modifiers": modifiers, "visibility": visibility},
+        )
+
+    property_pattern = re.compile(r"\bval\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+    for start, limit, member_depth, prefix in spans:
+        for match in property_pattern.finditer(masked, start, limit):
+            if depths[match.start()] != member_depth:
+                continue
+            visibility, modifiers = _access_attributes(_tokens_before(masked, match.start()))
+            rows.append(
+                {
+                    "declaration": f"{prefix}:{match.group(1)}",
+                    "modifiers": modifiers,
+                    "visibility": visibility,
+                },
+            )
+    return sorted(rows, key=lambda row: row["declaration"])
+
+
+def support_access_sha256(path: Path, class_name: str) -> tuple[int, str]:
+    inventory = support_access_inventory_source(path.read_text(encoding="utf-8"), class_name)
+    return len(inventory), _sha256(_canonical_json(inventory))
+
+
+def support_rule_inventory_source(source: str, class_name: str) -> list[dict[str, str]]:
+    masked = _masked_kotlin(source)
+    depths = _depths(masked)
+    _, class_open, class_close = _class_span(masked, class_name)
+    rule_pattern = re.compile(
+        r"@get:Rule\s+val\s+temporaryFolder\s*=\s*TemporaryFolder\(\)",
+    )
+    matches = [
+        match
+        for match in rule_pattern.finditer(masked, class_open + 1, class_close)
+        if depths[match.start()] == 1
+    ]
+    imports = kotlin_import_inventory_source(source)
+    if len(matches) != 1 or {
+        "alias": "",
+        "target": "org.junit.rules.TemporaryFolder",
+    } not in imports:
+        raise DecompositionError("Round-21 TemporaryFolder rule differs")
+    return [
+        {
+            "annotation": "@get:Rule",
+            "initializer": "TemporaryFolder()",
+            "kind": "val",
+            "name": "temporaryFolder",
+            "type": "org.junit.rules.TemporaryFolder",
+        },
+    ]
+
+
+def support_rule_sha256(path: Path, class_name: str) -> str:
+    return _sha256(
+        _canonical_json(
+            support_rule_inventory_source(path.read_text(encoding="utf-8"), class_name),
+        ),
+    )
+
+
+def _trim_indent_value(raw: str) -> str:
+    lines = raw.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
+    return "\n".join(line[indent:] if line.strip() else "" for line in lines)
+
+
+def round21_bridge_inventory_source(source: str) -> list[dict[str, object]]:
+    if "@JvmStatic" in _masked_kotlin(source):
+        raise DecompositionError("Round-21 bridge must remain unannotated")
+    inventory: list[dict[str, object]] = []
+    declaration_positions: list[int] = []
+    for order, (name, (expected_bytes, expected_sha)) in enumerate(REVIEWED_R21_BRIDGE_VALUES.items(), 1):
+        pattern = re.compile(
+            rf"internal val {re.escape(name)}\s*=\s*\"\"\"(.*?)\"\"\"\.trimIndent\(\)",
+            re.DOTALL,
+        )
+        matches = list(pattern.finditer(source))
+        if len(matches) != 1:
+            raise DecompositionError(f"Round-21 bridge declaration differs: {name}")
+        declaration_positions.append(matches[0].start())
+        value = _trim_indent_value(matches[0].group(1)).encode()
+        if (len(value), _sha256(value)) != (expected_bytes, expected_sha):
+            raise DecompositionError(f"Round-21 bridge value differs: {name}")
+        inventory.append(
+            {
+                "annotations": [],
+                "declaredType": "inferred-kotlin.String",
+                "kind": "val",
+                "name": name,
+                "order": order,
+                "owner": "com.gasstation.buildlogic.AndroidLintConventionTestSupport.Companion",
+                "valueBytes": len(value),
+                "valueSha256": _sha256(value),
+                "visibility": "internal",
+            },
+        )
+    if declaration_positions != sorted(declaration_positions):
+        raise DecompositionError("Round-21 bridge declaration order differs")
+    return inventory
+
+
+def round21_use_inventory_source(source: str) -> list[dict[str, object]]:
+    lines = source.splitlines()
+    inventory = [
+        {"consumer": consumer, "line": line, "member": member, "scope": scope}
+        for line, scope, consumer, member in REVIEWED_R21_USES
+    ]
+    for line, _, _, member in REVIEWED_R21_USES:
+        if line > len(lines) or member not in lines[line - 1]:
+            raise DecompositionError(f"Round-21 bridge use differs at line {line}: {member}")
+    masked = _masked_kotlin(source)
+    for name in REVIEWED_R21_BRIDGE_VALUES:
+        expected = 1 + sum(member == name for _, _, _, member in REVIEWED_R21_USES)
+        if len(re.findall(rf"\b{re.escape(name)}\b", masked)) != expected:
+            raise DecompositionError(f"Round-21 bridge use cardinality differs: {name}")
+    return inventory
 
 
 def kotlin_test_methods(path: Path) -> list[TestMethod]:
@@ -630,6 +986,11 @@ def _verify_round21(
         "path",
         "supportOwner",
     }
+    access_count: dict[str, int] = {}
+    access_sha256: dict[str, str] = {}
+    annotation_sha256: dict[str, str] = {}
+    import_sha256: dict[str, str] = {}
+    rule_sha256: dict[str, str] = {}
     for index, row in enumerate(source_files):
         if not isinstance(row, dict) or set(row) != source_row_keys:
             raise DecompositionError(f"Round-21 source row {index} fields differ")
@@ -637,10 +998,38 @@ def _verify_round21(
         if row["currentSourceSha256"] != current_sha or row["supportOwner"] != support_owner or row["currentSupportSha256"] != support_sha:
             raise DecompositionError("Round-21 current source/support anchor differs")
         final_sha = _require_sha(row["finalSourceSha256"], "Round-21 finalSourceSha256")
-        if final_sha == current_sha or _sha256((root / row["path"]).read_bytes()) != final_sha:
+        source_path = root / row["path"]
+        if final_sha == current_sha or _sha256(source_path.read_bytes()) != final_sha:
             raise DecompositionError("Round-21 final source hash differs")
-        if support_behavior_sha256(root / row["path"], support_owner) != support_sha:
+        if support_behavior_sha256(source_path, support_owner) != support_sha:
             raise DecompositionError("Round-21 helper/rule/fixture behavior differs")
+        import_hash = kotlin_import_sha256(source_path)
+        if import_hash != REVIEWED_R21_IMPORT_SHA256[row["path"]]:
+            raise DecompositionError("Round-21 import target/alias envelope differs")
+        annotation_hash = support_annotation_sha256(source_path, support_owner)
+        if annotation_hash != REVIEWED_R21_SUPPORT_ANNOTATION_SHA256[row["path"]]:
+            raise DecompositionError("Round-21 support annotation/rule envelope differs")
+        count, access_hash = support_access_sha256(source_path, support_owner)
+        if (count, access_hash) != REVIEWED_R21_ACCESS_SHA256[row["path"]]:
+            raise DecompositionError("Round-21 support access envelope differs")
+        rule_hash = support_rule_sha256(source_path, support_owner)
+        if rule_hash != REVIEWED_R21_RULE_SHA256:
+            raise DecompositionError("Round-21 TemporaryFolder rule envelope differs")
+        access_count[row["path"]] = count
+        access_sha256[row["path"]] = access_hash
+        annotation_sha256[row["path"]] = annotation_hash
+        import_sha256[row["path"]] = import_hash
+        rule_sha256[row["path"]] = rule_hash
+
+    android_source = (
+        root / "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt"
+    ).read_text(encoding="utf-8")
+    bridge_sha256 = _sha256(_canonical_json(round21_bridge_inventory_source(android_source)))
+    if bridge_sha256 != REVIEWED_R21_BRIDGE_SHA256:
+        raise DecompositionError("Round-21 bridge ledger differs")
+    use_sha256 = _sha256(_canonical_json(round21_use_inventory_source(android_source)))
+    if use_sha256 != REVIEWED_R21_USE_SHA256:
+        raise DecompositionError("Round-21 bridge use ledger differs")
 
     if value["durationSources"] != REVIEWED_R21_DURATION_SOURCES:
         raise DecompositionError("Round-21 duration source registry differs")
@@ -734,11 +1123,18 @@ def _verify_round21(
         _require_sha(row["sha256"], "localCorroborations.sha256")
 
     return current_by_key, {
+        "round21AccessCount": access_count,
+        "round21AccessSha256": access_sha256,
+        "round21AnnotationSha256": annotation_sha256,
+        "round21BridgeSha256": bridge_sha256,
         "round21FinalClassCount": len({method.owner for method in final_methods}),
+        "round21ImportSha256": import_sha256,
         "round21MaximumSeconds": selected["maximumSeconds"],
         "round21MovedMethodCount": len(mappings),
+        "round21RuleSha256": rule_sha256,
         "round21SelectedOption": value["selectedOption"],
         "round21UnchangedMethodCount": len(unchanged),
+        "round21UseSha256": use_sha256,
     }
 
 

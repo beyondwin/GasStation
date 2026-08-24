@@ -319,8 +319,7 @@ internal abstract class AndroidLintConventionTestSupport {
         )
 
     companion object {
-        @JvmStatic
-        protected val MAIN_SOURCE =
+        internal val MAIN_SOURCE =
             """
             package fixture;
 
@@ -329,8 +328,7 @@ internal abstract class AndroidLintConventionTestSupport {
             }
             """.trimIndent()
 
-        @JvmStatic
-        protected val TEST_ONLY_NEW_API =
+        internal val TEST_ONLY_NEW_API =
             """
             package fixture;
 
@@ -343,8 +341,7 @@ internal abstract class AndroidLintConventionTestSupport {
             }
             """.trimIndent()
 
-        @JvmStatic
-        protected val MAIN_WARNING =
+        internal val MAIN_WARNING =
             """
             package fixture;
 
@@ -358,8 +355,7 @@ internal abstract class AndroidLintConventionTestSupport {
             """.trimIndent()
 
         protected const val UNREVIEWED_WARNING_PATH = "src/main/java/fixture/SecondWarning.java"
-        @JvmStatic
-        protected val SECOND_WARNING =
+        internal val SECOND_WARNING =
             """
             package fixture;
 
@@ -373,8 +369,7 @@ internal abstract class AndroidLintConventionTestSupport {
             """.trimIndent()
 
         protected const val NEW_ERROR_PATH = "src/main/java/fixture/NewError.java"
-        @JvmStatic
-        protected val NEW_ERROR_SOURCE =
+        internal val NEW_ERROR_SOURCE =
             """
             package fixture;
 
@@ -387,8 +382,7 @@ internal abstract class AndroidLintConventionTestSupport {
             }
             """.trimIndent()
 
-        @JvmStatic
-        protected val REVIEWED_WARNING_BASELINE =
+        internal val REVIEWED_WARNING_BASELINE =
             """
             <?xml version="1.0" encoding="UTF-8"?>
             <issues format="6" by="lint fixture">
