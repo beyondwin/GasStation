@@ -103,8 +103,9 @@ def _outer_timeout_arguments(policy: Mapping[str, Any], failure_output: Path | N
     command = failure_output.name
     policy_sha = hashlib.sha256(canonical_json_bytes(policy)).hexdigest()
     expected_keys = {
-        "attemptId", "container", "context", "governedCommand",
-        "outerConventionTestTimeoutMinutes", "ownershipMarkerSha256",
+        "attemptId", "container", "context", "dispatchSha256", "governedCommand",
+        "lanesSha256", "methodLedgerSha256", "outerConventionTestTimeoutMinutes",
+        "ownerLedgerSha256", "ownershipMarkerSha256",
         "policySha256", "profile", "schemaVersion", "sourceCommit", "taskId", "taskPath",
     }
     if (
@@ -112,7 +113,11 @@ def _outer_timeout_arguments(policy: Mapping[str, Any], failure_output: Path | N
         or set(marker) != expected_keys
         or canonical_json_bytes(marker) != marker_path.read_bytes()
         or marker.get("governedCommand") != command
-        or marker.get("outerConventionTestTimeoutMinutes") != 30
+        or marker.get("outerConventionTestTimeoutMinutes") != 35
+        or marker.get("methodLedgerSha256") != "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
+        or marker.get("ownerLedgerSha256") != "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
+        or marker.get("lanesSha256") != "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
+        or marker.get("dispatchSha256") != "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
         or marker.get("policySha256") != policy_sha
         or marker.get("taskId") != "quality-task-9-local-linux-evidence"
         or marker.get("taskPath") != ":build-logic:convention:test"
@@ -124,7 +129,7 @@ def _outer_timeout_arguments(policy: Mapping[str, Any], failure_output: Path | N
         or re.fullmatch(r"[0-9a-f]{64}", str(marker.get("ownershipMarkerSha256"))) is None
     ):
         raise BuildInputError("outer convention timeout marker identity differs")
-    return [f"-P{_OUTER_TIMEOUT_PROPERTY}=30"]
+    return [f"-P{_OUTER_TIMEOUT_PROPERTY}=35"]
 
 
 def _reject_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

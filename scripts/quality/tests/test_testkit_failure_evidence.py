@@ -25,7 +25,11 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     ownership_marker,
     sealed_outer_timeout_marker,
 )
-from scripts.quality.verify_build_inputs import _capture_metadata, _testkit_failure_output_path
+from scripts.quality.verify_build_inputs import (
+    _capture_metadata,
+    _outer_timeout_arguments,
+    _testkit_failure_output_path,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
@@ -531,6 +535,46 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             self.assertEqual(hashlib.sha256(final_path.read_bytes()).hexdigest(), descriptor["sha256"])
             self.assertEqual(final_path.stat().st_size, descriptor["size"])
             self.assertFalse(descriptor["truncated"])
+
+    def test_generated_sealed_outer_timeout_marker_injects_exact_35_minute_argument(self) -> None:
+        policy_path = REPOSITORY_ROOT / "config/quality/build-inputs.json"
+        policy = json.loads(policy_path.read_bytes())
+        marker = ownership_marker(
+            source_commit="1" * 40,
+            policy_sha256=hashlib.sha256(canonical_json_bytes(policy)).hexdigest(),
+            attempt_id="attempt-000001",
+            main_base_commit="7b8c149c9f792aaf43cc00a94ba671929008979e",
+            runtime_data_id="3" * 64,
+        )
+        sealed = sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1")
+
+        with tempfile.TemporaryDirectory() as directory:
+            marker_path = Path(directory) / "task9-local-linux-ownership-marker.json"
+            marker_path.write_bytes(canonical_json_bytes(sealed))
+            marker_path.chmod(0o600)
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER": str(marker_path)},
+                    clear=False,
+                ),
+                mock.patch(
+                    "scripts.quality.verify_build_inputs._OUTER_TIMEOUT_MARKER_PATH",
+                    str(marker_path),
+                ),
+            ):
+                try:
+                    arguments = _outer_timeout_arguments(
+                        policy,
+                        Path("/evidence-work/testkit-failures/metadata-capture-1"),
+                    )
+                except BuildInputError as error:
+                    self.fail(f"generated sealed marker must pass the verifier handoff: {error}")
+
+        self.assertEqual(
+            ["-Pgasstation.task9LocalLinuxConventionTestTimeoutMinutes=35"],
+            arguments,
+        )
 
     def test_failed_metadata_command_exports_inner_evidence_before_propagating_nonzero(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
