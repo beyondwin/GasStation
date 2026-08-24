@@ -79,8 +79,83 @@ class TestClassDecompositionTest(unittest.TestCase):
         self.assertEqual(90, receipt["totalMethodCount"])
         self.assertEqual(5, receipt["maxParallelForks"])
         self.assertEqual(15, receipt["defaultTimeoutMinutes"])
-        self.assertEqual(30, receipt["sealedOuterTimeoutMinutes"])
+        self.assertEqual(35, receipt["sealedOuterTimeoutMinutes"])
         self.assertEqual("one-test-task-v1", receipt["testTaskTopology"])
+
+    def test_round22_ordered_dispatch_binds_current_inventory_and_five_lanes(self) -> None:
+        receipt = verify_decomposition(ROOT, CONTRACT)
+        build = (ROOT / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+
+        self.assertEqual(52, receipt.get("round22OwnerCount"))
+        self.assertEqual(90, receipt.get("round22MethodCount"))
+        self.assertEqual(
+            "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
+            receipt.get("round22MethodLedgerSha256"),
+        )
+        self.assertEqual(
+            "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
+            receipt.get("round22OwnerLedgerSha256"),
+        )
+        self.assertEqual(
+            "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
+            receipt.get("round22LanesSha256"),
+        )
+        self.assertEqual(
+            "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+            receipt.get("round22DispatchSha256"),
+        )
+        self.assertEqual("ordered-scanner-roots-round-robin-v1", receipt.get("round22DispatchMode"))
+        self.assertIn("val task9OrderedLaneOwners =", build)
+        self.assertIn("Task-9 ordered dispatch observed lane sequence differs", build)
+        self.assertIn("Task-9 ordered dispatch lanes: ", build)
+        self.assertIn("fun task9WorkerNumber(descriptor: TestDescriptor): Int?", build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch worker identity diagnostic unavailable")', build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch class identity diagnostic unavailable")', build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch encountered an unknown owner")', build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch owner moved between workers")', build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch owner/worker inventory differs")', build)
+        self.assertIn('logger.warn("Task-9 ordered dispatch observed lane sequence differs")', build)
+
+    def test_round22_dispatch_rejects_mapping_hash_count_and_build_script_drift(self) -> None:
+        contract = load_decomposition_contract(CONTRACT)
+        mutations = (
+            (
+                '"com.gasstation.buildlogic.RoborazziPropertySelectionTest",',
+                '"com.gasstation.buildlogic.quality.coverage.CoverageProviderTopologyTest",',
+            ),
+            (
+                'val task9OrderedDispatchSha256 = "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"',
+                'val task9OrderedDispatchSha256 = "' + "0" * 64 + '"',
+            ),
+            (
+                'val task9OrderedLanesSha256 = "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"',
+                'val task9OrderedLanesSha256 = "' + "0" * 64 + '"',
+            ),
+            (
+                "testClassesDirs = files(task9OrderedTestClassRoots)",
+                "testClassesDirs = sourceSets.test.get().output.classesDirs",
+            ),
+            (
+                "binaryResultsDirectory.set(task9OrderedBinaryResults)",
+                "// binary results retain previous failures",
+            ),
+            (
+                "Task-9 ordered dispatch observed lane sequence differs",
+                "Task-9 ordered dispatch owner/worker inventory differs",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            copied = self.copied_contract_root(directory)
+            build = copied / "build-logic/convention/build.gradle.kts"
+            original = build.read_text(encoding="utf-8")
+            for index, mutation in enumerate(mutations):
+                with self.subTest(index=index):
+                    changed = original.replace(*mutation, 1)
+                    self.assertNotEqual(original, changed)
+                    build.write_text(changed, encoding="utf-8")
+                    with self.assertRaises(DecompositionError):
+                        verify_decomposition_data(copied, contract)
+            build.write_text(original, encoding="utf-8")
 
     def test_round21_final_inventory_has_52_classes_and_90_methods(self) -> None:
         methods = _all_test_methods(ROOT)

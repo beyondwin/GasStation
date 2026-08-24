@@ -527,10 +527,15 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "markerMode": "0600",
         "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
         "maxParallelForks": 5,
-        "outerTimeoutMinutes": 30,
+        "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
+        "ownerCount": 52,
+        "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
+        "outerTimeoutMinutes": 35,
         "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
-        "propertyValue": "30",
+        "propertyValue": "35",
         "repositoryAndNestedTimeoutMinutes": 15,
+        "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+        "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
         "taskPath": ":build-logic:convention:test",
     }:
         raise BuildInputError("localEvidenceHost sealed outer convention timeout drift")

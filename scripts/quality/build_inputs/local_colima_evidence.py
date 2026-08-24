@@ -90,6 +90,10 @@ COMMAND_LOG_LIMIT = 65536
 OUTER_TIMEOUT_PROPERTY = "gasstation.task9LocalLinuxConventionTestTimeoutMinutes"
 OUTER_TIMEOUT_MARKER_ENV = "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER"
 OUTER_TIMEOUT_MARKER_PATH = "/evidence-work/task9-local-linux-ownership-marker.json"
+METHOD_LEDGER_SHA256 = "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
+OWNER_LEDGER_SHA256 = "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
+LANES_SHA256 = "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
+DISPATCH_SHA256 = "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
 _COMMAND_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _COMMAND_SECRET = re.compile(
     r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
@@ -671,8 +675,12 @@ def sealed_outer_timeout_marker(
         "attemptId": validated["attemptId"],
         "container": validated["container"],
         "context": validated["context"],
+        "dispatchSha256": DISPATCH_SHA256,
         "governedCommand": governed_command,
-        "outerConventionTestTimeoutMinutes": 30,
+        "lanesSha256": LANES_SHA256,
+        "methodLedgerSha256": METHOD_LEDGER_SHA256,
+        "outerConventionTestTimeoutMinutes": 35,
+        "ownerLedgerSha256": OWNER_LEDGER_SHA256,
         "ownershipMarkerSha256": validated["markerSha256"],
         "policySha256": validated["policySha256"],
         "profile": validated["profile"],

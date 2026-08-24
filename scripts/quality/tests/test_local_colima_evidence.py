@@ -621,10 +621,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "markerMode": "0600",
                 "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
                 "maxParallelForks": 5,
-                "outerTimeoutMinutes": 30,
+                "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
+                "ownerCount": 52,
+                "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
+                "outerTimeoutMinutes": 35,
                 "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
-                "propertyValue": "30",
+                "propertyValue": "35",
                 "repositoryAndNestedTimeoutMinutes": 15,
+                "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+                "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
                 "taskPath": ":build-logic:convention:test",
             },
             host["outerConventionTest"],
@@ -719,12 +724,17 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         stale_guest["localEvidenceHost"]["effectiveConfig"]["memory"] = 16
         mutations.append(stale_guest)
         for field, value in (
-            ("outerTimeoutMinutes", 31),
-            ("propertyValue", "030"),
+            ("outerTimeoutMinutes", 30),
+            ("propertyValue", "035"),
             ("markerMode", "0640"),
             ("repositoryAndNestedTimeoutMinutes", 30),
             ("maxParallelForks", 4),
             ("expectedTests", 89),
+            ("ownerCount", 51),
+            ("methodLedgerSha256", "0" * 64),
+            ("ownerLedgerSha256", "0" * 64),
+            ("lanesSha256", "0" * 64),
+            ("dispatchSha256", "0" * 64),
         ):
             timeout_mutation = json.loads(json.dumps(baseline))
             timeout_mutation["localEvidenceHost"]["outerConventionTest"][field] = value
@@ -972,7 +982,15 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             runtime_data_id="3" * 64,
         )
         sealed = sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1")
-        self.assertEqual(30, sealed["outerConventionTestTimeoutMinutes"])
+        self.assertEqual(35, sealed["outerConventionTestTimeoutMinutes"])
+        self.assertEqual(
+            "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+            sealed["dispatchSha256"],
+        )
+        self.assertEqual(
+            "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
+            sealed["lanesSha256"],
+        )
         self.assertEqual(":build-logic:convention:test", sealed["taskPath"])
         self.assertEqual(marker["markerSha256"], sealed["ownershipMarkerSha256"])
         with tempfile.TemporaryDirectory() as directory:
@@ -997,7 +1015,9 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
 
         for field, value in (
             ("governedCommand", "metadata-capture-2"),
-            ("outerConventionTestTimeoutMinutes", 31),
+            ("outerConventionTestTimeoutMinutes", 30),
+            ("dispatchSha256", "0" * 64),
+            ("lanesSha256", "0" * 64),
             ("taskPath", ":build-logic:convention:check"),
             ("policySha256", "4" * 64),
         ):

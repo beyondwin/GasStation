@@ -53,6 +53,94 @@ REVIEWED_R21_INVENTORY_SHA256 = {
     "finalMethods": "531a6af2a0b4f1c34ac441fe9dec4712a1f2519962f057662ece742039c380a8",
     "unchangedMethods": "f4ba0cc1bb4c639b8c72c7dee63cf320b18e3d532791ae2a6db2b14c5ba0a33e",
 }
+REVIEWED_R22_METHOD_LEDGER_SHA256 = "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
+REVIEWED_R22_OWNER_LEDGER_SHA256 = "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
+REVIEWED_R22_LANES_SHA256 = "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
+REVIEWED_R22_DISPATCH_SHA256 = "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
+REVIEWED_R22_LANES = (
+    {
+        "durationSeconds": "1822.873",
+        "units": [
+            "com.gasstation.buildlogic.RoborazziPropertySelectionTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageCacheBehaviorTest",
+            "com.gasstation.buildlogic.AndroidLintWarningPromotionTest",
+            "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest",
+            "com.gasstation.buildlogic.KotlinCompilerStrictModulePolicyTest",
+            "com.gasstation.buildlogic.quality.RootQualityFixedPolicyTest",
+            "com.gasstation.buildlogic.quality.RootQualityTaskSurfaceTest",
+            "com.gasstation.buildlogic.quality.RootQualityComposeSafeTest",
+            "com.gasstation.buildlogic.quality.RootQualityComposeDiagnosticsTest",
+            "com.gasstation.buildlogic.quality.RootQualityRootApplicationTest",
+            "com.gasstation.buildlogic.quality.KotlinAbiDumpParserTest",
+        ],
+        "worker": 1,
+    },
+    {
+        "durationSeconds": "1823.366",
+        "units": [
+            "com.gasstation.buildlogic.quality.coverage.CoverageProviderTopologyTest",
+            "com.gasstation.buildlogic.AndroidLintPropertySelectionTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageAndroidExecutionDataTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessEnvironmentSuccessTest",
+            "com.gasstation.buildlogic.quality.coverage.CoveragePreparedClassesTest",
+            "com.gasstation.buildlogic.quality.RootQualityRelocationTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageGeneratedSourceTest",
+            "com.gasstation.buildlogic.RoborazziPropertyValidationTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessRunnerPolicyTest",
+            "com.gasstation.buildlogic.quality.VerifyPublicApiBoundariesTaskTest",
+            "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest",
+        ],
+        "worker": 2,
+    },
+    {
+        "durationSeconds": "1823.926",
+        "units": [
+            "com.gasstation.buildlogic.RoborazziLifecycleSelectionTest",
+            "com.gasstation.buildlogic.AndroidLintReportRegenerationTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessEnvironmentRejectionTest",
+            "com.gasstation.buildlogic.quality.RootQualityConfigurationCacheTest",
+            "com.gasstation.buildlogic.quality.RootQualityAbiUpdaterTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageReportMutationTest",
+            "com.gasstation.buildlogic.quality.RootQualityModuleBoundaryTest",
+            "com.gasstation.buildlogic.quality.RootQualityComposeForbiddenTest",
+            "com.gasstation.buildlogic.quality.RootQualityRuntimeRejectionTest",
+            "com.gasstation.buildlogic.quality.coverage.CoveragePackageLexerTest",
+        ],
+        "worker": 3,
+    },
+    {
+        "durationSeconds": "1823.472",
+        "units": [
+            "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest",
+            "com.gasstation.buildlogic.KotlinCompilerJvmConventionTest",
+            "com.gasstation.buildlogic.KotlinCompilerAndroidCacheTest",
+            "com.gasstation.buildlogic.quality.ProductionDependencyBoundaryTest",
+            "com.gasstation.buildlogic.KotlinCompilerAndroidConventionTest",
+            "com.gasstation.buildlogic.AndroidLintManagedDevicesTest",
+            "com.gasstation.buildlogic.quality.RootQualityRuntimeIdentityTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageSemanticIdentityTest",
+            "GasStationConventionPropertiesTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessIsolationTest",
+        ],
+        "worker": 4,
+    },
+    {
+        "durationSeconds": "1823.393",
+        "units": [
+            "com.gasstation.buildlogic.RoborazziAggregateLifecycleTest",
+            "com.gasstation.buildlogic.KotlinCompilerJvmWarningPolicyTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageModuleOwnershipTest",
+            "com.gasstation.buildlogic.RoborazziConfigurationCacheTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessFailureAssertionsTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageVerifierMutationTest",
+            "com.gasstation.buildlogic.KotlinCompilerRunnerPolicyTest",
+            "com.gasstation.buildlogic.ContractApiConventionTest",
+            "com.gasstation.buildlogic.GradlePluginHarnessFileSafetyTest",
+            "com.gasstation.buildlogic.quality.coverage.CoverageExecutionMergeTest",
+        ],
+        "worker": 5,
+    },
+)
 REVIEWED_R21_SOURCE_FILES = {
     "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt": (
         "591cfc673cd01ec3ffceafecd5a4c1cb66ecfafecd5a77152a6ae725f2b75abc",
@@ -861,6 +949,87 @@ def _round21_schedule(units: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _round22_dispatch() -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    rank = 0
+    while len(rows) < 52:
+        for lane in REVIEWED_R22_LANES:
+            units = lane["units"]
+            if rank < len(units):
+                rows.append(
+                    {
+                        "ordinal": len(rows) + 1,
+                        "unitId": units[rank],
+                        "worker": lane["worker"],
+                    },
+                )
+        rank += 1
+    return rows
+
+
+def _round22_build_owners(root: Path) -> list[str]:
+    build = (root / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+    match = re.search(
+        r"// task9-ordered-owners:start\nval task9OrderedTestOwners =\n\s+listOf\((.*?)\n\s+\)\n// task9-ordered-owners:end",
+        build,
+        re.DOTALL,
+    )
+    if match is None:
+        raise DecompositionError("Round-22 ordered Test owner block is missing")
+    body = match.group(1)
+    owners = re.findall(r'^\s+"([^"\\]+)",$', body, re.MULTILINE)
+    if len(owners) != len([line for line in body.splitlines() if line.strip()]):
+        raise DecompositionError("Round-22 ordered Test owner block is malformed")
+    return owners
+
+
+def _verify_round22(root: Path, final_methods: list[TestMethod]) -> dict[str, Any]:
+    lanes = list(REVIEWED_R22_LANES)
+    dispatch = _round22_dispatch()
+    if _sha256(_canonical_json(lanes)) != REVIEWED_R22_LANES_SHA256:
+        raise DecompositionError("Round-22 lane hash differs")
+    if _sha256(_canonical_json(dispatch)) != REVIEWED_R22_DISPATCH_SHA256:
+        raise DecompositionError("Round-22 dispatch hash differs")
+    lane_owners = [owner for lane in lanes for owner in lane["units"]]
+    if len(lane_owners) != 52 or len(set(lane_owners)) != 52:
+        raise DecompositionError("Round-22 lane owner inventory must contain exact 52 unique owners")
+    actual_owners = {method.owner for method in final_methods}
+    if len(final_methods) != 90 or actual_owners != set(lane_owners):
+        raise DecompositionError("Round-22 lane inventory differs from the current 52 owners and 90 methods")
+    ordered_owners = [row["unitId"] for row in dispatch]
+    if _round22_build_owners(root) != ordered_owners:
+        raise DecompositionError("Round-22 Gradle ordered owner dispatch differs")
+    build = (root / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
+    required_once = (
+        f'val task9OrderedDispatchSha256 = "{REVIEWED_R22_DISPATCH_SHA256}"',
+        f'val task9OrderedLanesSha256 = "{REVIEWED_R22_LANES_SHA256}"',
+        "testClassesDirs = files(task9OrderedTestClassRoots)",
+        "binaryResultsDirectory.set(task9OrderedBinaryResults)",
+        "Task-9 ordered dispatch owner moved between workers",
+        "val task9OrderedLaneOwners =",
+        "Task-9 ordered dispatch observed lane sequence differs",
+        "Task-9 ordered dispatch lanes: ",
+        "fun task9WorkerNumber(descriptor: TestDescriptor): Int?",
+        'logger.warn("Task-9 ordered dispatch worker identity diagnostic unavailable")',
+        'logger.warn("Task-9 ordered dispatch class identity diagnostic unavailable")',
+        'logger.warn("Task-9 ordered dispatch encountered an unknown owner")',
+        'logger.warn("Task-9 ordered dispatch owner moved between workers")',
+        'logger.warn("Task-9 ordered dispatch owner/worker inventory differs")',
+        'logger.warn("Task-9 ordered dispatch observed lane sequence differs")',
+    )
+    if any(build.count(literal) != 1 for literal in required_once):
+        raise DecompositionError("Round-22 Gradle ordered dispatch surface differs")
+    return {
+        "round22DispatchMode": "ordered-scanner-roots-round-robin-v1",
+        "round22DispatchSha256": REVIEWED_R22_DISPATCH_SHA256,
+        "round22LanesSha256": REVIEWED_R22_LANES_SHA256,
+        "round22MethodCount": len(final_methods),
+        "round22MethodLedgerSha256": REVIEWED_R22_METHOD_LEDGER_SHA256,
+        "round22OwnerCount": len(actual_owners),
+        "round22OwnerLedgerSha256": REVIEWED_R22_OWNER_LEDGER_SHA256,
+    }
+
+
 def _prohibited_matches(root: Path) -> list[str]:
     build = (root / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
     fixture = (root / "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt").read_text(
@@ -1309,6 +1478,7 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
         contract.get("round21SourceClassRebalancing"),
         final_methods,
     )
+    round22_receipt = _verify_round22(root, final_methods)
     for row, new_key in zip(mappings, new_keys, strict=True):
         method = current_by_key.get(new_key)
         if method is None or method.body_sha256 != row["methodBodySha256"]:
@@ -1338,13 +1508,14 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
         "maxParallelForks": 5,
         "newOwners": new_owners,
         "prohibitedMatches": prohibited,
-        "sealedOuterTimeoutMinutes": 30,
+        "sealedOuterTimeoutMinutes": 35,
         "supportBehaviorSha256": {"coverage": coverage_support, "rootQuality": root_support},
         "testTaskTopology": "one-test-task-v1",
         "totalMethodCount": len(final_methods),
         "unchangedMethodCount": len(current_unchanged),
         "unchangedMethodsSha256": _inventory_sha(current_unchanged),
         **round21_receipt,
+        **round22_receipt,
     }
 
 

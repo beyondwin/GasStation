@@ -616,11 +616,20 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             self.assertEqual("2" * 64, final_summary["policySha256"])
             self.assertEqual("attempt-000001", final_summary["attemptId"])
             self.assertEqual(marker["markerSha256"], final_summary["markerSha256"])
-            self.assertEqual(1800, final_summary["testContract"]["outerTimeoutSeconds"])
+            self.assertEqual(2100, final_summary["testContract"]["outerTimeoutSeconds"])
             self.assertEqual(900, final_summary["testContract"]["repositoryAndNestedTimeoutSeconds"])
             self.assertEqual(5, final_summary["testContract"]["maxParallelForks"])
             self.assertEqual(90, final_summary["testContract"]["expectedTests"])
-            self.assertEqual("30", final_summary["outerTimeout"]["propertyValue"])
+            self.assertEqual(52, final_summary["testContract"]["expectedOwners"])
+            self.assertEqual(
+                "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+                final_summary["testContract"]["dispatchSha256"],
+            )
+            self.assertEqual(
+                "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
+                final_summary["testContract"]["lanesSha256"],
+            )
+            self.assertEqual("35", final_summary["outerTimeout"]["propertyValue"])
             self.assertEqual(marker["markerSha256"], final_summary["outerTimeout"]["ownershipMarkerSha256"])
             self.assertEqual(9, final_summary["governedCommand"]["exitCode"])
             self.assertEqual(64, len(final_summary["governedCommand"]["commandSha256"]))

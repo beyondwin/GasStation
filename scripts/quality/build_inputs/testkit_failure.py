@@ -837,7 +837,11 @@ def _outer_timeout_context(output: Path, name: str, ownership_marker: Mapping[st
         or marker.get("policySha256") != ownership_marker.get("policySha256")
         or marker.get("ownershipMarkerSha256") != ownership_marker.get("markerSha256")
         or marker.get("governedCommand") != name
-        or marker.get("outerConventionTestTimeoutMinutes") != 30
+        or marker.get("outerConventionTestTimeoutMinutes") != 35
+        or marker.get("methodLedgerSha256") != "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
+        or marker.get("ownerLedgerSha256") != "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
+        or marker.get("lanesSha256") != "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
+        or marker.get("dispatchSha256") != "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
         or marker.get("taskPath") != ":build-logic:convention:test"
     ):
         raise BuildInputError("outer timeout marker ownership binding differs")
@@ -848,7 +852,7 @@ def _outer_timeout_context(output: Path, name: str, ownership_marker: Mapping[st
         "markerSha256": descriptor["sha256"],
         "ownershipMarkerSha256": ownership_marker.get("markerSha256"),
         "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
-        "propertyValue": "30",
+        "propertyValue": "35",
     }
 
 
@@ -877,9 +881,14 @@ def finalize_testkit_failure_evidence(output: Path, *, name: str) -> dict[str, A
         "sourceCommit": marker.get("sourceCommit"),
         "status": "FAIL",
         "testContract": {
+            "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+            "expectedOwners": 52,
             "expectedTests": 90,
+            "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
             "maxParallelForks": 5,
-            "outerTimeoutSeconds": 1800,
+            "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
+            "outerTimeoutSeconds": 2100,
+            "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
             "repositoryAndNestedTimeoutSeconds": 900,
             "retry": False,
             "shard": False,
@@ -917,9 +926,14 @@ def _validate_final_summary(output: Path, summary: dict[str, Any], final_path: P
         "sourceCommit": marker.get("sourceCommit"),
         "status": "FAIL",
         "testContract": {
+            "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
+            "expectedOwners": 52,
             "expectedTests": 90,
+            "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
             "maxParallelForks": 5,
-            "outerTimeoutSeconds": 1800,
+            "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
+            "outerTimeoutSeconds": 2100,
+            "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
             "repositoryAndNestedTimeoutSeconds": 900,
             "retry": False,
             "shard": False,

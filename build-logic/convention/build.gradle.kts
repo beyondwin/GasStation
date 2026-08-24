@@ -316,9 +316,109 @@ val finalizeTask9TestKitFailureEvidence =
         }
     }
 
+val task9OrderedDispatchSha256 = "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
+val task9OrderedLanesSha256 = "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
+// task9-ordered-owners:start
+val task9OrderedTestOwners =
+    listOf(
+        "com.gasstation.buildlogic.RoborazziPropertySelectionTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageProviderTopologyTest",
+        "com.gasstation.buildlogic.RoborazziLifecycleSelectionTest",
+        "com.gasstation.buildlogic.AndroidLintBaselineIsolationTest",
+        "com.gasstation.buildlogic.RoborazziAggregateLifecycleTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageCacheBehaviorTest",
+        "com.gasstation.buildlogic.AndroidLintPropertySelectionTest",
+        "com.gasstation.buildlogic.AndroidLintReportRegenerationTest",
+        "com.gasstation.buildlogic.KotlinCompilerJvmConventionTest",
+        "com.gasstation.buildlogic.KotlinCompilerJvmWarningPolicyTest",
+        "com.gasstation.buildlogic.AndroidLintWarningPromotionTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageAndroidExecutionDataTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessEnvironmentRejectionTest",
+        "com.gasstation.buildlogic.KotlinCompilerAndroidCacheTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageModuleOwnershipTest",
+        "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessEnvironmentSuccessTest",
+        "com.gasstation.buildlogic.quality.RootQualityConfigurationCacheTest",
+        "com.gasstation.buildlogic.quality.ProductionDependencyBoundaryTest",
+        "com.gasstation.buildlogic.RoborazziConfigurationCacheTest",
+        "com.gasstation.buildlogic.KotlinCompilerStrictModulePolicyTest",
+        "com.gasstation.buildlogic.quality.coverage.CoveragePreparedClassesTest",
+        "com.gasstation.buildlogic.quality.RootQualityAbiUpdaterTest",
+        "com.gasstation.buildlogic.KotlinCompilerAndroidConventionTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessFailureAssertionsTest",
+        "com.gasstation.buildlogic.quality.RootQualityFixedPolicyTest",
+        "com.gasstation.buildlogic.quality.RootQualityRelocationTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageReportMutationTest",
+        "com.gasstation.buildlogic.AndroidLintManagedDevicesTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageVerifierMutationTest",
+        "com.gasstation.buildlogic.quality.RootQualityTaskSurfaceTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageGeneratedSourceTest",
+        "com.gasstation.buildlogic.quality.RootQualityModuleBoundaryTest",
+        "com.gasstation.buildlogic.quality.RootQualityRuntimeIdentityTest",
+        "com.gasstation.buildlogic.KotlinCompilerRunnerPolicyTest",
+        "com.gasstation.buildlogic.quality.RootQualityComposeSafeTest",
+        "com.gasstation.buildlogic.RoborazziPropertyValidationTest",
+        "com.gasstation.buildlogic.quality.RootQualityComposeForbiddenTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageSemanticIdentityTest",
+        "com.gasstation.buildlogic.ContractApiConventionTest",
+        "com.gasstation.buildlogic.quality.RootQualityComposeDiagnosticsTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessRunnerPolicyTest",
+        "com.gasstation.buildlogic.quality.RootQualityRuntimeRejectionTest",
+        "GasStationConventionPropertiesTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessFileSafetyTest",
+        "com.gasstation.buildlogic.quality.RootQualityRootApplicationTest",
+        "com.gasstation.buildlogic.quality.VerifyPublicApiBoundariesTaskTest",
+        "com.gasstation.buildlogic.quality.coverage.CoveragePackageLexerTest",
+        "com.gasstation.buildlogic.GradlePluginHarnessIsolationTest",
+        "com.gasstation.buildlogic.quality.coverage.CoverageExecutionMergeTest",
+        "com.gasstation.buildlogic.quality.KotlinAbiDumpParserTest",
+        "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest",
+    )
+// task9-ordered-owners:end
+val task9OrderedLaneOwners =
+    (0 until 5).map { laneOffset ->
+        task9OrderedTestOwners.filterIndexed { index, _ -> index % 5 == laneOffset }
+    }
+val task9OrderedTestClassRoots =
+    task9OrderedTestOwners.indices.map { index ->
+        layout.buildDirectory.dir("task9-ordered-test-classes/" + (index + 1).toString().padStart(6, '0'))
+    }
+val task9OrderedBinaryResults = layout.buildDirectory.dir("task9-ordered-test-results/binary")
+val prepareTask9OrderedTestDispatch =
+    tasks.register("prepareTask9OrderedTestDispatch") {
+        dependsOn(tasks.named("compileTestKotlin"))
+        inputs.dir(layout.buildDirectory.dir("classes/kotlin/test"))
+        outputs.dirs(task9OrderedTestClassRoots)
+        outputs.upToDateWhen { false }
+        doLast {
+            val stagingRoot = layout.buildDirectory.dir("task9-ordered-test-classes").get().asFile.toPath()
+            deleteClosedTree(stagingRoot)
+            val compiledRoot = layout.buildDirectory.dir("classes/kotlin/test").get().asFile.toPath()
+            task9OrderedTestOwners.forEachIndexed { index, owner ->
+                val relative = owner.replace('.', '/') + ".class"
+                val source = compiledRoot.resolve(relative)
+                check(Files.isRegularFile(source) && !Files.isSymbolicLink(source)) {
+                    "Task-9 ordered dispatch owner class is missing or unsafe: $owner"
+                }
+                val destinationRoot = task9OrderedTestClassRoots[index].get().asFile.toPath()
+                val destination = destinationRoot.resolve(relative)
+                Files.createDirectories(destination.parent)
+                Files.copy(source, destination)
+            }
+        }
+    }
+
 tasks.withType<Test>().configureEach {
+    dependsOn(prepareTask9OrderedTestDispatch)
     dependsOn(prepareTestKitReadOnlyDependencyCache)
     finalizedBy(verifyTestKitReadOnlyDependencyCache)
+    testClassesDirs = files(task9OrderedTestClassRoots)
+    binaryResultsDirectory.set(task9OrderedBinaryResults)
+    doFirst {
+        val binaryRoot = task9OrderedBinaryResults.get().asFile.toPath()
+        deleteClosedTree(binaryRoot)
+        check(!Files.exists(binaryRoot)) { "Task-9 ordered dispatch prior binary results remain" }
+    }
     environment(
         "GRADLE_RO_DEP_CACHE",
         testKitReadOnlyDependencyCache.get().asFile.absolutePath,
@@ -330,7 +430,7 @@ tasks.withType<Test>().configureEach {
     }
     var timeoutMinutes = 15L
     if (outerTimeoutProperty != null) {
-        require(outerTimeoutProperty == "30") { "Task-9 local Linux outer timeout must be exact 30" }
+        require(outerTimeoutProperty == "35") { "Task-9 local Linux outer timeout must be exact 35" }
         require(
             outerTimeoutMarker == "/evidence-work/task9-local-linux-ownership-marker.json" &&
                 name == "test" && path == ":convention:test" &&
@@ -357,13 +457,17 @@ tasks.withType<Test>().configureEach {
             ?: throw GradleException("Task-9 local Linux outer timeout marker is malformed")
         val keys =
             listOf(
-                "attemptId", "container", "context", "governedCommand",
-                "outerConventionTestTimeoutMinutes", "ownershipMarkerSha256",
+                "attemptId", "container", "context", "dispatchSha256", "governedCommand",
+                "lanesSha256", "methodLedgerSha256", "outerConventionTestTimeoutMinutes", "ownerLedgerSha256", "ownershipMarkerSha256",
                 "policySha256", "profile", "schemaVersion", "sourceCommit", "taskId", "taskPath",
             )
         require(marker.keys == keys.toSet()) { "Task-9 local Linux outer timeout marker fields differ" }
         require(
-            marker["outerConventionTestTimeoutMinutes"] == 30 &&
+            marker["outerConventionTestTimeoutMinutes"] == 35 &&
+                marker["methodLedgerSha256"] == "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b" &&
+                marker["ownerLedgerSha256"] == "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac" &&
+                marker["lanesSha256"] == task9OrderedLanesSha256 &&
+                marker["dispatchSha256"] == task9OrderedDispatchSha256 &&
                 marker["schemaVersion"] == 1 &&
                 marker["taskId"] == "quality-task-9-local-linux-evidence" &&
                 marker["taskPath"] == ":build-logic:convention:test" &&
@@ -392,11 +496,82 @@ tasks.withType<Test>().configureEach {
                 "\"$key\":${jsonValue(marker[key])}"
             }
         require(markerBytes == canonical) { "Task-9 local Linux outer timeout marker is noncanonical" }
-        timeoutMinutes = 30L
+        timeoutMinutes = 35L
     }
     timeout.set(Duration.ofMinutes(timeoutMinutes))
     maxParallelForks = 5
     systemProperty("gasstation.convention.test.maxParallelForks", maxParallelForks)
+    systemProperty("gasstation.convention.test.dispatchSha256", task9OrderedDispatchSha256)
+    systemProperty("gasstation.convention.test.lanesSha256", task9OrderedLanesSha256)
+
+    val task9ObservedWorkers = mutableMapOf<String, Int>()
+    val task9ObservedOwnerSequences = mutableMapOf<Int, MutableList<String>>()
+    val task9ObservationLock = Any()
+    fun task9WorkerNumber(descriptor: TestDescriptor): Int? {
+        var current = descriptor.parent
+        while (current != null) {
+            val match = Regex("Gradle Test Executor ([1-9][0-9]*)").matchEntire(current.name)
+            if (match != null) return match.groupValues[1].toInt()
+            current = current.parent
+        }
+        return null
+    }
+    addTestListener(
+        object : TestListener {
+            override fun beforeSuite(suite: TestDescriptor) = Unit
+
+            override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+                if (suite.parent != null) return
+                synchronized(task9ObservationLock) {
+                    val workerNumbers = task9ObservedWorkers.values.toSortedSet().toList()
+                    if (task9ObservedWorkers.keys != task9OrderedTestOwners.toSet() || workerNumbers.size != 5) {
+                        logger.warn("Task-9 ordered dispatch owner/worker inventory differs")
+                    }
+                    val observedWorkersByLane =
+                        task9ObservedOwnerSequences.entries.associate { (worker, owners) -> owners.toList() to worker }
+                    if (
+                        observedWorkersByLane.size == 5 &&
+                            observedWorkersByLane.keys == task9OrderedLaneOwners.toSet()
+                    ) {
+                        val normalizedLanes =
+                            task9OrderedLaneOwners.mapIndexed { index, owners ->
+                                "W${index.inc()}=Gradle Test Executor ${observedWorkersByLane.getValue(owners)}"
+                            }
+                        logger.lifecycle("Task-9 ordered dispatch lanes: ${normalizedLanes.joinToString(", ")}")
+                    } else {
+                        logger.warn("Task-9 ordered dispatch observed lane sequence differs")
+                    }
+                }
+            }
+
+            override fun beforeTest(testDescriptor: TestDescriptor) {
+                val owner = testDescriptor.className
+                if (owner == null) {
+                    logger.warn("Task-9 ordered dispatch class identity diagnostic unavailable")
+                    return
+                }
+                if (owner !in task9OrderedTestOwners) {
+                    logger.warn("Task-9 ordered dispatch encountered an unknown owner")
+                    return
+                }
+                val worker = task9WorkerNumber(testDescriptor)
+                if (worker == null) {
+                    logger.warn("Task-9 ordered dispatch worker identity diagnostic unavailable")
+                    return
+                }
+                synchronized(task9ObservationLock) {
+                    val prior = task9ObservedWorkers.putIfAbsent(owner, worker)
+                    if (prior != null && prior != worker) {
+                        logger.warn("Task-9 ordered dispatch owner moved between workers")
+                    }
+                    val observedSequence = task9ObservedOwnerSequences.getOrPut(worker) { mutableListOf() }
+                    if (owner !in observedSequence) observedSequence.add(owner)
+                }
+            }
+
+            override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) = Unit
+        },
+    )
 
     val workerTracePath = providers.environmentVariable("GASSTATION_TESTKIT_WORKER_TRACE").orNull
     val failureOutputPath = providers.environmentVariable("GASSTATION_TESTKIT_FAILURE_OUTPUT").orNull
