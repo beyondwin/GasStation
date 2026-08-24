@@ -10,6 +10,10 @@
 - 목적별 코드 읽기와 첫 변경의 진입점: [프로젝트 읽기 가이드](project-reading-guide.md)
 - 현재 작업 순서와 체크리스트: [에이전트 워크플로](agent-workflow.md)
 - 기존 온보딩 핸드북의 안정적인 진입점: [개발자 온보딩 가이드](onboarding/developer-onboarding-guide.md)
+- 저장소 준비와 `demo`/`prod` 첫 build: [시작하기](onboarding/getting-started.md)
+- 제품 원칙, 레이어와 runtime 흐름: [아키텍처 둘러보기](onboarding/architecture-tour.md)
+- 소유자·테스트·문서 영향을 찾는 첫 변경 경로: [변경 플레이북](onboarding/change-playbook.md)
+- 검증 선택, 증거와 local/remote handoff: [검증과 전달](onboarding/verification-and-delivery.md)
 - UI 정체성과 가격 우선 원칙: [.impeccable.md](../.impeccable.md)
 
 ## 2. 아키텍처와 기능 변경

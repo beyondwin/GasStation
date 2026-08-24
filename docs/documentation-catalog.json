@@ -60,10 +60,42 @@
     {
       "path": "docs/onboarding/developer-onboarding-guide.md",
       "kind": "runbook",
-      "owner": "새 Android 기여자의 제품·코드·변경 흐름 온보딩",
+      "owner": "새 Android 기여자의 안정적인 온보딩 라우터",
       "authoritativeSources": ["settings.gradle.kts", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/agent-workflow.md", "docs/state-model.md"],
-      "reviewTriggers": ["활성 모듈·flavor·핵심 사용자 흐름 변경", "온보딩의 코드 읽기·첫 변경·검증 경로 변경", "station-list owner·command 모델·test reading path 변경"],
-      "verificationScope": "scripts/agent/verify.sh docs; 연결된 live 계약과 온보딩에 지목된 코드·모듈 경로를 대조"
+      "reviewTriggers": ["온보딩 경로 추가·이동", "전제 조건 또는 독자별 완료 기준 변경", "연결된 현재 계약의 경로 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 네 온보딩 경로와 현재 계약 링크를 대조"
+    },
+    {
+      "path": "docs/onboarding/getting-started.md",
+      "kind": "runbook",
+      "owner": "새 기여자의 준비, checkout, demo/prod 첫 build",
+      "authoritativeSources": ["gradle/libs.versions.toml", "gradle/wrapper/gradle-wrapper.properties", "app/build.gradle.kts", "scripts/agent/preflight.sh"],
+      "reviewTriggers": ["필수 Java·SDK·Python 또는 Gradle 버전 변경", "demo/prod startup·secret·첫 build 경로 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 짧은 첫 build task와 도구 전제를 실제 Gradle 설정과 대조"
+    },
+    {
+      "path": "docs/onboarding/architecture-tour.md",
+      "kind": "runbook",
+      "owner": "새 기여자를 위한 제품 원칙, 레이어와 runtime 흐름 안내",
+      "authoritativeSources": ["settings.gradle.kts", "docs/architecture.md", "docs/module-contracts.md", "docs/state-model.md", "docs/offline-strategy.md"],
+      "reviewTriggers": ["제품 정보 위계 또는 정식 flavor 의미 변경", "레이어 책임·runtime 흐름·station-list owner 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 요약을 정확한 architecture·state·offline owner와 대조"
+    },
+    {
+      "path": "docs/onboarding/change-playbook.md",
+      "kind": "runbook",
+      "owner": "첫 버그·기능 변경의 ownership, test reading과 문서 영향 경로",
+      "authoritativeSources": ["docs/agent-workflow.md", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/test-strategy.md"],
+      "reviewTriggers": ["표준 변경 순서·module owner·test selection 변경", "현재 문서 impact mapping 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 표의 코드·계약 진입점과 현재 workflow를 대조"
+    },
+    {
+      "path": "docs/onboarding/verification-and-delivery.md",
+      "kind": "runbook",
+      "owner": "검증 선택, evidence, commit과 handoff 안내",
+      "authoritativeSources": ["docs/verification-matrix.md", "docs/test-strategy.md", "docs/deployment.md", "scripts/agent/verify.sh"],
+      "reviewTriggers": ["검증 선택·evidence·commit·handoff 절차 변경", "device·release·performance runbook ownership 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; command owner 링크와 미검증·local/remote 보고 경계를 대조"
     },
     {
       "path": "docs/agent-workflow.md",
