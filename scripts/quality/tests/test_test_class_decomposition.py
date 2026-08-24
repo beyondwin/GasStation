@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import re
 import shutil
 import tempfile
@@ -11,7 +12,9 @@ from pathlib import Path
 from scripts.quality.build_inputs.test_class_decomposition import (
     DecompositionError,
     _all_test_methods,
+    _round21_schedule,
     load_decomposition_contract,
+    round21_bridge_inventory_source,
     verify_decomposition,
     verify_decomposition_data,
 )
@@ -56,6 +59,17 @@ class TestClassDecompositionTest(unittest.TestCase):
             source_row["finalSourceSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
             with self.assertRaises(DecompositionError):
                 verify_decomposition_data(copied, contract)
+
+    def assert_contract_mutations_fail(
+        self,
+        mutations: list[tuple[str, dict[str, object]]],
+        expected_count: int,
+    ) -> None:
+        self.assertEqual(expected_count, len(mutations))
+        for label, mutation in mutations:
+            with self.subTest(label=label):
+                with self.assertRaises(DecompositionError):
+                    verify_decomposition_data(ROOT, mutation)
 
     def test_reviewed_23_row_bijection_and_other_67_methods_are_exact(self) -> None:
         receipt = verify_decomposition(ROOT, CONTRACT)
@@ -138,6 +152,7 @@ class TestClassDecompositionTest(unittest.TestCase):
         total["expectedTotalMethods"] = 91
         mutations.append(total)
 
+        self.assertEqual(6, len(mutations))
         for index, mutation in enumerate(mutations):
             with self.subTest(index=index):
                 with self.assertRaises(DecompositionError):
@@ -322,10 +337,360 @@ class TestClassDecompositionTest(unittest.TestCase):
         source_final_hash["round21SourceClassRebalancing"]["sourceFiles"][0]["finalSourceSha256"] = "0" * 64
         mutations.append(source_final_hash)
 
+        self.assertEqual(36, len(mutations))
         for index, mutation in enumerate(mutations):
             with self.subTest(index=index):
                 with self.assertRaises(DecompositionError):
                     verify_decomposition_data(ROOT, mutation)
+
+    def test_contract_serializer_rejects_every_noncanonical_byte_shape(self) -> None:
+        raw = CONTRACT.read_bytes()
+        parsed = json.loads(raw)
+        reversed_keys = {key: parsed[key] for key in reversed(parsed)}
+        noncanonical = [
+            ("utf8-bom", b"\xef\xbb\xbf" + raw),
+            ("crlf", raw.replace(b"\n", b"\r\n")),
+            ("missing-final-lf", raw.removesuffix(b"\n")),
+            ("extra-final-lf", raw + b"\n"),
+            ("insignificant-space", raw.replace(b"{", b"{ ", 1)),
+            ("unicode-escape", raw.replace(b'"@Test"', b'"\\u0040Test"', 1)),
+            (
+                "object-key-order",
+                (json.dumps(reversed_keys, ensure_ascii=False, separators=(",", ":")) + "\n").encode(),
+            ),
+            ("invalid-utf8", raw.replace(b'"@Test"', b'"\xffTest"', 1)),
+            (
+                "non-finite-number",
+                raw.replace(b'"durationSeconds":"0.014"', b'"durationSeconds":NaN', 1),
+            ),
+        ]
+        self.assertEqual(9, len(noncanonical))
+        for label, content in noncanonical:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "contract.json"
+                path.write_bytes(content)
+                with self.assertRaises(DecompositionError):
+                    load_decomposition_contract(path)
+
+        self.assertEqual(parsed, load_decomposition_contract(CONTRACT))
+
+    def test_round21_schema_shape_and_decimal_mutations_fail_independently(self) -> None:
+        contract = load_decomposition_contract(CONTRACT)
+        mutations: list[tuple[str, dict[str, object]]] = []
+
+        def add(label: str, mutate: object) -> None:
+            changed = copy.deepcopy(contract)
+            mutate(changed)
+            mutations.append((label, changed))
+
+        add("outer-schema-version-value", lambda row: row.__setitem__("schemaVersion", 2))
+        add("outer-schema-version-type", lambda row: row.__setitem__("schemaVersion", "1"))
+        add("outer-schema-version-missing", lambda row: row.pop("schemaVersion"))
+        add("outer-extra-field", lambda row: row.__setitem__("extra", None))
+        add("outer-renamed-field", lambda row: row.__setitem__("expectedTotalMethodCount", row.pop("expectedTotalMethods")))
+
+        add("round21-schema-version-value", lambda row: row["round21SourceClassRebalancing"].__setitem__("schemaVersion", 2))
+        add("round21-schema-version-type", lambda row: row["round21SourceClassRebalancing"].__setitem__("schemaVersion", "1"))
+        add("round21-schema-version-missing", lambda row: row["round21SourceClassRebalancing"].pop("schemaVersion"))
+        add("round21-extra-field", lambda row: row["round21SourceClassRebalancing"].__setitem__("extra", None))
+        add(
+            "round21-renamed-field",
+            lambda row: row["round21SourceClassRebalancing"].__setitem__(
+                "selectedSchedule",
+                row["round21SourceClassRebalancing"].pop("selectedOption"),
+            ),
+        )
+
+        row_locations = [
+            ("mapping", lambda row: row["round21SourceClassRebalancing"]["mappings"][0]),
+            ("duration", lambda row: row["round21SourceClassRebalancing"]["durationLedger"][0]),
+            ("duration-source", lambda row: row["round21SourceClassRebalancing"]["durationSources"][0]),
+            ("source-file", lambda row: row["round21SourceClassRebalancing"]["sourceFiles"][0]),
+            ("option", lambda row: row["round21SourceClassRebalancing"]["options"][0]),
+            ("unit", lambda row: row["round21SourceClassRebalancing"]["options"][0]["units"][0]),
+            ("schedule-lane", lambda row: row["round21SourceClassRebalancing"]["options"][0]["schedule"][0]),
+            ("schedule-unit", lambda row: row["round21SourceClassRebalancing"]["options"][0]["schedule"][0]["units"][0]),
+            ("corroboration", lambda row: row["round21SourceClassRebalancing"]["localCorroborations"][0]),
+        ]
+        key_by_location = {
+            "mapping": "annotation",
+            "duration": "sourceStatus",
+            "duration-source": "commit",
+            "source-file": "supportOwner",
+            "option": "description",
+            "unit": "members",
+            "schedule-lane": "worker",
+            "schedule-unit": "owner",
+            "corroboration": "relativePath",
+        }
+        for location, select in row_locations:
+            key = key_by_location[location]
+            add(f"{location}-missing-field", lambda row, select=select, key=key: select(row).pop(key))
+            add(f"{location}-extra-field", lambda row, select=select: select(row).__setitem__("extra", None))
+            add(
+                f"{location}-renamed-field",
+                lambda row, select=select, key=key: select(row).__setitem__(f"{key}Renamed", select(row).pop(key)),
+            )
+
+        for container in ("inventorySha256", "lpt"):
+            add(
+                f"{container}-missing-field",
+                lambda row, container=container: row["round21SourceClassRebalancing"][container].pop(
+                    next(iter(row["round21SourceClassRebalancing"][container])),
+                ),
+            )
+            add(
+                f"{container}-extra-field",
+                lambda row, container=container: row["round21SourceClassRebalancing"][container].__setitem__("extra", None),
+            )
+            add(
+                f"{container}-renamed-field",
+                lambda row, container=container: row["round21SourceClassRebalancing"][container].__setitem__(
+                    "renamed",
+                    row["round21SourceClassRebalancing"][container].pop(
+                        next(iter(row["round21SourceClassRebalancing"][container])),
+                    ),
+                ),
+            )
+
+        decimal_locations = [
+            ("bound", lambda row: row["round21SourceClassRebalancing"], "boundSeconds"),
+            ("lower-bound", lambda row: row["round21SourceClassRebalancing"], "idealLowerBoundSeconds"),
+            ("total", lambda row: row["round21SourceClassRebalancing"], "totalDurationSeconds"),
+            ("duration", lambda row: row["round21SourceClassRebalancing"]["durationLedger"][0], "durationSeconds"),
+            ("corroboration", lambda row: row["round21SourceClassRebalancing"]["localCorroborations"][0], "durationSeconds"),
+        ]
+        for option_index, option_id in enumerate(("A", "B", "C")):
+            decimal_locations.extend(
+                [
+                    (f"option-{option_id}", lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index], "maximumSeconds"),
+                    (f"unit-{option_id}", lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["units"][0], "durationSeconds"),
+                    (f"schedule-lane-{option_id}", lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["schedule"][0], "durationSeconds"),
+                    (f"schedule-unit-{option_id}", lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["schedule"][0]["units"][0], "durationSeconds"),
+                ],
+            )
+        for location, select, key in decimal_locations:
+            for shape, value in (("number", 1.0), ("two-place", "1.00"), ("four-place", "1.0000"), ("unit-suffix", "1.000s")):
+                add(
+                    f"{location}-{shape}",
+                    lambda row, select=select, key=key, value=value: select(row).__setitem__(key, value),
+                )
+
+        self.assertEqual(111, len(mutations))
+        for label, mutation in mutations:
+            with self.subTest(label=label):
+                if label.endswith(("-number", "-two-place", "-four-place", "-unit-suffix")):
+                    with self.assertRaisesRegex(DecompositionError, "three-place seconds string"):
+                        verify_decomposition_data(ROOT, mutation)
+                else:
+                    with self.assertRaises(DecompositionError):
+                        verify_decomposition_data(ROOT, mutation)
+
+    def test_round21_option_component_order_and_lpt_mutations_fail_independently(self) -> None:
+        contract = load_decomposition_contract(CONTRACT)
+        mutations: list[tuple[str, dict[str, object]]] = []
+
+        def add(label: str, mutate: object) -> None:
+            changed = copy.deepcopy(contract)
+            mutate(changed)
+            mutations.append((label, changed))
+
+        for option_index, option_id in enumerate(("A", "B", "C")):
+            option_fields = {
+                "id": f"{option_id}-drift",
+                "decision": "drift",
+                "description": "drift",
+                "unitIdentity": "drift",
+                "maximumSeconds": "9999.999",
+                "unitCount": 999,
+            }
+            for field, value in option_fields.items():
+                add(
+                    f"option-{option_id}-{field}",
+                    lambda row, index=option_index, field=field, value=value: row[
+                        "round21SourceClassRebalancing"
+                    ]["options"][index].__setitem__(field, value),
+                )
+            for field in (
+                "membershipLedgerSha256",
+                "unitDurationLedgerSha256",
+                "scheduleSha256",
+            ):
+                add(
+                    f"option-{option_id}-{field}",
+                    lambda row, index=option_index, field=field: row[
+                        "round21SourceClassRebalancing"
+                    ]["options"][index].__setitem__(field, "0" * 64),
+                )
+
+        add("options-order", lambda row: row["round21SourceClassRebalancing"]["options"].reverse())
+        add("options-missing", lambda row: row["round21SourceClassRebalancing"]["options"].pop())
+        add(
+            "options-extra",
+            lambda row: row["round21SourceClassRebalancing"]["options"].append(
+                copy.deepcopy(row["round21SourceClassRebalancing"]["options"][-1]),
+            ),
+        )
+        for field in (
+            "mappings",
+            "durationLedger",
+            "durationSources",
+            "sourceFiles",
+            "localCorroborations",
+        ):
+            add(
+                f"canonical-list-order-{field}",
+                lambda row, field=field: row["round21SourceClassRebalancing"][field].reverse(),
+            )
+
+        for option_index, option_id in enumerate(("A", "B", "C")):
+            add(
+                f"option-{option_id}-unit-order",
+                lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["units"].reverse(),
+            )
+            add(
+                f"option-{option_id}-schedule-lane-order",
+                lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["schedule"].reverse(),
+            )
+
+            def reverse_busy_lane(row: dict[str, object], index: int = option_index) -> None:
+                schedule = row["round21SourceClassRebalancing"]["options"][index]["schedule"]
+                lane = next(candidate for candidate in schedule if len(candidate["units"]) > 1)
+                lane["units"].reverse()
+
+            add(f"option-{option_id}-schedule-unit-order", reverse_busy_lane)
+            add(
+                f"option-{option_id}-unit-id",
+                lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index]["units"][0].__setitem__(
+                    "unitId",
+                    row["round21SourceClassRebalancing"]["options"][index]["units"][0]["unitId"] + "-drift",
+                ),
+            )
+
+        for option_index, option_id in enumerate(("A", "B")):
+            def reverse_group_members(row: dict[str, object], index: int = option_index) -> None:
+                units = row["round21SourceClassRebalancing"]["options"][index]["units"]
+                unit = next(candidate for candidate in units if len(candidate["members"]) > 1)
+                unit["members"].reverse()
+
+            add(f"option-{option_id}-group-member-order", reverse_group_members)
+
+        tie_groups = {
+            "0.001": [
+                "com.gasstation.buildlogic.ContractApiConventionTest#exactFiveActiveJvmContractsOwnImmutableDumpMappings",
+                "com.gasstation.buildlogic.quality.KotlinAbiDumpParserTest#forbiddenFamiliesMatchCanonicalTypesNotSubstrings",
+            ],
+            "0.003": [
+                "com.gasstation.buildlogic.AndroidLintPropertySelectionTest#fixtureMappingExcludesJvmLibraryFromAndroidLintClaims",
+                "com.gasstation.buildlogic.GradlePluginHarnessFileSafetyTest#builderWritesNestedUtf8WithExactlyOneFinalNewline",
+                "com.gasstation.buildlogic.quality.ProductionDependencyBoundaryTest#failingModuleGuardReusesConfigurationCacheAndReproducesPolicyEvidence",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#evidenceAggregationKeepsExactDeclarationBucketAndCompileRuntimeComponents",
+            ],
+            "0.004": [
+                "GasStationConventionPropertiesTest#exactBooleanValuesAreAccepted",
+                "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest#canonicalEffectiveSurfaceRejectsEveryChangedOrAddedMutationProducingField",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#exactProjectAllowlistKillsEveryRetiredRuleAndKeepsTheOneIntentionalException",
+            ],
+            "0.005": [
+                "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest#blockingPhaseUsesExactNativeFloorsAndKeepsSettingsScoreReportOnly",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#activeTopologyBindsEveryScopeAndTestedTargetEndpoint",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#policyFailsClosedForCrLfWildcardsDuplicatesUnknownAndModuleDrift",
+            ],
+            "0.008": [
+                "com.gasstation.buildlogic.GradlePluginHarnessFileSafetyTest#builderRejectsAbsoluteTraversalAndResolvedSymlinkEscapes",
+                "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest#encodingSurfaceRejectsSameValueAlternateSourcesAndRequiresOneManagedArgument",
+            ],
+            "0.011": [
+                "com.gasstation.buildlogic.quality.KotlinAbiDumpParserTest#signatureScannerFindsDirectArrayNestedGenericBoundSuspendAndFunctionPositions",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#canonicalPolicyRequiresExactModulesScopesAndSortedRecords",
+            ],
+            "0.014": [
+                "GasStationConventionPropertiesTest#everyInvalidBooleanSpellingIsRejectedWithStableDiagnostic",
+                "com.gasstation.buildlogic.quality.GasStationJvmMutationConventionPluginTest#dedicatedGradleCacheDependenciesUseLocationNeutralContentIdentity",
+            ],
+            "0.025": [
+                "com.gasstation.buildlogic.quality.KotlinAbiDumpParserTest#realWriterGrammarSelectsClassesFieldsAndFunctions",
+                "com.gasstation.buildlogic.quality.coverage.CoverageExecutionMergeTest#executionProducerMergesCompatibleBlocksByProbeOrAndRejectsIncompatibleDuplicates",
+            ],
+            "0.042": [
+                "com.gasstation.buildlogic.KotlinCompilerRunnerPolicyTest#bothRunnerModesRejectEveryCacheAndIsolationOverride",
+                "com.gasstation.buildlogic.quality.ProductionDependencyPolicyTest#directComparisonBindsDeclarationConfigurationAndComponentMembership",
+            ],
+        }
+        option_c = contract["round21SourceClassRebalancing"]["options"][2]
+        actual_ties: dict[str, list[str]] = {}
+        for unit in option_c["units"]:
+            actual_ties.setdefault(unit["durationSeconds"], []).append(unit["unitId"])
+        actual_ties = {duration: owners for duration, owners in actual_ties.items() if len(owners) > 1}
+        self.assertEqual(tie_groups, actual_ties)
+
+        def swap_schedule_owners(row: dict[str, object], first: str, second: str) -> None:
+            schedule = row["round21SourceClassRebalancing"]["options"][2]["schedule"]
+            references = [unit for lane in schedule for unit in lane["units"]]
+            first_ref = next(unit for unit in references if unit["owner"] == first)
+            second_ref = next(unit for unit in references if unit["owner"] == second)
+            self.assertEqual(first_ref["durationSeconds"], second_ref["durationSeconds"])
+            first_ref["owner"], second_ref["owner"] = second_ref["owner"], first_ref["owner"]
+
+        for duration, owners in tie_groups.items():
+            add(
+                f"one-method-owner-tie-{duration}",
+                lambda row, first=owners[0], second=owners[1]: swap_schedule_owners(row, first, second),
+            )
+
+        option_b_schedule = contract["round21SourceClassRebalancing"]["options"][1]["schedule"]
+        first_assignments = [lane["units"][0]["owner"] for lane in option_b_schedule]
+        self.assertEqual(5, len(set(first_assignments)))
+
+        def swap_first_assignments(row: dict[str, object], left: int, right: int) -> None:
+            schedule = row["round21SourceClassRebalancing"]["options"][1]["schedule"]
+            schedule[left]["units"][0], schedule[right]["units"][0] = (
+                schedule[right]["units"][0],
+                schedule[left]["units"][0],
+            )
+
+        for left in range(4):
+            add(
+                f"worker-zero-total-ordinal-{left + 1}-{left + 2}",
+                lambda row, left=left: swap_first_assignments(row, left, left + 1),
+            )
+
+        for field in (
+            "durationOrder",
+            "groupedUnitTieBreak",
+            "oneMethodUnitTieBreak",
+            "workerTieBreak",
+            "workers",
+        ):
+            add(
+                f"lpt-{field}",
+                lambda row, field=field: row["round21SourceClassRebalancing"]["lpt"].__setitem__(field, "drift"),
+            )
+
+        for field in (
+            "currentClasses",
+            "currentMethods",
+            "finalClasses",
+            "finalMethods",
+            "unchangedMethods",
+        ):
+            add(
+                f"inventory-{field}",
+                lambda row, field=field: row["round21SourceClassRebalancing"]["inventorySha256"].__setitem__(field, "0" * 64),
+            )
+
+        equal_units = [
+            {"durationSeconds": "1.000", "members": [f"Owner#{name}"], "unitId": f"Owner#{name}"}
+            for name in reversed(("a", "b", "c", "d", "e", "f"))
+        ]
+        equal_schedule = _round21_schedule(equal_units)
+        self.assertEqual(
+            ["Owner#a", "Owner#b", "Owner#c", "Owner#d", "Owner#e"],
+            [lane["units"][0]["owner"] for lane in equal_schedule],
+        )
+        self.assertEqual("Owner#f", equal_schedule[0]["units"][1]["owner"])
+
+        self.assert_contract_mutations_fail(mutations, 72)
 
     def test_round21_access_helper_and_class_source_mutations_fail_closed(self) -> None:
         contract = load_decomposition_contract(CONTRACT)
@@ -393,6 +758,7 @@ class TestClassDecompositionTest(unittest.TestCase):
             "NEW_ERROR_SOURCE",
             "REVIEWED_WARNING_BASELINE",
         ]
+        mutation_count = 0
         for name in names:
             declaration = f"        internal val {name} ="
             mutations = [
@@ -410,6 +776,53 @@ class TestClassDecompositionTest(unittest.TestCase):
             for before, after in mutations:
                 with self.subTest(name=name, after=after):
                     self.assert_round21_source_mutation_fails(relative, (before, after))
+                    mutation_count += 1
+
+            def drift_value(source: str, member: str = name) -> str:
+                pattern = re.compile(
+                    rf"(^        internal val {re.escape(member)}\s*=\s*\"\"\")(.*?)(\"\"\"\.trimIndent\(\)\s*$)",
+                    re.MULTILINE | re.DOTALL,
+                )
+                return pattern.sub(r"\1x\2\3", source, count=1)
+
+            with self.subTest(name=name, mutation="value"):
+                source = (ROOT / relative).read_text(encoding="utf-8")
+                with self.assertRaisesRegex(
+                    DecompositionError,
+                    rf"bridge value differs: {name}",
+                ):
+                    round21_bridge_inventory_source(drift_value(source))
+                self.assert_round21_source_mutation_fails(relative, drift_value)
+                mutation_count += 1
+
+            def drift_order(source: str, member: str = name) -> str:
+                pattern = re.compile(
+                    r"^        internal val (?:"
+                    + "|".join(map(re.escape, names))
+                    + r")\s*=\s*\"\"\".*?\"\"\"\.trimIndent\(\)\n?",
+                    re.MULTILINE | re.DOTALL,
+                )
+                blocks = list(pattern.finditer(source))
+                self.assertEqual(names, [match.group(0).split("internal val ", 1)[1].split()[0] for match in blocks])
+                index = names.index(member)
+                other = index + 1 if index < len(names) - 1 else 0
+                first, second = blocks[index], blocks[other]
+                if first.start() > second.start():
+                    first, second = second, first
+                return (
+                    source[: first.start()]
+                    + second.group(0)
+                    + source[first.end() : second.start()]
+                    + first.group(0)
+                    + source[second.end() :]
+                )
+
+            with self.subTest(name=name, mutation="order"):
+                source = (ROOT / relative).read_text(encoding="utf-8")
+                with self.assertRaisesRegex(DecompositionError, "bridge declaration order differs"):
+                    round21_bridge_inventory_source(drift_order(source))
+                self.assert_round21_source_mutation_fails(relative, drift_order)
+                mutation_count += 1
 
         self.assert_round21_source_mutation_fails(
             relative,
@@ -418,20 +831,13 @@ class TestClassDecompositionTest(unittest.TestCase):
                 "    companion object {\n        internal val EXTRA = \"drift\"\n",
             ),
         )
+        mutation_count += 1
         self.assert_round21_source_mutation_fails(
             relative,
             ("return \"fixture\";", "return \"fixture-drift\";"),
         )
-
-        def swap_first_two(source: str) -> str:
-            pattern = re.compile(
-                r"(        internal val MAIN_SOURCE =.*?            \"\"\"\.trimIndent\(\)\n\n)"
-                r"(        internal val TEST_ONLY_NEW_API =.*?            \"\"\"\.trimIndent\(\)\n\n)",
-                re.DOTALL,
-            )
-            return pattern.sub(r"\2\1", source, count=1)
-
-        self.assert_round21_source_mutation_fails(relative, swap_first_two)
+        mutation_count += 1
+        self.assertEqual(74, mutation_count)
 
     def test_round21_other_support_access_mutations_fail_independently(self) -> None:
         mutations = {
@@ -496,7 +902,7 @@ class TestClassDecompositionTest(unittest.TestCase):
         with self.assertRaises(DecompositionError):
             verify_decomposition_data(ROOT, round18)
 
-    def test_round21_import_envelope_rejects_extra_import_but_allows_reordering(self) -> None:
+    def test_round21_import_envelope_rejects_extra_import_but_allows_reordering_and_whitespace(self) -> None:
         relative = "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt"
         import_mutations = [
             ("import java.io.File\n", "import java.io.File\nimport java.util.UUID\n"),
@@ -519,6 +925,7 @@ class TestClassDecompositionTest(unittest.TestCase):
             self.assertIn(second, source)
             source = source.replace(first, "", 1).replace(second, first, 1)
             source = source.replace(first, second + first, 1)
+            source = source.replace(second, "  import   org.gradle.testkit.runner.TaskOutcome   \n", 1)
             path.write_text(source, encoding="utf-8")
             contract = load_decomposition_contract(CONTRACT)
             source_row = next(

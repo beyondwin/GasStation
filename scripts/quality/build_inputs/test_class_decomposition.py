@@ -761,9 +761,10 @@ def load_decomposition_contract(path: Path) -> dict[str, Any]:
     try:
         raw = path.read_bytes()
         value = json.loads(raw)
-    except (OSError, json.JSONDecodeError) as error:
+        canonical = _canonical_json(value)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise DecompositionError("test-class decomposition contract is unreadable") from error
-    if raw != _canonical_json(value):
+    if raw != canonical:
         raise DecompositionError("test-class decomposition contract is not canonical JSON")
     if not isinstance(value, dict):
         raise DecompositionError("test-class decomposition contract must be an object")
@@ -909,10 +910,10 @@ def _verify_round21(
         "selectedOption": "B",
         "totalDurationSeconds": "7731.035",
     }
-    if any(value.get(key) != expected for key, expected in exact_scalars.items()):
-        raise DecompositionError("Round-21 exact scalar contract differs")
     for field in ("boundSeconds", "idealLowerBoundSeconds", "totalDurationSeconds"):
         _seconds(value[field], field, positive=True)
+    if any(value.get(key) != expected for key, expected in exact_scalars.items()):
+        raise DecompositionError("Round-21 exact scalar contract differs")
 
     mappings = value["mappings"]
     mapping_keys = {"annotation", "bodySha256", "newKey", "oldKey"}
@@ -1091,6 +1092,50 @@ def _verify_round21(
         if set(option) != option_keys:
             raise DecompositionError("Round-21 option fields differ")
         option_id = option["id"]
+        _seconds(option["maximumSeconds"], f"options[{option_id}].maximumSeconds", positive=True)
+        units = option["units"]
+        if not isinstance(units, list):
+            raise DecompositionError(f"Round-21 option {option_id} units must be a list")
+        for unit_index, unit in enumerate(units):
+            if not isinstance(unit, dict) or set(unit) != {"durationSeconds", "members", "unitId"}:
+                raise DecompositionError(f"Round-21 option {option_id} unit {unit_index} fields differ")
+            _seconds(
+                unit["durationSeconds"],
+                f"options[{option_id}].units[{unit_index}].durationSeconds",
+                positive=True,
+            )
+            if (
+                not isinstance(unit["unitId"], str)
+                or not isinstance(unit["members"], list)
+                or not unit["members"]
+                or not all(isinstance(member, str) for member in unit["members"])
+            ):
+                raise DecompositionError(f"Round-21 option {option_id} unit identity differs")
+        schedule = option["schedule"]
+        if not isinstance(schedule, list):
+            raise DecompositionError(f"Round-21 option {option_id} schedule must be a list")
+        for lane_index, lane in enumerate(schedule):
+            if not isinstance(lane, dict) or set(lane) != {"durationSeconds", "units", "worker"}:
+                raise DecompositionError(f"Round-21 option {option_id} schedule lane {lane_index} fields differ")
+            _seconds(
+                lane["durationSeconds"],
+                f"options[{option_id}].schedule[{lane_index}].durationSeconds",
+                positive=True,
+            )
+            if not isinstance(lane["units"], list):
+                raise DecompositionError(f"Round-21 option {option_id} schedule units must be a list")
+            for reference_index, reference in enumerate(lane["units"]):
+                if not isinstance(reference, dict) or set(reference) != {"durationSeconds", "owner"}:
+                    raise DecompositionError(
+                        f"Round-21 option {option_id} schedule reference {reference_index} fields differ",
+                    )
+                _seconds(
+                    reference["durationSeconds"],
+                    f"options[{option_id}].schedule[{lane_index}].units[{reference_index}].durationSeconds",
+                    positive=True,
+                )
+                if not isinstance(reference["owner"], str):
+                    raise DecompositionError(f"Round-21 option {option_id} schedule owner differs")
         decision, description, identity, count, maximum = option_contracts[option_id]
         if (option["decision"], option["description"], option["unitIdentity"], option["unitCount"], option["maximumSeconds"]) != (decision, description, identity, count, maximum):
             raise DecompositionError("Round-21 option identity differs")
@@ -1112,15 +1157,17 @@ def _verify_round21(
         raise DecompositionError("Round-21 selected schedule exceeds bound")
 
     corroborations = value["localCorroborations"]
-    if corroborations != REVIEWED_R21_LOCAL_CORROBORATIONS:
-        raise DecompositionError("Round-21 local corroboration registry differs")
-    if [row.get("method") for row in corroborations if isinstance(row, dict)] != sorted(row["method"] for row in corroborations):
-        raise DecompositionError("Round-21 local corroborations are not sorted")
+    if not isinstance(corroborations, list):
+        raise DecompositionError("Round-21 local corroborations must be a list")
     for row in corroborations:
-        if set(row) != {"durationSeconds", "method", "relativePath", "sha256"}:
+        if not isinstance(row, dict) or set(row) != {"durationSeconds", "method", "relativePath", "sha256"}:
             raise DecompositionError("Round-21 local corroboration fields differ")
         _seconds(row["durationSeconds"], "localCorroborations.durationSeconds", positive=True)
         _require_sha(row["sha256"], "localCorroborations.sha256")
+    if corroborations != REVIEWED_R21_LOCAL_CORROBORATIONS:
+        raise DecompositionError("Round-21 local corroboration registry differs")
+    if [row["method"] for row in corroborations] != sorted(row["method"] for row in corroborations):
+        raise DecompositionError("Round-21 local corroborations are not sorted")
 
     return current_by_key, {
         "round21AccessCount": access_count,
