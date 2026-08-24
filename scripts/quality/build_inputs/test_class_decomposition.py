@@ -777,6 +777,12 @@ def _require_sha(value: object, field: str) -> str:
     return value
 
 
+def _integer(value: object, field: str) -> int:
+    if type(value) is not int:
+        raise DecompositionError(f"{field} must be an integer")
+    return value
+
+
 def _inventory_sha(keys: list[str]) -> str:
     return _sha256(("\n".join(sorted(keys)) + "\n").encode())
 
@@ -897,8 +903,10 @@ def _verify_round21(
         "sourceFiles",
         "totalDurationSeconds",
     }
-    if not isinstance(value, dict) or set(value) != expected_keys or value.get("schemaVersion") != 1:
+    if not isinstance(value, dict) or set(value) != expected_keys:
         raise DecompositionError("Round-21 source-class rebalancing fields differ")
+    if _integer(value["schemaVersion"], "round21SourceClassRebalancing.schemaVersion") != 1:
+        raise DecompositionError("Round-21 source-class rebalancing schema version differs")
     exact_scalars = {
         "boundSeconds": "1620.000",
         "expectedFinalClassCount": 52,
@@ -912,6 +920,13 @@ def _verify_round21(
     }
     for field in ("boundSeconds", "idealLowerBoundSeconds", "totalDurationSeconds"):
         _seconds(value[field], field, positive=True)
+    for field in (
+        "expectedFinalClassCount",
+        "expectedMovedMethodCount",
+        "expectedTotalMethods",
+        "expectedUnchangedMethodCount",
+    ):
+        _integer(value[field], f"round21SourceClassRebalancing.{field}")
     if any(value.get(key) != expected for key, expected in exact_scalars.items()):
         raise DecompositionError("Round-21 exact scalar contract differs")
 
@@ -1059,6 +1074,9 @@ def _verify_round21(
         raise DecompositionError("Round-21 total duration differs")
 
     lpt = value["lpt"]
+    if not isinstance(lpt, dict):
+        raise DecompositionError("Round-21 LPT contract must be an object")
+    _integer(lpt.get("workers"), "round21SourceClassRebalancing.lpt.workers")
     if lpt != {
         "durationOrder": "descending",
         "groupedUnitTieBreak": "unitId-code-point-ascending",
@@ -1092,6 +1110,7 @@ def _verify_round21(
         if set(option) != option_keys:
             raise DecompositionError("Round-21 option fields differ")
         option_id = option["id"]
+        _integer(option["unitCount"], f"options[{option_id}].unitCount")
         _seconds(option["maximumSeconds"], f"options[{option_id}].maximumSeconds", positive=True)
         units = option["units"]
         if not isinstance(units, list):
@@ -1117,6 +1136,10 @@ def _verify_round21(
         for lane_index, lane in enumerate(schedule):
             if not isinstance(lane, dict) or set(lane) != {"durationSeconds", "units", "worker"}:
                 raise DecompositionError(f"Round-21 option {option_id} schedule lane {lane_index} fields differ")
+            _integer(
+                lane["worker"],
+                f"options[{option_id}].schedule[{lane_index}].worker",
+            )
             _seconds(
                 lane["durationSeconds"],
                 f"options[{option_id}].schedule[{lane_index}].durationSeconds",
@@ -1142,13 +1165,29 @@ def _verify_round21(
         expected_units = _round21_units(option_id, duration_by_current, dict(zip(old_keys, new_keys, strict=True)))
         expected_schedule = _round21_schedule(expected_units)
         unit_rows = [{"durationSeconds": row["durationSeconds"], "owner": row["unitId"]} for row in expected_units]
+        submitted_unit_rows = [
+            {"durationSeconds": row["durationSeconds"], "owner": row["unitId"]}
+            for row in option["units"]
+        ]
         if option["units"] != expected_units or option["schedule"] != expected_schedule:
             raise DecompositionError("Round-21 membership/unit order or schedule differs")
-        if option["membershipLedgerSha256"] != REVIEWED_R21_MEMBERSHIP_SHA256[option_id] or _sha256(_canonical_json(expected_units)) != REVIEWED_R21_MEMBERSHIP_SHA256[option_id]:
+        if (
+            option["membershipLedgerSha256"] != REVIEWED_R21_MEMBERSHIP_SHA256[option_id]
+            or _sha256(_canonical_json(option["units"])) != REVIEWED_R21_MEMBERSHIP_SHA256[option_id]
+            or _sha256(_canonical_json(expected_units)) != REVIEWED_R21_MEMBERSHIP_SHA256[option_id]
+        ):
             raise DecompositionError("Round-21 membership hash differs")
-        if option["unitDurationLedgerSha256"] != REVIEWED_R21_UNIT_SHA256[option_id] or _sha256(_canonical_json(unit_rows)) != REVIEWED_R21_UNIT_SHA256[option_id]:
+        if (
+            option["unitDurationLedgerSha256"] != REVIEWED_R21_UNIT_SHA256[option_id]
+            or _sha256(_canonical_json(submitted_unit_rows)) != REVIEWED_R21_UNIT_SHA256[option_id]
+            or _sha256(_canonical_json(unit_rows)) != REVIEWED_R21_UNIT_SHA256[option_id]
+        ):
             raise DecompositionError("Round-21 unit-duration hash differs")
-        if option["scheduleSha256"] != REVIEWED_R21_SCHEDULE_SHA256[option_id] or _sha256(_canonical_json(expected_schedule)) != REVIEWED_R21_SCHEDULE_SHA256[option_id]:
+        if (
+            option["scheduleSha256"] != REVIEWED_R21_SCHEDULE_SHA256[option_id]
+            or _sha256(_canonical_json(option["schedule"])) != REVIEWED_R21_SCHEDULE_SHA256[option_id]
+            or _sha256(_canonical_json(expected_schedule)) != REVIEWED_R21_SCHEDULE_SHA256[option_id]
+        ):
             raise DecompositionError("Round-21 schedule hash differs")
         if max(Decimal(lane["durationSeconds"]) for lane in expected_schedule) != Decimal(maximum):
             raise DecompositionError("Round-21 projected maximum differs")
@@ -1197,9 +1236,11 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
         "unchangedMethods",
         "unchangedMethodsSha256",
     }
-    if set(contract) != expected_keys or contract.get("schemaVersion") != 1:
+    if set(contract) != expected_keys:
         raise DecompositionError("test-class decomposition contract fields differ")
-    if contract.get("expectedTotalMethods") != 90:
+    if _integer(contract["schemaVersion"], "schemaVersion") != 1:
+        raise DecompositionError("test-class decomposition schema version differs")
+    if _integer(contract["expectedTotalMethods"], "expectedTotalMethods") != 90:
         raise DecompositionError("test-class decomposition total must remain exact 90")
     _require_sha(contract.get("baselineAffectedInventorySha256"), "baselineAffectedInventorySha256")
     if contract.get("baselineAffectedInventorySha256") != REVIEWED_BASELINE_AFFECTED_SHA256:

@@ -486,6 +486,106 @@ class TestClassDecompositionTest(unittest.TestCase):
                     with self.assertRaises(DecompositionError):
                         verify_decomposition_data(ROOT, mutation)
 
+    def test_every_normative_integer_rejects_bool_and_equal_float_types(self) -> None:
+        contract = load_decomposition_contract(CONTRACT)
+        locations: list[tuple[str, object, str]] = [
+            ("outer-schema-version", lambda row: row, "schemaVersion"),
+            ("outer-total-count", lambda row: row, "expectedTotalMethods"),
+            (
+                "round21-schema-version",
+                lambda row: row["round21SourceClassRebalancing"],
+                "schemaVersion",
+            ),
+            (
+                "round21-final-class-count",
+                lambda row: row["round21SourceClassRebalancing"],
+                "expectedFinalClassCount",
+            ),
+            (
+                "round21-moved-method-count",
+                lambda row: row["round21SourceClassRebalancing"],
+                "expectedMovedMethodCount",
+            ),
+            (
+                "round21-total-method-count",
+                lambda row: row["round21SourceClassRebalancing"],
+                "expectedTotalMethods",
+            ),
+            (
+                "round21-unchanged-method-count",
+                lambda row: row["round21SourceClassRebalancing"],
+                "expectedUnchangedMethodCount",
+            ),
+            (
+                "round21-lpt-workers",
+                lambda row: row["round21SourceClassRebalancing"]["lpt"],
+                "workers",
+            ),
+        ]
+        for option_index, option_id in enumerate(("A", "B", "C")):
+            locations.append(
+                (
+                    f"option-{option_id}-unit-count",
+                    lambda row, index=option_index: row["round21SourceClassRebalancing"]["options"][index],
+                    "unitCount",
+                ),
+            )
+            for schedule_index in range(5):
+                locations.append(
+                    (
+                        f"option-{option_id}-schedule-worker-{schedule_index + 1}",
+                        lambda row, option=option_index, schedule=schedule_index: row[
+                            "round21SourceClassRebalancing"
+                        ]["options"][option]["schedule"][schedule],
+                        "worker",
+                    ),
+                )
+
+        self.assertEqual(26, len(locations))
+        mutations: list[tuple[str, dict[str, object]]] = []
+        for label, select, field in locations:
+            bool_mutation = copy.deepcopy(contract)
+            select(bool_mutation)[field] = True
+            mutations.append((f"{label}-bool", bool_mutation))
+
+            float_mutation = copy.deepcopy(contract)
+            selected = select(float_mutation)
+            selected[field] = float(selected[field])
+            mutations.append((f"{label}-equal-float", float_mutation))
+
+        self.assertEqual(52, len(mutations))
+        selected_b_worker_bool = next(
+            mutation
+            for label, mutation in mutations
+            if label == "option-B-schedule-worker-1-bool"
+        )
+        submitted_schedule = selected_b_worker_bool["round21SourceClassRebalancing"]["options"][1]["schedule"]
+        submitted_schedule_sha = hashlib.sha256(
+            (
+                json.dumps(
+                    submitted_schedule,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            ).encode(),
+        ).hexdigest()
+        self.assertEqual(
+            "09ec8afee9cbb21ebe91f96a8c757c1856de6f544cc3ad0e1f79d0c0c7cb8bb2",
+            submitted_schedule_sha,
+        )
+        self.assertNotEqual(
+            selected_b_worker_bool["round21SourceClassRebalancing"]["options"][1]["scheduleSha256"],
+            submitted_schedule_sha,
+        )
+
+        for label, mutation in mutations:
+            with self.subTest(label=label):
+                with self.assertRaisesRegex(DecompositionError, "must be an integer"):
+                    verify_decomposition_data(ROOT, mutation)
+
     def test_round21_option_component_order_and_lpt_mutations_fail_independently(self) -> None:
         contract = load_decomposition_contract(CONTRACT)
         mutations: list[tuple[str, dict[str, object]]] = []
