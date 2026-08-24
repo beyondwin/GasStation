@@ -620,12 +620,16 @@ def support_rule_sha256(path: Path, class_name: str) -> str:
     )
 
 
-def _trim_indent_value(raw: str) -> str:
+def _trim_indent_value(raw: str, member: str) -> str:
+    if not isinstance(raw, str):
+        raise DecompositionError(f"Round-21 bridge value must be a string: {member}")
     lines = raw.splitlines()
     while lines and not lines[0].strip():
         lines.pop(0)
     while lines and not lines[-1].strip():
         lines.pop()
+    if not lines:
+        raise DecompositionError(f"Round-21 bridge value contains no nonblank lines: {member}")
     indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
     return "\n".join(line[indent:] if line.strip() else "" for line in lines)
 
@@ -644,7 +648,7 @@ def round21_bridge_inventory_source(source: str) -> list[dict[str, object]]:
         if len(matches) != 1:
             raise DecompositionError(f"Round-21 bridge declaration differs: {name}")
         declaration_positions.append(matches[0].start())
-        value = _trim_indent_value(matches[0].group(1)).encode()
+        value = _trim_indent_value(matches[0].group(1), name).encode()
         if (len(value), _sha256(value)) != (expected_bytes, expected_sha):
             raise DecompositionError(f"Round-21 bridge value differs: {name}")
         inventory.append(
@@ -1104,7 +1108,18 @@ def _verify_round21(
         "unitIdentity",
         "units",
     }
-    if not isinstance(options, list) or [row.get("id") for row in options if isinstance(row, dict)] != ["A", "B", "C"]:
+    if not isinstance(options, list):
+        raise DecompositionError("round21SourceClassRebalancing.options must be a list")
+    for index, option in enumerate(options):
+        if not isinstance(option, dict):
+            raise DecompositionError(
+                f"round21SourceClassRebalancing.options[{index}] must be an object",
+            )
+    if len(options) != 3:
+        raise DecompositionError(
+            f"round21SourceClassRebalancing.options must contain exactly 3 rows, got {len(options)}",
+        )
+    if [row.get("id") for row in options] != ["A", "B", "C"]:
         raise DecompositionError("Round-21 options differ")
     for option in options:
         if set(option) != option_keys:

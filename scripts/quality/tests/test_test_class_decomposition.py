@@ -631,6 +631,11 @@ class TestClassDecompositionTest(unittest.TestCase):
                 copy.deepcopy(row["round21SourceClassRebalancing"]["options"][-1]),
             ),
         )
+        for label, value in (("null", None), ("scalar", 1), ("list", [])):
+            add(
+                f"options-extra-{label}",
+                lambda row, value=value: row["round21SourceClassRebalancing"]["options"].append(value),
+            )
         for field in (
             "mappings",
             "durationLedger",
@@ -790,7 +795,19 @@ class TestClassDecompositionTest(unittest.TestCase):
         )
         self.assertEqual("Owner#f", equal_schedule[0]["units"][1]["owner"])
 
-        self.assert_contract_mutations_fail(mutations, 72)
+        self.assert_contract_mutations_fail(mutations, 75)
+
+    def test_round21_options_reject_non_object_extra_rows_with_index(self) -> None:
+        contract = load_decomposition_contract(CONTRACT)
+        for label, value in (("null", None), ("scalar", 1), ("list", [])):
+            with self.subTest(label=label):
+                changed = copy.deepcopy(contract)
+                changed["round21SourceClassRebalancing"]["options"].append(value)
+                with self.assertRaisesRegex(
+                    DecompositionError,
+                    r"round21SourceClassRebalancing\.options\[3\] must be an object",
+                ):
+                    verify_decomposition_data(ROOT, changed)
 
     def test_round21_access_helper_and_class_source_mutations_fail_closed(self) -> None:
         contract = load_decomposition_contract(CONTRACT)
@@ -924,6 +941,37 @@ class TestClassDecompositionTest(unittest.TestCase):
                 self.assert_round21_source_mutation_fails(relative, drift_order)
                 mutation_count += 1
 
+        def replace_raw_value(source: str, member: str, replacement: str) -> str:
+            pattern = re.compile(
+                rf"(^        internal val {re.escape(member)}\s*=\s*\"\"\")(.*?)(\"\"\"\.trimIndent\(\)\s*$)",
+                re.MULTILINE | re.DOTALL,
+            )
+            match = pattern.search(source)
+            self.assertIsNotNone(match)
+            return source[: match.start(2)] + replacement + source[match.end(2) :]
+
+        empty_values = (
+            ("MAIN_SOURCE", ""),
+            ("TEST_ONLY_NEW_API", "\n        \n"),
+        )
+        for name, replacement in empty_values:
+            def empty_value(
+                source: str,
+                member: str = name,
+                raw: str = replacement,
+            ) -> str:
+                return replace_raw_value(source, member, raw)
+
+            with self.subTest(name=name, mutation="no-nonblank-value"):
+                source = (ROOT / relative).read_text(encoding="utf-8")
+                with self.assertRaisesRegex(
+                    DecompositionError,
+                    rf"bridge value contains no nonblank lines: {name}",
+                ):
+                    round21_bridge_inventory_source(empty_value(source))
+                self.assert_round21_source_mutation_fails(relative, empty_value)
+                mutation_count += 1
+
         self.assert_round21_source_mutation_fails(
             relative,
             (
@@ -937,7 +985,7 @@ class TestClassDecompositionTest(unittest.TestCase):
             ("return \"fixture\";", "return \"fixture-drift\";"),
         )
         mutation_count += 1
-        self.assertEqual(74, mutation_count)
+        self.assertEqual(76, mutation_count)
 
     def test_round21_other_support_access_mutations_fail_independently(self) -> None:
         mutations = {
