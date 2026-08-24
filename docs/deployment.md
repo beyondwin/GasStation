@@ -69,6 +69,8 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 이 상태는 unsigned prod-release의 same-host/workspace-independent 재현성만 의미한다. demo-debug는 probe 대상이 아니고 기존 demo asset 이름은 유지한다. signed artifact, cross-OS, hosted image 자체의 immutable identity는 주장하지 않는다. Hosted probe가 아직 실행되지 않은 source는 `HOSTED BUILD-INPUT EVIDENCE: NOT RUN`이며 로컬 결과로 바꾸지 않는다. 자세한 mismatch triage는 [Build Input Provenance](runbooks/build-input-provenance.md)를 따른다.
 
+Task 9 구현 lineage는 `12e619b8...`와 narrow fix `4173dd05...`이며 exact final HEAD의 scoped review는 finding 없는 SPEC PASS / QUALITY PASS입니다. 이것은 release 또는 배포 증거가 아닙니다. `4173dd05...`의 governed Linux entry는 attempt allocation 전 infrastructure preflight에서 멈췄으므로 `NOT_MEASURED`이고, 같은 코드 retry는 수행되지 않았으며 승인되지 않았습니다. Hosted build-input, signed/cross-host reproducibility, device/emulator, push, PR, tag, release, publish, deploy와 그 밖의 remote action은 모두 `NOT RUN`입니다.
+
 ## 기기 진단 workflow와 release 경계
 
 `.github/workflows/device-evidence.yml`의 API 28 PR smoke는 초기 report-only이며, API 24/28/36 scheduled/manual job은 실패를 숨기지 않는 진단 경로입니다. Task 8에서는 어느 job도 `release-publish.needs`가 아니고 tag/Release를 차단하거나 발행 근거를 대체하지 않습니다. API 28 PR status의 blocking 승격은 [Android 기기 검증 런북](runbooks/device-verification.md)의 반복 hosted evidence와 별도 review 조건을 만족한 후의 독립 변경으로만 수행합니다. hosted run이 없으면 `HOSTED NOT RUN`으로 남기며 release PASS로 해석하지 않습니다.

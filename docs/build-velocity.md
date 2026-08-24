@@ -13,6 +13,12 @@ Java: 17
 | fast local check | PASS | 14.22 s | 0.85 s | 0.10 s |
 | `:app:assembleProdRelease` | PASS | 28.08 s | 0.83 s | 0.10 s |
 
+## Convention Quality-Gate Timing Snapshot
+
+At implementation commit `12e619b8...`, the final local convention run completed 52 suites / 90 tests with 0 failures, 0 errors, and 0 skipped in 11m46s. The later `4173dd05...` fix changed only the governed 35-minute marker consumer, its direct regression test, and generated policy; unchanged local 90/90 was not rerun under the no-repeat rule. Scoped review at the exact final HEAD reported SPEC PASS and QUALITY PASS with no findings.
+
+The single governed Linux invocation at `4173dd05...` exited 2 after 0.602362792s because inherited `SSH_AUTH_SOCK` was rejected before attempt allocation. That duration is infrastructure preflight latency, not convention-suite build time: the status is attempt 0 and `NOT_MEASURED`, with no same-code retry. The exact invocation and evidence interpretation live in the [verification matrix](verification-matrix.md#build-input-provenance와-unsigned-release-재현성).
+
 ## Decisions
 
 - Keep `org.gradle.parallel=true` enabled because the fast local check and release assemble passed with the current module graph.
