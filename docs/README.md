@@ -41,10 +41,11 @@
 
 ## 4. 결정·근거·이력 조사
 
+- ADR의 역할과 현재 truth 확인 경로: [ADR 허브](adr/README.md)
 - 현재 수용된 아키텍처 결정: [ADR — Backend Proxy Escalation](adr/2026-05-18-backend-proxy-escalation.md)
-- 설계와 구현 계획의 작성 당시 기록: [`docs/superpowers/`](superpowers/)
-- 심층 분석 및 개선 이력: [`docs/history/`](history/), [`docs/improvements/`](improvements/)
-- Compose stability 측정 스냅샷: [`docs/compose-metrics/`](compose-metrics/)
-- 버전별 릴리스 근거: [`docs/release-notes/`](release-notes/)
+- 설계와 구현 계획의 작성 당시 기록: [Superpowers 이력 허브](superpowers/README.md)
+- 심층 분석 및 개선 이력: [분석 이력 허브](history/README.md), [개선 작업 이력 허브](improvements/README.md)
+- Compose stability 측정 스냅샷: [Compose metrics 이력 허브](compose-metrics/README.md)
+- 버전별 릴리스 근거: [Release note 이력 허브](release-notes/README.md)
 
 이력 문서는 결정 배경과 측정 근거를 찾는 데 사용합니다. 현재 동작이나 완료 상태는 이력 파일명만으로 판단하지 말고, 위의 현재 계약 문서와 실제 저장소를 다시 확인합니다.

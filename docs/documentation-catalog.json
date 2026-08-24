@@ -234,6 +234,54 @@
       "verificationScope": "scripts/agent/check-contracts.sh --ci; build-input policy tests; fresh-home strict matrix; docs bridge closure; two-clean-tree unsigned prod APK equality"
     },
     {
+      "path": "docs/adr/README.md",
+      "kind": "history",
+      "owner": "ADR 탐색과 현재 decision truth 확인 경로",
+      "authoritativeSources": ["docs/documentation-catalog.json", "docs/security-trade-offs.md", "docs/architecture.md", "docs/adr"],
+      "reviewTriggers": ["ADR 추가·이동", "현재 decision owner 또는 live truth 경로 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 ADR와 현재 owner 링크를 대조"
+    },
+    {
+      "path": "docs/superpowers/README.md",
+      "kind": "history",
+      "owner": "설계·구현 계획 이력의 안전한 탐색 경로",
+      "authoritativeSources": ["docs/superpowers/specs", "docs/superpowers/plans", "docs/architecture.md", "docs/agent-workflow.md"],
+      "reviewTriggers": ["spec·plan 위치 또는 역사 분류 변경", "대표 navigation link 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 이력 링크와 current-truth 경고를 대조"
+    },
+    {
+      "path": "docs/history/README.md",
+      "kind": "history",
+      "owner": "repository 분석 이력 탐색과 현재 계약 분리",
+      "authoritativeSources": ["docs/history", "docs/architecture.md", "docs/module-contracts.md", "docs/verification-matrix.md"],
+      "reviewTriggers": ["분석 report 위치·분류 변경", "current truth 안내 경로 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 report와 live owner 링크를 대조"
+    },
+    {
+      "path": "docs/improvements/README.md",
+      "kind": "history",
+      "owner": "개선 spec·implementation 이력 탐색과 현재 계약 분리",
+      "authoritativeSources": ["docs/improvements", "docs/architecture.md", "docs/module-contracts.md", "docs/agent-workflow.md"],
+      "reviewTriggers": ["개선 이력 위치·분류 변경", "재개 workflow 또는 current truth 안내 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 개선 문서와 live owner 링크를 대조"
+    },
+    {
+      "path": "docs/compose-metrics/README.md",
+      "kind": "history",
+      "owner": "Compose compiler metrics snapshot 탐색과 성능 근거 분리",
+      "authoritativeSources": ["docs/compose-metrics", "docs/performance.md", "docs/test-strategy.md", "core/designsystem/src/main/kotlin/com/gasstation/core/designsystem"],
+      "reviewTriggers": ["Compose metrics snapshot 위치·수집 범위 변경", "UI 성능 evidence owner 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 snapshot과 현재 UI·performance owner 링크를 대조"
+    },
+    {
+      "path": "docs/release-notes/README.md",
+      "kind": "history",
+      "owner": "버전별 release note 이력 탐색과 현재 release truth 분리",
+      "authoritativeSources": ["docs/release-notes", "CHANGELOG.md", "app/build.gradle.kts", "docs/deployment.md"],
+      "reviewTriggers": ["release note 위치·명명 또는 발행 절차 변경", "현재 버전·release owner 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 대표 note와 changelog·version·deployment owner 링크를 대조"
+    },
+    {
       "path": "docs/adr/2026-05-18-backend-proxy-escalation.md",
       "kind": "decision",
       "owner": "Opinet backend proxy 승격 결정",

@@ -339,10 +339,26 @@ jobs:
           )
           gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file" release-assets/*.apk
 EOF
-mkdir -p "$fixture/repo/docs/onboarding" "$fixture/repo/docs/adr"
-mkdir -p "$fixture/repo/docs/superpowers"
+mkdir -p \
+  "$fixture/repo/docs/onboarding" \
+  "$fixture/repo/docs/adr" \
+  "$fixture/repo/docs/superpowers" \
+  "$fixture/repo/docs/history" \
+  "$fixture/repo/docs/improvements" \
+  "$fixture/repo/docs/compose-metrics"
 printf '# Onboarding\n' > "$fixture/repo/docs/onboarding/developer-onboarding-guide.md"
+printf '# Getting started\n' > "$fixture/repo/docs/onboarding/getting-started.md"
+printf '# Architecture tour\n' > "$fixture/repo/docs/onboarding/architecture-tour.md"
+printf '# Change playbook\n' > "$fixture/repo/docs/onboarding/change-playbook.md"
+printf '# Verification and delivery\n' > "$fixture/repo/docs/onboarding/verification-and-delivery.md"
+printf '# Runbooks\n' > "$fixture/repo/docs/runbooks/README.md"
+printf '# ADR\n' > "$fixture/repo/docs/adr/README.md"
 printf '# Decision\n' > "$fixture/repo/docs/adr/2026-05-18-backend-proxy-escalation.md"
+printf '# Superpowers\n' > "$fixture/repo/docs/superpowers/README.md"
+printf '# History\n' > "$fixture/repo/docs/history/README.md"
+printf '# Improvements\n' > "$fixture/repo/docs/improvements/README.md"
+printf '# Compose metrics\n' > "$fixture/repo/docs/compose-metrics/README.md"
+printf '# Release notes\n' > "$fixture/repo/docs/release-notes/README.md"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/repo/scripts/agent/verify.sh"
 chmod +x "$fixture/repo/scripts/agent/verify.sh"
 cp "$repo_root/docs/station-data-policy.json" "$fixture/repo/docs/station-data-policy.json"
@@ -358,12 +374,18 @@ root = Path(os.environ["FIXTURE_REPO"])
 paths = [
     "AGENTS.md", "README.md", "CONTRIBUTING.md", "CHANGELOG.md", ".impeccable.md",
     "docs/README.md", "docs/AGENTS.md", "docs/onboarding/developer-onboarding-guide.md",
+    "docs/onboarding/getting-started.md", "docs/onboarding/architecture-tour.md",
+    "docs/onboarding/change-playbook.md", "docs/onboarding/verification-and-delivery.md",
     "docs/agent-workflow.md", "docs/project-reading-guide.md", "docs/architecture.md",
     "docs/module-contracts.md", "docs/state-model.md", "docs/offline-strategy.md",
     "docs/test-strategy.md", "docs/verification-matrix.md", "docs/security-trade-offs.md",
     "docs/deployment.md", "docs/performance.md", "docs/build-velocity.md",
+    "docs/runbooks/README.md",
     "docs/runbooks/build-input-provenance.md", "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md", "benchmark/AGENTS.md",
+    "docs/adr/README.md", "docs/superpowers/README.md", "docs/history/README.md",
+    "docs/improvements/README.md", "docs/compose-metrics/README.md",
+    "docs/release-notes/README.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
 ]
 entries = [{
