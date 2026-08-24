@@ -158,15 +158,15 @@ dependencies {
 val testKitVerificationSeeds =
     listOf(
         "com.google.android:android:4.1.1.4",
-        "androidx.annotation:annotation-experimental:1.1.0",
+        "androidx.annotation:annotation-experimental:1.6.0",
         "androidx.annotation:annotation-jvm:1.7.0",
-        "androidx.core:core-ktx:1.8.0",
-        "com.google.guava:guava:33.4.0-jre",
-        "com.google.guava:guava:33.4.8-jre",
-        "org.junit:junit-bom:5.10.2",
-        "org.junit:junit-bom:5.11.0-M2",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.9.0",
+        "androidx.core:core-ktx:1.19.0",
+        "com.google.guava:guava:33.7.1-jre",
+        "com.google.guava:guava:33.7.1-jre",
+        "org.junit:junit-bom:6.1.3",
+        "org.junit:junit-bom:6.1.3",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.11.0",
         "com.android.tools.build:aapt2:$testKitAapt2Version:linux",
         "com.android.tools.build:aapt2:$testKitAapt2Version:osx",
     ).mapIndexed { index, coordinate ->
