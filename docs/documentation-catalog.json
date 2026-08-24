@@ -194,6 +194,14 @@
       "verificationScope": "scripts/agent/verify.sh docs; gradle.properties와 workflow task 분리를 대조"
     },
     {
+      "path": "docs/runbooks/README.md",
+      "kind": "runbook",
+      "owner": "검증 선택에서 device, build-input, release와 performance owner로 가는 운영 허브",
+      "authoritativeSources": ["docs/verification-matrix.md", "docs/runbooks/device-verification.md", "docs/runbooks/build-input-provenance.md", "docs/deployment.md", "docs/performance.md"],
+      "reviewTriggers": ["specialist runbook 추가·이동", "검증·device·build-input·release·performance command ownership 변경"],
+      "verificationScope": "scripts/agent/verify.sh docs; 다섯 canonical owner 링크와 2-link 도달성을 대조"
+    },
+    {
       "path": "core/database/AGENTS.md",
       "kind": "contract",
       "owner": "core:database schema·snapshot·migration 변경 운영 계약",

@@ -79,6 +79,8 @@ Task 9 구현 lineage는 `12e619b8...`와 narrow fix `4173dd05...`이며 exact f
 
 로컬 release APK 확인:
 
+<!-- command-owner: release.assemble -->
+
 ```bash
 ./gradlew :app:assembleProdRelease
 ls -l app/build/outputs/apk/prod/release/

@@ -54,6 +54,8 @@ The generator and its companion `openWatchlistFrameTiming` benchmark depend on `
 
 ## Commands
 
+<!-- command-owner: performance.hero -->
+
 ```bash
 ./gradlew :app:assembleDemoBenchmark :benchmark:assembleBenchmark
 ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest

@@ -77,6 +77,8 @@ git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md do
 
 문서/리팩터링/가벼운 변경 후 가장 먼저 돌릴 조합입니다.
 
+<!-- command-owner: verification.fast -->
+
 live 계약 문서, 링크, 경로, toolchain/version/module 계약은 Gradle 없이 다음 checker로 확인합니다.
 
 ```bash
@@ -114,6 +116,8 @@ Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와
 ## Station data correctness 집중 회귀
 
 typed transport/retry owner, safe diagnostics, atomic bucket observation, time-driven freshness, latest-started persistence, exported Room schema를 함께 바꿨거나 live 계약으로 설명할 때는 다음 focused regression을 실행합니다.
+
+<!-- command-owner: verification.data -->
 
 ```bash
 ./gradlew \

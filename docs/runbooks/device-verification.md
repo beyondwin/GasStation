@@ -23,6 +23,8 @@ Task 이름은 AGP 9.3 task discovery에서 확인한 값입니다. GMD group이
 
 깨끗한 checkout과 event SHA/run identity가 있는 지원 호스트에서만 다음 wrapper를 사용합니다.
 
+<!-- command-owner: verification.device -->
+
 ```bash
 scripts/quality/device/run_gmd_lane.sh --lane api28-pr-smoke
 scripts/quality/device/run_api24_avd.sh --lane api24-scheduled

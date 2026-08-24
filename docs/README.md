@@ -26,6 +26,7 @@
 
 ## 3. 테스트·릴리스·운영 검증
 
+- device, build-input, release, performance 절차의 owner 지도: [운영 런북 허브](runbooks/README.md)
 - 변경 유형에서 필요한 검증 범위를 고르는 기준: [테스트 전략](test-strategy.md), [검증 매트릭스](verification-matrix.md)
 - API 24/28/36 에뮬레이터 lane, receipt, failure triage와 승격 기준: [Android 기기 검증 런북](runbooks/device-verification.md)
 - 배포, tag, GitHub Release, APK 산출물: [배포](deployment.md)

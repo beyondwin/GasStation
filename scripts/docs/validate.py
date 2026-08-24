@@ -75,6 +75,7 @@ EXPECTED_LIVE_PATHS = {
     "docs/deployment.md",
     "docs/performance.md",
     "docs/build-velocity.md",
+    "docs/runbooks/README.md",
     "docs/runbooks/device-verification.md",
     "docs/runbooks/build-input-provenance.md",
     "core/database/AGENTS.md",

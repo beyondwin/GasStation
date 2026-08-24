@@ -57,62 +57,17 @@
 
 ## 아키텍처 한눈에
 
-아래 그래프는 Gradle 프로젝트 간 직접 의존성을 기준으로 그린 모듈 그래프입니다.
+아래 그림은 자주 바뀌지 않는 레이어 방향만 보여줍니다. 활성 모듈과 Gradle 프로젝트 간 정확한 직접 의존 그래프는 [`docs/architecture.md`](docs/architecture.md#모듈-그래프)가 단일 소유자입니다.
 
 ```mermaid
 flowchart LR
-    app["app"] --> fstation["feature:station-list"]
-    app --> fsettings["feature:settings"]
-    app --> fwatch["feature:watchlist"]
-    app --> dstation["data:station"]
-    app --> dsettings["data:settings"]
-    app --> cdesign["core:designsystem"]
-    app --> clocation["core:location"]
-    app --> cnetwork["core:network"]
-    app --> cdatabase["core:database"]
-    app --> cmodel["core:model"]
-    app --> cobserve["core:observability"]
-    app --> domSettings["domain:settings"]
-    app --> domStation["domain:station"]
-
-    fstation --> domSettings
-    fstation --> domStation
-    fstation --> domLocation["domain:location"]
-    fstation --> cdesign
-    fstation --> cmodel
-
-    fsettings --> domSettings
-    fsettings --> cdesign
-    fsettings --> cmodel
-
-    fwatch --> domStation
-    fwatch --> domSettings
-    fwatch --> cmodel
-    fwatch --> cdesign
-    cdesign --> cmodel
-
-    dstation --> domStation
-    dstation --> cnetwork
-    dstation --> cdatabase
-    dstation --> cmodel
-    dstation --> cobserve
-
-    dsettings --> domSettings
-    dsettings --> cstore["core:datastore"]
-
-    cnetwork --> cmodel
-
-    clocation --> domLocation
-    clocation --> cmodel
-    clocation --> cobserve
-    domSettings --> cmodel
-    domLocation --> cmodel
-    domStation --> cmodel
-
-    tools["tools:demo-seed"] --> cnetwork
-    tools --> domStation
-    tools --> cmodel
-    benchmark["benchmark"] --> app
+    App["app<br/>조립 · navigation · flavor"] --> Feature["feature<br/>화면 · 상태 · interaction"]
+    App --> Data["data<br/>repository 구현 · 조합"]
+    Feature --> Domain["domain<br/>계약 · use case · 순수 모델"]
+    Data --> Domain
+    Feature --> Core["core<br/>공유 UI · 플랫폼 · 인프라"]
+    Data --> Core
+    Tools["tools / benchmark<br/>재현·측정 경로"] --> App
 ```
 
 구조와 데이터 흐름 상세 설명은 [아키텍처 문서](docs/architecture.md)에 정리했습니다.
@@ -178,7 +133,7 @@ live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용
 
 ## 문서 지도
 
-현재 구조와 실행 명령의 기준은 live 문서와 실제 코드입니다. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 설계와 분석 이력을 보관하지만 현재 계약을 판단할 때는 아래 live 문서와 `settings.gradle.kts`를 우선합니다.
+전체 현재 문서와 독자별 진입점은 [GasStation 문서 허브](docs/README.md)에서 찾습니다. 현재 구조와 실행 명령의 기준은 live 문서와 실제 코드입니다. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 설계와 분석 이력을 보관하지만 현재 계약을 판단할 때는 아래 live 문서와 `settings.gradle.kts`를 우선합니다.
 
 ### 시작과 학습
 
@@ -246,44 +201,6 @@ Measured on Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33) with the `d
 
 ## 검증
 
-빠른 로컬 확인:
+변경 유형에서 어떤 범위를 실행할지는 [검증 매트릭스](docs/verification-matrix.md)가 소유합니다. API 24/28/36 runtime 증거, build-input provenance, release assemble, physical-device hero benchmark는 [runbooks 허브](docs/runbooks/README.md)에서 각 canonical owner로 이동합니다. 이 README는 제품 quick start만 유지하며 specialist 명령을 복제하지 않습니다.
 
-```bash
-./gradlew \
-  :core:model:test \
-  :domain:location:test \
-  :core:observability:test \
-  :core:designsystem:testDebugUnitTest \
-  :feature:station-list:testDebugUnitTest \
-  :feature:watchlist:testDebugUnitTest \
-  :feature:settings:testDebugUnitTest \
-  :app:assembleDemoDebug \
-  :app:testDemoDebugUnitTest \
-  :app:testProdDebugUnitTest \
-  :benchmark:assemble
-```
-
-기기 기반 UI 확인:
-
-```bash
-ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest
-```
-
-권한 진입/거부/grant와 Android permission controller 상호작용만 집중 확인할 때는 다음 connected class를 실행합니다.
-
-```bash
-./gradlew :app:connectedDemoDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.DemoPermissionFlowTest \
-  --warning-mode fail
-```
-
-설정의 유종·지도 provider가 관심 화면과 Nearby handoff에 실제로 소비되는지만 집중 확인할 때는 다음 connected class를 실행합니다.
-
-```bash
-ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.StationPortfolioFlowTest \
-  --warning-mode fail
-```
-
-전체 명령과 상황별 기준은 [검증 매트릭스](docs/verification-matrix.md)를 따릅니다.
 GitHub Actions `Android CI`는 PR에서 `agent-contracts`, `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`, `mutation`을 실행합니다. Coverage는 settings의 18개 명시 모듈과 demo/prod 보고서를 provider 기반으로 발견하고, authored production/test provenance와 모듈·상태 unit ratchet을 차단형으로 검사합니다. JVM mutation은 `scripts/quality/run_pitest.sh`로만 실행하며 station 45/location 75 floor와 settings report-only score를 적용합니다. 로컬에서는 먼저 `./gradlew verifyPitestConfiguration`으로 sealed 설정을 빠르게 검사합니다. `assemble`은 demo/prod debug와 benchmark를 확인하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. `v*` tag에서는 mutation을 포함한 모든 blocking job 성공 뒤 `release-publish`가 demo debug APK, unsigned prod release APK, SHA-256 checksum을 GitHub Release에 게시합니다.
