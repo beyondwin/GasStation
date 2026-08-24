@@ -20,14 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class AndroidLintConventionPluginTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
-    private val sharedGradleUserHome by lazy {
-        temporaryFolder.newFolder("android-lint-gradle-user-home")
-    }
-
+internal class AndroidLintPropertySelectionTest : AndroidLintConventionTestSupport() {
     @Test
     fun testSourcePropertyIsStrictAndParitySafeForApplicationAndLibrary() {
         val project = newLintMultiProject("property")
@@ -54,6 +47,29 @@ class AndroidLintConventionPluginTest {
         }
     }
 
+    @Test
+    fun invalidPropertyUsesSharedStrictParserBeforeLintCanSucceed() {
+        val project = newLintProject("invalid-property", AndroidLintFixtureKind.LIBRARY)
+        val result =
+            project.runner("lintDebug", "-Pgasstation.lintTestSources=TRUE").buildAndFail()
+
+        assertTrue(
+            result.output.contains("gasstation.lintTestSources must be exactly true or false"),
+        )
+        assertFalse(result.tasks.any { it.path == ":lintDebug" && it.outcome == TaskOutcome.SUCCESS })
+    }
+
+    @Test
+    fun fixtureMappingExcludesJvmLibraryFromAndroidLintClaims() {
+        assertEquals(
+            setOf("gasstation.android.application.compose", "gasstation.android.library"),
+            AndroidLintFixtureKind.entries.map(AndroidLintFixtureKind::pluginId).toSet(),
+        )
+        assertFalse(AndroidLintFixtureKind.entries.any { it.pluginId == "gasstation.jvm.library" })
+    }
+}
+
+internal class AndroidLintReportRegenerationTest : AndroidLintConventionTestSupport() {
     @Test
     fun propertyToggleRegeneratesReportsWithoutStaleTestFindingsForApplicationAndLibrary() {
         val isolationSentinel = newTestProject("stale-isolation-sentinel")
@@ -107,28 +123,9 @@ class AndroidLintConventionPluginTest {
             assertReportSurface(project, kind)
         }
     }
+}
 
-    @Test
-    fun invalidPropertyUsesSharedStrictParserBeforeLintCanSucceed() {
-        val project = newLintProject("invalid-property", AndroidLintFixtureKind.LIBRARY)
-        val result =
-            project.runner("lintDebug", "-Pgasstation.lintTestSources=TRUE").buildAndFail()
-
-        assertTrue(
-            result.output.contains("gasstation.lintTestSources must be exactly true or false"),
-        )
-        assertFalse(result.tasks.any { it.path == ":lintDebug" && it.outcome == TaskOutcome.SUCCESS })
-    }
-
-    @Test
-    fun fixtureMappingExcludesJvmLibraryFromAndroidLintClaims() {
-        assertEquals(
-            setOf("gasstation.android.application.compose", "gasstation.android.library"),
-            AndroidLintFixtureKind.entries.map(AndroidLintFixtureKind::pluginId).toSet(),
-        )
-        assertFalse(AndroidLintFixtureKind.entries.any { it.pluginId == "gasstation.jvm.library" })
-    }
-
+internal class AndroidLintManagedDevicesTest : AndroidLintConventionTestSupport() {
     @Test
     fun applicationAndLibraryExposeOnlyTheReviewedManagedDevicesAndReuseConfigurationCache() {
         val project = newLintMultiProject("managed-devices")
@@ -147,7 +144,9 @@ class AndroidLintConventionPluginTest {
         second.assertConfigurationCacheReused()
         assertManagedDeviceTasks(second.output)
     }
+}
 
+internal class AndroidLintWarningPromotionTest : AndroidLintConventionTestSupport() {
     @Test
     fun warningPromotionFailsForApplicationAndLibrary() {
         val project =
@@ -170,7 +169,9 @@ class AndroidLintConventionPluginTest {
             assertReportSurface(project, kind)
         }
     }
+}
 
+internal class AndroidLintBaselineIsolationTest : AndroidLintConventionTestSupport() {
     @Test
     fun reviewedBaselineSuppressesOnlyItsExactWarningLocation() {
         val project =
@@ -217,8 +218,17 @@ class AndroidLintConventionPluginTest {
         assertEquals(7, issue.line)
         assertReportSurface(project)
     }
+}
 
-    private fun newLintProject(
+internal abstract class AndroidLintConventionTestSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    protected val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("android-lint-gradle-user-home")
+    }
+
+    protected fun newLintProject(
         name: String,
         kind: AndroidLintFixtureKind,
     ): GradlePluginTestProject =
@@ -229,19 +239,19 @@ class AndroidLintConventionPluginTest {
                 testSource = TEST_ONLY_NEW_API,
             )
 
-    private fun newLintMultiProject(name: String): GradlePluginTestProject =
+    protected fun newLintMultiProject(name: String): GradlePluginTestProject =
         newTestProject(name).writeAndroidLintMultiProjectFixture(
             mainSource = MAIN_SOURCE,
             testSource = TEST_ONLY_NEW_API,
         )
 
-    private fun newTestProject(name: String): GradlePluginTestProject =
+    protected fun newTestProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),
             sharedGradleUserHome,
         )
 
-    private fun assertTestOnlyNewApiPresent(
+    protected fun assertTestOnlyNewApiPresent(
         project: GradlePluginTestProject,
         kind: AndroidLintFixtureKind? = null,
     ) {
@@ -251,14 +261,14 @@ class AndroidLintConventionPluginTest {
         assertEquals(7, issue.line)
     }
 
-    private fun assertTestOnlyNewApiAbsent(
+    protected fun assertTestOnlyNewApiAbsent(
         project: GradlePluginTestProject,
         kind: AndroidLintFixtureKind? = null,
     ) {
         assertFalse(project.lintXml(kind).readLintIssues().any { it.id == "NewApi" })
     }
 
-    private fun assertReportSurface(
+    protected fun assertReportSurface(
         project: GradlePluginTestProject,
         kind: AndroidLintFixtureKind? = null,
     ) {
@@ -267,7 +277,7 @@ class AndroidLintConventionPluginTest {
         }
     }
 
-    private fun assertManagedDeviceContract(output: String) {
+    protected fun assertManagedDeviceContract(output: String) {
         val expected =
             "gasstationPixel2Api28|Pixel 2|28|aosp," +
                 "gasstationPixel2Api36|Pixel 2|36|google"
@@ -277,14 +287,14 @@ class AndroidLintConventionPluginTest {
         assertManagedDeviceTasks(output)
     }
 
-    private fun assertManagedDeviceTasks(output: String) {
+    protected fun assertManagedDeviceTasks(output: String) {
         assertTrue(output.contains("gasstationPixel2Api28DebugAndroidTest"))
         assertTrue(output.contains("gasstationPixel2Api36DebugAndroidTest"))
         assertFalse(output.contains("gasstationPixel2Api24"))
         assertFalse(output.contains("managedDeviceGroup"))
     }
 
-    private fun assertReviewedBaselineApplied(project: GradlePluginTestProject): List<LintIssue> {
+    protected fun assertReviewedBaselineApplied(project: GradlePluginTestProject): List<LintIssue> {
         val issues = project.lintXml().readLintIssues()
         val baselineHint = issues.single { it.id == "LintBaseline" }
         assertEquals("Hint", baselineHint.severity)
@@ -293,13 +303,13 @@ class AndroidLintConventionPluginTest {
         return issues.filterNot { it.id == "LintBaseline" }
     }
 
-    private fun AndroidLintFixtureKind.lintTask(): String = ":${name.lowercase()}:lintDebug"
+    protected fun AndroidLintFixtureKind.lintTask(): String = ":${name.lowercase()}:lintDebug"
 
-    private fun GradlePluginTestProject.lintXml(
+    protected fun GradlePluginTestProject.lintXml(
         kind: AndroidLintFixtureKind? = null,
     ): File = lintReport("xml", kind)
 
-    private fun GradlePluginTestProject.lintReport(
+    protected fun GradlePluginTestProject.lintReport(
         extension: String,
         kind: AndroidLintFixtureKind? = null,
     ): File =
@@ -309,7 +319,8 @@ class AndroidLintConventionPluginTest {
         )
 
     companion object {
-        private val MAIN_SOURCE =
+        @JvmStatic
+        protected val MAIN_SOURCE =
             """
             package fixture;
 
@@ -318,7 +329,8 @@ class AndroidLintConventionPluginTest {
             }
             """.trimIndent()
 
-        private val TEST_ONLY_NEW_API =
+        @JvmStatic
+        protected val TEST_ONLY_NEW_API =
             """
             package fixture;
 
@@ -331,7 +343,8 @@ class AndroidLintConventionPluginTest {
             }
             """.trimIndent()
 
-        private val MAIN_WARNING =
+        @JvmStatic
+        protected val MAIN_WARNING =
             """
             package fixture;
 
@@ -344,8 +357,9 @@ class AndroidLintConventionPluginTest {
             }
             """.trimIndent()
 
-        private const val UNREVIEWED_WARNING_PATH = "src/main/java/fixture/SecondWarning.java"
-        private val SECOND_WARNING =
+        protected const val UNREVIEWED_WARNING_PATH = "src/main/java/fixture/SecondWarning.java"
+        @JvmStatic
+        protected val SECOND_WARNING =
             """
             package fixture;
 
@@ -358,8 +372,9 @@ class AndroidLintConventionPluginTest {
             }
             """.trimIndent()
 
-        private const val NEW_ERROR_PATH = "src/main/java/fixture/NewError.java"
-        private val NEW_ERROR_SOURCE =
+        protected const val NEW_ERROR_PATH = "src/main/java/fixture/NewError.java"
+        @JvmStatic
+        protected val NEW_ERROR_SOURCE =
             """
             package fixture;
 
@@ -372,7 +387,8 @@ class AndroidLintConventionPluginTest {
             }
             """.trimIndent()
 
-        private val REVIEWED_WARNING_BASELINE =
+        @JvmStatic
+        protected val REVIEWED_WARNING_BASELINE =
             """
             <?xml version="1.0" encoding="UTF-8"?>
             <issues format="6" by="lint fixture">

@@ -18,14 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class RoborazziConventionPluginTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
-    private val sharedGradleUserHome by lazy {
-        temporaryFolder.newFolder("roborazzi-gradle-user-home")
-    }
-
+internal class RoborazziPropertySelectionTest : RoborazziConventionTestSupport() {
     @Test
     fun ordinaryUnitTestExcludesScreenshotClassForAbsentAndExactFalseProperty() {
         val project = newProject("ordinary").writeRoborazziFixture()
@@ -62,7 +55,9 @@ class RoborazziConventionPluginTest {
             assertTestClasses(project, includeScreenshot = includeScreenshot)
         }
     }
+}
 
+internal class RoborazziPropertyValidationTest : RoborazziConventionTestSupport() {
     @Test
     fun invalidIncludePropertyUsesSharedStrictParserBeforeTheUnitTestCanSucceed() {
         val project = newProject("invalid-property").writeRoborazziFixture()
@@ -84,7 +79,9 @@ class RoborazziConventionPluginTest {
             },
         )
     }
+}
 
+internal class RoborazziLifecycleSelectionTest : RoborazziConventionTestSupport() {
     @Test
     fun unqualifiedAndQualifiedLifecycleRequestsAreProjectAware() {
         val allProjects = newProject("unqualified-multi")
@@ -128,7 +125,9 @@ class RoborazziConventionPluginTest {
         assertTestClasses(project, ":roborazzi-screen", includeScreenshot = false)
         assertTestClasses(project, ":task-near-match", includeScreenshot = false)
     }
+}
 
+internal class RoborazziAggregateLifecycleTest : RoborazziConventionTestSupport() {
     @Test
     fun everyAggregateLifecycleFamilySelectsScreenshotTestsAndRunsStagingGuard() {
         val families =
@@ -181,7 +180,9 @@ class RoborazziConventionPluginTest {
         clean.assertTaskOutcome(":verifyRoborazzi", TaskOutcome.SUCCESS)
         assertTestClasses(project, includeScreenshot = true)
     }
+}
 
+internal class RoborazziConfigurationCacheTest : RoborazziConventionTestSupport() {
     @Test
     fun roborazziSelectionsStoreAndReuseAcrossPolicyChanges() {
         val project = newProject("configuration-cache").writeRoborazziFixture()
@@ -219,8 +220,17 @@ class RoborazziConventionPluginTest {
             assertTestClasses(project, includeScreenshot = true)
         }
     }
+}
 
-    private fun assertCachePair(
+internal abstract class RoborazziConventionTestSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    protected val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("roborazzi-gradle-user-home")
+    }
+
+    protected fun assertCachePair(
         project: GradlePluginTestProject,
         arguments: Array<String>,
         expectedTaskPaths: Set<String>,
@@ -255,7 +265,7 @@ class RoborazziConventionPluginTest {
         assertEvidence(second)
     }
 
-    private fun clearTestResults(
+    protected fun clearTestResults(
         project: GradlePluginTestProject,
         expectedTaskPaths: Set<String>,
     ) {
@@ -278,13 +288,13 @@ class RoborazziConventionPluginTest {
             }
     }
 
-    private fun String.toAbsoluteTaskPath(): String =
+    protected fun String.toAbsoluteTaskPath(): String =
         if (startsWith(':')) this else ":$this"
 
-    private fun String.owningUnitTestTaskPath(): String =
+    protected fun String.owningUnitTestTaskPath(): String =
         substringBeforeLast(':') + ":testDebugUnitTest"
 
-    private fun assertTestClasses(
+    protected fun assertTestClasses(
         project: GradlePluginTestProject,
         projectPath: String = ":",
         includeScreenshot: Boolean,
@@ -304,20 +314,20 @@ class RoborazziConventionPluginTest {
         }
     }
 
-    private fun newProject(name: String): GradlePluginTestProject =
+    protected fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),
             sharedGradleUserHome,
         )
 
-    private fun writePng(file: File, argb: Int) {
+    protected fun writePng(file: File, argb: Int) {
         require(file.parentFile.mkdirs() || file.parentFile.isDirectory)
         val image = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
         image.setRGB(0, 0, argb)
         require(ImageIO.write(image, "png", file)) { "PNG writer unavailable" }
     }
 
-    private companion object {
+    protected companion object {
         const val MAGENTA_ARGB = -65281
     }
 }

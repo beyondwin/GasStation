@@ -20,14 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class KotlinCompilerConventionPluginTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
-    private val sharedGradleUserHome by lazy {
-        temporaryFolder.newFolder("kotlin-gradle-user-home")
-    }
-
+internal class KotlinCompilerJvmWarningPolicyTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun jvmReportOnlyModuleKeepsWarningForAbsentAndExactFalseProperty() {
         val project = newProject("jvm-report-only")
@@ -59,6 +52,31 @@ class KotlinCompilerConventionPluginTest {
         assertUncheckedCastWarning(result, "strict opt-in")
     }
 
+    @Test
+    fun invalidWarningPropertyUsesSharedStrictParserBeforeACompileCanSucceed() {
+        val project = newProject("invalid-warning-property")
+            .writeKotlinConventionFixture(KotlinConventionFixtureKind.JVM, warnedSource = false)
+        val result =
+            project.runner(
+                "compileKotlin",
+                "--rerun-tasks",
+                "-Pgasstation.kotlinWarningsAsErrors=TRUE",
+            ).buildAndFail()
+
+        assertTrue(
+            result.output.contains(
+                "gasstation.kotlinWarningsAsErrors must be exactly true or false",
+            ),
+        )
+        assertFalse(
+            result.tasks.any { task ->
+                task.path == ":compileKotlin" && task.outcome == TaskOutcome.SUCCESS
+            },
+        )
+    }
+}
+
+internal class KotlinCompilerStrictModulePolicyTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun everyDomainAndOnlyTheTwoApprovedCoreModulesAreStrictByDefault() {
         val strictProjectPaths = listOf(":domain:sample", ":core:model", ":core:observability")
@@ -92,30 +110,9 @@ class KotlinCompilerConventionPluginTest {
                 assertTrue(result.output.contains("EXPLICIT_API_ARGUMENTS=[-Xexplicit-api=strict]"))
             }
     }
+}
 
-    @Test
-    fun invalidWarningPropertyUsesSharedStrictParserBeforeACompileCanSucceed() {
-        val project = newProject("invalid-warning-property")
-            .writeKotlinConventionFixture(KotlinConventionFixtureKind.JVM, warnedSource = false)
-        val result =
-            project.runner(
-                "compileKotlin",
-                "--rerun-tasks",
-                "-Pgasstation.kotlinWarningsAsErrors=TRUE",
-            ).buildAndFail()
-
-        assertTrue(
-            result.output.contains(
-                "gasstation.kotlinWarningsAsErrors must be exactly true or false",
-            ),
-        )
-        assertFalse(
-            result.tasks.any { task ->
-                task.path == ":compileKotlin" && task.outcome == TaskOutcome.SUCCESS
-            },
-        )
-    }
-
+internal class KotlinCompilerAndroidConventionTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun applicationAndAndroidLibraryKeepTargetTimeoutAndReportOnlyDefault() {
         listOf(
@@ -154,7 +151,9 @@ class KotlinCompilerConventionPluginTest {
             assertUncheckedCastWarning(strictResult, "${kind.name} strict opt-in")
         }
     }
+}
 
+internal class KotlinCompilerJvmConventionTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun jvmConventionKeepsTarget17ClassMajor61AndExactTestTimeout() {
         val project = newProject("jvm-model")
@@ -215,7 +214,9 @@ class KotlinCompilerConventionPluginTest {
         strictSecond.assertConfigurationCacheReused()
         strictSecond.assertOutputKeyValueExactlyOnce("CONVENTION_WARNINGS_AS_ERRORS", "true")
     }
+}
 
+internal class KotlinCompilerAndroidCacheTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun androidConventionsStoreReuseAndReevaluateTheWarningProperty() {
         listOf(
@@ -257,7 +258,9 @@ class KotlinCompilerConventionPluginTest {
             strictSecond.assertOutputKeyValueExactlyOnce("CONVENTION_WARNINGS_AS_ERRORS", "true")
         }
     }
+}
 
+internal class KotlinCompilerRunnerPolicyTest : KotlinCompilerConventionTestSupport() {
     @Test
     fun bothRunnerModesRejectEveryCacheAndIsolationOverride() {
         val project = newProject("runner-policy")
@@ -314,14 +317,23 @@ class KotlinCompilerConventionPluginTest {
         )
         assertFalse(result.output.lineSequence().any { it == "Configuration cache entry stored." })
     }
+}
 
-    private fun newProject(name: String): GradlePluginTestProject =
+internal abstract class KotlinCompilerConventionTestSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    protected val sharedGradleUserHome by lazy {
+        temporaryFolder.newFolder("kotlin-gradle-user-home")
+    }
+
+    protected fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(
             temporaryFolder.newFolder("$name-root"),
             sharedGradleUserHome,
         )
 
-    private fun assertUncheckedCastWarning(result: BuildResult, context: String) {
+    protected fun assertUncheckedCastWarning(result: BuildResult, context: String) {
         assertTrue(
             "$context must expose the deterministic unchecked-cast diagnostic",
             result.output.lowercase().contains("unchecked cast"),

@@ -27,10 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-class GradlePluginTestHarnessTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
-
+internal class GradlePluginHarnessEnvironmentSuccessTest : GradlePluginTestHarnessSupport() {
     @Test
     fun successfulPluginBuildReportsIsolatedEnvironmentAndExactSentinels() {
         val project = newProject("success").writeSettings().writeBuildFile(successBuildScript())
@@ -112,7 +109,9 @@ class GradlePluginTestHarnessTest {
             result.assertOutputKeyValueExactlyOnce("HARNESS_GRADLE_VERSION", "9.6.1")
         }
     }
+}
 
+internal class GradlePluginHarnessEnvironmentRejectionTest : GradlePluginTestHarnessSupport() {
     @Test
     fun structuredEnvironmentAssertionRejectsActualNestedGradleHome() {
         val project =
@@ -149,7 +148,9 @@ class GradlePluginTestHarnessTest {
                 }
             }
     }
+}
 
+internal class GradlePluginHarnessFailureAssertionsTest : GradlePluginTestHarnessSupport() {
     @Test
     fun intentionalFailureRequiresTheNamedFailedTaskAndUniqueSentinel() {
         val project = newProject("failure").writeSettings().writeBuildFile(failureBuildScript())
@@ -186,7 +187,9 @@ class GradlePluginTestHarnessTest {
             result.assertOutputDoesNotContain("")
         }
     }
+}
 
+internal class GradlePluginHarnessFileSafetyTest : GradlePluginTestHarnessSupport() {
     @Test
     fun builderWritesNestedUtf8WithExactlyOneFinalNewline() {
         val project = newProject("utf8")
@@ -220,7 +223,9 @@ class GradlePluginTestHarnessTest {
         }
         assertFalse(outside.resolve("outside.txt").exists())
     }
+}
 
+internal class GradlePluginHarnessRunnerPolicyTest : GradlePluginTestHarnessSupport() {
     @Test
     fun runnerRejectsEveryIsolationAndPolicyOverrideForm() {
         val project = newProject("runner-options")
@@ -292,7 +297,9 @@ class GradlePluginTestHarnessTest {
         assertTrue(result.output.contains("Dependency verification failed"))
         assertTrue(result.output.contains("annotations-13.0.jar"))
     }
+}
 
+internal class GradlePluginHarnessIsolationTest : GradlePluginTestHarnessSupport() {
     @Test
     fun fiveConcurrentFixturesUseIsolatedProjectTestKitAndGradleHomes() {
         assertEquals("5", System.getProperty("gasstation.convention.test.maxParallelForks"))
@@ -310,8 +317,13 @@ class GradlePluginTestHarnessTest {
             GradlePluginTestProject.create(roots.first())
         }
     }
+}
 
-    private fun assertWorkerControlGrammar(project: GradlePluginTestProject) {
+internal abstract class GradlePluginTestHarnessSupport {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    protected fun assertWorkerControlGrammar(project: GradlePluginTestProject) {
         val adversarialHome = temporaryFolder.newFolder("worker-adversarial-home")
         fun prepare(
             mode: GradlePluginTestRunnerMode,
@@ -487,7 +499,7 @@ class GradlePluginTestHarnessTest {
         }
     }
 
-    private fun assertExecutorWorkerPropertyFailsClosed(project: GradlePluginTestProject) {
+    protected fun assertExecutorWorkerPropertyFailsClosed(project: GradlePluginTestProject) {
         val previous = System.getProperty(WORKER_PROPERTY)
         try {
             System.setProperty(WORKER_PROPERTY, "2")
@@ -507,7 +519,7 @@ class GradlePluginTestHarnessTest {
         }
     }
 
-    private fun assertGradlePropertyFilesFailClosed() {
+    protected fun assertGradlePropertyFilesFailClosed() {
         val valid = newProject("valid-worker-properties")
         val projectProperties = valid.projectDir.resolve("gradle.properties")
         val userProperties = valid.gradleUserHomeDir.resolve("gradle.properties")
@@ -603,10 +615,10 @@ class GradlePluginTestHarnessTest {
             listOf("-project-prop$payload"),
         )
 
-    private fun newProject(name: String): GradlePluginTestProject =
+    protected fun newProject(name: String): GradlePluginTestProject =
         GradlePluginTestProject.create(temporaryFolder.newFolder("$name-root"))
 
-    private fun successBuildScript(
+    protected fun successBuildScript(
         extraOutput: String = "",
         gradleVersionSuffix: String = "",
     ): String {
@@ -673,7 +685,7 @@ class GradlePluginTestHarnessTest {
         """.trimIndent()
     }
 
-    private fun malformedEnvironmentBuildScript(): String =
+    protected fun malformedEnvironmentBuildScript(): String =
         """
         plugins {
             id("gasstation.spotless")
@@ -689,7 +701,7 @@ class GradlePluginTestHarnessTest {
         }
         """.trimIndent()
 
-    private fun failureBuildScript(): String =
+    protected fun failureBuildScript(): String =
         """
         plugins {
             id("gasstation.spotless")
@@ -703,7 +715,7 @@ class GradlePluginTestHarnessTest {
         }
         """.trimIndent()
 
-    private companion object {
+    protected companion object {
         const val INTENTIONAL_FAILURE = "HARNESS_INTENTIONAL_FAILURE_4A"
         const val MAX_WORKERS_ARGUMENT = "--max-workers=2"
         const val WORKER_PROPERTY = "org.gradle.workers.max"

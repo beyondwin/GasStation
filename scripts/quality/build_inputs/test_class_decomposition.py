@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -28,6 +29,86 @@ REVIEWED_BASELINE_COVERAGE_SHA256 = "702986f27eb1d14252261448aa4ed186c601cf085da
 REVIEWED_BASELINE_AFFECTED_SHA256 = "442a5c415ad7c281a6e6e1128c2ccc4fdd36e154d73643c07e4eeeb4f2e3b57d"
 REVIEWED_ROOT_SUPPORT_SHA256 = "127586c5a11273f3ebb060a0f6e6693726ff75b31d2bf3da25f15ad13b5feaf2"
 REVIEWED_COVERAGE_SUPPORT_SHA256 = "aca774dc6b6f4cf44ea440b8b3d7fe53d66732a734e67964815edce299d2ed7d"
+REVIEWED_R21_MAPPING_SHA256 = "f2a6b6ab62fc8a8628c0c25007a1ec81ba3488ad49adfa0235b6a96fe9496e5f"
+REVIEWED_R21_DURATION_SHA256 = "e8c081736332b749d31e2082c8c3da91f9e722989dcb6d098432666756da202d"
+REVIEWED_R21_MEMBERSHIP_SHA256 = {
+    "A": "91904f6b7094a57c4f622075985be8f2cad6d9aabe44dcfacc281e701a624885",
+    "B": "25db2175c3d2723ebe12775df09b8129e55e4c86dade6214520a220412f0db5c",
+    "C": "08da2e64e47ad6fd910059524a3fc62b83658b9c0e9ad0d276d348601bdb3fef",
+}
+REVIEWED_R21_UNIT_SHA256 = {
+    "A": "771f6ecade8e0a93350a6ac1d4a9d25b849085b65042bfb92788aae3b4881476",
+    "B": "bc22d8fed030da9c895d8ffb8aab2fe5b7251880c03dc70089a5aa3306d67b29",
+    "C": "3afc5586e7a8a216fef0ecb456ff7ea20836bfe6d8084d2db83960b093344046",
+}
+REVIEWED_R21_SCHEDULE_SHA256 = {
+    "A": "b0675324f7338cc5c68d787f5eac747dcc88c35af8cd01d3cf4623cbbc4bb459",
+    "B": "318befa054ed4092e77342c2077fbaf67eefb44fbdd908bc645329af8fb1e25d",
+    "C": "e6f76cffbb3ec069d4dea05bc303aa5bf6bbaa2d1b9378fef6681316146a87a3",
+}
+REVIEWED_R21_INVENTORY_SHA256 = {
+    "currentClasses": "1fbbcce61985d179e97757288a520263e8bd696ce50e4b17bc0f91161a268501",
+    "currentMethods": "9b449ca1893ed61eb81444ef083fe9c28ed172fcf3679c2174ff824c0fefd3e7",
+    "finalClasses": "ece3f2e5fb21b55ecc34f58868a8747a6a5360d4557b00e7b33e0ac1965881b1",
+    "finalMethods": "531a6af2a0b4f1c34ac441fe9dec4712a1f2519962f057662ece742039c380a8",
+    "unchangedMethods": "f4ba0cc1bb4c639b8c72c7dee63cf320b18e3d532791ae2a6db2b14c5ba0a33e",
+}
+REVIEWED_R21_SOURCE_FILES = {
+    "build-logic/convention/src/test/kotlin/AndroidLintConventionPluginTest.kt": (
+        "591cfc673cd01ec3ffceafecd5a4c1cb66ecfafecd5a77152a6ae725f2b75abc",
+        "AndroidLintConventionTestSupport",
+        "83385af87677e336c0c1550a43c8f563c9fd92439fb68c0354ba18d3eba9bcdb",
+    ),
+    "build-logic/convention/src/test/kotlin/GradlePluginTestHarnessTest.kt": (
+        "fd10ee5ca067fb91f0ef9eeeb1f6cccc0f705eeacdec787add7eb3ae8823d527",
+        "GradlePluginTestHarnessSupport",
+        "936d44531f1c3da0c18e7f4da8f1434ecb2b02c8a3f530c904456a2416ea07d8",
+    ),
+    "build-logic/convention/src/test/kotlin/KotlinCompilerConventionPluginTest.kt": (
+        "9f46add964bc94462fd12d66e822767dc10ba19af5c840b0a6662657a08eeefc",
+        "KotlinCompilerConventionTestSupport",
+        "e9bee30c15b7059923120c899fc3c1424543f8ae5dbb247afa7a223beed6cdbb",
+    ),
+    "build-logic/convention/src/test/kotlin/RoborazziConventionPluginTest.kt": (
+        "ecfc040a91c0562f4fc76fe9e821f10ae975867bb5f3efe6eb794e89833e2dc8",
+        "RoborazziConventionTestSupport",
+        "25269800e027d8d9e0935ba25753540b50bb9f9961972673368d0026a06f8637",
+    ),
+}
+REVIEWED_R21_DURATION_SOURCES = [
+    {
+        "commit": "3699f5773f4f6564f216d7228eb0b18cce6f970d",
+        "id": "current-3699",
+        "relativePath": ".codex/task-cache/gasstation-task9-linux-amd64/3699f5773f4f6564f216d7228eb0b18cce6f970d/attempt-000001/testkit-failures/metadata-capture-1/summary.json",
+        "sha256": "afe2a00bc9de2d62d930f1bd433e4c9537046042a59d42b8687812b4691dd7e8",
+    },
+    {
+        "commit": "67ebd6158572f1440633794411e59bc2da36bd2b",
+        "id": "sealed-67eb",
+        "relativePath": ".codex/task-cache/gasstation-task9-linux-amd64/67ebd6158572f1440633794411e59bc2da36bd2b/attempt-000001/testkit-failures/metadata-capture-1/summary.json",
+        "sha256": "d4b378dade1a46b57d35bc9e98d82595301f563cbaaf1cfdc2b1d46350c9f938",
+    },
+    {
+        "commit": "a5fd012a1f06e8b263ebc175d715db58abf0a436",
+        "id": "sealed-a5",
+        "relativePath": ".codex/task-cache/gasstation-task9-linux-amd64/a5fd012a1f06e8b263ebc175d715db58abf0a436/attempt-000001/testkit-failures/metadata-capture-1/summary.json",
+        "sha256": "54511666186e364d59c70aeaae8dd774495a6faf0bb8eb3d70cbc4cfaf327a97",
+    },
+]
+REVIEWED_R21_LOCAL_CORROBORATIONS = [
+    {
+        "durationSeconds": "34.714",
+        "method": "com.gasstation.buildlogic.quality.coverage.CoveragePreparedClassesTest#preparedClassProducerRejectsTraversalDuplicatesAndRemovesStaleInputs",
+        "relativePath": "build-logic/convention/build/test-results/test/TEST-com.gasstation.buildlogic.quality.coverage.CoveragePreparedClassesTest.xml",
+        "sha256": "cbdbdc23e13bee786deaea1e9b12b2220b105d609f61c22f71eaf2f22cdd6a38",
+    },
+    {
+        "durationSeconds": "35.763",
+        "method": "com.gasstation.buildlogic.quality.coverage.CoverageReportMutationTest#typedXmlReportTaskRejectsLiveCardinalityIdentityExecAndClassMutations",
+        "relativePath": "build-logic/convention/build/test-results/test/TEST-com.gasstation.buildlogic.quality.coverage.CoverageReportMutationTest.xml",
+        "sha256": "2478732317905d427e94c7d49b313769fcacf7d685f61ad8917710e0721a915b",
+    },
+]
 
 
 def _sha256(data: bytes) -> str:
@@ -35,7 +116,9 @@ def _sha256(data: bytes) -> str:
 
 
 def _canonical_json(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
 
 
 def _masked_kotlin(source: str) -> str:
@@ -341,6 +424,76 @@ def _inventory_sha(keys: list[str]) -> str:
     return _sha256(("\n".join(sorted(keys)) + "\n").encode())
 
 
+def _class_inventory_sha(keys: list[str]) -> str:
+    by_owner: dict[str, list[str]] = {}
+    for key in keys:
+        owner, method = key.rsplit("#", 1)
+        by_owner.setdefault(owner, []).append(method)
+    rows = [
+        f"{owner}\t{len(methods)}\t{','.join(sorted(methods))}"
+        for owner, methods in sorted(by_owner.items())
+    ]
+    return _sha256(("\n".join(rows) + "\n").encode())
+
+
+def _seconds(value: object, field: str, *, positive: bool = False) -> Decimal:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9]+\.[0-9]{3}", value) is None:
+        raise DecompositionError(f"{field} must be a three-place seconds string")
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as error:
+        raise DecompositionError(f"{field} is not decimal seconds") from error
+    if positive and parsed <= 0:
+        raise DecompositionError(f"{field} must be positive")
+    return parsed
+
+
+def _round21_units(
+    option: str,
+    duration_by_current: Mapping[str, Decimal],
+    new_by_old: Mapping[str, str],
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[tuple[str, Decimal]]] = {}
+    for current_key, duration in duration_by_current.items():
+        final_key = new_by_old.get(current_key, current_key)
+        if option == "A":
+            unit_id, member = current_key.rsplit("#", 1)[0], current_key
+        elif option == "B":
+            unit_id, member = final_key.rsplit("#", 1)[0], final_key
+        elif option == "C":
+            unit_id = member = final_key
+        else:
+            raise DecompositionError(f"unknown Round-21 option: {option}")
+        grouped.setdefault(unit_id, []).append((member, duration))
+    return [
+        {
+            "durationSeconds": f"{sum((duration for _, duration in members), Decimal('0.000')):.3f}",
+            "members": sorted(member for member, _ in members),
+            "unitId": unit_id,
+        }
+        for unit_id, members in sorted(grouped.items())
+    ]
+
+
+def _round21_schedule(units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    workers: list[dict[str, Any]] = [
+        {"duration": Decimal("0.000"), "units": [], "worker": worker}
+        for worker in range(1, 6)
+    ]
+    for row in sorted(units, key=lambda item: (-Decimal(item["durationSeconds"]), item["unitId"])):
+        worker = min(workers, key=lambda lane: (lane["duration"], lane["worker"]))
+        worker["units"].append({"durationSeconds": row["durationSeconds"], "owner": row["unitId"]})
+        worker["duration"] += Decimal(row["durationSeconds"])
+    return [
+        {
+            "durationSeconds": f"{lane['duration']:.3f}",
+            "units": lane["units"],
+            "worker": lane["worker"],
+        }
+        for lane in workers
+    ]
+
+
 def _prohibited_matches(root: Path) -> list[str]:
     build = (root / "build-logic/convention/build.gradle.kts").read_text(encoding="utf-8")
     fixture = (root / "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt").read_text(
@@ -361,6 +514,234 @@ def _prohibited_matches(root: Path) -> list[str]:
     return sorted(matches)
 
 
+def _verify_round21(
+    root: Path,
+    value: object,
+    final_methods: list[TestMethod],
+) -> tuple[dict[str, TestMethod], dict[str, Any]]:
+    expected_keys = {
+        "boundSeconds",
+        "durationLedger",
+        "durationLedgerSha256",
+        "durationSources",
+        "expectedFinalClassCount",
+        "expectedMovedMethodCount",
+        "expectedTotalMethods",
+        "expectedUnchangedMethodCount",
+        "idealLowerBoundSeconds",
+        "inventorySha256",
+        "localCorroborations",
+        "lpt",
+        "mappingLedgerSha256",
+        "mappings",
+        "options",
+        "schemaVersion",
+        "selectedOption",
+        "sourceFiles",
+        "totalDurationSeconds",
+    }
+    if not isinstance(value, dict) or set(value) != expected_keys or value.get("schemaVersion") != 1:
+        raise DecompositionError("Round-21 source-class rebalancing fields differ")
+    exact_scalars = {
+        "boundSeconds": "1620.000",
+        "expectedFinalClassCount": 52,
+        "expectedMovedMethodCount": 37,
+        "expectedTotalMethods": 90,
+        "expectedUnchangedMethodCount": 53,
+        "idealLowerBoundSeconds": "1546.207",
+        "mappingLedgerSha256": REVIEWED_R21_MAPPING_SHA256,
+        "selectedOption": "B",
+        "totalDurationSeconds": "7731.035",
+    }
+    if any(value.get(key) != expected for key, expected in exact_scalars.items()):
+        raise DecompositionError("Round-21 exact scalar contract differs")
+    for field in ("boundSeconds", "idealLowerBoundSeconds", "totalDurationSeconds"):
+        _seconds(value[field], field, positive=True)
+
+    mappings = value["mappings"]
+    mapping_keys = {"annotation", "bodySha256", "newKey", "oldKey"}
+    if not isinstance(mappings, list) or len(mappings) != 37:
+        raise DecompositionError("Round-21 mapping must contain exact 37 rows")
+    old_keys: list[str] = []
+    new_keys: list[str] = []
+    for index, row in enumerate(mappings):
+        if not isinstance(row, dict) or set(row) != mapping_keys:
+            raise DecompositionError(f"Round-21 mapping row {index} fields differ")
+        if row.get("annotation") != "@Test":
+            raise DecompositionError("Round-21 mapped annotation must remain @Test")
+        _require_sha(row.get("bodySha256"), f"Round-21 mappings[{index}].bodySha256")
+        old_key = row.get("oldKey")
+        new_key = row.get("newKey")
+        if not isinstance(old_key, str) or not isinstance(new_key, str) or "#" not in old_key or "#" not in new_key:
+            raise DecompositionError("Round-21 mapping keys must be owner#method strings")
+        if old_key.rsplit("#", 1)[1] != new_key.rsplit("#", 1)[1]:
+            raise DecompositionError("implicit Round-21 test method rename is forbidden")
+        old_keys.append(old_key)
+        new_keys.append(new_key)
+    if old_keys != sorted(set(old_keys)) or len(new_keys) != len(set(new_keys)):
+        raise DecompositionError("Round-21 mapping is not a sorted bijection")
+    if _sha256(_canonical_json(mappings)) != REVIEWED_R21_MAPPING_SHA256:
+        raise DecompositionError("Round-21 mapping ledger differs")
+
+    final_by_key = {method.key: method for method in final_methods}
+    if len(final_methods) != 90 or len(final_by_key) != 90:
+        raise DecompositionError("Round-21 final method inventory must remain exact 90")
+    for row in mappings:
+        method = final_by_key.get(row["newKey"])
+        if method is None or method.body_sha256 != row["bodySha256"]:
+            raise DecompositionError(f"Round-21 mapped method body/owner differs: {row['newKey']}")
+    final_keys = sorted(final_by_key)
+    unchanged = sorted(set(final_keys) - set(new_keys))
+    if len(unchanged) != 53 or _inventory_sha(unchanged) != REVIEWED_R21_INVENTORY_SHA256["unchangedMethods"]:
+        raise DecompositionError("one of the Round-21 unchanged 53 methods differs")
+    if len({method.owner for method in final_methods}) != 52:
+        raise DecompositionError("Round-21 final class inventory must remain exact 52")
+    if _inventory_sha(final_keys) != REVIEWED_R21_INVENTORY_SHA256["finalMethods"]:
+        raise DecompositionError("Round-21 final method inventory differs")
+    if _class_inventory_sha(final_keys) != REVIEWED_R21_INVENTORY_SHA256["finalClasses"]:
+        raise DecompositionError("Round-21 final class inventory differs")
+
+    old_by_new = dict(zip(new_keys, old_keys, strict=True))
+    current_by_key: dict[str, TestMethod] = {}
+    for method in final_methods:
+        current_key = old_by_new.get(method.key, method.key)
+        owner, name = current_key.rsplit("#", 1)
+        if current_key in current_by_key:
+            raise DecompositionError("Round-21 inverse mapping collides")
+        current_by_key[current_key] = TestMethod(owner=owner, name=name, body_sha256=method.body_sha256)
+    current_keys = sorted(current_by_key)
+    if len({method.owner for method in current_by_key.values()}) != 34:
+        raise DecompositionError("Round-21 inverse class inventory must remain exact 34")
+    if _inventory_sha(current_keys) != REVIEWED_R21_INVENTORY_SHA256["currentMethods"]:
+        raise DecompositionError("Round-21 inverse method inventory differs")
+    if _class_inventory_sha(current_keys) != REVIEWED_R21_INVENTORY_SHA256["currentClasses"]:
+        raise DecompositionError("Round-21 inverse class inventory differs")
+    inventory = value["inventorySha256"]
+    if inventory != REVIEWED_R21_INVENTORY_SHA256:
+        raise DecompositionError("Round-21 inventory fixed points differ")
+
+    source_files = value["sourceFiles"]
+    if not isinstance(source_files, list) or [row.get("path") for row in source_files if isinstance(row, dict)] != sorted(REVIEWED_R21_SOURCE_FILES):
+        raise DecompositionError("Round-21 source-file registry differs")
+    source_row_keys = {
+        "currentSourceSha256",
+        "currentSupportSha256",
+        "finalSourceSha256",
+        "path",
+        "supportOwner",
+    }
+    for index, row in enumerate(source_files):
+        if not isinstance(row, dict) or set(row) != source_row_keys:
+            raise DecompositionError(f"Round-21 source row {index} fields differ")
+        current_sha, support_owner, support_sha = REVIEWED_R21_SOURCE_FILES[row["path"]]
+        if row["currentSourceSha256"] != current_sha or row["supportOwner"] != support_owner or row["currentSupportSha256"] != support_sha:
+            raise DecompositionError("Round-21 current source/support anchor differs")
+        final_sha = _require_sha(row["finalSourceSha256"], "Round-21 finalSourceSha256")
+        if final_sha == current_sha or _sha256((root / row["path"]).read_bytes()) != final_sha:
+            raise DecompositionError("Round-21 final source hash differs")
+        if support_behavior_sha256(root / row["path"], support_owner) != support_sha:
+            raise DecompositionError("Round-21 helper/rule/fixture behavior differs")
+
+    if value["durationSources"] != REVIEWED_R21_DURATION_SOURCES:
+        raise DecompositionError("Round-21 duration source registry differs")
+    source_identities = {(row["commit"], row["sha256"]) for row in REVIEWED_R21_DURATION_SOURCES}
+    duration = value["durationLedger"]
+    duration_row_keys = {"durationSeconds", "method", "sourceArtifactSha256", "sourceCommit", "sourceStatus"}
+    if not isinstance(duration, list) or len(duration) != 90:
+        raise DecompositionError("Round-21 duration ledger must contain exact 90 rows")
+    duration_by_current: dict[str, Decimal] = {}
+    for index, row in enumerate(duration):
+        if not isinstance(row, dict) or set(row) != duration_row_keys:
+            raise DecompositionError(f"Round-21 duration row {index} fields differ")
+        method = row.get("method")
+        if not isinstance(method, str) or method not in current_by_key or method in duration_by_current:
+            raise DecompositionError("Round-21 duration method is unknown or duplicate")
+        if row.get("sourceStatus") not in {"SUCCESS", "SKIPPED"}:
+            raise DecompositionError("Round-21 duration source status differs")
+        if (row.get("sourceCommit"), row.get("sourceArtifactSha256")) not in source_identities:
+            raise DecompositionError("Round-21 duration source is unknown")
+        duration_by_current[method] = _seconds(row.get("durationSeconds"), f"durationLedger[{index}]", positive=True)
+    if [row["method"] for row in duration] != sorted(duration_by_current) or set(duration_by_current) != set(current_by_key):
+        raise DecompositionError("Round-21 duration ledger order/membership differs")
+    if _sha256(_canonical_json(duration)) != REVIEWED_R21_DURATION_SHA256 or value["durationLedgerSha256"] != REVIEWED_R21_DURATION_SHA256:
+        raise DecompositionError("Round-21 duration ledger hash differs")
+    if sum(duration_by_current.values(), Decimal("0.000")) != Decimal("7731.035"):
+        raise DecompositionError("Round-21 total duration differs")
+
+    lpt = value["lpt"]
+    if lpt != {
+        "durationOrder": "descending",
+        "groupedUnitTieBreak": "unitId-code-point-ascending",
+        "oneMethodUnitTieBreak": "fully-qualified-owner#method-code-point-ascending",
+        "workerTieBreak": "total-ascending-then-worker-ascending",
+        "workers": 5,
+    }:
+        raise DecompositionError("Round-21 LPT contract differs")
+    option_contracts = {
+        "A": ("rejected", "current-34-class-layout", "current-owner", 34, "1557.754"),
+        "B": ("selected", "moderate-four-owner-source-decomposition", "final-owner", 52, "1572.483"),
+        "C": ("rejected", "fully-split-90-one-method-unit-projection", "final-owner#method", 90, "1572.052"),
+    }
+    options = value["options"]
+    option_keys = {
+        "decision",
+        "description",
+        "id",
+        "maximumSeconds",
+        "membershipLedgerSha256",
+        "schedule",
+        "scheduleSha256",
+        "unitCount",
+        "unitDurationLedgerSha256",
+        "unitIdentity",
+        "units",
+    }
+    if not isinstance(options, list) or [row.get("id") for row in options if isinstance(row, dict)] != ["A", "B", "C"]:
+        raise DecompositionError("Round-21 options differ")
+    for option in options:
+        if set(option) != option_keys:
+            raise DecompositionError("Round-21 option fields differ")
+        option_id = option["id"]
+        decision, description, identity, count, maximum = option_contracts[option_id]
+        if (option["decision"], option["description"], option["unitIdentity"], option["unitCount"], option["maximumSeconds"]) != (decision, description, identity, count, maximum):
+            raise DecompositionError("Round-21 option identity differs")
+        expected_units = _round21_units(option_id, duration_by_current, dict(zip(old_keys, new_keys, strict=True)))
+        expected_schedule = _round21_schedule(expected_units)
+        unit_rows = [{"durationSeconds": row["durationSeconds"], "owner": row["unitId"]} for row in expected_units]
+        if option["units"] != expected_units or option["schedule"] != expected_schedule:
+            raise DecompositionError("Round-21 membership/unit order or schedule differs")
+        if option["membershipLedgerSha256"] != REVIEWED_R21_MEMBERSHIP_SHA256[option_id] or _sha256(_canonical_json(expected_units)) != REVIEWED_R21_MEMBERSHIP_SHA256[option_id]:
+            raise DecompositionError("Round-21 membership hash differs")
+        if option["unitDurationLedgerSha256"] != REVIEWED_R21_UNIT_SHA256[option_id] or _sha256(_canonical_json(unit_rows)) != REVIEWED_R21_UNIT_SHA256[option_id]:
+            raise DecompositionError("Round-21 unit-duration hash differs")
+        if option["scheduleSha256"] != REVIEWED_R21_SCHEDULE_SHA256[option_id] or _sha256(_canonical_json(expected_schedule)) != REVIEWED_R21_SCHEDULE_SHA256[option_id]:
+            raise DecompositionError("Round-21 schedule hash differs")
+        if max(Decimal(lane["durationSeconds"]) for lane in expected_schedule) != Decimal(maximum):
+            raise DecompositionError("Round-21 projected maximum differs")
+    selected = options[1]
+    if Decimal(selected["maximumSeconds"]) > Decimal(value["boundSeconds"]):
+        raise DecompositionError("Round-21 selected schedule exceeds bound")
+
+    corroborations = value["localCorroborations"]
+    if corroborations != REVIEWED_R21_LOCAL_CORROBORATIONS:
+        raise DecompositionError("Round-21 local corroboration registry differs")
+    if [row.get("method") for row in corroborations if isinstance(row, dict)] != sorted(row["method"] for row in corroborations):
+        raise DecompositionError("Round-21 local corroborations are not sorted")
+    for row in corroborations:
+        if set(row) != {"durationSeconds", "method", "relativePath", "sha256"}:
+            raise DecompositionError("Round-21 local corroboration fields differ")
+        _seconds(row["durationSeconds"], "localCorroborations.durationSeconds", positive=True)
+        _require_sha(row["sha256"], "localCorroborations.sha256")
+
+    return current_by_key, {
+        "round21FinalClassCount": len({method.owner for method in final_methods}),
+        "round21MaximumSeconds": selected["maximumSeconds"],
+        "round21MovedMethodCount": len(mappings),
+        "round21SelectedOption": value["selectedOption"],
+        "round21UnchangedMethodCount": len(unchanged),
+    }
+
+
 def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[str, Any]:
     expected_keys = {
         "baselineAffectedInventorySha256",
@@ -368,6 +749,7 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
         "baselineRootQualitySourceSha256",
         "expectedTotalMethods",
         "mappings",
+        "round21SourceClassRebalancing",
         "schemaVersion",
         "unchangedMethods",
         "unchangedMethodsSha256",
@@ -422,8 +804,12 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
     if _inventory_sha(old_keys) != contract["baselineAffectedInventorySha256"]:
         raise DecompositionError("baseline affected inventory differs")
 
-    current = _all_test_methods(root)
-    current_by_key = {method.key: method for method in current}
+    final_methods = _all_test_methods(root)
+    current_by_key, round21_receipt = _verify_round21(
+        root,
+        contract.get("round21SourceClassRebalancing"),
+        final_methods,
+    )
     for row, new_key in zip(mappings, new_keys, strict=True):
         method = current_by_key.get(new_key)
         if method is None or method.body_sha256 != row["methodBodySha256"]:
@@ -431,7 +817,7 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
     current_unchanged = sorted(set(current_by_key) - set(new_keys))
     if current_unchanged != unchanged:
         raise DecompositionError("one of the other 67 convention tests changed")
-    if len(current) != 90:
+    if len(current_by_key) != 90:
         raise DecompositionError("convention test discovery must remain exact 90")
     root_support = support_behavior_sha256(
         root / "build-logic/convention/src/test/kotlin/quality/GasStationRootQualityConventionPluginTest.kt",
@@ -456,9 +842,10 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
         "sealedOuterTimeoutMinutes": 30,
         "supportBehaviorSha256": {"coverage": coverage_support, "rootQuality": root_support},
         "testTaskTopology": "one-test-task-v1",
-        "totalMethodCount": len(current),
+        "totalMethodCount": len(final_methods),
         "unchangedMethodCount": len(current_unchanged),
         "unchangedMethodsSha256": _inventory_sha(current_unchanged),
+        **round21_receipt,
     }
 
 
