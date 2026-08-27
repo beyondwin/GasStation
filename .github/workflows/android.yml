@@ -345,6 +345,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Download verified Codecov CLI
+        continue-on-error: true
         run: |
           mkdir -p build/quality/build-inputs
           python3 scripts/quality/verify_build_inputs.py download-codecov \
