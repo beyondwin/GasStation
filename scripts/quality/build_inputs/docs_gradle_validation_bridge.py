@@ -83,42 +83,50 @@ def _load_facade() -> ModuleType:
     return module
 
 
-def _module_source(module: ModuleType) -> Path | None:
+def _module_source(module: ModuleType) -> str | None:
     raw = getattr(module, "__file__", None)
     if not isinstance(raw, str):
         return None
-    path = Path(raw)
-    if path.suffix in {".pyc", ".pyo"}:
-        path = path.with_suffix(".py")
+    if raw.endswith((".pyc", ".pyo")):
+        raw = os.path.splitext(raw)[0] + ".py"
     try:
-        return path.resolve(strict=True)
+        resolved = os.path.realpath(raw)
     except OSError:
         return None
+    if not os.path.isfile(resolved):
+        return None
+    return resolved
+
+
+def _is_under(path: str, root: str) -> bool:
+    try:
+        return os.path.commonpath([path, root]) == root
+    except ValueError:
+        return False
 
 
 def _require_docs_or_standard_library(module: ModuleType, name: str) -> None:
     path = _module_source(module)
     if path is None:
         return
-    docs_root = (ROOT / "scripts/docs").resolve()
-    try:
-        path.relative_to(docs_root)
+    docs_root = os.path.realpath(ROOT / "scripts/docs")
+    if _is_under(path, docs_root):
         return
-    except ValueError:
-        pass
-    if "site-packages" in path.parts or "dist-packages" in path.parts:
+    parts = path.split(os.sep)
+    if "site-packages" in parts or "dist-packages" in parts:
         raise BridgeError(f"third-party module loaded by docs validator: {name}")
-    try:
-        path.relative_to(STDLIB_ROOT)
-    except ValueError as error:
-        raise BridgeError(f"non-docs module loaded by docs validator: {name} ({path})") from error
+    stdlib_root = os.path.realpath(STDLIB_ROOT)
+    if _is_under(path, stdlib_root):
+        return
+    raise BridgeError(f"non-docs module loaded by docs validator: {name} ({path})")
 
 
 @contextlib.contextmanager
 def _guarded_docs_runtime():
     """Expose only standard-library and repository docs modules during validation."""
 
-    docs_root = (ROOT / "scripts/docs").resolve()
+    docs_root = os.path.realpath(ROOT / "scripts/docs")
+    repo_root = os.path.realpath(ROOT)
     removed: dict[str, ModuleType] = {}
     removed_attributes: list[tuple[ModuleType, str, ModuleType]] = []
     for name, module in list(sys.modules.items()):
@@ -127,8 +135,8 @@ def _guarded_docs_runtime():
         path = _module_source(module)
         if path is None:
             continue
-        repository_owned = path.is_relative_to(ROOT.resolve()) and not path.is_relative_to(docs_root)
-        third_party = "site-packages" in path.parts or "dist-packages" in path.parts
+        repository_owned = _is_under(path, repo_root) and not _is_under(path, docs_root)
+        third_party = "site-packages" in path.split(os.sep) or "dist-packages" in path.split(os.sep)
         if repository_owned or third_party:
             removed[name] = module
             sys.modules.pop(name, None)
