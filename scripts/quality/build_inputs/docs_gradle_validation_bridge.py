@@ -38,6 +38,9 @@ FACADE_PATH = ROOT / "scripts/docs/validate.py"
 RECEIPT_PATH = ROOT / "build/reports/build-inputs/docs-gradle-validation.json"
 TASK_LINE = re.compile(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s*(?:-\s.*)?$")
 STDLIB_ROOT = Path(sysconfig.get_paths()["stdlib"]).resolve()
+REPO_ROOT_STR = os.path.realpath(str(ROOT))
+DOCS_ROOT_STR = os.path.realpath(os.path.join(str(ROOT), "scripts", "docs"))
+STDLIB_ROOT_STR = os.path.realpath(str(STDLIB_ROOT))
 
 
 class BridgeError(RuntimeError):
@@ -109,14 +112,12 @@ def _require_docs_or_standard_library(module: ModuleType, name: str) -> None:
     path = _module_source(module)
     if path is None:
         return
-    docs_root = os.path.realpath(ROOT / "scripts/docs")
-    if _is_under(path, docs_root):
+    if _is_under(path, DOCS_ROOT_STR):
         return
     parts = path.split(os.sep)
     if "site-packages" in parts or "dist-packages" in parts:
         raise BridgeError(f"third-party module loaded by docs validator: {name}")
-    stdlib_root = os.path.realpath(STDLIB_ROOT)
-    if _is_under(path, stdlib_root):
+    if _is_under(path, STDLIB_ROOT_STR):
         return
     raise BridgeError(f"non-docs module loaded by docs validator: {name} ({path})")
 
@@ -125,8 +126,9 @@ def _require_docs_or_standard_library(module: ModuleType, name: str) -> None:
 def _guarded_docs_runtime():
     """Expose only standard-library and repository docs modules during validation."""
 
-    docs_root = os.path.realpath(ROOT / "scripts/docs")
-    repo_root = os.path.realpath(ROOT)
+    inspecting = False
+    docs_root = DOCS_ROOT_STR
+    repo_root = REPO_ROOT_STR
     removed: dict[str, ModuleType] = {}
     removed_attributes: list[tuple[ModuleType, str, ModuleType]] = []
     for name, module in list(sys.modules.items()):
@@ -150,27 +152,41 @@ def _guarded_docs_runtime():
     original_import_module = importlib.import_module
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        nonlocal inspecting
         module = original_import(name, globals, locals, fromlist, level)
-        _require_docs_or_standard_library(module, getattr(module, "__name__", name))
-        if level:
-            package = globals.get("__package__") if isinstance(globals, dict) else None
-            absolute_name = importlib.util.resolve_name("." * level + name, package)
-        else:
-            absolute_name = name
-        requested = sys.modules.get(absolute_name)
-        if isinstance(requested, ModuleType):
-            _require_docs_or_standard_library(requested, absolute_name)
-        if fromlist:
-            prefix = absolute_name
-            for item in fromlist:
-                candidate = sys.modules.get(f"{prefix}.{item}")
-                if isinstance(candidate, ModuleType):
-                    _require_docs_or_standard_library(candidate, f"{prefix}.{item}")
+        if inspecting:
+            return module
+        inspecting = True
+        try:
+            _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+            if level:
+                package = globals.get("__package__") if isinstance(globals, dict) else None
+                absolute_name = importlib.util.resolve_name("." * level + name, package)
+            else:
+                absolute_name = name
+            requested = sys.modules.get(absolute_name)
+            if isinstance(requested, ModuleType):
+                _require_docs_or_standard_library(requested, absolute_name)
+            if fromlist:
+                prefix = absolute_name
+                for item in fromlist:
+                    candidate = sys.modules.get(f"{prefix}.{item}")
+                    if isinstance(candidate, ModuleType):
+                        _require_docs_or_standard_library(candidate, f"{prefix}.{item}")
+        finally:
+            inspecting = False
         return module
 
     def guarded_import_module(name, package=None):
+        nonlocal inspecting
         module = original_import_module(name, package)
-        _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+        if inspecting:
+            return module
+        inspecting = True
+        try:
+            _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+        finally:
+            inspecting = False
         return module
 
     builtins.__import__ = guarded_import
