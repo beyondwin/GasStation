@@ -309,7 +309,7 @@ def run() -> dict[str, Any]:
         f"-Dorg.gradle.java.installations.paths={compile_home},{runtime_home}",
     ]
     validate_gradle_arguments(argv)
-    result = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, timeout=120)
+    result = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, timeout=300)
     if result.returncode:
         raise BridgeError("governed Gradle task discovery failed")
     tasks = _parse_tasks(result.stdout)
