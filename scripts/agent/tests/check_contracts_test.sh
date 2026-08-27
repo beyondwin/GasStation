@@ -528,9 +528,12 @@ ci_base=$(git -C "$fixture/repo" rev-parse HEAD^)
 
 assert_contains "$(cat "$repo_root/scripts/agent/check_contracts.py")" "GASSTATION_BUILD_INPUT_EVIDENCE"
 assert_contains "$(cat "$repo_root/scripts/agent/check_contracts.py")" "docs_gradle_validation_bridge.py"
+assert_contains "$(cat "$repo_root/.github/dependabot.yml")" "exclude-patterns"
+assert_contains "$(cat "$repo_root/.github/dependabot.yml")" "gradle-wrapper"
 
 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 GASSTATION_CI_BASE_REF="$ci_base" "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo" --ci
+GASSTATION_BUILD_INPUT_EVIDENCE=sealed-v1 "$repo_root/scripts/agent/check-contracts.sh" --root "$fixture/repo"
 
 python3 - "$fixture/repo/docs/module-contracts.md" <<'PY'
 from pathlib import Path

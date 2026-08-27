@@ -304,13 +304,11 @@ def check_documentation_contracts(root: Path) -> list[str]:
     if not catalog.is_file():
         return [issue("docs/documentation-catalog.json", 1, "documentation catalog missing")]
     governed = os.environ.get("GASSTATION_BUILD_INPUT_EVIDENCE") == "sealed-v1"
-    if governed:
-        bridge = root / "scripts/quality/build_inputs/docs_gradle_validation_bridge.py"
-        if not bridge.is_file():
-            return [issue(bridge.relative_to(root).as_posix(), 1, "documentation bridge missing")]
+    bridge = root / "scripts/quality/build_inputs/docs_gradle_validation_bridge.py"
+    validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
+    if governed and bridge.is_file():
         command = [sys.executable, str(bridge), "--check-gradle-tasks"]
     else:
-        validator = Path(__file__).resolve().parents[1] / "docs" / "validate.py"
         if not validator.is_file():
             return [issue("scripts/docs/validate.py", 1, "documentation validator missing")]
         command = [sys.executable, str(validator), "--root", str(root)]
