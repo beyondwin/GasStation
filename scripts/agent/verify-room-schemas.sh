@@ -41,7 +41,7 @@ mkdir -p "$generated_schema_root"
 (
   cd "$repo_root"
   gradle_launcher=(./gradlew)
-  if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then
+  if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 && -x scripts/quality/build_inputs/run_gradle.sh ]]; then
     gradle_launcher=(scripts/quality/build_inputs/run_gradle.sh)
   fi
   "${gradle_launcher[@]}" \

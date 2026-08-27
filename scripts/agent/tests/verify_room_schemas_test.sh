@@ -78,6 +78,8 @@ EOF
 
 setup_fixture "$fixture/clean"
 "$fixture/clean/scripts/agent/verify-room-schemas.sh" --root "$fixture/clean"
+GASSTATION_BUILD_INPUT_EVIDENCE=sealed-v1 \
+  "$fixture/clean/scripts/agent/verify-room-schemas.sh" --root "$fixture/clean"
 assert_contains "$(cat "$fixture/clean/gradle-invocation.txt")" ":core:database:kspDebugKotlin"
 assert_contains "$(cat "$fixture/clean/gradle-invocation.txt")" "--rerun-tasks"
 assert_contains "$(cat "$fixture/clean/gradle-invocation.txt")" "--no-build-cache"
