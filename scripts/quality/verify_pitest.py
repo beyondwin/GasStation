@@ -43,6 +43,7 @@ from verify_coverage import parse_package_declaration  # noqa: E402
 
 REPOSITORY_ROOT = QUALITY_ROOT.parents[1]
 POLICY_PATH = REPOSITORY_ROOT / "config/quality/mutation-policy.json"
+SUCCESSOR_IMAGE_PATH = REPOSITORY_ROOT / "config/quality/linux-runner-image-successors.json"
 BASELINE_PATH = REPOSITORY_ROOT / "config/quality/mutation-baseline.json"
 REPORT_ROOT = REPOSITORY_ROOT / "build/reports/pitest"
 ROUTE_PATH = REPORT_ROOT / "route.json"
@@ -366,6 +367,20 @@ def route_per_run_provenance(policy: dict[str, Any], bootstrap: dict[str, Any]) 
     }
 
 
+def _accepted_linux_image_versions(expected: dict[str, str]) -> frozenset[str]:
+    accepted = {expected["ImageVersion"]}
+    if not SUCCESSOR_IMAGE_PATH.is_file():
+        return frozenset(accepted)
+    payload = read_strict_json(SUCCESSOR_IMAGE_PATH.read_bytes())
+    if not isinstance(payload, dict) or payload.get("ImageOS") != expected["ImageOS"]:
+        raise MutationPolicyError("Linux runner image successor ImageOS differs")
+    versions = payload.get("acceptedImageVersions")
+    if not isinstance(versions, list) or not all(isinstance(item, str) and item for item in versions):
+        raise MutationPolicyError("Linux runner image successor versions differ")
+    accepted.update(versions)
+    return frozenset(accepted)
+
+
 def _linux_image_identity(profile: dict[str, Any]) -> dict[str, str]:
     metadata = Path("/etc/environment")
     try:
@@ -381,9 +396,10 @@ def _linux_image_identity(profile: dict[str, Any]) -> dict[str, str]:
                 raise MutationPolicyError(f"Linux runner image metadata is duplicated: {name}")
             values[name] = value.strip('"')
     expected = profile["image"]
-    for name in ("ImageOS", "ImageVersion"):
-        if values.get(name) != expected[name]:
-            raise MutationPolicyError(f"Linux runner image metadata differs: {name}")
+    if values.get("ImageOS") != expected["ImageOS"]:
+        raise MutationPolicyError("Linux runner image metadata differs: ImageOS")
+    if values.get("ImageVersion") not in _accepted_linux_image_versions(expected):
+        raise MutationPolicyError("Linux runner image metadata differs: ImageVersion")
     return dict(expected)
 
 

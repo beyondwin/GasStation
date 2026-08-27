@@ -24,6 +24,7 @@ from verify_pitest import (
     _validate_archived_components,
     _checked_blob,
     _capture_receipt_link,
+    _linux_image_identity,
     _observe_java_home,
     baseline_policy_identity_matches,
     host_neutral_mutation_identity,
@@ -195,6 +196,20 @@ class LinuxObservedProfileTest(unittest.TestCase):
         forged["tools"]["python"]["linkTarget"] = "python3.11"
         with self.assertRaisesRegex(MutationPolicyError, "python3.12"):
             validate_linux_profile(forged)
+
+    def test_linux_image_identity_accepts_reviewed_successor_image_version(self) -> None:
+        environment = mock.Mock()
+        environment.read_text.return_value = "ImageOS=ubuntu24\nImageVersion=20260823.283.1\n"
+        with mock.patch("verify_pitest.Path", return_value=environment):
+            identity = _linux_image_identity(LINUX_PROFILE)
+        self.assertEqual(LINUX_PROFILE["image"]["ImageVersion"], identity["ImageVersion"])
+
+    def test_linux_image_identity_rejects_unknown_image_version(self) -> None:
+        environment = mock.Mock()
+        environment.read_text.return_value = "ImageOS=ubuntu24\nImageVersion=20990101.1.1\n"
+        with mock.patch("verify_pitest.Path", return_value=environment):
+            with self.assertRaisesRegex(MutationPolicyError, "ImageVersion"):
+                _linux_image_identity(LINUX_PROFILE)
 
     def test_checked_policy_uses_observed_linux_and_initial_not_established(self) -> None:
         policy, raw, digest = load_policy()
