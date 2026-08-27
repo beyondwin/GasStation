@@ -376,7 +376,7 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             / "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
         ).read_text(encoding="utf-8")
         for literal in (
-            'val testKitAapt2Version = "9.3.0-15703166"',
+            'val testKitAapt2Version = "9.3.2-15703166"',
             '"com.android.tools.build:aapt2:$testKitAapt2Version:linux"',
             '"com.android.tools.build:aapt2:$testKitAapt2Version:osx"',
             'tasks.register("prepareTestKitReadOnlyDependencyCache")',
@@ -413,7 +413,7 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             == {
                 "group": "com.android.tools.build",
                 "name": "aapt2",
-                "version": "9.3.0-15703166",
+                "version": "9.3.2-15703166",
             }
         ]
         self.assertEqual(1, len(components))
@@ -423,16 +423,16 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
         }
         self.assertEqual(
             {
-                "aapt2-9.3.0-15703166-linux.jar",
-                "aapt2-9.3.0-15703166-osx.jar",
-                "aapt2-9.3.0-15703166.pom",
+                "aapt2-9.3.2-15703166-linux.jar",
+                "aapt2-9.3.2-15703166-osx.jar",
+                "aapt2-9.3.2-15703166.pom",
             },
             set(artifacts),
         )
         expected_checksums = {
-            "aapt2-9.3.0-15703166-linux.jar": "e772a3dae8354764f1b0793903218427f483982445207f2e4ffc8c2026755bd4",
-            "aapt2-9.3.0-15703166-osx.jar": "1e35bc2ce18c3aae840be2a29659ce50d6043e907a44d98ee1cf375d044fa29c",
-            "aapt2-9.3.0-15703166.pom": "94a875f093c76564471eb9c48c630a86e656f73d4bcf20c3bd38b67ee7bb0d78",
+            "aapt2-9.3.2-15703166-linux.jar": "e772a3dae8354764f1b0793903218427f483982445207f2e4ffc8c2026755bd4",
+            "aapt2-9.3.2-15703166-osx.jar": "1e35bc2ce18c3aae840be2a29659ce50d6043e907a44d98ee1cf375d044fa29c",
+            "aapt2-9.3.2-15703166.pom": "96be995aec595ca9d9fc3ae347ea0f22575e7f01f1e5212018a453d9c86e64a3",
         }
         for name, checksums in artifacts.items():
             with self.subTest(name=name):

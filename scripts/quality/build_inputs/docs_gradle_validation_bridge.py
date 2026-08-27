@@ -38,6 +38,9 @@ FACADE_PATH = ROOT / "scripts/docs/validate.py"
 RECEIPT_PATH = ROOT / "build/reports/build-inputs/docs-gradle-validation.json"
 TASK_LINE = re.compile(r"^\s*(:?[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*)\s*(?:-\s.*)?$")
 STDLIB_ROOT = Path(sysconfig.get_paths()["stdlib"]).resolve()
+REPO_ROOT_STR = os.path.realpath(str(ROOT))
+DOCS_ROOT_STR = os.path.realpath(os.path.join(str(ROOT), "scripts", "docs"))
+STDLIB_ROOT_STR = os.path.realpath(str(STDLIB_ROOT))
 
 
 class BridgeError(RuntimeError):
@@ -83,42 +86,49 @@ def _load_facade() -> ModuleType:
     return module
 
 
-def _module_source(module: ModuleType) -> Path | None:
+def _module_source(module: ModuleType) -> str | None:
     raw = getattr(module, "__file__", None)
     if not isinstance(raw, str):
         return None
-    path = Path(raw)
-    if path.suffix in {".pyc", ".pyo"}:
-        path = path.with_suffix(".py")
+    if raw.endswith((".pyc", ".pyo")):
+        raw = os.path.splitext(raw)[0] + ".py"
     try:
-        return path.resolve(strict=True)
+        resolved = os.path.realpath(raw)
     except OSError:
         return None
+    if not os.path.isfile(resolved):
+        return None
+    return resolved
+
+
+def _is_under(path: str, root: str) -> bool:
+    try:
+        return os.path.commonpath([path, root]) == root
+    except ValueError:
+        return False
 
 
 def _require_docs_or_standard_library(module: ModuleType, name: str) -> None:
     path = _module_source(module)
     if path is None:
         return
-    docs_root = (ROOT / "scripts/docs").resolve()
-    try:
-        path.relative_to(docs_root)
+    if _is_under(path, DOCS_ROOT_STR):
         return
-    except ValueError:
-        pass
-    if "site-packages" in path.parts or "dist-packages" in path.parts:
+    parts = path.split(os.sep)
+    if "site-packages" in parts or "dist-packages" in parts:
         raise BridgeError(f"third-party module loaded by docs validator: {name}")
-    try:
-        path.relative_to(STDLIB_ROOT)
-    except ValueError as error:
-        raise BridgeError(f"non-docs module loaded by docs validator: {name} ({path})") from error
+    if _is_under(path, STDLIB_ROOT_STR):
+        return
+    raise BridgeError(f"non-docs module loaded by docs validator: {name} ({path})")
 
 
 @contextlib.contextmanager
 def _guarded_docs_runtime():
     """Expose only standard-library and repository docs modules during validation."""
 
-    docs_root = (ROOT / "scripts/docs").resolve()
+    inspecting = False
+    docs_root = DOCS_ROOT_STR
+    repo_root = REPO_ROOT_STR
     removed: dict[str, ModuleType] = {}
     removed_attributes: list[tuple[ModuleType, str, ModuleType]] = []
     for name, module in list(sys.modules.items()):
@@ -127,8 +137,8 @@ def _guarded_docs_runtime():
         path = _module_source(module)
         if path is None:
             continue
-        repository_owned = path.is_relative_to(ROOT.resolve()) and not path.is_relative_to(docs_root)
-        third_party = "site-packages" in path.parts or "dist-packages" in path.parts
+        repository_owned = _is_under(path, repo_root) and not _is_under(path, docs_root)
+        third_party = "site-packages" in path.split(os.sep) or "dist-packages" in path.split(os.sep)
         if repository_owned or third_party:
             removed[name] = module
             sys.modules.pop(name, None)
@@ -142,27 +152,41 @@ def _guarded_docs_runtime():
     original_import_module = importlib.import_module
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        nonlocal inspecting
         module = original_import(name, globals, locals, fromlist, level)
-        _require_docs_or_standard_library(module, getattr(module, "__name__", name))
-        if level:
-            package = globals.get("__package__") if isinstance(globals, dict) else None
-            absolute_name = importlib.util.resolve_name("." * level + name, package)
-        else:
-            absolute_name = name
-        requested = sys.modules.get(absolute_name)
-        if isinstance(requested, ModuleType):
-            _require_docs_or_standard_library(requested, absolute_name)
-        if fromlist:
-            prefix = absolute_name
-            for item in fromlist:
-                candidate = sys.modules.get(f"{prefix}.{item}")
-                if isinstance(candidate, ModuleType):
-                    _require_docs_or_standard_library(candidate, f"{prefix}.{item}")
+        if inspecting:
+            return module
+        inspecting = True
+        try:
+            _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+            if level:
+                package = globals.get("__package__") if isinstance(globals, dict) else None
+                absolute_name = importlib.util.resolve_name("." * level + name, package)
+            else:
+                absolute_name = name
+            requested = sys.modules.get(absolute_name)
+            if isinstance(requested, ModuleType):
+                _require_docs_or_standard_library(requested, absolute_name)
+            if fromlist:
+                prefix = absolute_name
+                for item in fromlist:
+                    candidate = sys.modules.get(f"{prefix}.{item}")
+                    if isinstance(candidate, ModuleType):
+                        _require_docs_or_standard_library(candidate, f"{prefix}.{item}")
+        finally:
+            inspecting = False
         return module
 
     def guarded_import_module(name, package=None):
+        nonlocal inspecting
         module = original_import_module(name, package)
-        _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+        if inspecting:
+            return module
+        inspecting = True
+        try:
+            _require_docs_or_standard_library(module, getattr(module, "__name__", name))
+        finally:
+            inspecting = False
         return module
 
     builtins.__import__ = guarded_import
@@ -285,7 +309,7 @@ def run() -> dict[str, Any]:
         f"-Dorg.gradle.java.installations.paths={compile_home},{runtime_home}",
     ]
     validate_gradle_arguments(argv)
-    result = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, timeout=120)
+    result = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, timeout=300)
     if result.returncode:
         raise BridgeError("governed Gradle task discovery failed")
     tasks = _parse_tasks(result.stdout)
@@ -340,6 +364,9 @@ def main(argv: list[str] | None = None) -> int:
         receipt = run()
     except (BridgeError, BuildInputError, OSError, subprocess.SubprocessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+    except Exception as error:
+        print(f"ERROR: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
     print(
         "docs-validation: PASS "

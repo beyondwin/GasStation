@@ -2,6 +2,8 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# Fixture suites must not inherit CI's sealed Gradle launcher.
+unset GASSTATION_BUILD_INPUT_EVIDENCE
 "$repo_root/scripts/agent/tests/preflight_test.sh"
 "$repo_root/scripts/agent/tests/bootstrap_worktree_test.sh"
 "$repo_root/scripts/agent/tests/check_contracts_test.sh"

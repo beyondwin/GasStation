@@ -18,7 +18,7 @@ plugins {
     `kotlin-dsl`
 }
 
-val testKitAapt2Version = "9.3.0-15703166"
+val testKitAapt2Version = "9.3.2-15703166"
 val testKitAapt2Artifacts =
     mapOf(
         "aapt2-$testKitAapt2Version-linux.jar" to
@@ -26,7 +26,7 @@ val testKitAapt2Artifacts =
         "aapt2-$testKitAapt2Version-osx.jar" to
             "1e35bc2ce18c3aae840be2a29659ce50d6043e907a44d98ee1cf375d044fa29c",
         "aapt2-$testKitAapt2Version.pom" to
-            "94a875f093c76564471eb9c48c630a86e656f73d4bcf20c3bd38b67ee7bb0d78",
+            "96be995aec595ca9d9fc3ae347ea0f22575e7f01f1e5212018a453d9c86e64a3",
     )
 
 fun NioPath.sha256(): String =
@@ -158,15 +158,15 @@ dependencies {
 val testKitVerificationSeeds =
     listOf(
         "com.google.android:android:4.1.1.4",
-        "androidx.annotation:annotation-experimental:1.1.0",
+        "androidx.annotation:annotation-experimental:1.6.0",
         "androidx.annotation:annotation-jvm:1.7.0",
-        "androidx.core:core-ktx:1.8.0",
-        "com.google.guava:guava:33.4.0-jre",
-        "com.google.guava:guava:33.4.8-jre",
-        "org.junit:junit-bom:5.10.2",
-        "org.junit:junit-bom:5.11.0-M2",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.9.0",
+        "androidx.core:core-ktx:1.19.0",
+        "com.google.guava:guava:33.7.1-jre",
+        "com.google.guava:guava:33.7.1-jre",
+        "org.junit:junit-bom:6.1.3",
+        "org.junit:junit-bom:6.1.3",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.11.0",
         "com.android.tools.build:aapt2:$testKitAapt2Version:linux",
         "com.android.tools.build:aapt2:$testKitAapt2Version:osx",
     ).mapIndexed { index, coordinate ->

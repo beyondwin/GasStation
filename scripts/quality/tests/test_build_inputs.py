@@ -1213,6 +1213,10 @@ class DocumentationImportBoundaryTest(unittest.TestCase):
             with _guarded_docs_runtime():
                 from scripts.quality import build_inputs as _forbidden  # noqa: F401
 
+    def test_docs_runtime_path_construction_does_not_recurse_through_import_hook(self) -> None:
+        with _guarded_docs_runtime():
+            Path(".").resolve()
+
     def test_governed_contract_checker_routes_docs_through_stable_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

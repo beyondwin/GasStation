@@ -432,7 +432,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 최종 blocking commit에서는 station 45/location 75 floor와 settings integrity/no-coverage 판정을 수행하고 tag release prerequisite로 동작합니다.
 
-의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
+의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. Gradle Wrapper는 `gradle/verification-metadata.xml`과 `config/quality/build-inputs.json`을 함께 갱신해야 하므로 그룹에서 제외합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
 ## Production dependency and public ABI verification
 

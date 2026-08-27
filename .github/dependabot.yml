@@ -12,6 +12,9 @@ updates:
       gradle-dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "gradle"
+          - "gradle-wrapper"
 
   - package-ecosystem: github-actions
     directory: /
