@@ -32,6 +32,7 @@ jobs:
       - name: Agent contract tests
         env:
           GASSTATION_CI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GASSTATION_BUILD_INPUT_EVIDENCE: ""
         run: |
           scripts/agent/test.sh
           scripts/agent/check-contracts.sh --ci

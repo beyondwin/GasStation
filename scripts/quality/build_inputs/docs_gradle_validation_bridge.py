@@ -365,6 +365,9 @@ def main(argv: list[str] | None = None) -> int:
     except (BridgeError, BuildInputError, OSError, subprocess.SubprocessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
+    except Exception as error:
+        print(f"ERROR: {type(error).__name__}: {error}", file=sys.stderr)
+        return 1
     print(
         "docs-validation: PASS "
         f"sources={receipt['dynamicSources']['count']} "

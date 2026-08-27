@@ -324,7 +324,11 @@ def check_documentation_contracts(root: Path) -> list[str]:
     for line in result.stderr.splitlines():
         if line.startswith("ERROR: "):
             issues.append(line.removeprefix("ERROR: "))
-    return issues or [issue("docs/documentation-catalog.json", 1, "documentation validation failed")]
+    if issues:
+        return issues
+    detail = (result.stderr or result.stdout).strip().splitlines()
+    summary = detail[0][:200] if detail else "documentation validation failed"
+    return [issue("docs/documentation-catalog.json", 1, summary)]
 
 
 def check_build_contract(root: Path) -> list[str]:
