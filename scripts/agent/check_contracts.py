@@ -150,6 +150,7 @@ QUALITY_VERIFICATION_BLOCK = [
 ABI_UPDATE_OPERATOR_BLOCK = [task.replace("checkKotlinAbi", "updateKotlinAbi") for task in QUALITY_ABI_TASKS]
 LINT_JOB_CONTRACTS = {
     "static-analysis": {
+        "timeout_minutes": "60",
         "property": "-Pgasstation.lintTestSources=false",
         "artifact": "lint-production-reports",
         "arguments": [
@@ -180,6 +181,7 @@ LINT_JOB_CONTRACTS = {
         },
     },
     "lint-tests": {
+        "timeout_minutes": "30",
         "property": "-Pgasstation.lintTestSources=true",
         "artifact": "lint-test-source-reports",
         "arguments": [
@@ -1064,9 +1066,13 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
         job_line = source_line(workflow, match.start())
         job_fields = workflow_job_fields(body)
         job_raw_fields = workflow_job_raw_fields(body)
-        if job_fields.get("timeout-minutes") != "30":
+        if job_fields.get("timeout-minutes") != contract["timeout_minutes"]:
             issues.append(
-                issue(workflow_path, job_line, f"{job_name} timeout must be 30 minutes")
+                issue(
+                    workflow_path,
+                    job_line,
+                    f"{job_name} timeout must be {contract['timeout_minutes']} minutes",
+                )
             )
         if "if" in job_fields:
             issues.append(

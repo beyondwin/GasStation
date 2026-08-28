@@ -197,7 +197,7 @@ jobs:
       - run: scripts/agent/verify-room-schemas.sh
   static-analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Production lint
         run: |
@@ -1344,7 +1344,7 @@ jobs:
           GASSTATION_CI_BASE_REF: fixture-base
   static-analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Production lint
         run: |
