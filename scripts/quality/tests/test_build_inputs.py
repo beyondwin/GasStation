@@ -1064,7 +1064,7 @@ class VerifiedDownloadTest(unittest.TestCase):
 
 
 class WorkflowContractTest(unittest.TestCase):
-    def test_release_assemble_uses_reproducibility_source_epoch(self) -> None:
+    def test_release_assemble_uses_reproducibility_build_controls(self) -> None:
         policy = load_policy(POLICY, root=ROOT)
         workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
         governed_release = (
@@ -1073,7 +1073,12 @@ class WorkflowContractTest(unittest.TestCase):
             "          source_date_epoch=$(git show -s --format=%ct \"$GITHUB_SHA\")\n"
             "          test \"$source_date_epoch\" -gt 0\n"
             "          SOURCE_DATE_EPOCH=\"$source_date_epoch\" \\\n"
-            "            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail\n"
+            "            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease \\\n"
+            "              --no-build-cache \\\n"
+            "              --no-configuration-cache \\\n"
+            "              --rerun-tasks \\\n"
+            "              --project-cache-dir \"$RUNNER_TEMP/gasstation-release-assemble-project-cache\" \\\n"
+            "              --warning-mode fail\n"
         )
         self.assertIn(governed_release, workflow)
 
@@ -1088,7 +1093,7 @@ class WorkflowContractTest(unittest.TestCase):
             )
             self.assertNotEqual(workflow, candidate)
             (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
-            with self.assertRaisesRegex(BuildInputError, "source epoch"):
+            with self.assertRaisesRegex(BuildInputError, "reproducibility build"):
                 verify_repository_workflows(root, policy, promoted=True)
 
     def test_promotion_detection_ignores_non_build_input_allowances(self) -> None:

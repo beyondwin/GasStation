@@ -227,10 +227,14 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
                 'source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")',
                 'test "$source_date_epoch" -gt 0',
                 'SOURCE_DATE_EPOCH="$source_date_epoch" \\',
-                "scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail",
+                "scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease",
+                "--no-build-cache",
+                "--no-configuration-cache",
+                "--rerun-tasks",
+                '--project-cache-dir "$RUNNER_TEMP/gasstation-release-assemble-project-cache"',
             )
             if any(fragment not in release_assemble for fragment in release_epoch_fragments):
-                raise BuildInputError("release-assemble source epoch contract drift")
+                raise BuildInputError("release-assemble reproducibility build contract drift")
             receipt_name = "name: reproducible-prod-release-receipt-${{ github.sha }}"
             receipt_path = "path: build/reports/build-inputs/probe"
             binding_fragments = (

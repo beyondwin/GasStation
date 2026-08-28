@@ -260,7 +260,12 @@ jobs:
           source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")
           test "$source_date_epoch" -gt 0
           SOURCE_DATE_EPOCH="$source_date_epoch" \
-            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail
+            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease \
+              --no-build-cache \
+              --no-configuration-cache \
+              --rerun-tasks \
+              --project-cache-dir "$RUNNER_TEMP/gasstation-release-assemble-project-cache" \
+              --warning-mode fail
       - name: Bind assembled prod APK to reproducibility receipt
         run: |
           mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
