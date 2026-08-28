@@ -223,6 +223,14 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
         if promoted is True:
             release_assemble = _job_block(android, "release-assemble")
             release_publish = _job_block(android, "release-publish")
+            release_epoch_fragments = (
+                'source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")',
+                'test "$source_date_epoch" -gt 0',
+                'SOURCE_DATE_EPOCH="$source_date_epoch" \\',
+                "scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail",
+            )
+            if any(fragment not in release_assemble for fragment in release_epoch_fragments):
+                raise BuildInputError("release-assemble source epoch contract drift")
             receipt_name = "name: reproducible-prod-release-receipt-${{ github.sha }}"
             receipt_path = "path: build/reports/build-inputs/probe"
             binding_fragments = (

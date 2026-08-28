@@ -256,7 +256,11 @@ jobs:
           path: build/reports/build-inputs/probe
       - uses: ./.github/actions/setup-build-inputs
       - name: Release Assemble
-        run: scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail
+        run: |
+          source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")
+          test "$source_date_epoch" -gt 0
+          SOURCE_DATE_EPOCH="$source_date_epoch" \
+            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail
       - name: Bind assembled prod APK to reproducibility receipt
         run: |
           mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
