@@ -164,7 +164,7 @@ compiler/Test/Roborazzi convention 자체의 TestKit gate와 현재 strict modul
   --warning-mode fail
 ```
 
-이 convention command는 [테스트 전략](test-strategy.md#build-input-integrity와-reproducibility-ownership)에 정의한 단일 `Test` task의 52-owner/90-test, five-fork, nested `--max-workers=2`, no-filter/no-retry 계약을 그대로 실행합니다. Outer suite는 configuration cache를 끄고 27분 workload bound에 8분의 초기화/hosted-runner 여유를 둔 35분 timeout을 사용하며, nested TestKit module `Test` timeout은 15분입니다.
+이 convention command는 [테스트 전략](test-strategy.md#build-input-integrity와-reproducibility-ownership)에 정의한 단일 `Test` task의 52-owner/90-test, five-fork, nested `--max-workers=2`, no-filter/no-retry 계약을 그대로 실행합니다. Outer suite는 configuration cache를 끄고 hosted main CI에서 확인된 27분/35분 timeout을 넘길 수 있도록 50분 blocking timeout을 사용하며, nested TestKit module `Test` timeout은 15분입니다.
 
 `gasstation.kotlinWarningsAsErrors`의 유효값과 effective policy는 다음과 같습니다.
 

@@ -355,10 +355,11 @@ tasks.withType<Test>().configureEach {
         "GRADLE_RO_DEP_CACHE",
         testKitReadOnlyDependencyCache.get().asFile.absolutePath,
     )
-    // The reviewed Round-21 five-lane workload bound is 1620 seconds. The
-    // outer task adds eight minutes for TestKit startup and hosted-runner
-    // variance. Nested module Test tasks keep their own 15-minute timeout.
-    timeout.set(Duration.ofMinutes(35))
+    // The reviewed Round-21 ledger remains the lane-planning input. Hosted CI
+    // has demonstrated that 27- and 35-minute task ceilings interrupt the
+    // unchanged inventory, so the outer blocking ceiling is 50 minutes.
+    // Nested module Test tasks keep their own 15-minute timeout.
+    timeout.set(Duration.ofMinutes(50))
     maxParallelForks = 5
     systemProperty("gasstation.convention.test.maxParallelForks", maxParallelForks)
     systemProperty("gasstation.convention.test.dispatchSha256", task9OrderedDispatchSha256)

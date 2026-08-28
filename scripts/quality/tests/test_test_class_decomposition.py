@@ -1175,7 +1175,7 @@ class TestClassDecompositionTest(unittest.TestCase):
             (root_source, "abstract class RootQualityTestSupport {", "abstract class RootQualityTestSupport {\n    @Test fun inheritedTest() = Unit"),
             (root_source, "abstract class RootQualityTestSupport {", "abstract class RootQualityTestSupport {\n    @TestFactory fun dynamicTest() = emptyList<Any>()"),
             (build, "maxParallelForks = 5", "maxParallelForks = 6"),
-            (build, "timeout.set(Duration.ofMinutes(35))", "timeout.set(Duration.ofMinutes(15))"),
+            (build, "timeout.set(Duration.ofMinutes(50))", "timeout.set(Duration.ofMinutes(15))"),
             (build, "tasks.withType<Test>().configureEach", "tasks.register<Test>(\"shard\")\ntasks.withType<Test>().configureEach"),
             (build, "maxParallelForks = 5", "maxParallelForks = 5\n    filter { includeTestsMatching(\"*Coverage*\") }"),
             (fixture, ".withGradleVersion(EXACT_GRADLE_VERSION)", ".withGradleInstallation(gradleHome)"),

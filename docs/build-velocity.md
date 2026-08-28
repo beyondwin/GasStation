@@ -15,7 +15,7 @@ Java: 17
 
 ## Convention Quality-Gate Timing Snapshot
 
-At implementation commit `12e619b8...`, the final local convention run completed 52 suites / 90 tests with 0 failures, 0 errors, and 0 skipped in 11m46s. The later `4173dd05...` fix changed only the governed 35-minute marker consumer, its direct regression test, and generated policy; unchanged local 90/90 was not rerun under the no-repeat rule. Scoped review at the exact final HEAD reported SPEC PASS and QUALITY PASS with no findings.
+At implementation commit `12e619b8...`, the final local convention run completed 52 suites / 90 tests with 0 failures, 0 errors, and 0 skipped in 11m46s. The later `4173dd05...` fix introduced the governed 35-minute marker; subsequent hosted main CI runs demonstrated that both 27- and 35-minute ceilings interrupt the unchanged inventory, so the current blocking ceiling is 50 minutes. Scoped review at the exact final HEAD reported SPEC PASS and QUALITY PASS with no findings.
 
 The single governed Linux invocation at `4173dd05...` exited 2 after 0.602362792s because inherited `SSH_AUTH_SOCK` was rejected before attempt allocation. That duration is infrastructure preflight latency, not convention-suite build time: the status is attempt 0 and `NOT_MEASURED`, with no same-code retry. The exact invocation and evidence interpretation live in the [verification matrix](verification-matrix.md#build-input-provenance와-unsigned-release-재현성).
 
@@ -34,7 +34,7 @@ GitHub Actions already separates `static-analysis`, `unit-tests`, `screenshot-te
 
 Mutation verification is deliberately outside ordinary fast/auto Gradle task arrays. The routed CI/manual runner creates the required route evidence, runs `verifyPitestConfiguration`, and owns the real three-module PIT work. Selected modules run sequentially with `--no-parallel`, each PIT process uses exactly two threads, and the hosted job has a 60-minute ceiling. History, retry, task exclusion, dry-run, and automatic rerun are disabled so elapsed time and mutant populations remain honest.
 
-The sealed mutation runner uses configuration cache but disables build cache and reruns tasks. Its isolated proof must show both a stored first run and reused second run. The outer convention TestKit suite keeps the reviewed 27-minute five-lane workload bound but uses a 35-minute task timeout for TestKit startup and hosted-runner variance; it runs with `--no-configuration-cache` because its script listeners and dispatch staging are not cache-serializable. Weekly `ubuntu-24.04` image rotation can stop before PIT while the reviewed image profile is recaptured; that maintenance cost is intentional fail-closed behavior, not a reason to accept runtime-observed hashes as permanent tool pins.
+The sealed mutation runner uses configuration cache but disables build cache and reruns tasks. Its isolated proof must show both a stored first run and reused second run. The outer convention TestKit suite keeps the reviewed duration ledger as its five-lane planning input but uses a 50-minute blocking timeout because hosted main CI exhausted both 27- and 35-minute ceilings; it runs with `--no-configuration-cache` because its script listeners and dispatch staging are not cache-serializable. Weekly `ubuntu-24.04` image rotation can stop before PIT while the reviewed image profile is recaptured; that maintenance cost is intentional fail-closed behavior, not a reason to accept runtime-observed hashes as permanent tool pins.
 
 ## Build-input cost boundary
 
