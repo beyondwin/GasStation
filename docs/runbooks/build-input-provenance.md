@@ -1,6 +1,6 @@
 # Build Input Provenance
 
-이 문서는 GasStation의 검토된 빌드 입력, strict dependency verification, 문서 검증 bridge, unsigned prod release 재현성의 운영 owner다. 정책의 단일 기계 기준은 `config/quality/build-inputs.json`, 실행기는 `scripts/quality/verify_build_inputs.py`, Gradle 진입점은 `scripts/quality/build_inputs/run_gradle.sh`다.
+이 문서는 GasStation의 검토된 빌드 입력, 문서 검증 bridge, unsigned prod release 재현성의 운영 owner다. 정책의 단일 기계 기준은 `config/quality/build-inputs.json`, 실행기는 `scripts/quality/verify_build_inputs.py`, Gradle 진입점은 `scripts/quality/build_inputs/run_gradle.sh`다.
 
 ## 보장 범위와 정직한 경계
 
@@ -10,19 +10,17 @@
 
 한 변경에서는 wrapper, action, JDK, Android SDK, Maven graph 중 한 input family만 갱신한다. `config/quality/build-inputs.json`을 재생성하고 정책 diff, 공식 source, size, SHA-256, executable identity를 함께 검토한다.
 
-- Gradle 9.6.1 distribution SHA와 현재 wrapper JAR SHA는 Gradle 공식 checksum 자료와 대조한다. distribution URL·wrapper property·wrapper JAR을 함께 검증한 뒤 strict matrix를 다시 수행한다.
+- Gradle 9.6.1 distribution SHA와 현재 wrapper JAR SHA는 Gradle 공식 checksum 자료와 대조한다. distribution URL·wrapper property·wrapper JAR을 함께 검증한 뒤 일반 build/test/lint와 configuration-cache 검증을 다시 수행한다.
 - GitHub Action은 release tag의 annotated/lightweight 상태, peeled commit, tag membership을 공식 GitHub API로 확인한다. workflow의 `uses`는 full commit SHA만 허용한다. composite action은 재귀적으로 child `uses`와 각 manifest hash/runtime까지 닫는다. Dependabot PR도 같은 검토를 통과해야 한다.
 - Linux x64 Temurin compile JDK는 `17.0.20+8`, runtime JDK는 `21.0.12.1+1`이다. 반드시 정책의 공식 versioned archive URL, exact byte size, SHA-256을 만족하고 closed extraction 뒤 `release` 및 `bin/java` identity를 확인한다. 단지 다운로드 가능한 이전 archive는 허용하지 않는다. CPU 또는 out-of-cycle security release는 정책 변경 review를 먼저 한다.
 - Temurin archive는 query 없는 exact `github.com/adoptium/...` URL에서 시작해 정책에 고정된 role별 `release-assets.githubusercontent.com/github-production-release-asset/...` path로 가는 `302 -> 200` 한 hop만 허용한다. Signed query는 17개 key의 exact 집합, 고정 응답 filename/content type 값, JWT·signature·UUID·UTC-second grammar와 `skt <= se <= ske` 순서를 모두 검사한다. 최종 `Content-Length`, `Content-Type`, `Accept-Ranges`, streamed byte count와 SHA-256도 정책과 일치해야 하며 완료 archive를 extraction 직전에 다시 hash한다. Receipt에는 query 없는 초기 URL, status/hop, scheme·host·path, sorted key 이름, 문법 검사 결과, 안전한 최종 header, raw Location/effective URL의 size/hash, 최종 archive size/hash만 남긴다. Signed URL/query, JWT, signature, UUID, timestamp, cookie, authorization은 기록·재사용·role 간 공유하지 않는다.
 - protected environment는 `JAVA_HOME`, `JAVA_HOME_17_X64`, `JAVA_HOME_21_X64`, `PATH`, `GRADLE_USER_HOME`과 `GRADLE_OPTS`, `JAVA_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`, `ORG_GRADLE_PROJECT_*`다. 특히 wrapper가 소비하는 `JAVA_OPTS`도 비어 있어야 한다.
 
-## Dependency verification
+## Dependency resolution boundary
 
-`gradle/verification-metadata.xml`은 SHA-256만 사용한다. weak/alternate/ignored/trusted artifact 규칙을 추가하지 않는다. 동적 version/range/snapshot, verification disable API/property/environment, `-I`/`--init-script`는 governed 경로에서 전부 거부한다. init-script allowlist는 비어 있다. Lockfile은 version selection owner가 catalog와 build script이므로 현재 만들지 않는다.
+이 샘플 프로젝트는 Gradle dependency verification metadata를 운영하지 않는다. IDE가 source/Javadoc artifact를 받을 때마다 개별 checksum을 수집하는 비용이 샘플의 목적에 비해 크기 때문이다. 이 선택은 Maven artifact bytes를 저장소 밖의 별도 SHA-256 목록과 대조하지 않는다는 뜻이며, 공급망 위험이 0이라는 주장이 아니다.
 
-메타데이터 생성은 정책의 closed generation matrix를 fresh Gradle home에서 실행한다. TestKit nested build는 outer build의 새 artifact를 자동 반영하지 않으므로 dedicated TestKit capture graph를 별도로 실행하고 추가 component/artifact/checksum을 검토한다. 생성 행을 두 번 수행해 XML hash가 변하지 않아야 하며, 이후 fresh cold home에서 complete strict matrix와 대표 offline row를 통과해야 한다. alternate checksum이 관측되면 즉시 중단하고 repository origin, redirect/CDN, component version, official checksum을 조사한다. 설명 없는 두 checksum을 함께 허용하지 않는다.
-
-TestKit은 root metadata를 fixture에 byte-for-byte 복사하고 hash를 비교한 뒤, fresh home과 exact sanitized environment에서 strict mode로 실행한다. 한 필수 SHA를 fixture copy에서 제거한 negative test는 dependency-verification 진단으로 실패해야 한다.
+대신 dependency version은 version catalog와 build script에 명시하고, repository는 `google()`, `mavenCentral()`, Gradle Plugin Portal로 제한하며, 동적 version/range/snapshot은 build-input verifier가 거부한다. Dependabot이 Gradle과 GitHub Actions 갱신을 제안하고, 일반 CI build/test/lint가 실제 호환성을 검증한다. Gradle wrapper distribution은 계속 `distributionSha256Sum`으로 검증하며 governed Gradle 진입점의 init script와 toolchain 환경 봉인도 유지한다.
 
 ## Android SDK와 Codecov
 
@@ -38,9 +36,9 @@ Codecov upload는 선택적·비차단이다. action full SHA만으로 충분하
 
 ## Receipt와 evidence session
 
-Receipt는 current source commit, policy hash, wrapper/JDK/action/SDK/metadata identity, component·artifact·checksum count와 XML hash, opaque runner identity, 실행 결과만 allowlist로 기록한다. 절대 사용자 경로, 전체 environment, token/secret 값은 기록하지 않는다. canonical JSON duplicate key, symlink, stale source/event, dirty tree, duplicate evidence path는 거부한다. CI artifact는 source SHA가 포함된 exact name으로 업로드하고 release asset으로 공개하지 않는다.
+Receipt는 current source commit, policy hash, wrapper/JDK/action/SDK identity, opaque runner identity, 실행 결과만 allowlist로 기록한다. 절대 사용자 경로, 전체 environment, token/secret 값은 기록하지 않는다. canonical JSON duplicate key, symlink, stale source/event, dirty tree, duplicate evidence path는 거부한다. CI artifact는 source SHA가 포함된 exact name으로 업로드하고 release asset으로 공개하지 않는다.
 
-Blocking phase에서 `build-inputs` job은 실패 완화 없이 strict matrix, configuration-cache 재사용, two-copy probe와 receipt capture를 모두 통과해야 한다. `release-assemble`과 `release-publish`는 이 job을 exact prerequisite로 두고 source SHA가 포함된 receipt artifact만 소비한다. step/job-level 실패 완화, 대체 command, latest artifact 이름은 허용하지 않는다.
+Blocking phase에서 `build-inputs` job은 실패 완화 없이 정적 build-input 검증, configuration-cache 재사용, two-copy probe와 receipt capture를 모두 통과해야 한다. `release-assemble`과 `release-publish`는 이 job을 exact prerequisite로 두고 source SHA가 포함된 receipt artifact만 소비한다. step/job-level 실패 완화, 대체 command, latest artifact 이름은 허용하지 않는다.
 
 Governed evidence session은 정책의 정확한 네 명령만 받으며 suffix나 fifth command를 허용하지 않는다.
 
@@ -59,15 +57,13 @@ Ubuntu identity는 한 digest로 축약하지 않는다. 정책과 receipt는 of
 
 오케스트레이터는 clean full source SHA와 정책만 입력받는다. attempt 번호·경로·profile·context·image·명령·복구 mode는 호출자가 선택할 수 없다. host mount는 없고 source는 exact `HEAD`와 고정 `refs/heads/main=7b8c149c9f792aaf43cc00a94ba671929008979e` 두 ref의 Git bundle 하나만 `docker cp`로 전달한다. default/shared Colima profile과 Docker 자원은 검사·변경·정리 대상이 아니다.
 
-Terminal `PASS`는 metadata no-diff replay, online cold와 same-home offline strict, product strict, configuration-cache reuse, 정확한 네 evidence session, 두 clean-tree APK equality, 별도 third APK release binding, negative mutation suite와 ordered cleanup이 모두 같은 source/policy/attempt에 묶일 때만 가능하다. cleanup은 live daemon에서 exact container와 두 volume 부재를 먼저 증명한 뒤 `colima delete gasstation-task9-linux-amd64 --data --force`를 실행하고 profile/context/runtime data 부재까지 증명한다. 일부 성공, stale/mixed ownership 또는 접근 불가 daemon은 PASS가 아니다.
+Terminal `PASS`는 정적 build-input 검증, configuration-cache reuse, 정확한 네 evidence session, 두 clean-tree APK equality, 별도 third APK release binding, negative mutation suite와 ordered cleanup이 모두 같은 source/policy/attempt에 묶일 때만 가능하다. cleanup은 live daemon에서 exact container와 두 volume 부재를 먼저 증명한 뒤 `colima delete gasstation-task9-linux-amd64 --data --force`를 실행하고 profile/context/runtime data 부재까지 증명한다. 일부 성공, stale/mixed ownership 또는 접근 불가 daemon은 PASS가 아니다.
 
 각 governed Docker/Gradle 단계는 Docker 실행 전에 command name과 shell SHA-256을 immutable `STARTED` receipt로 만들고, 종료 후 exit code, redacted combined stdout/stderr log의 size/SHA-256, truncation 여부를 별도 result receipt로 묶는다. 로그는 terminal cause를 보존하는 최대 64 KiB tail이며 host/container absolute path, secret assignment, signed redirect query value를 내보내지 않는다. Nonzero, missing log, hash/size drift, STARTED/result 불일치, Gradle의 generic-only 한 줄로 축약된 실패는 모두 fail closed다. 단계 receipt에 도달하기 전 실패해도 host attempt의 `failure-package/`가 지금까지의 command evidence, terminal `FAIL`, manifest를 보존한다. 성공 package도 같은 command evidence를 포함한다.
 
 전용 profile을 만들기 전에 host는 `/usr/sbin/sysctl -n hw.logicalcpu hw.physicalcpu hw.memsize`의 정확한 세 값을 새로 읽는다. 정책 최소치는 logical CPU 14, physical CPU 14, physical memory `51539607552` bytes이고, 전용 guest만 exact `--cpus 14 --memory 32`와 persisted `cpu=14`, `memory=32`를 사용한다. Host 관측값과 최소치는 local-host receipt에서 분리해 기록하며 default/shared profile에서 추론하거나 그 profile을 resize하지 않는다. 120 GiB data disk와 40 GiB root disk는 그대로다.
 
-Repository/default/CI/ordinary-local과 nested TestKit timeout은 15분이다. 오직 sealed local Colima orchestrator가 실행하는 outer build-logic convention Test만 exact property `-Pgasstation.task9LocalLinuxConventionTestTimeoutMinutes=30`, outer-only `GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER=/evidence-work/task9-local-linux-ownership-marker.json`, canonical nonsymlink mode-`0600` marker가 모두 일치할 때 30분을 사용한다. Partial/wrong/이전 marker 또는 다른 task로의 누출은 fail closed이며 nested GradleRunner에는 property와 environment를 전달하지 않는다. `maxParallelForks=5`, 전체 90 tests, no retry/shard/skip 계약은 두 timeout mode에서 동일하다.
-
-`metadata-capture-1` 또는 `metadata-capture-2`가 실패하면 listener가 worker START/END, case별 canonical redacted XML, bounded exception과 nested output을 stable owned root에 즉시 기록한다. Test task finalizer는 temp TestKit/JUnit session이 삭제되기 전에 worker stream을 복사하고 `live-stage-manifest.json`의 path/size/SHA-256을 재검증한다. 그 뒤에만 outer exporter가 exact `/evidence-work/testkit-failures/<governed-command>/` package를 봉인한다. Summary는 source/policy/attempt/original-marker, governed command/log, sealed marker SHA-256, outer `1800`초와 repository/nested `900`초, `maxParallelForks=5`, `expectedTests=90`을 함께 묶는다. Raw absolute path, secret, signed value와 stack frame은 고정 redaction token으로 바꾸며 missing/extra/duplicate/symlink/unparseable XML, worker/case/owner/count 불일치, missing log 또는 rehash drift는 partial PASS가 아니라 terminal `FAIL`이다. 30분 allowance 자체는 원인 규명이나 PASS 증거가 아니다.
+Repository/default/CI/ordinary-local과 nested TestKit timeout은 15분이다. Convention suite는 `maxParallelForks=5`, 전체 90 tests, no retry/shard/skip 계약을 유지한다. TestKit fixture는 필요한 dependency cache seed만 공유하며 dependency verification metadata를 복사하거나 별도 capture graph를 실행하지 않는다.
 
 `build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 Task 8 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
 
@@ -83,6 +79,6 @@ Task 10과 Documentation Phase 5는 bridge bytes와 정책 static hash를 그대
 
 재현성 probe는 같은 source에서 두 clean Git tree, 서로 다른 Gradle user home·project cache·Kotlin cache를 사용해 `:app:assembleProdRelease`를 build-cache/configuration-cache 없이 rerun한다. 각 tree는 unsigned prod-release APK 정확히 하나를 내야 하며 size와 SHA-256이 같아야 한다. 서로 다른 APK를 normalize하지 않는다. 이 증거는 same-host/workspace-independent proof이며 cross-OS, runner-image, signed APK 재현성을 주장하지 않는다. demo-debug는 재현성 후보가 아니다.
 
-Probe receipt는 source SHA와 policy hash, exact artifact relative path/name, 두 size/hash를 묶는다. `release-assemble`은 exact source-bound receipt를 내려받아 별도 조립한 prod APK의 unsigned 상태, size, SHA-256을 upload 전에 대조한다. `release-publish`도 receipt와 다운로드한 release artifact를 다시 대조한 뒤 checksum/release mutation을 수행한다. mismatch면 release를 멈추고 두 tree log, JDK/SDK/metadata receipt와 zip entry metadata 차이를 조사한다. receipt 자체는 public release asset이 아니다.
+Probe receipt는 source SHA와 policy hash, exact artifact relative path/name, 두 size/hash를 묶는다. `release-assemble`은 exact source-bound receipt를 내려받아 별도 조립한 prod APK의 unsigned 상태, size, SHA-256을 upload 전에 대조한다. `release-publish`도 receipt와 다운로드한 release artifact를 다시 대조한 뒤 checksum/release mutation을 수행한다. mismatch면 release를 멈추고 두 tree log, JDK/SDK receipt와 zip entry metadata 차이를 조사한다. receipt 자체는 public release asset이 아니다.
 
-Rollback도 한 input family 단위로 수행한다. 정책과 metadata를 이전 reviewed bytes로 함께 되돌린 뒤 static checker, cold strict matrix, docs bridge, two-copy probe와 release-binding fixture를 다시 실행한다.
+Rollback도 한 input family 단위로 수행한다. 정책을 이전 reviewed bytes로 되돌린 뒤 static checker, configuration-cache check, 일반 build/test/lint, docs bridge, two-copy probe와 release-binding fixture를 다시 실행한다.

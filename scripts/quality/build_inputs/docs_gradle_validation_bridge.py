@@ -298,8 +298,6 @@ def run() -> dict[str, Any]:
         "./gradlew",
         "tasks",
         "--all",
-        "--dependency-verification",
-        "strict",
         "--no-configuration-cache",
         "--no-build-cache",
         "--warning-mode",

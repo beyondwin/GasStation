@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import platform
@@ -11,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import stat
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -22,9 +20,7 @@ if __package__ in {None, ""}:
 
 from scripts.quality.build_inputs.contracts import (  # noqa: E402
     BuildInputError,
-    canonical_json_bytes,
     load_policy,
-    scan_dependency_verification_bypasses,
     scan_dynamic_dependency_selectors,
     sha256_file,
     validate_protected_environment,
@@ -60,10 +56,6 @@ from scripts.quality.build_inputs.generate_policy import (  # noqa: E402
     docs_parent_edges,
     evidence_entrypoints,
 )
-from scripts.quality.build_inputs.testkit_failure import (  # noqa: E402
-    export_testkit_failure_evidence,
-    validate_live_stage_manifest,
-)
 from scripts.quality.build_inputs.test_class_decomposition import (  # noqa: E402
     DecompositionError,
     verify_decomposition,
@@ -71,7 +63,6 @@ from scripts.quality.build_inputs.test_class_decomposition import (  # noqa: E40
 
 
 ROOT = Path(__file__).resolve().parents[2]
-_STRICT_GROUPS = {"complete", "product-regressions"}
 _SENSITIVE_DIAGNOSTIC = re.compile(
     r"(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9]+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]+)",
     re.IGNORECASE,
@@ -81,66 +72,6 @@ _SENSITIVE_ASSIGNMENT = re.compile(
     r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
 )
 _ABSOLUTE_DIAGNOSTIC_PATH = re.compile(r"(?<![A-Za-z0-9:/])/(?:[^\s'\"]+)")
-_TESTKIT_FAILURE_OUTPUT = re.compile(r"/evidence-work/testkit-failures/metadata-capture-[12]")
-_OUTER_TIMEOUT_PROPERTY = "gasstation.task9LocalLinuxConventionTestTimeoutMinutes"
-_OUTER_TIMEOUT_MARKER_ENV = "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER"
-_OUTER_TIMEOUT_MARKER_PATH = "/evidence-work/task9-local-linux-ownership-marker.json"
-
-
-def _outer_timeout_arguments(policy: Mapping[str, Any], failure_output: Path | None) -> list[str]:
-    marker_value = os.environ.get(_OUTER_TIMEOUT_MARKER_ENV)
-    if marker_value is None:
-        return []
-    if failure_output is None or marker_value != _OUTER_TIMEOUT_MARKER_PATH:
-        raise BuildInputError("outer convention timeout marker boundary is incomplete")
-    marker_path = Path(marker_value)
-    if marker_path.is_symlink() or not marker_path.is_file() or stat.S_IMODE(marker_path.stat().st_mode) != 0o600:
-        raise BuildInputError("outer convention timeout marker must be nonsymlink mode 0600")
-    try:
-        marker = json.loads(marker_path.read_bytes(), object_pairs_hook=lambda pairs: _reject_json_pairs(pairs))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise BuildInputError("outer convention timeout marker is malformed") from error
-    command = failure_output.name
-    policy_sha = hashlib.sha256(canonical_json_bytes(policy)).hexdigest()
-    expected_keys = {
-        "attemptId", "container", "context", "dispatchSha256", "governedCommand",
-        "lanesSha256", "methodLedgerSha256", "outerConventionTestTimeoutMinutes",
-        "ownerLedgerSha256", "ownershipMarkerSha256",
-        "policySha256", "profile", "schemaVersion", "sourceCommit", "taskId", "taskPath",
-    }
-    if (
-        not isinstance(marker, dict)
-        or set(marker) != expected_keys
-        or canonical_json_bytes(marker) != marker_path.read_bytes()
-        or marker.get("governedCommand") != command
-        or marker.get("outerConventionTestTimeoutMinutes") != 35
-        or marker.get("methodLedgerSha256") != "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
-        or marker.get("ownerLedgerSha256") != "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
-        or marker.get("lanesSha256") != "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
-        or marker.get("dispatchSha256") != "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
-        or marker.get("policySha256") != policy_sha
-        or marker.get("taskId") != "quality-task-9-local-linux-evidence"
-        or marker.get("taskPath") != ":build-logic:convention:test"
-        or marker.get("profile") != "gasstation-task9-linux-amd64"
-        or marker.get("context") != "colima-gasstation-task9-linux-amd64"
-        or marker.get("container") != "gasstation-task9-evidence"
-        or re.fullmatch(r"attempt-[0-9]{6}", str(marker.get("attemptId"))) is None
-        or re.fullmatch(r"[0-9a-f]{40}", str(marker.get("sourceCommit"))) is None
-        or re.fullmatch(r"[0-9a-f]{64}", str(marker.get("ownershipMarkerSha256"))) is None
-    ):
-        raise BuildInputError("outer convention timeout marker identity differs")
-    return [f"-P{_OUTER_TIMEOUT_PROPERTY}=35"]
-
-
-def _reject_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    value: dict[str, Any] = {}
-    for key, item in pairs:
-        if key in value:
-            raise BuildInputError("outer convention timeout marker contains a duplicate key")
-        value[key] = item
-    return value
-
-
 def exact_evidence_command(policy: Mapping[str, Any], command: Sequence[str]) -> tuple[str, ...]:
     candidate = list(command)
     allowed = policy.get("evidenceSessionCommands")
@@ -176,48 +107,6 @@ def _verify_static_hashes(policy: Mapping[str, Any]) -> None:
         target = ROOT / row["path"]
         if sha256_file(target) != row["sha256"]:
             raise BuildInputError(f"static source SHA-256 mismatch: {row['path']}")
-
-
-def _metadata_counts(policy: Mapping[str, Any]) -> dict[str, int | str]:
-    dependency = policy.get("dependencyVerification")
-    if not isinstance(dependency, dict):
-        raise BuildInputError("dependencyVerification policy is missing")
-    metadata_path = dependency.get("metadataPath")
-    if not isinstance(metadata_path, str):
-        raise BuildInputError("dependency verification metadata path is missing")
-    path = ROOT / metadata_path
-    if not path.is_file() or path.is_symlink():
-        raise BuildInputError("dependency verification metadata is missing")
-    try:
-        tree = ET.parse(path)
-    except (ET.ParseError, OSError) as error:
-        raise BuildInputError("dependency verification metadata is malformed") from error
-    root = tree.getroot()
-    verify_metadata = root.findtext("./{*}configuration/{*}verify-metadata")
-    if dependency.get("verifyMetadata", True) is True and verify_metadata != "true":
-        raise BuildInputError("dependency verification metadata must verify module metadata")
-    trusted = root.findall("./{*}configuration/{*}trusted-artifacts/{*}trust")
-    if trusted:
-        raise BuildInputError("broad trusted artifacts are forbidden")
-    ignored = root.findall(".//{*}ignored-key") + root.findall(".//{*}ignored-artifact")
-    if ignored:
-        raise BuildInputError("ignored dependency verification entries are forbidden")
-    components = root.findall("./{*}components/{*}component")
-    artifacts = root.findall("./{*}components/{*}component/{*}artifact")
-    checksums = root.findall("./{*}components/{*}component/{*}artifact/{*}sha256")
-    if not components or not artifacts or not checksums:
-        raise BuildInputError("dependency verification metadata is incomplete")
-    for artifact in artifacts:
-        if not artifact.findall("{*}sha256"):
-            raise BuildInputError("every dependency artifact must have a SHA-256")
-        if artifact.findall("{*}md5") or artifact.findall("{*}sha1"):
-            raise BuildInputError("weak dependency checksums are forbidden")
-    return {
-        "artifacts": len(artifacts),
-        "checksums": len(checksums),
-        "components": len(components),
-        "sha256": sha256_file(path),
-    }
 
 
 def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
@@ -263,18 +152,13 @@ def verify_repository(policy: Mapping[str, Any]) -> dict[str, Any]:
     docs = policy.get("docsValidation")
     if not isinstance(docs, dict) or docs.get("parentEdges") != docs_parent_edges():
         raise BuildInputError("docs bridge parent inventory mismatch")
-    bypasses = scan_dependency_verification_bypasses(ROOT)
-    if bypasses:
-        raise BuildInputError(bypasses[0])
     dynamic = scan_dynamic_dependency_selectors(ROOT)
     if dynamic:
         raise BuildInputError(dynamic[0])
     workflow_text = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
     promoted = build_inputs_is_promoted(workflow_text)
     verify_repository_workflows(ROOT, policy, promoted=promoted)
-    metadata = _metadata_counts(policy)
     return {
-        "dependencyVerification": metadata,
         "dynamicDependencySelectors": 0,
         "schemaVersion": 1,
         "status": "PASS",
@@ -303,20 +187,6 @@ def _validate_closed_argv(argv: list[str], *, context: str) -> list[str]:
     for index, token in enumerate(argv):
         if token in {"-" + "I", "--init-" + "script"} or token.startswith("-" + "I") or token.startswith("--init-" + "script="):
             raise BuildInputError(f"{context} contains a forbidden init script")
-        lowered = token.lower()
-        weak_property = (
-            "org.gradle.dependency.verification=" + "off" in lowered
-            or "org.gradle.dependency.verification=" + "lenient" in lowered
-        )
-        if weak_property:
-            raise BuildInputError(f"{context} weakens dependency verification")
-        if token.startswith("--dependency-verification=") and token != "--dependency-verification=strict":
-            raise BuildInputError(f"{context} weakens dependency verification")
-        if token == "--dependency-verification":
-            if index + 1 >= len(argv) or argv[index + 1] != "strict":
-                raise BuildInputError(f"{context} weakens dependency verification")
-        if token == "--write-verification-metadata" or token.startswith("--write-verification-metadata="):
-            raise BuildInputError(f"{context} may not embed a metadata write flag")
     first = argv[0]
     if first == "./gradlew":
         return argv
@@ -336,46 +206,14 @@ def _validate_closed_argv(argv: list[str], *, context: str) -> list[str]:
     raise BuildInputError(f"{context} executable is outside the closed repository entrypoints")
 
 
-def closed_group_commands(policy: Mapping[str, Any], group: str) -> list[list[str]]:
-    if group not in _STRICT_GROUPS:
-        raise BuildInputError(f"unknown strict-matrix group: {group}")
-    dependency = policy.get("dependencyVerification")
-    if not isinstance(dependency, dict):
-        raise BuildInputError("dependencyVerification policy is missing")
-    groups = dependency.get("strictGroups")
-    if not isinstance(groups, dict) or set(groups) != _STRICT_GROUPS:
-        raise BuildInputError("dependencyVerification.strictGroups must define the exact closed groups")
-    rows = groups.get(group)
-    if not isinstance(rows, list) or not rows:
-        raise BuildInputError(f"strict-matrix group is empty: {group}")
-    commands = [_row_argv(row, context=f"strictGroups.{group}[{index}]") for index, row in enumerate(rows)]
-    if len(commands) != len({tuple(command) for command in commands}):
-        raise BuildInputError(f"strict-matrix group contains duplicate commands: {group}")
-    return commands
-
-
 def _configuration_cache_commands(policy: Mapping[str, Any]) -> list[list[str]]:
-    dependency = policy.get("dependencyVerification")
-    if not isinstance(dependency, dict):
-        raise BuildInputError("dependencyVerification policy is missing")
-    rows = dependency.get("configurationCache")
+    rows = policy.get("configurationCacheChecks")
     if not isinstance(rows, list) or not rows:
-        raise BuildInputError("dependencyVerification.configurationCache must be a nonempty closed group")
-    commands = [_row_argv(row, context=f"configurationCache[{index}]") for index, row in enumerate(rows)]
+        raise BuildInputError("configurationCacheChecks must be a nonempty closed group")
+    commands = [_row_argv(row, context=f"configurationCacheChecks[{index}]") for index, row in enumerate(rows)]
     if len(commands) != len({tuple(command) for command in commands}):
         raise BuildInputError("configuration-cache group contains duplicate commands")
     return commands
-
-
-def _metadata_capture_commands(policy: Mapping[str, Any]) -> list[list[str]]:
-    dependency = policy.get("dependencyVerification")
-    if not isinstance(dependency, dict):
-        raise BuildInputError("dependencyVerification policy is missing")
-    rows = dependency.get("generationMatrix")
-    if not isinstance(rows, list) or not rows:
-        raise BuildInputError("dependencyVerification.generationMatrix must be nonempty")
-    return [_row_argv(row, context=f"generationMatrix[{index}]") for index, row in enumerate(rows)]
-
 
 def _prepare_session(policy: Mapping[str, Any], *, prefix: str) -> tuple[Path, InstalledJdks, dict[str, str]]:
     assert_supported_host()
@@ -401,13 +239,12 @@ def _run_closed_command(
     installed: InstalledJdks,
     environment: Mapping[str, str],
     cwd: Path,
-    metadata_write: bool = False,
 ) -> str:
     if not command:
         raise BuildInputError("closed command may not be empty")
     executable = Path(command[0]).name
     if executable == "gradlew":
-        argv = sealed_gradle_arguments(command, installed=installed, metadata_write=metadata_write)
+        argv = sealed_gradle_arguments(command, installed=installed)
     else:
         argv = list(command)
     try:
@@ -437,215 +274,6 @@ def _run_closed_command(
             f"governed command failed: {Path(argv[0]).name}; output={diagnostic}",
         )
     return completed.stdout
-
-
-def _run_group(
-    policy: Mapping[str, Any],
-    commands: Sequence[Sequence[str]],
-    *,
-    label: str,
-    metadata_write: bool = False,
-) -> None:
-    session, installed, environment = _prepare_session(policy, prefix=f"gasstation-{label}-")
-    try:
-        for command in commands:
-            source_commit = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=ROOT,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                check=True,
-            ).stdout.strip()
-            materialized = [token.replace("{sourceCommit}", source_commit) for token in command]
-            _run_closed_command(
-                materialized,
-                installed=installed,
-                environment=environment,
-                cwd=ROOT,
-                metadata_write=metadata_write,
-            )
-        if label == "strict-complete":
-            dependency = policy.get("dependencyVerification")
-            representative = (
-                dependency.get("offlineRepresentative")
-                if isinstance(dependency, dict)
-                else None
-            )
-            offline = _row_argv(representative, context="offlineRepresentative")
-            if "--offline" in offline:
-                raise BuildInputError("offlineRepresentative must not pre-embed --offline")
-            _run_closed_command(
-                [*offline, "--offline"],
-                installed=installed,
-                environment=environment,
-                cwd=ROOT,
-            )
-            print("offline representative: PASS")
-    finally:
-        shutil.rmtree(session, ignore_errors=True)
-
-
-def _copy_capture_source(destination: Path) -> None:
-    if destination.exists() or destination.is_symlink():
-        raise BuildInputError("metadata capture source root must be new")
-    completed = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-        cwd=ROOT,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise BuildInputError("metadata capture could not inventory repository source")
-    destination.mkdir(parents=True, mode=0o700)
-    for raw_relative in completed.stdout.split(b"\0"):
-        if not raw_relative:
-            continue
-        try:
-            relative = Path(raw_relative.decode("utf-8"))
-        except UnicodeDecodeError as error:
-            raise BuildInputError("metadata capture source path is not UTF-8") from error
-        if relative.is_absolute() or ".." in relative.parts or not relative.parts:
-            raise BuildInputError("metadata capture source inventory contains an unsafe path")
-        source = ROOT / relative
-        if source.is_symlink() or not source.is_file():
-            raise BuildInputError(f"metadata capture source must be a regular file: {relative.as_posix()}")
-        target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-
-
-def _metadata_artifact_inventory(path: Path) -> dict[tuple[str, str, str, str], tuple[str, ...]]:
-    try:
-        root = ET.parse(path).getroot()
-    except (ET.ParseError, OSError) as error:
-        raise BuildInputError("metadata capture XML is malformed") from error
-    rows: dict[tuple[str, str, str, str], tuple[str, ...]] = {}
-    for component in root.findall("./{*}components/{*}component"):
-        identity = (
-            component.get("group", ""),
-            component.get("name", ""),
-            component.get("version", ""),
-        )
-        if not all(identity):
-            raise BuildInputError("metadata capture component identity is incomplete")
-        for artifact in component.findall("./{*}artifact"):
-            name = artifact.get("name", "")
-            checksums = tuple(sorted(node.get("value", "") for node in artifact.findall("./{*}sha256")))
-            key = (*identity, name)
-            if not name or not checksums or any(re.fullmatch(r"[0-9a-f]{64}", value) is None for value in checksums):
-                raise BuildInputError("metadata capture artifact SHA-256 is malformed")
-            if key in rows:
-                raise BuildInputError("metadata capture contains a duplicate artifact record")
-            rows[key] = checksums
-    return rows
-
-
-def _apply_reviewed_metadata_superset(candidate: Path, destination: Path) -> tuple[int, int]:
-    baseline = _metadata_artifact_inventory(destination)
-    captured = _metadata_artifact_inventory(candidate)
-    missing = sorted(set(baseline) - set(captured))
-    changed = sorted(key for key in set(baseline) & set(captured) if baseline[key] != captured[key])
-    if missing or changed:
-        raise BuildInputError("metadata capture did not preserve the reviewed candidate records")
-    additions = sorted(set(captured) - set(baseline))
-    if any(len(captured[key]) != 1 for key in additions):
-        raise BuildInputError("metadata capture introduced an alternate checksum")
-    if candidate.read_bytes() != destination.read_bytes():
-        shutil.copyfile(candidate, destination)
-    component_additions = len({key[:3] for key in additions} - {key[:3] for key in baseline})
-    return component_additions, len(additions)
-
-
-def _testkit_failure_output_path(value: str) -> Path:
-    if _TESTKIT_FAILURE_OUTPUT.fullmatch(value) is None:
-        raise BuildInputError("TestKit failure output is outside the exact evidence location")
-    return Path(value)
-
-
-def _capture_metadata(policy: Mapping[str, Any], commands: Sequence[Sequence[str]]) -> None:
-    session, installed, environment = _prepare_session(policy, prefix="gasstation-metadata-capture-")
-    capture_source = session / "source"
-    requested_failure_output = os.environ.get("GASSTATION_TESTKIT_FAILURE_OUTPUT")
-    failure_output = (
-        _testkit_failure_output_path(requested_failure_output)
-        if requested_failure_output is not None
-        else None
-    )
-    worker_trace = session / "testkit-worker-events.tsv"
-    live_junit = failure_output
-    sealed_output = Path(str(failure_output) + ".sealed") if failure_output is not None else None
-    outer_timeout_arguments = _outer_timeout_arguments(policy, failure_output)
-    capture_succeeded = False
-    try:
-        _copy_capture_source(capture_source)
-        source_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=ROOT,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            check=True,
-        ).stdout.strip()
-        for command in commands:
-            materialized = [token.replace("{sourceCommit}", source_commit) for token in command]
-            is_outer_convention_test = ":build-logic:convention:test" in materialized
-            command_environment = dict(environment)
-            if is_outer_convention_test and failure_output is not None:
-                command_environment["GASSTATION_TESTKIT_WORKER_TRACE"] = str(worker_trace)
-                command_environment["GASSTATION_TESTKIT_FAILURE_OUTPUT"] = str(failure_output)
-                if outer_timeout_arguments:
-                    command_environment[_OUTER_TIMEOUT_MARKER_ENV] = _OUTER_TIMEOUT_MARKER_PATH
-                    materialized.extend(outer_timeout_arguments)
-                    marker_source = json.loads(Path(_OUTER_TIMEOUT_MARKER_PATH).read_bytes())["sourceCommit"]
-                    if marker_source != source_commit:
-                        raise BuildInputError("outer convention timeout marker source commit differs")
-            _run_closed_command(
-                materialized,
-                installed=installed,
-                environment=command_environment,
-                cwd=capture_source,
-                metadata_write=True,
-            )
-        metadata_relative = policy["dependencyVerification"]["metadataPath"]
-        component_count, artifact_count = _apply_reviewed_metadata_superset(
-            capture_source / metadata_relative,
-            ROOT / metadata_relative,
-        )
-        print(
-            "metadata capture: PASS "
-            f"new-components={component_count} new-artifacts={artifact_count}",
-        )
-        capture_succeeded = True
-    except Exception as error:
-        if failure_output is not None:
-            try:
-                if live_junit is None:
-                    raise BuildInputError("TestKit live JUnit stage identity is missing")
-                if sealed_output is None:
-                    raise BuildInputError("TestKit sealed failure output identity is missing")
-                validate_live_stage_manifest(live_junit)
-                export_testkit_failure_evidence(
-                    live_junit,
-                    live_junit / "worker-events.tsv",
-                    sealed_output,
-                )
-                shutil.rmtree(live_junit)
-                sealed_output.rename(failure_output)
-            except Exception as export_error:
-                raise BuildInputError(
-                    "metadata capture failed and TestKit failure evidence could not be sealed; "
-                    f"original={_safe_diagnostic(error)}; export={_safe_diagnostic(export_error)}",
-                ) from export_error
-        raise
-    finally:
-        if capture_succeeded and live_junit is not None:
-            shutil.rmtree(live_junit, ignore_errors=True)
-        shutil.rmtree(session, ignore_errors=True)
 
 
 def _capture_receipt(
@@ -684,7 +312,6 @@ def _capture_receipt(
             raise BuildInputError("hosted runner receipt requires actual ImageOS")
         if os.environ.get("RUNNER_OS") != "Linux" or os.environ.get("RUNNER_ARCH") not in {"X64", "x64"}:
             raise BuildInputError("hosted runner OS/architecture differs from policy")
-    metadata = _metadata_counts(policy)
     compile_home_value = os.environ.get("JAVA_HOME_17_X64")
     runtime_home_value = os.environ.get("JAVA_HOME_21_X64")
     gradle_home_value = os.environ.get("GRADLE_USER_HOME")
@@ -719,7 +346,6 @@ def _capture_receipt(
     receipt = {
         "android": {},
         "attempt": attempt,
-        "dependencyVerification": metadata,
         "evidenceFiles": relative_evidence_rows(ROOT, [Path(value) for value in evidence_paths]),
         "gradle": {
             "sourceInputs": _source_input_hashes(),
@@ -1005,15 +631,8 @@ def _parser() -> argparse.ArgumentParser:
     evidence.add_argument("--policy", required=True)
     evidence.add_argument("argv", nargs=argparse.REMAINDER)
 
-    strict = subparsers.add_parser("strict-matrix")
-    strict.add_argument("--policy", required=True)
-    strict.add_argument("--group", required=True, choices=sorted(_STRICT_GROUPS))
-
     configuration = subparsers.add_parser("configuration-cache")
     configuration.add_argument("--policy", required=True)
-
-    metadata = subparsers.add_parser("metadata-capture")
-    metadata.add_argument("--policy", required=True)
 
     capture = subparsers.add_parser("capture")
     capture.add_argument("--policy", required=True)
@@ -1070,8 +689,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _run_closed_command(exact, installed=installed, environment=environment, cwd=ROOT)
             finally:
                 shutil.rmtree(session, ignore_errors=True)
-        elif arguments.command == "strict-matrix":
-            _run_group(policy, closed_group_commands(policy, arguments.group), label=f"strict-{arguments.group}")
         elif arguments.command == "configuration-cache":
             commands = _configuration_cache_commands(policy)
             session, installed, environment = _prepare_session(policy, prefix="gasstation-configuration-cache-")
@@ -1088,12 +705,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                         raise BuildInputError("second configuration-cache run did not report reuse")
             finally:
                 shutil.rmtree(session, ignore_errors=True)
-        elif arguments.command == "metadata-capture":
-            commands = [
-                command + ["--write-verification-metadata", "sha256"]
-                for command in _metadata_capture_commands(policy)
-            ]
-            _capture_metadata(policy, commands)
         elif arguments.command == "capture":
             output = (
                 _evidence_output(policy, Path(arguments.output))

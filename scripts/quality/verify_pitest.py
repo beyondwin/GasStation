@@ -837,7 +837,7 @@ def git_configuration_identity(git: GitExecutor) -> dict[str, Any]:
     prefixes = [
         "build-logic/convention/src/main", "build-logic/convention/build.gradle.kts",
         "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
-        "gradlew", "gradlew.bat", "gradle/wrapper", "gradle/verification-metadata.xml",
+        "gradlew", "gradlew.bat", "gradle/wrapper",
         "domain/station/build.gradle.kts", "domain/location/build.gradle.kts", "domain/settings/build.gradle.kts",
         "scripts/quality/run_pitest.sh",
     ]
@@ -3139,7 +3139,7 @@ def changed_packages_for_module(
                 path in {
                     "build.gradle.kts", "settings.gradle.kts", "gradle.properties",
                     "gradle/libs.versions.toml", "gradlew", "gradlew.bat",
-                    "gradle/verification-metadata.xml", ".github/workflows/android.yml",
+                    ".github/workflows/android.yml",
                     ".github/workflows/mutation-schedule.yml", "config/quality/mutation-policy.json",
                     "config/quality/mutation-baseline.json",
                 }

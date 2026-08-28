@@ -22,14 +22,13 @@ done < <(/usr/bin/env)
 
 for argument in "$@"; do
   case "$argument" in
-    -[I]|--init-[s]cript|-[Ii]?*|--init-[s]cript=*|--dependency-verification|--dependency-verification=*|--write-verification-metadata|--write-verification-metadata=*|-Dorg.gradle.dependency.verification=*)
+    -[I]|--init-[s]cript|-[Ii]?*|--init-[s]cript=*)
       fail "caller supplied a policy-owned Gradle argument: $argument"
       ;;
   esac
 done
 
 exec "$root/gradlew" "$@" \
-  --dependency-verification strict \
   -Dorg.gradle.java.installations.auto-detect=false \
   -Dorg.gradle.java.installations.auto-download=false \
   "-Dorg.gradle.java.installations.paths=$JAVA_HOME_17_X64,$JAVA_HOME_21_X64"

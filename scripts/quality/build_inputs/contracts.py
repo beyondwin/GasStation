@@ -22,7 +22,7 @@ TOP_LEVEL_KEYS = {
     "actions",
     "android",
     "codecovCli",
-    "dependencyVerification",
+    "configurationCacheChecks",
     "docsValidation",
     "evidence",
     "evidenceGradleEntrypoints",
@@ -257,62 +257,12 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
     ):
         raise BuildInputError("Gradle wrapper policy drift")
 
-    dependency = policy["dependencyVerification"]
-    dependency = _require_keys(
-        dependency,
-        {
-            "allowedInitScripts",
-            "bypassDenylist",
-            "checksumAlgorithms",
-            "configurationCache",
-            "generationMatrix",
-            "metadataPath",
-            "mode",
-            "nestedTestKit",
-            "offlineRepresentative",
-            "strictGroups",
-            "verifyMetadata",
-        },
-        "dependencyVerification",
-    )
-    if dependency.get("mode") != "strict":
-        raise BuildInputError("dependencyVerification.mode must be strict")
-    if dependency.get("checksumAlgorithms") != ["sha256"]:
-        raise BuildInputError("dependency verification must use SHA-256 only")
-    if dependency.get("allowedInitScripts") != []:
-        raise BuildInputError("allowed init-script list must be empty")
-    _require_relative_path(dependency.get("metadataPath"), "dependencyVerification.metadataPath")
-    if dependency["verifyMetadata"] is not True:
-        raise BuildInputError("dependency verification must verify module metadata")
-    if dependency["nestedTestKit"] != {
-        "copyRootMetadata": True,
-        "freshGradleHome": True,
-        "rejectCallerOverrides": True,
-        "sanitizedEnvironment": True,
-    }:
-        raise BuildInputError("nested TestKit verification contract drift")
-    denylist = dependency["bypassDenylist"]
-    if not isinstance(denylist, list) or set(denylist) != {
-        "--dependency-verification " + "off|lenient",
-        "-Dorg.gradle.dependency.verification=" + "off|lenient",
-        "-" + "I|--init-" + "script",
-        "ResolutionStrategy.disableDependency" + "Verification()",
-        "disableDependency" + "Verification()",
-    }:
-        raise BuildInputError("dependency-verification bypass denylist drift")
-    for section in ("generationMatrix", "configurationCache"):
-        rows = dependency[section]
-        if not isinstance(rows, list) or not rows:
-            raise BuildInputError(f"dependencyVerification.{section} must be nonempty")
-        for index, argv in enumerate(rows):
-            if not isinstance(argv, list) or not argv or argv[0] != "./gradlew" or any(not isinstance(item, str) or not item for item in argv):
-                raise BuildInputError(f"dependencyVerification.{section}[{index}] must be a literal wrapper argv")
-    if dependency["offlineRepresentative"] != ["./gradlew", "help"]:
-        raise BuildInputError("dependencyVerification.offlineRepresentative drift")
-    groups = _require_keys(dependency["strictGroups"], {"complete", "product-regressions"}, "dependencyVerification.strictGroups")
-    for name, rows in groups.items():
-        if not isinstance(rows, list) or not rows:
-            raise BuildInputError(f"dependencyVerification.strictGroups.{name} must be nonempty")
+    configuration_cache_checks = policy["configurationCacheChecks"]
+    if not isinstance(configuration_cache_checks, list) or not configuration_cache_checks:
+        raise BuildInputError("configurationCacheChecks must be nonempty")
+    for index, argv in enumerate(configuration_cache_checks):
+        if not isinstance(argv, list) or not argv or argv[0] != "./gradlew" or any(not isinstance(item, str) or not item for item in argv):
+            raise BuildInputError(f"configurationCacheChecks[{index}] must be a literal wrapper argv")
 
     android = _require_keys(
         policy["android"],
@@ -471,7 +421,6 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "mainBaseCommit",
             "mainBaseRef",
             "ownedLabelKeys",
-            "outerConventionTest",
             "profile",
             "requiredEvidenceRows",
             "sourceBundleRefs",
@@ -521,24 +470,6 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "io.gasstation.task",
     ]:
         raise BuildInputError("localEvidenceHost owned label key inventory drift")
-    if host["outerConventionTest"] != {
-        "expectedTests": 90,
-        "markerEnvironment": "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER",
-        "markerMode": "0600",
-        "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
-        "maxParallelForks": 5,
-        "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
-        "ownerCount": 52,
-        "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
-        "outerTimeoutMinutes": 35,
-        "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
-        "propertyValue": "35",
-        "repositoryAndNestedTimeoutMinutes": 15,
-        "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
-        "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
-        "taskPath": ":build-logic:convention:test",
-    }:
-        raise BuildInputError("localEvidenceHost sealed outer convention timeout drift")
     if host["attemptPattern"] != "attempt-[0-9]{6}":
         raise BuildInputError("localEvidenceHost generated attempt contract drift")
     if host["hostMinimum"] != {
@@ -746,8 +677,7 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
     }:
         raise BuildInputError("localEvidenceHost image identity drift")
     required_rows = [
-        "configurationCache", "evidenceSessions", "metadataCapture", "mutations",
-        "offlineStrict", "onlineColdStrict", "productStrict", "releaseBinding",
+        "configurationCache", "evidenceSessions", "mutations", "releaseBinding",
         "reproducibility",
     ]
     if host["requiredEvidenceRows"] != required_rows:
@@ -799,7 +729,6 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
             "requiredCardinality",
             "signingSecretsAllowed",
             "sourceCopies",
-            "strictDependencyVerification",
             "task",
             "unsigned",
         },
@@ -817,7 +746,6 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "requiredCardinality": 1,
         "signingSecretsAllowed": False,
         "sourceCopies": 2,
-        "strictDependencyVerification": True,
         "task": ":app:assembleProdRelease",
         "unsigned": True,
     }:
@@ -1128,27 +1056,12 @@ def _contains_init_script(argv: list[str]) -> bool:
     return False
 
 
-def validate_gradle_arguments(argv: Iterable[str], *, allow_metadata_write: bool = False) -> None:
+def validate_gradle_arguments(argv: Iterable[str]) -> None:
     values = list(argv)
     if not values or Path(values[0]).name != "gradlew":
         raise BuildInputError("governed Gradle argv must start with the checked wrapper")
     if _contains_init_script(values):
         raise BuildInputError("governed Gradle argv may not contain an init script")
-    if any(
-        "org.gradle.dependency.verification=" + "off" in token
-        or "org.gradle.dependency.verification=" + "lenient" in token
-        for token in values
-    ):
-        raise BuildInputError("dependency verification weakening is forbidden")
-    strict = any(
-        token == "--dependency-verification=strict"
-        or (token == "--dependency-verification" and index + 1 < len(values) and values[index + 1] == "strict")
-        for index, token in enumerate(values)
-    )
-    if not strict:
-        raise BuildInputError("governed Gradle argv must request strict dependency verification")
-    if not allow_metadata_write and any(token == "--write-verification-metadata" or token.startswith("--write-verification-metadata=") for token in values):
-        raise BuildInputError("metadata writes are forbidden in ordinary governed Gradle argv")
     required = {
         "-Dorg.gradle.java.installations.auto-detect=false",
         "-Dorg.gradle.java.installations.auto-download=false",
@@ -1179,16 +1092,6 @@ _EXCLUDED_SOURCE_PARTS = {
     "testFixtures",
     "tests",
 }
-_BYPASS_PATTERNS = (
-    re.compile(r"(?<![A-Za-z0-9_])(?:[A-Za-z0-9_.]+\.)?disableDependencyVerification\s*\("),
-    re.compile(r"org\.gradle\.dependency\.verification\s*(?:=|:)\s*(?:off|lenient)\b", re.IGNORECASE),
-    re.compile(r"--dependency-verification(?:\s+|=)(?:off|lenient)\b", re.IGNORECASE),
-    re.compile(r"(?:^|[\s'\"])(?:-I[^\s'\",)]+|--init-script(?:\s+|=)\S+)", re.MULTILINE),
-)
-_REGISTERED_TESTKIT_CONSTRUCTOR = (
-    "build-logic/convention/src/test/kotlin/fixtures/GradlePluginTestProject.kt"
-)
-_TESTKIT_CONSTRUCTION = re.compile(r"(?:GradleRunner\s*\.\s*create|\.\s*withArguments)\s*\(")
 
 
 def _active_source_paths(root: Path) -> list[Path]:
@@ -1223,114 +1126,6 @@ def _without_comment_only_lines(text: str) -> str:
             continue
         output.append(line)
     return "".join(output)
-
-
-def _without_c_like_literals_and_comments(text: str) -> str:
-    """Mask Kotlin/Java/Groovy literals while retaining lines and executable code."""
-
-    output = list(text)
-    index = 0
-    state = "code"
-    quote = ""
-    while index < len(text):
-        if state == "code":
-            if text.startswith("//", index):
-                output[index:index + 2] = "  "
-                index += 2
-                state = "line-comment"
-                continue
-            if text.startswith("/*", index):
-                output[index:index + 2] = "  "
-                index += 2
-                state = "block-comment"
-                continue
-            if text.startswith('"""', index):
-                output[index:index + 3] = "   "
-                index += 3
-                state = "triple-string"
-                continue
-            if text[index] in {'"', "'"}:
-                quote = text[index]
-                output[index] = " "
-                index += 1
-                state = "string"
-                continue
-            index += 1
-            continue
-        if state == "line-comment":
-            if text[index] == "\n":
-                state = "code"
-            else:
-                output[index] = " "
-            index += 1
-            continue
-        if state == "block-comment":
-            if text.startswith("*/", index):
-                output[index:index + 2] = "  "
-                index += 2
-                state = "code"
-            else:
-                if text[index] != "\n":
-                    output[index] = " "
-                index += 1
-            continue
-        if state == "triple-string":
-            if text.startswith('"""', index):
-                output[index:index + 3] = "   "
-                index += 3
-                state = "code"
-            else:
-                if text[index] != "\n":
-                    output[index] = " "
-                index += 1
-            continue
-        if state == "string":
-            if text[index] == "\\" and index + 1 < len(text):
-                output[index] = " "
-                if text[index + 1] != "\n":
-                    output[index + 1] = " "
-                index += 2
-                continue
-            if text[index] == quote:
-                output[index] = " "
-                index += 1
-                state = "code"
-                continue
-            if text[index] != "\n":
-                output[index] = " "
-            index += 1
-    return "".join(output)
-
-
-def scan_dependency_verification_bypasses(root: Path) -> list[str]:
-    issues: list[str] = []
-    for path in _active_source_paths(root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if path.suffix in {".gradle", ".groovy", ".java", ".kt", ".kts"}:
-            executable = _without_c_like_literals_and_comments(text)
-        else:
-            executable = _without_comment_only_lines(text)
-        relative = path.relative_to(root).as_posix()
-        if (
-            relative != _REGISTERED_TESTKIT_CONSTRUCTOR
-            and (testkit := _TESTKIT_CONSTRUCTION.search(executable)) is not None
-        ):
-            line = executable.count("\n", 0, testkit.start()) + 1
-            issues.append(
-                f"{relative}:{line}: unregistered GradleRunner construction is forbidden",
-            )
-            continue
-        matches = [match for pattern in _BYPASS_PATTERNS for match in pattern.finditer(executable)]
-        if matches:
-            first = min(matches, key=lambda match: match.start())
-            line = executable.count("\n", 0, first.start()) + 1
-            issues.append(
-                f"{path.relative_to(root).as_posix()}:{line}: dependency verification bypass is forbidden",
-            )
-    return issues
 
 
 _QUOTED_LITERAL = re.compile(

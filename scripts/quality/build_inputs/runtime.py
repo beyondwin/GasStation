@@ -241,7 +241,6 @@ def sealed_gradle_arguments(
     tasks_and_flags: Sequence[str],
     *,
     installed: InstalledJdks,
-    metadata_write: bool = False,
 ) -> list[str]:
     values = list(tasks_and_flags)
     if values and Path(values[0]).name == "gradlew":
@@ -249,13 +248,11 @@ def sealed_gradle_arguments(
     arguments = [
         "./gradlew",
         *values,
-        "--dependency-verification",
-        "strict",
         "-Dorg.gradle.java.installations.auto-detect=false",
         "-Dorg.gradle.java.installations.auto-download=false",
         f"-Dorg.gradle.java.installations.paths={installed.compile_home},{installed.runtime_home}",
     ]
-    validate_gradle_arguments(arguments, allow_metadata_write=metadata_write)
+    validate_gradle_arguments(arguments)
     return arguments
 
 

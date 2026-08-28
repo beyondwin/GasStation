@@ -22,7 +22,6 @@ from scripts.quality.build_inputs.contracts import (
     BuildInputError,
     canonical_json_bytes,
     load_policy,
-    scan_dependency_verification_bypasses,
     scan_dynamic_dependency_selectors,
     validate_gradle_arguments,
     validate_protected_environment,
@@ -46,11 +45,7 @@ from scripts.quality.build_inputs.receipts import (
 )
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
-from scripts.quality.verify_build_inputs import (
-    _apply_reviewed_metadata_superset,
-    _run_closed_command,
-    verify_repository,
-)
+from scripts.quality.verify_build_inputs import _run_closed_command, verify_repository
 from scripts.agent.check_contracts import check_documentation_contracts
 
 
@@ -149,8 +144,8 @@ class CanonicalPolicyTest(unittest.TestCase):
         self.assertEqual(1, policy["schemaVersion"])
         self.assertEqual(b"{", POLICY.read_bytes()[:1])
         self.assertEqual(canonical_json_bytes(policy), POLICY.read_bytes())
-        self.assertEqual("strict", policy["dependencyVerification"]["mode"])
-        self.assertEqual([], policy["dependencyVerification"]["allowedInitScripts"])
+        self.assertNotIn("dependencyVerification", policy)
+        self.assertEqual(2, len(policy["configurationCacheChecks"]))
         self.assertEqual(
             [
                 [
@@ -514,7 +509,6 @@ class WrapperAndInvocationTest(unittest.TestCase):
             "JAVA_TOOL_OPTIONS",
             "JDK_JAVA_OPTIONS",
             "_JAVA_OPTIONS",
-            "ORG_GRADLE_PROJECT_org.gradle.dependency.verification",
         ):
             mutated = dict(clean)
             mutated[name] = "-Dorg.gradle.dependency.verification=off"
@@ -532,8 +526,6 @@ class WrapperAndInvocationTest(unittest.TestCase):
         accepted = [
             "./gradlew",
             "help",
-            "--dependency-verification",
-            "strict",
             "-Dorg.gradle.java.installations.auto-detect=false",
             "-Dorg.gradle.java.installations.auto-download=false",
             "-Dorg.gradle.java.installations.paths=/verified/compile,/verified/runtime",
@@ -542,41 +534,17 @@ class WrapperAndInvocationTest(unittest.TestCase):
         for injected in (
             accepted + ["-I", "/tmp/evil.gradle"],
             accepted + ["--init-script=/tmp/evil.gradle"],
-            [token for token in accepted if token != "strict"] + ["off"],
-            accepted + ["-Dorg.gradle.dependency.verification=lenient"],
-            accepted + ["--write-verification-metadata", "sha256"],
         ):
             with self.subTest(argv=injected), self.assertRaises(BuildInputError):
                 validate_gradle_arguments(injected)
 
-    def test_active_source_scanner_rejects_every_dependency_verification_bypass(self) -> None:
-        mutations = {
-            "build.gradle.kts": "configurations.all { resolutionStrategy.disableDependencyVerification() }\n",
-            "gradle.properties": "org.gradle.dependency.verification=lenient\n",
-            "script.sh": "JAVA_OPTS=-Dorg.gradle.dependency.verification=off ./gradlew help\n",
-            "runner.py": "subprocess.run(['./gradlew', '--dependency-verification=off'])\n",
-            "workflow.yml": "run: ./gradlew help --init-script=/tmp/evil.gradle\n",
-            "gradlew": "DEFAULT_JVM_OPTS='-Dorg.gradle.dependency.verification=off'\n",
-        }
-        for relative, content in mutations.items():
-            with self.subTest(path=relative), tempfile.TemporaryDirectory() as directory:
-                fixture = Path(directory)
-                (fixture / relative).parent.mkdir(parents=True, exist_ok=True)
-                (fixture / relative).write_text(content, encoding="utf-8")
-                issues = scan_dependency_verification_bypasses(fixture)
-                self.assertEqual(1, len(issues), issues)
-
-    def test_scanner_ignores_test_fixtures_but_rejects_dynamic_versions(self) -> None:
+    def test_dynamic_selector_scanner_rejects_catalog_ranges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixture = Path(directory)
-            test_source = fixture / "scripts/quality/tests/fixture.py"
-            test_source.parent.mkdir(parents=True)
-            test_source.write_text("value = '--dependency-verification off'\n", encoding="utf-8")
             catalog = fixture / "gradle/libs.versions.toml"
             catalog.parent.mkdir(parents=True)
             catalog.write_text('[versions]\nexample = "1.+"\n', encoding="utf-8")
 
-            self.assertEqual([], scan_dependency_verification_bypasses(fixture))
             self.assertEqual(
                 ["gradle/libs.versions.toml:2: dynamic dependency selector: 1.+"],
                 scan_dynamic_dependency_selectors(fixture),
@@ -612,41 +580,6 @@ class WrapperAndInvocationTest(unittest.TestCase):
                 ["build.gradle.kts:3: dynamic dependency selector: example:artifact:3.+"],
                 scan_dynamic_dependency_selectors(fixture),
             )
-
-    def test_scanner_checks_active_src_test_code_but_ignores_fixture_literals(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            fixture = Path(directory)
-            source = fixture / "build-logic/convention/src/test/kotlin/ActiveEscape.kt"
-            source.parent.mkdir(parents=True)
-            source.write_text(
-                'val fixtureText = "disableDependencyVerification()"\n'
-                "fun active(configurations: ConfigurationContainer) {\n"
-                "  configurations.all { resolutionStrategy.disableDependencyVerification() }\n"
-                "}\n",
-                encoding="utf-8",
-            )
-
-            self.assertEqual(
-                [
-                    "build-logic/convention/src/test/kotlin/ActiveEscape.kt:3: "
-                    "dependency verification bypass is forbidden",
-                ],
-                scan_dependency_verification_bypasses(fixture),
-            )
-
-    def test_scanner_rejects_unregistered_testkit_process_construction(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            fixture = Path(directory)
-            source = fixture / "build-logic/convention/src/test/kotlin/DirectRunner.kt"
-            source.parent.mkdir(parents=True)
-            source.write_text(
-                'fun escape() = GradleRunner.create().withArguments("help").build()\n',
-                encoding="utf-8",
-            )
-            issues = scan_dependency_verification_bypasses(fixture)
-            self.assertEqual(1, len(issues), issues)
-            self.assertIn("unregistered GradleRunner construction", issues[0])
-
 
 class SafeArchiveTest(unittest.TestCase):
     def _archive(self, rows: list[tuple[tarfile.TarInfo, bytes]]) -> bytes:
@@ -1253,36 +1186,6 @@ class DocumentationImportBoundaryTest(unittest.TestCase):
 
 
 class ReceiptAndReproducibilityTest(unittest.TestCase):
-    def test_metadata_capture_applies_only_checksum_preserving_superset(self) -> None:
-        def metadata(rows: list[tuple[str, str]]) -> str:
-            artifacts = "".join(
-                f'<artifact name="{name}"><sha256 value="{digest}" origin="test"/></artifact>'
-                for name, digest in rows
-            )
-            return (
-                '<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<verification-metadata xmlns="https://schema.gradle.org/dependency-verification">'
-                '<configuration><verify-metadata>true</verify-metadata></configuration>'
-                '<components><component group="example" name="component" version="1">'
-                f"{artifacts}</component></components></verification-metadata>\n"
-            )
-
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            baseline = root / "baseline.xml"
-            candidate = root / "candidate.xml"
-            baseline.write_text(metadata([("one.jar", "1" * 64)]), encoding="utf-8")
-            candidate.write_text(
-                metadata([("one.jar", "1" * 64), ("two.jar", "2" * 64)]),
-                encoding="utf-8",
-            )
-            self.assertEqual((0, 1), _apply_reviewed_metadata_superset(candidate, baseline))
-            self.assertEqual(candidate.read_bytes(), baseline.read_bytes())
-
-            candidate.write_text(metadata([("one.jar", "3" * 64)]), encoding="utf-8")
-            with self.assertRaisesRegex(BuildInputError, "preserve"):
-                _apply_reviewed_metadata_superset(candidate, baseline)
-
     def test_receipt_rejects_duplicate_secret_absolute_path_and_stale_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

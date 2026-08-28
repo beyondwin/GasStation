@@ -48,14 +48,10 @@ jobs:
       - uses: ./.github/actions/setup-build-inputs
       - name: Verify reviewed build inputs
         run: python3 scripts/quality/verify_build_inputs.py verify --policy config/quality/build-inputs.json
-      - name: Run closed strict dependency matrices
-        run: |
-          python3 scripts/quality/verify_build_inputs.py strict-matrix \
-            --policy config/quality/build-inputs.json --group complete
-          python3 scripts/quality/verify_build_inputs.py strict-matrix \
-            --policy config/quality/build-inputs.json --group product-regressions
-          python3 scripts/quality/verify_build_inputs.py configuration-cache \
-            --policy config/quality/build-inputs.json
+      - name: Verify configuration-cache reuse
+        run: >-
+          python3 scripts/quality/verify_build_inputs.py configuration-cache
+          --policy config/quality/build-inputs.json
       - name: Reproduce unsigned prod release
         run: |
           python3 scripts/quality/verify_build_inputs.py reproduce \

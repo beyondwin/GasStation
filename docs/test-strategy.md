@@ -222,12 +222,12 @@ Darwin arm64 profile은 검토된 고정 content/version hash를 사용합니다
 
 ## Build-input integrity와 reproducibility ownership
 
-Task 9 build-input tests는 `config/quality/build-inputs.json`, full-SHA action/composite closure, exact Temurin pair, wrapper/SDK identity, strict `gradle/verification-metadata.xml`, fresh TestKit home/copy, bypass scanner, redacted receipt와 two-clean-tree unsigned prod APK equality를 소유합니다. TestKit-only graph는 production dependency selection과 분리된 reviewed capture surface이며 ordinary nested builds는 copied metadata를 strict mode로만 소비합니다. 문서 task discovery는 stable bridge와 dynamic executed-source closure가 소유합니다.
+Build-input tests는 `config/quality/build-inputs.json`, full-SHA action/composite closure, exact Temurin pair, wrapper/SDK identity, dynamic dependency version 거부, redacted receipt와 two-clean-tree unsigned prod APK equality를 소유합니다. 이 샘플은 dependency verification metadata를 운영하지 않으며 TestKit fixture는 필요한 dependency cache seed만 공유합니다. 문서 task discovery는 stable bridge와 dynamic executed-source closure가 소유합니다.
 
 이 계층의 SHA-256은 검토한 bytes와의 integrity만 증명합니다. publisher identity, vulnerability absence, license review, signed 또는 cross-OS APK reproducibility를 증명하지 않습니다. 동일 host에서 두 clean tree의 unsigned prod-release size/hash가 같은 경우만 재현성 `PASS`이며 demo-debug는 후보가 아닙니다. 명령과 receipt 경로는 [검증 매트릭스](verification-matrix.md), 운영 해석은 [Build Input Provenance](runbooks/build-input-provenance.md)를 따릅니다.
 
 현재 convention suite는 검증 매트릭스가 소유하는 단일 `Test` task이며, 정확히 52개 test-class owner와 90개 test method를 다섯 fork에 배치합니다. Nested TestKit build는 `--max-workers=2`를 유지하고 test filter, shard, `forkEvery`, skip, command retry를 사용하지 않습니다. 결정적으로 정렬된 scanner root와 그 owner inventory는 차단 계약이고, 실행 중 관측하는 Gradle executor identity와 lane 배치는 진단 정보라서 단독으로 실패를 만들지 않습니다.
 
-Repository/default CI/ordinary-local `Test`와 nested TestKit timeout은 15분입니다. 유일한 예외는 reviewed property와 canonical nonsymlink mode-`0600` source/policy/attempt/task-bound marker가 일치하는 authenticated local sealed-host outer convention `Test`의 35분입니다. 실패 또는 timeout에서는 listener와 finalizer가 case XML, worker event, bounded exception/nested output, canonical manifest를 보존합니다. 이 evidence의 owner/path/hash/size/truncation, outer-35/repository+nested-15 marker triple 또는 source/policy/attempt/command binding이 달라지면 diagnostic collection 자체가 실패하며 partial result를 성공으로 바꾸지 않습니다.
+Repository/default CI/ordinary-local `Test`와 nested TestKit timeout은 15분입니다. Convention suite는 retry, shard, skip 없이 같은 test inventory를 실행합니다.
 
-Task 9 구현 lineage는 `12e619b8...`와 narrow fix `4173dd05...`이고, exact final HEAD scoped review는 finding 없는 SPEC PASS / QUALITY PASS입니다. 실행 결과와 시간은 [Build Velocity](build-velocity.md), Linux와 외부 evidence 판정은 [검증 매트릭스](verification-matrix.md#build-input-provenance와-unsigned-release-재현성)가 소유합니다.
+실행 결과와 시간은 [Build Velocity](build-velocity.md), Linux와 외부 evidence 판정은 [검증 매트릭스](verification-matrix.md#build-input-provenance와-unsigned-release-재현성)가 소유합니다.

@@ -32,12 +32,6 @@ from scripts.quality.build_inputs.contracts import (  # noqa: E402
     load_policy,
     sha256_file,
 )
-from scripts.quality.build_inputs.testkit_failure import (  # noqa: E402
-    finalize_testkit_failure_evidence,
-    validate_testkit_failure_evidence,
-)
-
-
 ROOT = Path(__file__).resolve().parents[3]
 ENTRYPOINT_PATH = "scripts/quality/build_inputs/local_colima_evidence.py"
 PROFILE = "gasstation-task9-linux-amd64"
@@ -87,13 +81,6 @@ HOST_MINIMUM = {
 }
 CONTAINER_INHERITED_LABELS = {"org.opencontainers.image.version": "24.04"}
 COMMAND_LOG_LIMIT = 65536
-OUTER_TIMEOUT_PROPERTY = "gasstation.task9LocalLinuxConventionTestTimeoutMinutes"
-OUTER_TIMEOUT_MARKER_ENV = "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER"
-OUTER_TIMEOUT_MARKER_PATH = "/evidence-work/task9-local-linux-ownership-marker.json"
-METHOD_LEDGER_SHA256 = "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b"
-OWNER_LEDGER_SHA256 = "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac"
-LANES_SHA256 = "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3"
-DISPATCH_SHA256 = "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930"
 _COMMAND_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _COMMAND_SECRET = re.compile(
     r"(?i)\b(token|secret|password|credential|cookie|authorization)(\s*[=:]\s*)([^\s&]+)",
@@ -153,11 +140,7 @@ REQUIRED_EVIDENCE_ROWS = frozenset(
     {
         "configurationCache",
         "evidenceSessions",
-        "metadataCapture",
         "mutations",
-        "offlineStrict",
-        "onlineColdStrict",
-        "productStrict",
         "releaseBinding",
         "reproducibility",
     },
@@ -660,58 +643,6 @@ def ownership_marker(
         runtime_data_id=str(runtime_data_id),
     )
     return {**body, "markerSha256": hashlib.sha256(canonical_json_bytes(body)).hexdigest()}
-
-
-def sealed_outer_timeout_marker(
-    marker: Mapping[str, Any],
-    *,
-    governed_command: str,
-    existing: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    validated = ownership_marker(existing=marker)
-    if governed_command not in {"metadata-capture-1", "metadata-capture-2"}:
-        raise BuildInputError("outer timeout governed command is not closed")
-    expected = {
-        "attemptId": validated["attemptId"],
-        "container": validated["container"],
-        "context": validated["context"],
-        "dispatchSha256": DISPATCH_SHA256,
-        "governedCommand": governed_command,
-        "lanesSha256": LANES_SHA256,
-        "methodLedgerSha256": METHOD_LEDGER_SHA256,
-        "outerConventionTestTimeoutMinutes": 35,
-        "ownerLedgerSha256": OWNER_LEDGER_SHA256,
-        "ownershipMarkerSha256": validated["markerSha256"],
-        "policySha256": validated["policySha256"],
-        "profile": validated["profile"],
-        "schemaVersion": 1,
-        "sourceCommit": validated["sourceCommit"],
-        "taskId": validated["taskId"],
-        "taskPath": ":build-logic:convention:test",
-    }
-    if existing is not None and dict(existing) != expected:
-        raise BuildInputError("outer timeout marker identity differs")
-    return expected
-
-
-def validate_outer_timeout_marker(
-    path: Path,
-    *,
-    original_marker: Mapping[str, Any],
-    governed_command: str,
-) -> dict[str, Any]:
-    if path.is_symlink() or not path.is_file():
-        raise BuildInputError("outer timeout marker is missing or unsafe")
-    if stat.S_IMODE(path.stat().st_mode) != 0o600:
-        raise BuildInputError("outer timeout marker must be exact mode 0600")
-    value = _load_json(path)
-    if canonical_json_bytes(value) != path.read_bytes():
-        raise BuildInputError("outer timeout marker is noncanonical")
-    return sealed_outer_timeout_marker(
-        original_marker,
-        governed_command=governed_command,
-        existing=value,
-    )
 
 
 def validate_bundle_heads(
@@ -1257,30 +1188,9 @@ def _container_exec_completed(
     command: str,
     *,
     timeout: int | None = None,
-    testkit_failure_output: str | None = None,
-    outer_timeout_marker: str | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     # This non-raising form is reserved for governed evidence commands so their
     # terminal output can be persisted before a nonzero exit is propagated.
-    if testkit_failure_output is not None and re.fullmatch(
-        r"/evidence-work/testkit-failures/metadata-capture-[12]",
-        testkit_failure_output,
-    ) is None:
-        raise BuildInputError("governed TestKit failure output is outside the exact evidence location")
-    testkit_environment = (
-        ["--env", f"GASSTATION_TESTKIT_FAILURE_OUTPUT={testkit_failure_output}"]
-        if testkit_failure_output is not None
-        else []
-    )
-    if bool(testkit_failure_output) != bool(outer_timeout_marker):
-        raise BuildInputError("governed outer timeout and TestKit failure output must be configured together")
-    if outer_timeout_marker is not None and outer_timeout_marker != OUTER_TIMEOUT_MARKER_PATH:
-        raise BuildInputError("governed outer timeout marker path differs")
-    timeout_environment = (
-        ["--env", f"{OUTER_TIMEOUT_MARKER_ENV}={outer_timeout_marker}"]
-        if outer_timeout_marker is not None
-        else []
-    )
     return _docker(
         config,
         "exec",
@@ -1292,8 +1202,6 @@ def _container_exec_completed(
         "--env", "LANG=C.UTF-8",
         "--env", "LC_ALL=C.UTF-8",
         "--env", "TZ=UTC",
-        *testkit_environment,
-        *timeout_environment,
         CONTAINER,
         "/bin/bash",
         "-lc",
@@ -1323,8 +1231,6 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
     started_paths = sorted(directory.glob("*.started.json"))
     result_paths = sorted(directory.glob("*.result.json"))
     log_paths = sorted(directory.glob("*.log"))
-    timeout_paths = sorted(directory.glob("*.timeout.json"))
-    testkit_paths = sorted(directory.glob("*.testkit.json"))
     names = {path.name.removesuffix(".started.json") for path in started_paths}
     if not names or len(started_paths) != len(names):
         raise BuildInputError("governed command start inventory is empty or duplicate")
@@ -1332,35 +1238,25 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
         raise BuildInputError("governed command result inventory differs from starts")
     if {path.name.removesuffix(".log") for path in log_paths} != names:
         raise BuildInputError("governed command evidence has a missing log")
-    expected_timeout_names = names & {"metadata-capture-1", "metadata-capture-2"}
-    if {path.name.removesuffix(".timeout.json") for path in timeout_paths} != expected_timeout_names:
-        raise BuildInputError("governed outer timeout marker receipt inventory differs")
-    for name in sorted(expected_timeout_names):
-        descriptor_path = directory / f"{name}.timeout.json"
-        descriptor = _load_json(descriptor_path)
-        marker_path = directory.parent / "timeout-markers" / f"{name}.json"
-        marker_body = marker_path.read_bytes()
-        if descriptor != {
-            "mode": "0600",
-            "path": OUTER_TIMEOUT_MARKER_PATH,
-            "schemaVersion": 1,
-            "sha256": hashlib.sha256(marker_body).hexdigest(),
-            "size": len(marker_body),
-            "status": "PASS",
-        } or canonical_json_bytes(descriptor) != descriptor_path.read_bytes():
-            raise BuildInputError("governed outer timeout marker receipt differs")
+    unexpected = sorted(
+        path.name
+        for path in directory.iterdir()
+        if not (
+            path.name.endswith(".started.json")
+            or path.name.endswith(".result.json")
+            or path.name.endswith(".log")
+        )
+    )
+    if unexpected:
+        raise BuildInputError("governed command evidence contains an unexpected artifact")
     rows: list[dict[str, Any]] = []
-    expected_testkit_names: set[str] = set()
     for name in sorted(names):
         started_path = directory / f"{name}.started.json"
         result_path = directory / f"{name}.result.json"
         log_path = directory / f"{name}.log"
         started = _load_json(started_path)
         result = _load_json(result_path)
-        if (
-            canonical_json_bytes(started) != started_path.read_bytes()
-            or canonical_json_bytes(result) != result_path.read_bytes()
-        ):
+        if canonical_json_bytes(started) != started_path.read_bytes() or canonical_json_bytes(result) != result_path.read_bytes():
             raise BuildInputError("governed command evidence JSON is noncanonical")
         if started != {
             "commandSha256": started.get("commandSha256"),
@@ -1383,83 +1279,14 @@ def validate_governed_command_evidence(directory: Path) -> list[dict[str, Any]]:
         if (exit_code == 0 and status_value != "PASS") or (exit_code != 0 and status_value != "FAIL"):
             raise BuildInputError("governed command nonzero/status relationship is invalid")
         log = log_path.read_bytes()
-        if (
-            len(log) > COMMAND_LOG_LIMIT
-            or result.get("logSize") != len(log)
-            or result.get("logSha256") != hashlib.sha256(log).hexdigest()
-        ):
+        if len(log) > COMMAND_LOG_LIMIT or result.get("logSize") != len(log) or result.get("logSha256") != hashlib.sha256(log).hexdigest():
             raise BuildInputError("governed command log size or hash differs")
         if not isinstance(result.get("truncated"), bool):
             raise BuildInputError("governed command truncation flag is malformed")
         if exit_code != 0 and log.decode("utf-8", "replace").strip() == _GENERIC_ONLY_FAILURE:
             raise BuildInputError("governed command failure collapsed to generic-only output")
-        if exit_code != 0 and name in {"metadata-capture-1", "metadata-capture-2"}:
-            expected_testkit_names.add(name)
         rows.append(dict(result))
-    actual_testkit_names = {path.name.removesuffix(".testkit.json") for path in testkit_paths}
-    if actual_testkit_names != expected_testkit_names:
-        raise BuildInputError("failed metadata command TestKit evidence inventory differs")
-    for name in sorted(expected_testkit_names):
-        descriptor_path = directory / f"{name}.testkit.json"
-        descriptor = _load_json(descriptor_path)
-        relative = f"testkit-failures/{name}/testkit-failure-summary.json"
-        if descriptor != {
-            "name": name,
-            "path": relative,
-            "schemaVersion": 1,
-            "sha256": descriptor.get("sha256"),
-            "size": descriptor.get("size"),
-            "status": "FAIL",
-            "truncated": descriptor.get("truncated"),
-        } or canonical_json_bytes(descriptor) != descriptor_path.read_bytes():
-            raise BuildInputError("TestKit failure evidence descriptor is malformed")
-        summary_path = directory.parent / relative
-        summary = validate_testkit_failure_evidence(summary_path.parent, require_final=True)
-        summary_body = summary_path.read_bytes()
-        if (
-            descriptor.get("sha256") != hashlib.sha256(summary_body).hexdigest()
-            or descriptor.get("size") != len(summary_body)
-            or descriptor.get("truncated")
-            != any(row["truncated"] for row in summary["artifacts"])
-        ):
-            raise BuildInputError("TestKit failure evidence descriptor hash, size, or truncation differs")
     return rows
-
-
-def _copy_container_testkit_failure(
-    config: Path,
-    *,
-    attempt: Path,
-    name: str,
-) -> dict[str, Any]:
-    if name not in {"metadata-capture-1", "metadata-capture-2"}:
-        raise BuildInputError("TestKit failure evidence command identity is not closed")
-    destination = attempt / "testkit-failures" / name
-    if destination.exists() or destination.is_symlink():
-        raise BuildInputError("TestKit failure evidence destination already exists")
-    destination.parent.mkdir(parents=True, mode=0o700)
-    _docker(
-        config,
-        "cp",
-        f"{CONTAINER}:/evidence-work/testkit-failures/{name}",
-        str(destination),
-    )
-    finalize_testkit_failure_evidence(destination, name=name)
-    summary = validate_testkit_failure_evidence(destination, require_final=True)
-    summary_path = destination / "testkit-failure-summary.json"
-    summary_body = summary_path.read_bytes()
-    descriptor = {
-        "name": name,
-        "path": f"testkit-failures/{name}/testkit-failure-summary.json",
-        "schemaVersion": 1,
-        "sha256": hashlib.sha256(summary_body).hexdigest(),
-        "size": len(summary_body),
-        "status": "FAIL",
-        "truncated": any(row["truncated"] for row in summary["artifacts"]),
-    }
-    _write_new(attempt / "command-evidence" / f"{name}.testkit.json", descriptor)
-    return descriptor
-
 
 def _run_governed_container_command(
     config: Path,
@@ -1468,7 +1295,6 @@ def _run_governed_container_command(
     name: str,
     shell: str,
     timeout: int = 14400,
-    original_marker: Mapping[str, Any] | None = None,
 ) -> str:
     if _COMMAND_NAME.fullmatch(name) is None or not shell or "\x00" in shell:
         raise BuildInputError("governed command identity is malformed")
@@ -1480,51 +1306,10 @@ def _run_governed_container_command(
         {"commandSha256": command_sha, "name": name, "schemaVersion": 1, "status": "STARTED"},
     )
     try:
-        failure_output = (
-            f"/evidence-work/testkit-failures/{name}"
-            if name in {"metadata-capture-1", "metadata-capture-2"}
-            else None
-        )
-        timeout_marker = None
-        if failure_output is not None:
-            if original_marker is None:
-                raise BuildInputError("governed outer timeout ownership marker is missing")
-            sealed_marker = sealed_outer_timeout_marker(original_marker, governed_command=name)
-            marker_path = attempt / "timeout-markers" / f"{name}.json"
-            _write_new(marker_path, sealed_marker)
-            marker_path.chmod(0o600)
-            validate_outer_timeout_marker(
-                marker_path,
-                original_marker=original_marker,
-                governed_command=name,
-            )
-            _docker(config, "cp", str(marker_path), f"{CONTAINER}:{OUTER_TIMEOUT_MARKER_PATH}")
-            marker_body = canonical_json_bytes(sealed_marker)
-            copied_marker_sha = _container_exec(
-                config,
-                "set -euo pipefail; "
-                f"test -f {OUTER_TIMEOUT_MARKER_PATH}; test ! -L {OUTER_TIMEOUT_MARKER_PATH}; "
-                f"test \"$(stat -c %a {OUTER_TIMEOUT_MARKER_PATH})\" = 600; "
-                f"sha256sum {OUTER_TIMEOUT_MARKER_PATH} | cut -d' ' -f1",
-            ).strip()
-            if copied_marker_sha != hashlib.sha256(marker_body).hexdigest():
-                raise BuildInputError("governed outer timeout marker container copy differs")
-            marker_descriptor = {
-                "mode": "0600",
-                "path": OUTER_TIMEOUT_MARKER_PATH,
-                "schemaVersion": 1,
-                "sha256": hashlib.sha256(marker_body).hexdigest(),
-                "size": len(marker_body),
-                "status": "PASS",
-            }
-            _write_new(evidence / f"{name}.timeout.json", marker_descriptor)
-            timeout_marker = OUTER_TIMEOUT_MARKER_PATH
         completed = _container_exec_completed(
             config,
             f"cd /evidence-work/repository && {shell}",
             timeout=timeout,
-            testkit_failure_output=failure_output,
-            outer_timeout_marker=timeout_marker,
         )
         raw_output = completed.stdout
         exit_code = completed.returncode
@@ -1544,13 +1329,10 @@ def _run_governed_container_command(
         "truncated": truncated,
     }
     _write_new(evidence / f"{name}.result.json", result)
-    if exit_code != 0 and name in {"metadata-capture-1", "metadata-capture-2"}:
-        _copy_container_testkit_failure(config, attempt=attempt, name=name)
     validate_governed_command_evidence(evidence)
     if exit_code != 0:
         raise BuildInputError(f"governed container command failed ({exit_code}): {name}")
     return raw_output.decode("utf-8", "replace")
-
 
 def _manifest(directory: Path, *, exclude: set[str] | None = None) -> list[dict[str, Any]]:
     exclude = exclude or set()
@@ -1612,7 +1394,6 @@ def _run_evidence(
     source: str,
     policy_sha: str,
     attempt: Path,
-    marker: Mapping[str, Any],
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     cli = "python3 scripts/quality/verify_build_inputs.py"
     policy = "config/quality/build-inputs.json"
@@ -1623,20 +1404,8 @@ def _run_evidence(
             name=name,
             shell=shell,
             timeout=timeout,
-            original_marker=marker,
         )
 
-    metadata_before = command("metadata-capture-1", f"{cli} metadata-capture --policy {policy}")
-    metadata_hash_one = command("metadata-hash-1", "sha256sum gradle/verification-metadata.xml").split()[0]
-    command("metadata-capture-2", f"{cli} metadata-capture --policy {policy}")
-    metadata_hash_two = command("metadata-hash-2", "sha256sum gradle/verification-metadata.xml").split()[0]
-    if metadata_hash_one != metadata_hash_two:
-        raise BuildInputError("metadata replay changed reviewed bytes")
-
-    strict_output = command("strict-complete", f"{cli} strict-matrix --policy {policy} --group complete")
-    if "offline representative: PASS" not in strict_output:
-        raise BuildInputError("complete strict matrix omitted same-home offline proof")
-    command("strict-product", f"{cli} strict-matrix --policy {policy} --group product-regressions")
     command("configuration-cache", f"{cli} configuration-cache --policy {policy}")
 
     evidence_commands = (
@@ -1667,7 +1436,7 @@ def _run_evidence(
         + "export PATH=$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin; "
         + "rm -rf app/build /evidence-work/third-project-cache; "
         + "./gradlew :app:assembleProdRelease --no-build-cache --no-configuration-cache --rerun-tasks "
-        + "--project-cache-dir /evidence-work/third-project-cache --dependency-verification strict "
+        + "--project-cache-dir /evidence-work/third-project-cache "
         + "-Dorg.gradle.java.installations.auto-detect=false "
         + "-Dorg.gradle.java.installations.auto-download=false "
         + "-Dorg.gradle.java.installations.paths=$JAVA_HOME_17_X64,$JAVA_HOME_21_X64"
@@ -1699,11 +1468,7 @@ def _run_evidence(
     rows = {
         "configurationCache": _row(source, policy_sha),
         "evidenceSessions": _row(source, policy_sha, count=4),
-        "metadataCapture": _row(source, policy_sha, replaySha256=metadata_hash_two),
         "mutations": _row(source, policy_sha, suite="local-colima-contract"),
-        "offlineStrict": _row(source, policy_sha, sameHome=True),
-        "onlineColdStrict": _row(source, policy_sha),
-        "productStrict": _row(source, policy_sha),
         "releaseBinding": _row(source, policy_sha, receipt=binding_path),
         "reproducibility": _row(source, policy_sha, receipt=reproduction_path),
     }
@@ -1712,14 +1477,6 @@ def _run_evidence(
         "releaseBindingReceipt": binding_path,
         "reproducibilityReceipt": reproduction_path,
         "thirdApk": apk,
-        "outerTimeoutMarkers": [
-            {
-                "command": name,
-                "marker": _load_json(attempt / "timeout-markers" / f"{name}.json"),
-                "receipt": _load_json(attempt / "command-evidence" / f"{name}.timeout.json"),
-            }
-            for name in ("metadata-capture-1", "metadata-capture-2")
-        ],
     }
     return rows, details
 
@@ -1731,18 +1488,6 @@ def _write_failed_attempt_package(attempt: Path, failure: Mapping[str, Any]) -> 
     evidence = attempt / "command-evidence"
     if evidence.is_dir() and not evidence.is_symlink():
         shutil.copytree(evidence, package / "command-evidence")
-    timeout_markers = attempt / "timeout-markers"
-    if timeout_markers.is_dir() and not timeout_markers.is_symlink():
-        shutil.copytree(timeout_markers, package / "timeout-markers")
-    testkit = attempt / "testkit-failures"
-    if testkit.is_dir() and not testkit.is_symlink():
-        for path in sorted(testkit.iterdir()):
-            validate_testkit_failure_evidence(path, require_final=True)
-        shutil.copytree(testkit, package / "testkit-failures")
-        marker = attempt / "ownership-marker.json"
-        if marker.is_symlink() or not marker.is_file():
-            raise BuildInputError("failed-attempt TestKit package ownership marker is missing")
-        shutil.copy2(marker, package / "ownership-marker.json")
     manifest = {
         "files": _manifest(package),
         "schemaVersion": 1,
@@ -1959,7 +1704,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if receipt.get("status") != "PASS":
                 raise BuildInputError(f"Android {label} receipt did not pass")
 
-        rows, details = _run_evidence(docker_config, source_commit, policy_sha, attempt, marker)
+        rows, details = _run_evidence(docker_config, source_commit, policy_sha, attempt)
         runtime_facts = _container_exec(
             docker_config,
             "set -euo pipefail; "

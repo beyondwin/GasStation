@@ -41,7 +41,6 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     isolated_runtime_root,
     next_attempt,
     ownership_marker,
-    sealed_outer_timeout_marker,
     safe_extract_command_line_tools,
     sanitized_host_environment,
     validate_bundle_heads,
@@ -55,11 +54,9 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     validate_inner_architecture,
     validate_host_resources,
     validate_runtime_absence,
-    validate_outer_timeout_marker,
     validate_governed_command_evidence,
 )
 from scripts.quality.build_inputs.generate_policy import policy as generated_policy
-from scripts.quality.verify_build_inputs import _run_group
 
 
 SOURCE = "1" * 40
@@ -142,7 +139,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
 
             def complete_after_start(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
                 self.assertTrue(
-                    (attempt / "command-evidence/strict-complete.started.json").is_file(),
+                    (attempt / "command-evidence/build-check.started.json").is_file(),
                     "the immutable STARTED receipt must exist before Docker execution",
                 )
                 return completed
@@ -151,19 +148,19 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "scripts.quality.build_inputs.local_colima_evidence._container_exec_completed",
                 side_effect=complete_after_start,
             ):
-                with self.assertRaisesRegex(BuildInputError, "strict-complete"):
+                with self.assertRaisesRegex(BuildInputError, "build-check"):
                     _run_governed_container_command(
                         Path("/tmp/docker-client"),
                         attempt=attempt,
-                        name="strict-complete",
-                        shell="python3 scripts/quality/verify_build_inputs.py metadata-capture",
+                        name="build-check",
+                        shell="python3 scripts/quality/verify_build_inputs.py verify --policy config/quality/build-inputs.json",
                     )
 
             evidence = attempt / "command-evidence"
             rows = validate_governed_command_evidence(evidence)
             self.assertEqual("FAIL", rows[0]["status"])
             self.assertEqual(9, rows[0]["exitCode"])
-            log = (evidence / "strict-complete.log").read_text()
+            log = (evidence / "build-check.log").read_text()
             self.assertIn("terminal failure", log)
             self.assertIn("<redacted-secret>", log)
             self.assertIn("<redacted-path>", log)
@@ -175,9 +172,9 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             manifest = json.loads((package / "failed-attempt-package.json").read_text())
             paths = {row["path"] for row in manifest["files"]}
             self.assertIn("failure.json", paths)
-            self.assertIn("command-evidence/strict-complete.log", paths)
+            self.assertIn("command-evidence/build-check.log", paths)
             self.assertEqual(
-                hashlib.sha256((package / "command-evidence/strict-complete.log").read_bytes()).hexdigest(),
+                hashlib.sha256((package / "command-evidence/build-check.log").read_bytes()).hexdigest(),
                 next(row["sha256"] for row in manifest["files"] if row["path"].endswith(".log")),
             )
 
@@ -186,41 +183,41 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             evidence = Path(directory)
             started = {
                 "commandSha256": "1" * 64,
-                "name": "strict-complete",
+                "name": "build-check",
                 "schemaVersion": 1,
                 "status": "STARTED",
             }
-            (evidence / "strict-complete.started.json").write_bytes(canonical_json_bytes(started))
+            (evidence / "build-check.started.json").write_bytes(canonical_json_bytes(started))
             result = {
                 "commandSha256": "1" * 64,
                 "exitCode": 2,
                 "logSha256": hashlib.sha256(b"generic\n").hexdigest(),
                 "logSize": 8,
-                "name": "strict-complete",
+                "name": "build-check",
                 "schemaVersion": 1,
                 "status": "FAIL",
                 "truncated": False,
             }
-            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "build-check.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "missing log"):
                 validate_governed_command_evidence(evidence)
 
             generic = b"build-input verification failed: governed command failed: gradlew\n"
-            (evidence / "strict-complete.log").write_bytes(generic)
+            (evidence / "build-check.log").write_bytes(generic)
             result["logSha256"] = hashlib.sha256(generic).hexdigest()
             result["logSize"] = len(generic)
-            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "build-check.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "generic-only"):
                 validate_governed_command_evidence(evidence)
 
-            detailed = b"terminal dependency verification cause\n"
-            (evidence / "strict-complete.log").write_bytes(detailed)
+            detailed = b"terminal build failure cause\n"
+            (evidence / "build-check.log").write_bytes(detailed)
             result.update(
                 logSha256=hashlib.sha256(detailed).hexdigest(),
                 logSize=len(detailed),
                 status="PASS",
             )
-            (evidence / "strict-complete.result.json").write_bytes(canonical_json_bytes(result))
+            (evidence / "build-check.result.json").write_bytes(canonical_json_bytes(result))
             with self.assertRaisesRegex(BuildInputError, "nonzero"):
                 validate_governed_command_evidence(evidence)
 
@@ -614,26 +611,6 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         self.assertEqual("32", host["startArgv"][host["startArgv"].index("--memory") + 1])
         self.assertEqual(list(DELETE_ARGV), host["deleteArgv"])
         self.assertEqual([], host["hostMounts"])
-        self.assertEqual(
-            {
-                "expectedTests": 90,
-                "markerEnvironment": "GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER",
-                "markerMode": "0600",
-                "markerPath": "/evidence-work/task9-local-linux-ownership-marker.json",
-                "maxParallelForks": 5,
-                "methodLedgerSha256": "11f019e4ab2f034a6fd3ab27302b5917bb50051bbe365cafb9d76b8bb2cca38b",
-                "ownerCount": 52,
-                "ownerLedgerSha256": "6e3d0fa1d2c5ecc4824595f989d092161e8225ad9ed9b6d386e262073e50e5ac",
-                "outerTimeoutMinutes": 35,
-                "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
-                "propertyValue": "35",
-                "repositoryAndNestedTimeoutMinutes": 15,
-                "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
-                "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
-                "taskPath": ":build-logic:convention:test",
-            },
-            host["outerConventionTest"],
-        )
         self.assertEqual(sorted(_owned_labels({
             "attemptId": "attempt-000001",
             "mainBaseCommit": BASE,
@@ -723,22 +700,6 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         stale_guest["localEvidenceHost"]["effectiveConfig"]["cpu"] = 8
         stale_guest["localEvidenceHost"]["effectiveConfig"]["memory"] = 16
         mutations.append(stale_guest)
-        for field, value in (
-            ("outerTimeoutMinutes", 30),
-            ("propertyValue", "035"),
-            ("markerMode", "0640"),
-            ("repositoryAndNestedTimeoutMinutes", 30),
-            ("maxParallelForks", 4),
-            ("expectedTests", 89),
-            ("ownerCount", 51),
-            ("methodLedgerSha256", "0" * 64),
-            ("ownerLedgerSha256", "0" * 64),
-            ("lanesSha256", "0" * 64),
-            ("dispatchSha256", "0" * 64),
-        ):
-            timeout_mutation = json.loads(json.dumps(baseline))
-            timeout_mutation["localEvidenceHost"]["outerConventionTest"][field] = value
-            mutations.append(timeout_mutation)
         for repo_digests in (
             [],
             ["ubuntu@sha256:" + "0" * 64],
@@ -771,23 +732,6 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         ):
             with self.subTest(output=output, policy=policy), self.assertRaises(BuildInputError):
                 validate_host_resources(output, policy)
-
-    def test_complete_strict_matrix_reuses_the_same_home_for_offline_replay(self) -> None:
-        session = Path(tempfile.mkdtemp())
-        installed = object()
-        environment = {"GRADLE_USER_HOME": str(session / "gradle-home")}
-        policy = {"dependencyVerification": {"offlineRepresentative": ["./gradlew", "help"]}}
-        with mock.patch(
-            "scripts.quality.verify_build_inputs._prepare_session",
-            return_value=(session, installed, environment),
-        ), mock.patch(
-            "scripts.quality.verify_build_inputs._run_closed_command",
-            return_value="BUILD SUCCESSFUL",
-        ) as run:
-            _run_group(policy, [["./gradlew", "help"]], label="strict-complete")
-        self.assertEqual(2, run.call_count)
-        self.assertEqual(["./gradlew", "help", "--offline"], run.call_args_list[-1].args[0])
-        self.assertEqual(environment, run.call_args_list[-1].kwargs["environment"])
 
     def test_cli_accepts_only_policy_and_full_source_commit(self) -> None:
         self.assertEqual(
@@ -972,59 +916,6 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         bad["mainBaseCommit"] = "4" * 40
         with self.assertRaisesRegex(BuildInputError, "main base"):
             ownership_marker(existing=bad)
-
-    def test_outer_timeout_marker_is_exact_canonical_mode_0600_and_command_bound(self) -> None:
-        marker = ownership_marker(
-            source_commit=SOURCE,
-            policy_sha256=POLICY_SHA,
-            attempt_id="attempt-000001",
-            main_base_commit=BASE,
-            runtime_data_id="3" * 64,
-        )
-        sealed = sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1")
-        self.assertEqual(35, sealed["outerConventionTestTimeoutMinutes"])
-        self.assertEqual(
-            "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
-            sealed["dispatchSha256"],
-        )
-        self.assertEqual(
-            "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
-            sealed["lanesSha256"],
-        )
-        self.assertEqual(":build-logic:convention:test", sealed["taskPath"])
-        self.assertEqual(marker["markerSha256"], sealed["ownershipMarkerSha256"])
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "task9-local-linux-ownership-marker.json"
-            path.write_bytes(canonical_json_bytes(sealed))
-            path.chmod(0o600)
-            self.assertEqual(
-                sealed,
-                validate_outer_timeout_marker(
-                    path,
-                    original_marker=marker,
-                    governed_command="metadata-capture-1",
-                ),
-            )
-            path.chmod(0o640)
-            with self.assertRaisesRegex(BuildInputError, "0600"):
-                validate_outer_timeout_marker(
-                    path,
-                    original_marker=marker,
-                    governed_command="metadata-capture-1",
-                )
-
-        for field, value in (
-            ("governedCommand", "metadata-capture-2"),
-            ("outerConventionTestTimeoutMinutes", 30),
-            ("dispatchSha256", "0" * 64),
-            ("lanesSha256", "0" * 64),
-            ("taskPath", ":build-logic:convention:check"),
-            ("policySha256", "4" * 64),
-        ):
-            mutated = dict(sealed)
-            mutated[field] = value
-            with self.subTest(field=field), self.assertRaises(BuildInputError):
-                sealed_outer_timeout_marker(marker, governed_command="metadata-capture-1", existing=mutated)
 
     def test_prior_no_runtime_attempt_is_preserved_and_mixed_marker_refused(self) -> None:
         host = generated_policy()["localEvidenceHost"]
@@ -1328,11 +1219,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
             for name in (
                 "configurationCache",
                 "evidenceSessions",
-                "metadataCapture",
                 "mutations",
-                "offlineStrict",
-                "onlineColdStrict",
-                "productStrict",
                 "releaseBinding",
                 "reproducibility",
             )
@@ -1346,7 +1233,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
         )
         self.assertEqual("PASS", receipt["status"])
         partial = dict(rows)
-        partial.pop("offlineStrict")
+        partial.pop("configurationCache")
         with self.assertRaisesRegex(BuildInputError, "exact required evidence rows"):
             aggregate_receipt(
                 source_commit=SOURCE,

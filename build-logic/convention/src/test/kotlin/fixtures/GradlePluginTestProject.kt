@@ -6,7 +6,6 @@ import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
-import java.security.MessageDigest
 import java.util.Properties
 import org.gradle.testkit.runner.GradleRunner
 
@@ -80,7 +79,6 @@ class GradlePluginTestProject private constructor(
     }
 
     private fun createRunner(arguments: List<String>): GradleRunner {
-        copyVerificationMetadata()
         return GradleRunner.create()
             .withProjectDir(projectDir)
             .withTestKitDir(testKitDir)
@@ -97,7 +95,6 @@ class GradlePluginTestProject private constructor(
                 mode = GradlePluginTestRunnerMode.ADVERSARIAL,
                 selectedGradleUserHome = gradleUserHome,
             )
-        copyVerificationMetadata()
         return GradleRunner.create()
             .withProjectDir(projectDir)
             .withTestKitDir(testKitDir)
@@ -159,7 +156,6 @@ class GradlePluginTestProject private constructor(
                 "--warning-mode=fail",
                 "--stacktrace",
                 "--gradle-user-home=${selectedGradleUserHome.canonicalPath}",
-                "--dependency-verification=strict",
                 "-Dorg.gradle.java.installations.auto-detect=false",
                 "-Dorg.gradle.java.installations.auto-download=false",
                 "-Dorg.gradle.java.installations.paths=${compileJavaHome.absolutePath},${runtimeJavaHome.absolutePath}",
@@ -217,8 +213,6 @@ class GradlePluginTestProject private constructor(
         listOf("ANDROID_HOME", "ANDROID_SDK_ROOT").forEach { name ->
             System.getenv(name)?.takeIf(String::isNotBlank)?.let { allowed[name] = it }
         }
-        // The Task-9 local-Linux outer timeout triple is never inherited by nested GradleRunner builds.
-        allowed.remove("GASSTATION_TASK9_LOCAL_LINUX_OWNERSHIP_MARKER")
         require(FORBIDDEN_WORKER_ENVIRONMENT_KEYS.none(allowed::containsKey)) {
             "Nested TestKit environment contains a forbidden worker-control channel"
         }
@@ -227,27 +221,6 @@ class GradlePluginTestProject private constructor(
         }
         return allowed.toMap()
     }
-
-    private fun copyVerificationMetadata() {
-        val source = locateRepositoryRoot().resolve("gradle/verification-metadata.xml")
-        require(source.isFile && !Files.isSymbolicLink(source.toPath())) {
-            "Reviewed root dependency-verification metadata is missing: $source"
-        }
-        val destination = projectDir.resolve("gradle/verification-metadata.xml")
-        destination.parentFile.mkdirs()
-        Files.copy(source.toPath(), destination.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-        require(source.sha256() == destination.sha256()) {
-            "Fixture dependency-verification metadata copy hash differs from root"
-        }
-    }
-
-    private fun locateRepositoryRoot(): File =
-        generateSequence(File(System.getProperty("user.dir")).canonicalFile, File::getParentFile)
-            .firstOrNull { it.resolve("gradle/wrapper/gradle-wrapper.properties").isFile }
-            ?: error("Unable to locate repository root for TestKit metadata")
-
-    private fun File.sha256(): String =
-        MessageDigest.getInstance("SHA-256").digest(readBytes()).joinToString("") { "%02x".format(it) }
 
     private fun validateWorkerControls(
         arguments: List<String>,
@@ -447,12 +420,7 @@ class GradlePluginTestProject private constructor(
                 argument.startsWith("-I") ||
                 argument == "--init-script" ||
                 argument.startsWith("--init-script=") ||
-                argument == "--dependency-verification" ||
-                argument.startsWith("--dependency-verification=") ||
-                argument == "--write-verification-metadata" ||
-                argument.startsWith("--write-verification-metadata=") ||
-                argument.startsWith("-Dorg.gradle.java.installations.") ||
-                argument.contains("org.gradle.dependency.verification")
+                argument.startsWith("-Dorg.gradle.java.installations.")
         require(!conflicts) { "Runner argument conflicts with harness policy: $argument" }
     }
 

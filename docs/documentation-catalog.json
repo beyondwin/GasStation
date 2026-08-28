@@ -228,10 +228,10 @@
     {
       "path": "docs/runbooks/build-input-provenance.md",
       "kind": "runbook",
-      "owner": "검토된 빌드 입력, strict dependency verification, 문서 bridge와 unsigned release 재현성",
-      "authoritativeSources": ["config/quality/build-inputs.json", "gradle/verification-metadata.xml", "scripts/quality/verify_build_inputs.py", "scripts/quality/build_inputs", ".github/workflows/android.yml"],
-      "reviewTriggers": ["wrapper·action·JDK·SDK·Maven 입력 identity 변경", "governed entrypoint·receipt·문서 bridge 또는 release binding 변경", "dependency metadata 재생성 또는 재현성 증거 상태 변경"],
-      "verificationScope": "scripts/agent/check-contracts.sh --ci; build-input policy tests; fresh-home strict matrix; docs bridge closure; two-clean-tree unsigned prod APK equality"
+      "owner": "검토된 빌드 입력, 문서 bridge와 unsigned release 재현성",
+      "authoritativeSources": ["config/quality/build-inputs.json", "scripts/quality/verify_build_inputs.py", "scripts/quality/build_inputs", ".github/workflows/android.yml"],
+      "reviewTriggers": ["wrapper·action·JDK·SDK·Maven 입력 identity 변경", "governed entrypoint·receipt·문서 bridge 또는 release binding 변경", "dependency version 또는 재현성 증거 상태 변경"],
+      "verificationScope": "scripts/agent/check-contracts.sh --ci; build-input policy tests; configuration-cache proof; docs bridge closure; two-clean-tree unsigned prod APK equality"
     },
     {
       "path": "docs/adr/README.md",

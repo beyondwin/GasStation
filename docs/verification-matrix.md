@@ -432,7 +432,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 최종 blocking commit에서는 station 45/location 75 floor와 settings integrity/no-coverage 판정을 수행하고 tag release prerequisite로 동작합니다.
 
-의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. Gradle Wrapper는 `gradle/verification-metadata.xml`과 `config/quality/build-inputs.json`을 함께 갱신해야 하므로 그룹에서 제외합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
+의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. Gradle Wrapper는 distribution URL과 `distributionSha256Sum`, wrapper JAR, `config/quality/build-inputs.json`을 함께 검토해야 하므로 그룹에서 제외합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
 ## Production dependency and public ABI verification
 
@@ -667,7 +667,7 @@ Hosted execution, artifact upload, image availability는 로컬에서 검증했�
 
 운영 설명과 갱신 순서는 [Build Input Provenance](runbooks/build-input-provenance.md)가 소유한다. 아래 명령만 runnable matrix를 소유한다. Linux x64 evidence host는 정책이 설치한 exact Temurin 17/21과 fresh `GRADLE_USER_HOME`을 사용하며 raw developer Gradle 실행은 accepted receipt가 아니다.
 
-정적 정책·action closure·wrapper/JDK/SDK identity·metadata 구조와 bypass scanner:
+정적 정책·action closure·wrapper/JDK/SDK identity와 dynamic dependency version 검사:
 
 ```bash
 python3 scripts/quality/verify_build_inputs.py verify \
@@ -677,21 +677,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
 scripts/agent/check-contracts.sh --ci
 ```
 
-검토된 Linux x64 host에서 metadata generation을 수행한 뒤 같은 행을 반복해 `gradle/verification-metadata.xml` SHA-256 no-diff를 확인한다. ordinary CI와 `check`에서는 capture를 호출하지 않는다.
+이 샘플은 dependency verification metadata와 별도 capture/strict matrix를 운영하지 않는다. 대신 동일한 격리 환경에서 configuration-cache 저장/재사용을 확인하고, 일반 CI build/test/lint가 dependency 호환성을 검증한다.
 
 ```bash
-python3 scripts/quality/verify_build_inputs.py metadata-capture \
-  --policy config/quality/build-inputs.json
-git diff --exit-code -- gradle/verification-metadata.xml
-```
-
-final metadata로 fresh cold-home complete matrix, product regression matrix와 configuration-cache 저장/재사용을 분리 실행한다.
-
-```bash
-python3 scripts/quality/verify_build_inputs.py strict-matrix \
-  --policy config/quality/build-inputs.json --group complete
-python3 scripts/quality/verify_build_inputs.py strict-matrix \
-  --policy config/quality/build-inputs.json --group product-regressions
 python3 scripts/quality/verify_build_inputs.py configuration-cache \
   --policy config/quality/build-inputs.json
 ```
