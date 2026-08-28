@@ -44,7 +44,11 @@ from scripts.quality.build_inputs.receipts import (
     relative_evidence_rows,
     write_canonical_receipt,
 )
-from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
+from scripts.quality.build_inputs.reproducibility import (
+    reproducibility_receipt,
+    run_reproducibility_probe,
+    safe_zip_comparison,
+)
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
 from scripts.quality.verify_build_inputs import (
     _capture_android_sdk,
@@ -1064,36 +1068,31 @@ class VerifiedDownloadTest(unittest.TestCase):
 
 
 class WorkflowContractTest(unittest.TestCase):
-    def test_release_assemble_uses_reproducibility_build_controls(self) -> None:
+    def test_release_assemble_uses_verified_probe_apk(self) -> None:
         policy = load_policy(POLICY, root=ROOT)
         workflow = (ROOT / ".github/workflows/android.yml").read_text(encoding="utf-8")
-        governed_release = (
-            "      - name: Release Assemble\n"
-            "        run: |\n"
-            "          source_date_epoch=$(git show -s --format=%ct \"$GITHUB_SHA\")\n"
-            "          test \"$source_date_epoch\" -gt 0\n"
-            "          SOURCE_DATE_EPOCH=\"$source_date_epoch\" \\\n"
-            "            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease \\\n"
-            "              --no-build-cache \\\n"
-            "              --no-configuration-cache \\\n"
-            "              --rerun-tasks \\\n"
-            "              --project-cache-dir \"$RUNNER_TEMP/gasstation-release-assemble-project-cache\" \\\n"
-            "              --warning-mode fail\n"
+        governed_upload = (
+            "          path: |\n"
+            "            build/reports/build-inputs/reproducible-prod-release-receipt.json\n"
+            "            build/reports/build-inputs/prod-release-unsigned.apk\n"
         )
-        self.assertIn(governed_release, workflow)
+        governed_apk = (
+            "            --apk build/reports/build-inputs/probe/prod-release-unsigned.apk \\\n"
+        )
+        self.assertIn(governed_upload, workflow)
+        self.assertIn(governed_apk, workflow)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / ".github", root / ".github")
             candidate = workflow.replace(
-                governed_release,
-                "      - name: Release Assemble\n"
-                "        run: scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease --warning-mode fail\n",
+                governed_apk,
+                "            --apk app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk \\\n",
                 1,
             )
             self.assertNotEqual(workflow, candidate)
             (root / ".github/workflows/android.yml").write_text(candidate, encoding="utf-8")
-            with self.assertRaisesRegex(BuildInputError, "reproducibility build"):
+            with self.assertRaisesRegex(BuildInputError, "verified probe APK"):
                 verify_repository_workflows(root, policy, promoted=True)
 
     def test_promotion_detection_ignores_non_build_input_allowances(self) -> None:
@@ -1359,6 +1358,60 @@ class ReceiptAndReproducibilityTest(unittest.TestCase):
         unequal = [equal[0], {"id": "build-b", "sha256": "4" * 64, "size": 42}]
         with self.assertRaisesRegex(BuildInputError, "does not match"):
             reproducibility_receipt(**common, builds=unequal, status="PASS")
+
+    def test_reproducibility_probe_stages_the_verified_apk_beside_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy_path = root / "config/quality/build-inputs.json"
+            policy_path.parent.mkdir(parents=True)
+            policy_path.write_text("{}\n", encoding="utf-8")
+            output = root / "build/reports/build-inputs/reproducible-build.json"
+            policy = {
+                "reproducibleArtifact": {
+                    "outputGlob": "app/build/outputs/apk/prod/release/*.apk",
+                    "outputIdentity": "prod-release-unsigned.apk",
+                    "receiptPath": "build/reports/build-inputs/reproducible-prod-release-receipt.json",
+                    "task": ":app:assembleProdRelease",
+                    "unsigned": True,
+                },
+            }
+
+            def export_source(_root: Path, _commit: str, destination: Path) -> None:
+                destination.mkdir(parents=True)
+
+            def build_source(source: Path, **_kwargs: object) -> None:
+                apk = source / "app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk"
+                apk.parent.mkdir(parents=True)
+                apk.write_bytes(b"verified reproducible apk")
+
+            with (
+                mock.patch(
+                    "scripts.quality.build_inputs.reproducibility.require_clean_source",
+                    return_value=1_700_000_000,
+                ),
+                mock.patch(
+                    "scripts.quality.build_inputs.reproducibility.export_committed_tree",
+                    side_effect=export_source,
+                ),
+                mock.patch(
+                    "scripts.quality.build_inputs.reproducibility._run_build",
+                    side_effect=build_source,
+                ),
+                mock.patch("scripts.quality.build_inputs.reproducibility.assert_unsigned_apk"),
+            ):
+                receipt = run_reproducibility_probe(
+                    root,
+                    policy,
+                    policy_path=policy_path,
+                    source_commit="1" * 40,
+                    output=output,
+                    installed=mock.sentinel.installed,
+                    work_root=root / "build-input-probe-work",
+                )
+
+            staged = root / "build/reports/build-inputs/prod-release-unsigned.apk"
+            self.assertEqual(b"verified reproducible apk", staged.read_bytes())
+            self.assertEqual(receipt["builds"][0]["sha256"], hashlib.sha256(staged.read_bytes()).hexdigest())
 
     def test_zip_comparison_reports_changed_entry_without_normalizing(self) -> None:
         import zipfile

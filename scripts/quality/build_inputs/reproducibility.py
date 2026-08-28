@@ -361,6 +361,19 @@ def run_reproducibility_probe(
                 },
             )
             raise BuildInputError("unsigned APKs differ by exact bytes")
+        staged_apk = receipt_path.parent / output_identity
+        if (
+            staged_apk.exists()
+            or staged_apk.is_symlink()
+            or not staged_apk.resolve(strict=False).is_relative_to(root.resolve())
+        ):
+            raise BuildInputError("reproducible APK staging path is unsafe or occupied")
+        staged_apk.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(apks[0], staged_apk)
+        staged_apk.chmod(0o644)
+        if sha256_file(staged_apk) != rows[0]["sha256"] or staged_apk.stat().st_size != rows[0]["size"]:
+            staged_apk.unlink(missing_ok=True)
+            raise BuildInputError("staged reproducible APK byte identity differs")
         return receipt
     finally:
         canonical = work_root.resolve()

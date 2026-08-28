@@ -203,7 +203,6 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
                 "if-no-files-found: error",
                 "      - name: Upload source-bound reproducibility receipt\n        if: success()\n",
                 "name: reproducible-prod-release-receipt-${{ github.sha }}",
-                "path: build/reports/build-inputs/reproducible-prod-release-receipt.json",
             ),
             owner="build-inputs job",
         )
@@ -223,18 +222,15 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
         if promoted is True:
             release_assemble = _job_block(android, "release-assemble")
             release_publish = _job_block(android, "release-publish")
-            release_epoch_fragments = (
-                'source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")',
-                'test "$source_date_epoch" -gt 0',
-                'SOURCE_DATE_EPOCH="$source_date_epoch" \\',
-                "scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease",
-                "--no-build-cache",
-                "--no-configuration-cache",
-                "--rerun-tasks",
-                '--project-cache-dir "$RUNNER_TEMP/gasstation-release-assemble-project-cache"',
+            verified_probe_fragments = (
+                "Bind verified reproducible prod APK",
+                "--apk build/reports/build-inputs/probe/prod-release-unsigned.apk",
+                "cp build/reports/build-inputs/probe/prod-release-unsigned.apk",
             )
-            if any(fragment not in release_assemble for fragment in release_epoch_fragments):
-                raise BuildInputError("release-assemble reproducibility build contract drift")
+            if any(fragment not in release_assemble for fragment in verified_probe_fragments):
+                raise BuildInputError("release-assemble verified probe APK contract drift")
+            if "run_gradle.sh" in release_assemble or ":app:assembleProdRelease" in release_assemble:
+                raise BuildInputError("release-assemble may not rebuild the verified probe APK")
             receipt_name = "name: reproducible-prod-release-receipt-${{ github.sha }}"
             receipt_path = "path: build/reports/build-inputs/probe"
             binding_fragments = (
@@ -242,6 +238,15 @@ def verify_repository_workflows(root: Path, policy: Mapping[str, Any], *, promot
                 "--receipt build/reports/build-inputs/probe/reproducible-prod-release-receipt.json",
                 "--source-commit \"$GITHUB_SHA\"",
                 "--artifact-name \"reproducible-prod-release-receipt-${GITHUB_SHA}\"",
+            )
+            _require_fragments(
+                build_inputs,
+                (
+                    "path: |\n"
+                    "            build/reports/build-inputs/reproducible-prod-release-receipt.json\n"
+                    "            build/reports/build-inputs/prod-release-unsigned.apk",
+                ),
+                owner="build-input reproducible APK upload",
             )
             _require_fragments(
                 release_assemble,

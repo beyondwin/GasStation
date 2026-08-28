@@ -78,7 +78,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: reproducible-prod-release-receipt-${{ github.sha }}
-          path: build/reports/build-inputs/reproducible-prod-release-receipt.json
+          path: |
+            build/reports/build-inputs/reproducible-prod-release-receipt.json
+            build/reports/build-inputs/prod-release-unsigned.apk
           if-no-files-found: error
           retention-days: 7
 
@@ -255,25 +257,12 @@ jobs:
           name: reproducible-prod-release-receipt-${{ github.sha }}
           path: build/reports/build-inputs/probe
       - uses: ./.github/actions/setup-build-inputs
-      - name: Release Assemble
+      - name: Bind verified reproducible prod APK
         run: |
-          source_date_epoch=$(git show -s --format=%ct "$GITHUB_SHA")
-          test "$source_date_epoch" -gt 0
-          SOURCE_DATE_EPOCH="$source_date_epoch" \
-            scripts/quality/build_inputs/run_gradle.sh :app:assembleProdRelease \
-              --no-build-cache \
-              --no-configuration-cache \
-              --rerun-tasks \
-              --project-cache-dir "$RUNNER_TEMP/gasstation-release-assemble-project-cache" \
-              --warning-mode fail
-      - name: Bind assembled prod APK to reproducibility receipt
-        run: |
-          mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
-          test "${#apks[@]}" -eq 1
           python3 scripts/quality/verify_build_inputs.py release-bind \
             --policy config/quality/build-inputs.json \
             --receipt build/reports/build-inputs/probe/reproducible-prod-release-receipt.json \
-            --apk "${apks[0]}" \
+            --apk build/reports/build-inputs/probe/prod-release-unsigned.apk \
             --source-commit "$GITHUB_SHA" \
             --artifact-name "reproducible-prod-release-receipt-${GITHUB_SHA}" \
             --output build/reports/build-inputs/release-assemble-binding.json
@@ -281,9 +270,8 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           mkdir -p release-assets
-          mapfile -t apks < <(find app/build/outputs/apk/prod/release -maxdepth 1 -type f -name "*.apk" -print)
-          test "${#apks[@]}" -eq 1
-          cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-prod-release-unsigned.apk"
+          cp build/reports/build-inputs/probe/prod-release-unsigned.apk \
+            "release-assets/GasStation-${GITHUB_REF_NAME#v}-prod-release-unsigned.apk"
       - name: Upload unsigned prod APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

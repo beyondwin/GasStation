@@ -518,7 +518,7 @@ GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격�
 | Trigger | 실행 범위 |
 | --- | --- |
 | `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark), 독립 blocking `coverage` (report + ratchet) |
-| `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (`:app:assembleProdRelease`); coverage는 full-history에서 main before 기준 evidence 생성 |
+| `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (독립 2회 빌드로 검증된 unsigned APK와 source-bound receipt를 그대로 바인딩); coverage는 full-history에서 main before 기준 evidence 생성 |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 
 `prodRelease` assemble은 기본 PR matrix에 포함하지 않습니다. Coverage는 PR/main/tag 모두에서 독립 실행되어 unit-tests와 병렬로 report와 ratchet evidence를 차단형으로 검증합니다.
