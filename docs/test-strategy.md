@@ -228,6 +228,6 @@ Build-input tests는 `config/quality/build-inputs.json`, full-SHA action/composi
 
 현재 convention suite는 검증 매트릭스가 소유하는 단일 `Test` task이며, 정확히 52개 test-class owner와 90개 test method를 다섯 fork에 배치합니다. Nested TestKit build는 `--max-workers=2`를 유지하고 test filter, shard, `forkEvery`, skip, command retry를 사용하지 않습니다. Outer build는 script listener와 dispatch staging이 configuration cache 대상이 아니므로 `--no-configuration-cache`로 실행합니다. 결정적으로 정렬된 scanner root와 그 owner inventory는 차단 계약이고, 실행 중 관측하는 Gradle executor identity와 lane 배치는 진단 정보라서 단독으로 실패를 만들지 않습니다.
 
-Repository/default CI/ordinary-local outer convention `Test` timeout은 reviewed Round-21 bound에 맞춘 27분이고, nested TestKit module `Test` timeout은 15분입니다. Convention suite는 retry, shard, skip 없이 같은 test inventory를 실행합니다.
+Repository/default CI/ordinary-local outer convention `Test` timeout은 reviewed Round-21 five-lane workload bound 27분에 TestKit 초기화와 hosted-runner 편차 8분을 더한 35분이고, nested TestKit module `Test` timeout은 15분입니다. Convention suite는 retry, shard, skip 없이 같은 test inventory를 실행합니다.
 
 실행 결과와 시간은 [Build Velocity](build-velocity.md), Linux와 외부 evidence 판정은 [검증 매트릭스](verification-matrix.md#build-input-provenance와-unsigned-release-재현성)가 소유합니다.
