@@ -213,6 +213,14 @@ def _configuration_cache_commands(policy: Mapping[str, Any]) -> list[list[str]]:
     commands = [_row_argv(row, context=f"configurationCacheChecks[{index}]") for index, row in enumerate(rows)]
     if len(commands) != len({tuple(command) for command in commands}):
         raise BuildInputError("configuration-cache group contains duplicate commands")
+    if any(
+        argument == "verifyPitestConfiguration" or argument.endswith(":verifyPitestConfiguration")
+        for command in commands
+        for argument in command[1:]
+    ):
+        raise BuildInputError(
+            "configuration-cache probe cannot require generated PIT route evidence"
+        )
     return commands
 
 def _prepare_session(policy: Mapping[str, Any], *, prefix: str) -> tuple[Path, InstalledJdks, dict[str, str]]:

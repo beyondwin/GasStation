@@ -32,9 +32,9 @@ GitHub Actions already separates `static-analysis`, `unit-tests`, `screenshot-te
 
 ## Mutation cost boundary
 
-Mutation verification is deliberately outside ordinary fast/auto Gradle task arrays. `verifyPitestConfiguration` is the fast agent gate; the routed CI/manual runner owns the real three-module PIT work. Selected modules run sequentially with `--no-parallel`, each PIT process uses exactly two threads, and the hosted job has a 60-minute ceiling. History, retry, task exclusion, dry-run, and automatic rerun are disabled so elapsed time and mutant populations remain honest.
+Mutation verification is deliberately outside ordinary fast/auto Gradle task arrays. The routed CI/manual runner creates the required route evidence, runs `verifyPitestConfiguration`, and owns the real three-module PIT work. Selected modules run sequentially with `--no-parallel`, each PIT process uses exactly two threads, and the hosted job has a 60-minute ceiling. History, retry, task exclusion, dry-run, and automatic rerun are disabled so elapsed time and mutant populations remain honest.
 
-The sealed runner uses configuration cache but disables build cache and reruns tasks. Its isolated proof must show both a stored first run and reused second run without changing the 15-minute convention-suite timeout, retrying failures, reducing test coverage, or increasing worker forks. Weekly `ubuntu-24.04` image rotation can stop before PIT while the reviewed image profile is recaptured; that maintenance cost is intentional fail-closed behavior, not a reason to accept runtime-observed hashes as permanent tool pins.
+The sealed mutation runner uses configuration cache but disables build cache and reruns tasks. Its isolated proof must show both a stored first run and reused second run. The outer convention TestKit suite is a separate 27-minute, five-fork boundary and runs with `--no-configuration-cache` because its script listeners and dispatch staging are not cache-serializable. Weekly `ubuntu-24.04` image rotation can stop before PIT while the reviewed image profile is recaptured; that maintenance cost is intentional fail-closed behavior, not a reason to accept runtime-observed hashes as permanent tool pins.
 
 ## Build-input cost boundary
 

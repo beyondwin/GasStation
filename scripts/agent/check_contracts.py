@@ -198,6 +198,7 @@ LINT_JOB_CONTRACTS = {
 }
 CONVENTION_TEST_ARGUMENTS = [
     ":build-logic:convention:test",
+    "--no-configuration-cache",
     "--warning-mode=fail",
 ]
 COVERAGE_GRADLE_ARGUMENTS = [
@@ -1030,8 +1031,8 @@ def check_mutation_workflow_contracts(root: Path) -> list[str]:
         issues.append(issue("scripts/agent/test.sh", 1, "quality Python suite must run exactly once"))
     verifier = root / "scripts/agent/verify.sh"
     verifier_text = verifier.read_text() if verifier.is_file() else ""
-    if verifier_text.count("verifyPitestConfiguration") != 3 or "pitestVerified" in verifier_text:
-        issues.append(issue("scripts/agent/verify.sh", 1, "agent scopes must own only the fast PIT configuration gate"))
+    if "verifyPitestConfiguration" in verifier_text or "pitestVerified" in verifier_text:
+        issues.append(issue("scripts/agent/verify.sh", 1, "agent scopes must not bypass the routed PIT runner"))
     return issues
 
 
@@ -1064,9 +1065,10 @@ def check_lint_workflow_contracts(workflow: str) -> list[str]:
         job_line = source_line(workflow, match.start())
         job_fields = workflow_job_fields(body)
         job_raw_fields = workflow_job_raw_fields(body)
-        if job_fields.get("timeout-minutes") != "30":
+        expected_timeout = "60" if job_name == "static-analysis" else "30"
+        if job_fields.get("timeout-minutes") != expected_timeout:
             issues.append(
-                issue(workflow_path, job_line, f"{job_name} timeout must be 30 minutes")
+                issue(workflow_path, job_line, f"{job_name} timeout must be {expected_timeout} minutes")
             )
         if "if" in job_fields:
             issues.append(

@@ -171,7 +171,7 @@ python3 scripts/quality/verify_coverage.py capture \
 
 ## Mutation testing (변이 테스트)
 
-PIT 1.25.7은 Android/기기 경로가 아니라 JVM-only `domain:station`, `domain:location`, `domain:settings`의 `main`/`test` source set에만 적용합니다. plugin이 만든 `pitest` task의 직접 실행은 금지되며, 공개 configuration gate는 `verifyPitestConfiguration`, 실제 실행은 `scripts/quality/run_pitest.sh`가 소유하는 세 `pitestVerified` task뿐입니다. history, dry-run, retry, parallel module 실행, Android/device PIT는 사용하지 않습니다.
+PIT 1.25.7은 Android/기기 경로가 아니라 JVM-only `domain:station`, `domain:location`, `domain:settings`의 `main`/`test` source set에만 적용합니다. plugin이 만든 `pitest` task와 `verifyPitestConfiguration`의 독립 실행은 금지되며, route·receipt를 먼저 생성하는 `scripts/quality/run_pitest.sh`가 configuration gate와 세 `pitestVerified` task를 함께 소유합니다. history, dry-run, retry, parallel module 실행, Android/device PIT는 사용하지 않습니다.
 
 초기 baseline은 source commit `d8e19a60b1cc6542bdcefd754ca45ae748fd88a9`의 clean observation 실행에서 얻었습니다.
 
@@ -226,8 +226,8 @@ Build-input tests는 `config/quality/build-inputs.json`, full-SHA action/composi
 
 이 계층의 SHA-256은 검토한 bytes와의 integrity만 증명합니다. publisher identity, vulnerability absence, license review, signed 또는 cross-OS APK reproducibility를 증명하지 않습니다. 동일 host에서 두 clean tree의 unsigned prod-release size/hash가 같은 경우만 재현성 `PASS`이며 demo-debug는 후보가 아닙니다. 명령과 receipt 경로는 [검증 매트릭스](verification-matrix.md), 운영 해석은 [Build Input Provenance](runbooks/build-input-provenance.md)를 따릅니다.
 
-현재 convention suite는 검증 매트릭스가 소유하는 단일 `Test` task이며, 정확히 52개 test-class owner와 90개 test method를 다섯 fork에 배치합니다. Nested TestKit build는 `--max-workers=2`를 유지하고 test filter, shard, `forkEvery`, skip, command retry를 사용하지 않습니다. 결정적으로 정렬된 scanner root와 그 owner inventory는 차단 계약이고, 실행 중 관측하는 Gradle executor identity와 lane 배치는 진단 정보라서 단독으로 실패를 만들지 않습니다.
+현재 convention suite는 검증 매트릭스가 소유하는 단일 `Test` task이며, 정확히 52개 test-class owner와 90개 test method를 다섯 fork에 배치합니다. Nested TestKit build는 `--max-workers=2`를 유지하고 test filter, shard, `forkEvery`, skip, command retry를 사용하지 않습니다. Outer build는 script listener와 dispatch staging이 configuration cache 대상이 아니므로 `--no-configuration-cache`로 실행합니다. 결정적으로 정렬된 scanner root와 그 owner inventory는 차단 계약이고, 실행 중 관측하는 Gradle executor identity와 lane 배치는 진단 정보라서 단독으로 실패를 만들지 않습니다.
 
-Repository/default CI/ordinary-local `Test`와 nested TestKit timeout은 15분입니다. Convention suite는 retry, shard, skip 없이 같은 test inventory를 실행합니다.
+Repository/default CI/ordinary-local outer convention `Test` timeout은 reviewed Round-21 bound에 맞춘 27분이고, nested TestKit module `Test` timeout은 15분입니다. Convention suite는 retry, shard, skip 없이 같은 test inventory를 실행합니다.
 
 실행 결과와 시간은 [Build Velocity](build-velocity.md), Linux와 외부 evidence 판정은 [검증 매트릭스](verification-matrix.md#build-input-provenance와-unsigned-release-재현성)가 소유합니다.

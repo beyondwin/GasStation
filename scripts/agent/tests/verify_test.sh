@@ -16,14 +16,14 @@ assert_contains "$ui" "verifyRoborazziDebug"
 data=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file core/database/src/main/kotlin/Db.kt)
 assert_contains "$data" "scopes: data"
 assert_contains "$data" ":core:database:testDebugUnitTest"
-assert_contains "$data" "verifyPitestConfiguration"
+assert_not_contains "$data" "verifyPitestConfiguration"
 assert_not_contains "$data" "pitestVerified"
 
 app=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file app/build.gradle.kts)
 assert_contains "$app" "scopes: app release"
 assert_contains "$app" ":app:assembleProdDebug"
 assert_contains "$app" ":app:assembleProdRelease"
-assert_contains "$app" "verifyPitestConfiguration"
+assert_not_contains "$app" "verifyPitestConfiguration"
 assert_not_contains "$app" "pitestVerified"
 
 release_source=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file app/src/release/kotlin/ReleaseConfig.kt)
@@ -43,16 +43,29 @@ release=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file docs/
 assert_contains "$release" "scopes: docs release"
 assert_contains "$release" ":app:assembleProdRelease"
 assert_contains "$release" "coverageXmlReport verifyCoverageReport"
-assert_contains "$release" "verifyPitestConfiguration"
+assert_not_contains "$release" "verifyPitestConfiguration"
 assert_not_contains "$release" "pitestVerified"
 assert_contains "$release" "-Pgasstation.coverageSourceCommit=$(git -C "$repo_root" rev-parse HEAD)"
 assert_contains "$release" "-Pgasstation.coverageEvent=local"
-assert_contains "$release" "-Pgasstation.coverageBaseRef="
+coverage_source_commit=$(git -C "$repo_root" rev-parse HEAD)
+coverage_base_commit=
+for candidate in refs/remotes/origin/main refs/heads/main; do
+  if git -C "$repo_root" show-ref --verify --quiet "$candidate"; then
+    if coverage_base_commit=$(git -C "$repo_root" merge-base "$candidate" HEAD 2>/dev/null); then
+      break
+    fi
+  fi
+done
+if [[ -n "$coverage_base_commit" && "$coverage_base_commit" != "$coverage_source_commit" ]]; then
+  assert_contains "$release" "-Pgasstation.coverageBaseRef=$coverage_base_commit"
+else
+  assert_not_contains "$release" "-Pgasstation.coverageBaseRef="
+fi
 assert_not_contains "$release" "--dry-run"
 
 mutation_policy=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file config/quality/mutation-policy.json)
 assert_contains "$mutation_policy" "scopes: data app release"
-assert_contains "$mutation_policy" "verifyPitestConfiguration"
+assert_not_contains "$mutation_policy" "verifyPitestConfiguration"
 assert_not_contains "$mutation_policy" "pitestVerified"
 
 unknown=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file tools/new-path/file.kt)

@@ -723,7 +723,7 @@ def _group_counters(records: Iterable[MutationRecord], key: Callable[[MutationRe
 _ALL_MODULES = ["location", "settings", "station"]
 _SHARED_EXACT = {
     "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
-    "gradlew", "gradlew.bat",
+    "gradlew", "gradlew.bat", "gradle/verification-metadata.xml",
     "scripts/agent/check_contracts.py", "scripts/agent/verify.sh", "scripts/agent/test.sh",
     "scripts/agent/tests/check_contracts_test.sh", "scripts/agent/tests/verify_test.sh",
     ".github/workflows/android.yml", ".github/workflows/mutation-schedule.yml",

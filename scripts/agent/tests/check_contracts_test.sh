@@ -197,7 +197,7 @@ jobs:
       - run: scripts/agent/verify-room-schemas.sh
   static-analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Production lint
         run: |
@@ -220,7 +220,7 @@ jobs:
             --warning-mode fail \
             --continue
       - name: Convention plugin tests
-        run: ./gradlew :build-logic:convention:test --warning-mode fail
+        run: ./gradlew :build-logic:convention:test --no-configuration-cache --warning-mode fail
       - name: Upload production lint reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -1001,9 +1001,9 @@ import sys
 workflow = Path(sys.argv[1])
 workflow.write_text(
     workflow.read_text().replace(
-        "        run: ./gradlew :build-logic:convention:test --warning-mode fail",
+        "        run: ./gradlew :build-logic:convention:test --no-configuration-cache --warning-mode fail",
         "        run: ./gradlew help --warning-mode fail\n"
-        "        # ./gradlew :build-logic:convention:test --warning-mode fail",
+        "        # ./gradlew :build-logic:convention:test --no-configuration-cache --warning-mode fail",
         1,
     )
 )
@@ -1344,7 +1344,7 @@ jobs:
           GASSTATION_CI_BASE_REF: fixture-base
   static-analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Production lint
         run: |
@@ -1747,7 +1747,7 @@ mutations = (
     (".github/workflows/android.yml", "--event tag", "--event main"),
     (".github/workflows/mutation-schedule.yml", "--event schedule", "--event local-all"),
     ("scripts/agent/test.sh", "scripts/quality/tests", "scripts/quality/disabled-tests"),
-    ("scripts/agent/verify.sh", "verifyPitestConfiguration", "pitestVerified"),
+    ("scripts/agent/verify.sh", "verifyModuleBoundaries", "verifyPitestConfiguration"),
 )
 for relative, old, new in mutations:
     target = copy_contract()

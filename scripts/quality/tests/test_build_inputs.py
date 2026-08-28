@@ -45,7 +45,11 @@ from scripts.quality.build_inputs.receipts import (
 )
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
-from scripts.quality.verify_build_inputs import _run_closed_command, verify_repository
+from scripts.quality.verify_build_inputs import (
+    _configuration_cache_commands,
+    _run_closed_command,
+    verify_repository,
+)
 from scripts.agent.check_contracts import check_documentation_contracts
 
 
@@ -179,6 +183,18 @@ class CanonicalPolicyTest(unittest.TestCase):
             with self.assertRaisesRegex(BuildInputError, "canonical JSON"):
                 load_policy(candidate, root=ROOT)
 
+    def test_standalone_configuration_cache_probe_rejects_route_dependent_tasks(self) -> None:
+        policy = {
+            "configurationCacheChecks": [[
+                "./gradlew",
+                "verifyModuleBoundaries",
+                "verifyPitestConfiguration",
+            ]],
+        }
+
+        with self.assertRaisesRegex(BuildInputError, "generated PIT route evidence"):
+            _configuration_cache_commands(policy)
+
     def test_policy_forbids_static_hashes_for_docs_facade_and_extensions(self) -> None:
         policy = load_policy(POLICY, root=ROOT)
         paths = {row["path"] for row in policy["staticSourceHashes"]}
@@ -222,6 +238,16 @@ class CanonicalPolicyTest(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, outer)
         self.assertNotIn("--max-workers=2", outer["argv"])
+        self.assertEqual(
+            [
+                "scripts/quality/build_inputs/run_gradle.sh",
+                ":build-logic:convention:test",
+                "--no-configuration-cache",
+                "--warning-mode",
+                "fail",
+            ],
+            outer["argv"],
+        )
 
         def direct(name: str) -> tuple[str, ...]:
             return (f"--{name}=<value>", f"--{name} <value>", f"-{name} <value>")

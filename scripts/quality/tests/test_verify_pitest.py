@@ -337,6 +337,7 @@ class ExactFloorAndRoutingTest(unittest.TestCase):
             "core/model/src/main/kotlin/Shared.kt",
             "gradlew.bat",
             "gradle/wrapper/gradle-wrapper.properties",
+            "gradle/verification-metadata.xml",
             "scripts/quality/pitest_policy/contracts.py",
             "scripts/agent/verify.sh",
             ".github/workflows/mutation-schedule.yml",

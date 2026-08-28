@@ -1040,6 +1040,8 @@ def _prohibited_matches(root: Path) -> list[str]:
         matches.append("test-task-topology")
     if build.count("maxParallelForks = 5") != 1:
         matches.append("max-parallel-forks")
+    if build.count("timeout.set(Duration.ofMinutes(27))") != 1:
+        matches.append("default-timeout")
     for literal in ("tasks.register<Test>", "forkEvery", "includeTestsMatching", "setIncludePatterns", "retry {"):
         if literal in build:
             matches.append(literal)
@@ -1502,7 +1504,7 @@ def verify_decomposition_data(root: Path, contract: Mapping[str, Any]) -> dict[s
     if prohibited:
         raise DecompositionError(f"prohibited TestKit scheduling surface: {prohibited}")
     return {
-        "defaultTimeoutMinutes": 15,
+        "defaultTimeoutMinutes": 27,
         "mappedMethodCount": len(mappings),
         "mappingSha256": _sha256(_canonical_json(mappings)),
         "maxParallelForks": 5,

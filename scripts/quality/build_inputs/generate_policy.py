@@ -314,7 +314,7 @@ def evidence_entrypoints() -> list[dict[str, object]]:
         entrypoint("android/agent-contracts/contracts", android, "direct", ["scripts/agent/check-contracts.sh", "--ci"], "job-fresh"),
         entrypoint("agent/check-contracts/docs-bridge", "scripts/agent/check_contracts.py", "nested", ["python3", "scripts/quality/build_inputs/docs_gradle_validation_bridge.py", "--check-gradle-tasks"], "job-fresh"),
         entrypoint("android/static-analysis/quality", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", "spotlessCheck", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", ":core:model:checkKotlinAbi", ":core:observability:checkKotlinAbi", ":domain:location:checkKotlinAbi", ":domain:settings:checkKotlinAbi", ":domain:station:checkKotlinAbi", "verifyPublicApiBoundaries", "verifyModuleBoundaries", "productionDependencyInventory", "verifyNoDeprecatedComposeTestApis", "verifyCiRobolectricRuntime", "-Pgasstation.lintTestSources=false", "--warning-mode", "fail", "--continue"], "job-fresh"),
-        entrypoint("android/static-analysis/convention-testkit", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":build-logic:convention:test", "--warning-mode", "fail"], "job-fresh"),
+        entrypoint("android/static-analysis/convention-testkit", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":build-logic:convention:test", "--no-configuration-cache", "--warning-mode", "fail"], "job-fresh"),
         entrypoint("android/lint-tests/test-sources", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":app:lintDemoDebug", ":app:lintProdDebug", "lint", "-Pgasstation.lintTestSources=true", "--warning-mode", "fail", "--continue"], "job-fresh"),
         entrypoint("android/unit-tests/all", android, "direct", ["scripts/quality/build_inputs/run_gradle.sh", ":domain:location:test", ":core:model:test", ":domain:station:test", ":domain:settings:test", ":core:database:testDebugUnitTest", ":core:database:compileDebugAndroidTestKotlin", ":core:datastore:testDebugUnitTest", ":core:designsystem:testDebugUnitTest", ":core:location:testDebugUnitTest", ":core:network:test", ":core:observability:test", ":data:settings:testDebugUnitTest", ":data:station:testDebugUnitTest", ":feature:settings:testDebugUnitTest", ":feature:station-list:testDebugUnitTest", ":feature:watchlist:testDebugUnitTest", ":app:testDemoDebugUnitTest", ":app:testProdDebugUnitTest", ":app:compileDemoDebugAndroidTestKotlin", ":tools:demo-seed:test", "--warning-mode", "fail"], "job-fresh"),
         entrypoint("android/unit-tests/room-schema-child", android, "nested", ["scripts/agent/verify-room-schemas.sh"], "job-fresh"),
@@ -418,7 +418,7 @@ def policy() -> dict[str, object]:
             "version": "11.3.1",
         },
         "configurationCacheChecks": [
-            ["./gradlew", "verifyModuleBoundaries", "verifyPublicApiBoundaries", "verifyPitestConfiguration"],
+            ["./gradlew", "verifyModuleBoundaries", "verifyPublicApiBoundaries"],
             ["./gradlew", ":app:assembleProdRelease"],
         ],
         "docsValidation": {

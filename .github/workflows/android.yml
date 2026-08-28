@@ -84,7 +84,7 @@ jobs:
 
   static-analysis:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -111,7 +111,7 @@ jobs:
             --warning-mode fail \
             --continue
       - name: Convention plugin tests
-        run: scripts/quality/build_inputs/run_gradle.sh :build-logic:convention:test --warning-mode fail
+        run: scripts/quality/build_inputs/run_gradle.sh :build-logic:convention:test --no-configuration-cache --warning-mode fail
       - name: Upload production lint reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

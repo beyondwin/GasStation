@@ -95,7 +95,7 @@
   },
   "rejectedStatuses": ["EQUIVALENT", "MEMORY_ERROR", "NON_VIABLE", "NOT_STARTED", "RUN_ERROR", "STARTED", "TIMED_OUT"],
   "routing": {
-    "allModuleExactPaths": [".github/workflows/android.yml", ".github/workflows/mutation-schedule.yml", "build.gradle.kts", "config/quality/mutation-baseline.json", "config/quality/mutation-policy.json", "gradle.properties", "gradle/libs.versions.toml", "gradlew", "gradlew.bat", "scripts/agent/check_contracts.py", "scripts/agent/test.sh", "scripts/agent/tests/check_contracts_test.sh", "scripts/agent/tests/verify_test.sh", "scripts/agent/verify.sh", "settings.gradle.kts"],
+    "allModuleExactPaths": [".github/workflows/android.yml", ".github/workflows/mutation-schedule.yml", "build.gradle.kts", "config/quality/mutation-baseline.json", "config/quality/mutation-policy.json", "gradle.properties", "gradle/libs.versions.toml", "gradle/verification-metadata.xml", "gradlew", "gradlew.bat", "scripts/agent/check_contracts.py", "scripts/agent/test.sh", "scripts/agent/tests/check_contracts_test.sh", "scripts/agent/tests/verify_test.sh", "scripts/agent/verify.sh", "settings.gradle.kts"],
     "allModulePrefixes": ["build-logic/", "config/quality/mutation-captures/", "config/quality/mutation-evidence/", "config/quality/mutation-transitions/", "core/model/", "gradle/wrapper/", "scripts/quality/"],
     "eventsSelectingAll": ["local-all", "main", "schedule", "tag"],
     "pullRequestMode": "task5-nul-safe-merge-base-diff-v1"

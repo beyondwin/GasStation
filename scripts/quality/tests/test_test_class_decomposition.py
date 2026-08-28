@@ -78,7 +78,7 @@ class TestClassDecompositionTest(unittest.TestCase):
         self.assertEqual(67, receipt["unchangedMethodCount"])
         self.assertEqual(90, receipt["totalMethodCount"])
         self.assertEqual(5, receipt["maxParallelForks"])
-        self.assertEqual(15, receipt["defaultTimeoutMinutes"])
+        self.assertEqual(27, receipt["defaultTimeoutMinutes"])
         self.assertEqual(35, receipt["sealedOuterTimeoutMinutes"])
         self.assertEqual("one-test-task-v1", receipt["testTaskTopology"])
 
@@ -1175,6 +1175,7 @@ class TestClassDecompositionTest(unittest.TestCase):
             (root_source, "abstract class RootQualityTestSupport {", "abstract class RootQualityTestSupport {\n    @Test fun inheritedTest() = Unit"),
             (root_source, "abstract class RootQualityTestSupport {", "abstract class RootQualityTestSupport {\n    @TestFactory fun dynamicTest() = emptyList<Any>()"),
             (build, "maxParallelForks = 5", "maxParallelForks = 6"),
+            (build, "timeout.set(Duration.ofMinutes(27))", "timeout.set(Duration.ofMinutes(15))"),
             (build, "tasks.withType<Test>().configureEach", "tasks.register<Test>(\"shard\")\ntasks.withType<Test>().configureEach"),
             (build, "maxParallelForks = 5", "maxParallelForks = 5\n    filter { includeTestsMatching(\"*Coverage*\") }"),
             (fixture, ".withGradleVersion(EXACT_GRADLE_VERSION)", ".withGradleInstallation(gradleHome)"),
