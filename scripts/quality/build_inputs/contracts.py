@@ -266,7 +266,16 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
 
     android = _require_keys(
         policy["android"],
-        {"buildTools", "compileSdk", "installedInventory", "minSdk", "packages", "repositoryInventory", "targetSdk"},
+        {
+            "buildTools",
+            "compileSdk",
+            "installedInventory",
+            "minSdk",
+            "packages",
+            "repositoryInventory",
+            "requiredPackages",
+            "targetSdk",
+        },
         "android",
     )
     if (android["compileSdk"], android["minSdk"], android["targetSdk"], android["buildTools"]) != (37, 24, 36, "36.0.0"):
@@ -317,6 +326,17 @@ def load_policy(path: Path, *, root: Path) -> dict[str, Any]:
         "system-images;android-36;google_apis;x86_64": "system-images;android-36;google;x86_64",
     }:
         raise BuildInputError("Task-8 logical-to-installed system-image mapping drift")
+    required_packages = _require_sorted_unique(
+        android["requiredPackages"],
+        "android.requiredPackages",
+        key=lambda row: row.get("coordinate", "") if isinstance(row, dict) else "",
+    )
+    if required_packages != [
+        {"coordinate": "build-tools;36.0.0", "revision": "36.0.0"},
+        {"coordinate": "platform-tools", "revision": "NOT RUN"},
+        {"coordinate": "platforms;android-37.0", "revision": "2"},
+    ]:
+        raise BuildInputError("Android build-required package inventory drift")
     installed_inventory = _require_keys(
         android["installedInventory"],
         {"packageXmlFiles", "selectedBinaries"},

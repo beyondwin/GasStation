@@ -37,6 +37,7 @@ from scripts.quality.build_inputs.docs_gradle_validation_bridge import (
     BridgeError,
     _guarded_docs_runtime,
 )
+from scripts.quality.build_inputs.generate_policy import policy as generated_policy
 from scripts.quality.build_inputs.receipts import (
     canonical_receipt,
     load_canonical_receipt,
@@ -46,6 +47,7 @@ from scripts.quality.build_inputs.receipts import (
 from scripts.quality.build_inputs.reproducibility import reproducibility_receipt, safe_zip_comparison
 from scripts.quality.build_inputs.workflow import build_inputs_is_promoted, verify_repository_workflows
 from scripts.quality.verify_build_inputs import (
+    _capture_android_sdk,
     _configuration_cache_commands,
     _run_closed_command,
     verify_repository,
@@ -1212,6 +1214,60 @@ class DocumentationImportBoundaryTest(unittest.TestCase):
 
 
 class ReceiptAndReproducibilityTest(unittest.TestCase):
+    def test_hosted_receipt_captures_only_build_required_android_packages(self) -> None:
+        policy = generated_policy()
+        self.assertEqual(
+            [
+                {"coordinate": "build-tools;36.0.0", "revision": "36.0.0"},
+                {"coordinate": "platform-tools", "revision": "NOT RUN"},
+                {"coordinate": "platforms;android-37.0", "revision": "2"},
+            ],
+            policy["android"]["requiredPackages"],
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            sdk = Path(directory)
+            package_details = {
+                "build-tools;36.0.0": ("36.0.0", "Android SDK Build-Tools 36"),
+                "platform-tools": ("37.0.0", "Android SDK Platform-Tools"),
+                "platforms;android-37.0": ("2", "Android SDK Platform 37.0"),
+            }
+            for coordinate, (revision, display_name) in package_details.items():
+                package_xml = sdk.joinpath(*coordinate.split(";"), "package.xml")
+                package_xml.parent.mkdir(parents=True, exist_ok=True)
+                revision_nodes = "".join(
+                    f"<{name}>{value}</{name}>"
+                    for name, value in zip(("major", "minor", "micro"), revision.split("."))
+                )
+                package_xml.write_text(
+                    "<repository><localPackage path='"
+                    f"{coordinate}'><revision>{revision_nodes}</revision>"
+                    f"<display-name>{display_name}</display-name>"
+                    "</localPackage></repository>\n",
+                    encoding="utf-8",
+                )
+            for relative in (
+                "build-tools/36.0.0/aapt2",
+                "build-tools/36.0.0/zipalign",
+                "platform-tools/adb",
+                "emulator/emulator",
+            ):
+                executable = sdk / relative
+                executable.parent.mkdir(parents=True, exist_ok=True)
+                executable.write_bytes(relative.encode("utf-8"))
+
+            with (
+                mock.patch.dict(os.environ, {"ANDROID_SDK_ROOT": str(sdk)}, clear=False),
+                mock.patch("scripts.quality.verify_build_inputs._tool_version", return_value="version"),
+            ):
+                receipt = _capture_android_sdk(policy)
+
+        self.assertIsNotNone(receipt)
+        self.assertEqual(
+            ["build-tools;36.0.0", "platform-tools", "platforms;android-37.0"],
+            [row["coordinate"] for row in receipt["packages"]],
+        )
+
     def test_receipt_rejects_duplicate_secret_absolute_path_and_stale_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

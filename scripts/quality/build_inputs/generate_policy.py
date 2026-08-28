@@ -406,6 +406,11 @@ def policy() -> dict[str, object]:
                 {"coordinate": "system-images;android-28;default;x86_64", "logicalIdentity": "system-images;android-28;aosp;x86_64", "revision": "4", "runtimeEvidence": "NOT RUN"},
                 {"coordinate": "system-images;android-36;google_apis;x86_64", "logicalIdentity": "system-images;android-36;google;x86_64", "revision": "7", "runtimeEvidence": "NOT RUN"},
             ],
+            "requiredPackages": [
+                {"coordinate": "build-tools;36.0.0", "revision": "36.0.0"},
+                {"coordinate": "platform-tools", "revision": "NOT RUN"},
+                {"coordinate": "platforms;android-37.0", "revision": "2"},
+            ],
             "repositoryInventory": android_repository_inventory(),
             "targetSdk": 36,
         },
