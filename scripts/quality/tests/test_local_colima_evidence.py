@@ -627,7 +627,7 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                 "outerTimeoutMinutes": 35,
                 "property": "gasstation.task9LocalLinuxConventionTestTimeoutMinutes",
                 "propertyValue": "35",
-                "repositoryAndNestedTimeoutMinutes": 27,
+                "repositoryAndNestedTimeoutMinutes": 40,
                 "dispatchSha256": "94346faebdd4989670c3518513cf0998bcf871c6775d2c8d71687a1200692930",
                 "lanesSha256": "763bf9c30b2582b8b09a1ee4b5ce25a6234baf8c10d49238083a1e7c56015bd3",
                 "taskPath": ":build-logic:convention:test",

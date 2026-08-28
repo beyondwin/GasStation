@@ -661,7 +661,7 @@ class TestKitFailureEvidenceTest(unittest.TestCase):
             self.assertEqual("attempt-000001", final_summary["attemptId"])
             self.assertEqual(marker["markerSha256"], final_summary["markerSha256"])
             self.assertEqual(2100, final_summary["testContract"]["outerTimeoutSeconds"])
-            self.assertEqual(1620, final_summary["testContract"]["repositoryAndNestedTimeoutSeconds"])
+            self.assertEqual(2400, final_summary["testContract"]["repositoryAndNestedTimeoutSeconds"])
             self.assertEqual(5, final_summary["testContract"]["maxParallelForks"])
             self.assertEqual(90, final_summary["testContract"]["expectedTests"])
             self.assertEqual(52, final_summary["testContract"]["expectedOwners"])
