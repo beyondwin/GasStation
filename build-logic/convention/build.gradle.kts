@@ -428,7 +428,9 @@ tasks.withType<Test>().configureEach {
     require((outerTimeoutProperty == null) == (outerTimeoutMarker == null)) {
         "Task-9 local Linux outer timeout property and ownership marker must be configured together"
     }
-    var timeoutMinutes = 15L
+    // Round-21 sealed Linux LPT bound is 1620s; repository/CI outer suite uses 27 minutes.
+    // Nested TestKit module Test tasks remain 15 minutes via application/library/JVM conventions.
+    var timeoutMinutes = 27L
     if (outerTimeoutProperty != null) {
         require(outerTimeoutProperty == "35") { "Task-9 local Linux outer timeout must be exact 35" }
         require(

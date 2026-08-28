@@ -677,7 +677,7 @@ def policy() -> dict[str, object]:
                 "outerTimeoutMinutes": 35,
                 "property": OUTER_TIMEOUT_PROPERTY,
                 "propertyValue": "35",
-                "repositoryAndNestedTimeoutMinutes": 15,
+                "repositoryAndNestedTimeoutMinutes": 27,
                 "dispatchSha256": DISPATCH_SHA256,
                 "lanesSha256": LANES_SHA256,
                 "taskPath": ":build-logic:convention:test",
