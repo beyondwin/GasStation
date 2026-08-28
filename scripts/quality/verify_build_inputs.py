@@ -540,12 +540,14 @@ def _capture_android_sdk(policy: Mapping[str, Any]) -> dict[str, Any] | None:
     tool_specs: tuple[tuple[str, Path, list[str] | None], ...] = (
         ("aapt2", sdk_root / "build-tools" / build_tools / "aapt2", ["version"]),
         ("adb", sdk_root / "platform-tools" / "adb", ["version"]),
-        ("emulator", sdk_root / "emulator" / "emulator", ["-version"]),
         ("zipalign", sdk_root / "build-tools" / build_tools / "zipalign", None),
     )
     tools: list[dict[str, Any]] = []
     for name, executable, version_args in tool_specs:
-        resolved = executable.resolve(strict=True)
+        try:
+            resolved = executable.resolve(strict=True)
+        except OSError as error:
+            raise BuildInputError(f"Android SDK tool is missing: {name}") from error
         if not resolved.is_relative_to(sdk_root) or not resolved.is_file():
             raise BuildInputError(f"Android SDK tool escapes SDK root: {name}")
         tools.append(

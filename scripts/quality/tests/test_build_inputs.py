@@ -1250,7 +1250,6 @@ class ReceiptAndReproducibilityTest(unittest.TestCase):
                 "build-tools/36.0.0/aapt2",
                 "build-tools/36.0.0/zipalign",
                 "platform-tools/adb",
-                "emulator/emulator",
             ):
                 executable = sdk / relative
                 executable.parent.mkdir(parents=True, exist_ok=True)
@@ -1267,6 +1266,7 @@ class ReceiptAndReproducibilityTest(unittest.TestCase):
             ["build-tools;36.0.0", "platform-tools", "platforms;android-37.0"],
             [row["coordinate"] for row in receipt["packages"]],
         )
+        self.assertEqual(["aapt2", "adb", "zipalign"], [row["name"] for row in receipt["tools"]])
 
     def test_receipt_rejects_duplicate_secret_absolute_path_and_stale_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
