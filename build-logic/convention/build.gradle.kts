@@ -507,6 +507,12 @@ tasks.withType<Test>().configureEach {
     systemProperty("gasstation.convention.test.maxParallelForks", maxParallelForks)
     systemProperty("gasstation.convention.test.dispatchSha256", task9OrderedDispatchSha256)
     systemProperty("gasstation.convention.test.lanesSha256", task9OrderedLanesSha256)
+    // Hosted ubuntu-24.04 has ~4 cores. Five TestKit forks each spawn nested
+    // Gradle --max-workers=2 and the suite never finishes (15m/27m/40m all abort
+    // mid-inventory). Keep the sealed 5-fork contract/property; cap CI workers at 2.
+    if (providers.environmentVariable("GITHUB_ACTIONS").orNull == "true") {
+        maxParallelForks = 2
+    }
 
     val task9ObservedWorkers = mutableMapOf<String, Int>()
     val task9ObservedOwnerSequences = mutableMapOf<Int, MutableList<String>>()
