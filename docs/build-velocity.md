@@ -1,6 +1,6 @@
-# Build Velocity
+# 빌드 속도
 
-GasStation keeps build-speed decisions tied to correctness checks. `org.gradle.parallel=true`, `org.gradle.caching=true`, and `org.gradle.configuration-cache=true` are currently enabled in `gradle.properties`, so the validation question is whether those defaults remain correct and documented.
+속도 설정은 결과가 맞을 때만 유지한다. 지금 `gradle.properties`는 `org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`다. 검증이 깨지면 제품 코드보다 이 경계를 먼저 본다.
 
 ## Local Timing Snapshot
 

@@ -1,6 +1,6 @@
-# Performance
+# 성능
 
-GasStation measures performance through the deterministic `demo` flavor. The `prod` flavor is not used for committed performance numbers because real server, network, and live location state would make results environment-dependent.
+숫자는 재현 가능한 `demo` 경로의 물리 기기 결과다. `prod`는 실서버·네트워크·위치가 섞여서 커밋 숫자로 쓰지 않는다.
 
 ## Hero Journeys
 

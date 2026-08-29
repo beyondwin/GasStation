@@ -1,43 +1,41 @@
 # 검증 매트릭스
 
-이 문서는 GasStation의 실제 검증 명령과 실행 범위를 설명하는 단일 출처입니다. "상황별로 어떤 명령을 어디까지 돌리면 되는가"를 바로 보여주는 실행 체크리스트로 사용합니다.
+어떤 명령을 돌릴지는 여기서만 고른다. 테스트가 무엇을 막는지는 [테스트 전략](test-strategy.md)이다.
 
 ## 전제
 
-- Gradle과 Robolectric 검증은 Java 21 이상 기준입니다. 앱의 Java/Kotlin bytecode target은 JVM 17입니다.
-- `prod` 앱을 실제로 실행하려면 사용자 로컬 `opinet.apikey`가 필요합니다. `demo` 실행과 assemble에는 키가 필요 없습니다.
-- benchmark 모듈은 `demo` 데이터를 대상으로 동작합니다.
+- Gradle과 Robolectric은 Java 21 이상. 앱 bytecode는 JVM 17.
+- `prod` 실행에는 `opinet.apikey`가 필요하다. `demo` 빌드와 assemble에는 키가 없다.
+- benchmark는 `demo` 데이터를 쓴다.
 
-## 문서/계약 설명 갱신 확인
+## 문서 변경
 
-문서 변경은 세 가지로 나눠 확인합니다.
+### 1. 이력만 바꿈
 
-### 1. 이력/근거 문서만 변경
-
-`docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`처럼 현재 계약이 아닌 이력이나 근거 문서만 바꿨다면 수정한 파일만 diff check합니다.
+`docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`만 바꿨다면 그 파일만 본다.
 
 ```bash
 git diff --check -- <changed files>
 ```
 
-이 경우 Gradle 테스트는 기본 필수가 아닙니다. 다만 문서가 현재 동작, 현재 모듈 경계, 현재 명령을 새로 주장한다면 아래 live 문서 변경 기준으로 올려 봅니다.
+Gradle은 기본이 아니다. 지금 동작이나 명령을 새로 주장하면 아래 live 기준으로 올린다.
 
-### 2. live 계약 문서 변경
+### 2. live 문서
 
-코드를 바꾸지 않고 architecture, state, offline, module contract, workflow, test strategy, verification matrix 같은 live 문서를 갱신했을 때 최소 확인입니다.
+코드를 안 바꾸고 계약 문서를 고쳤을 때 최소 확인이다.
 
 ```bash
 git diff --check -- README.md AGENTS.md .impeccable.md CHANGELOG.md CONTRIBUTING.md docs/agent-workflow.md docs/project-reading-guide.md docs/architecture.md docs/state-model.md docs/offline-strategy.md docs/test-strategy.md docs/verification-matrix.md docs/module-contracts.md docs/security-trade-offs.md docs/performance.md docs/deployment.md docs/adr/*.md docs/release-notes/*.md
 ```
 
-문서가 파일 경로, Gradle task, 활성 모듈, CI job을 언급한다면 실제 표면도 확인합니다.
+경로, Gradle task, 모듈, CI job을 지목하면 실제 표면도 본다.
 
 ```bash
 sed -n '1,220p' settings.gradle.kts
 find docs -maxdepth 3 -type f | sort
 ```
 
-문서 갱신이 이미 구현된 key handling, cleartext, backup, cache/event/state, location, brand label 계약을 설명한다면 아래 관련 테스트도 선택합니다.
+키, cleartext, backup, 캐시, 위치, 브랜드 계약을 설명하면 관련 테스트를 고른다.
 
 ```bash
 ./gradlew \
@@ -56,22 +54,18 @@ find docs -maxdepth 3 -type f | sort
   :app:testProdDebugUnitTest
 ```
 
-이 조합은 `StationEvent` 계약, retry/pruning 정책, station-list 상태 분리, watchlist event, 주소 lookup, 브랜드 label, cleartext resource, Android backup 비활성화, prod secret fail-fast 의미를 다시 확인합니다.
+### 3. README, 릴리스, 성능
 
-### 3. README, demo story, 릴리스, 성능 문서 변경
-
-README, release notes, deployment, performance 문서가 현재 실행 결과나 측정값을 말한다면 diff check에 더해 해당 명령을 실행하거나 기존 증거를 명시합니다.
+실행 결과나 측정값을 말하면 diff check에 더해 그 명령을 실행하거나 기존 증거를 적는다.
 
 ```bash
 git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md docs/performance.md docs/verification-matrix.md docs/release-notes/*.md
 ```
 
-대표 기준:
-
-- README의 빠른 검증 명령을 바꿨다면 같은 명령이나 더 좁은 관련 명령을 실행합니다.
-- demo story나 screenshot 전제를 바꿨다면 `:app:assembleDemoDebug` 또는 관련 UI test/benchmark 전제를 확인합니다.
-- 릴리스/배포 절차를 바꿨다면 `docs/deployment.md`의 절차와 이 문서의 릴리스/배포 확인 명령을 함께 봅니다.
-- 성능 수치나 benchmark journey를 바꿨다면 `docs/performance.md`와 이 문서의 Hero Benchmark Evidence 기준을 함께 봅니다.
+- README 명령을 바꿨으면 그 명령이나 더 좁은 관련 명령을 돌린다.
+- demo story나 screenshot을 바꿨으면 `:app:assembleDemoDebug` 또는 관련 UI test를 본다.
+- 배포 절차는 `docs/deployment.md`와 이 문서의 릴리스 절을 같이 본다.
+- 성능 숫자는 `docs/performance.md`와 이 문서의 Hero Benchmark Evidence를 같이 본다.
 
 ## 빠른 로컬 확인
 

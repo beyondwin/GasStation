@@ -1,16 +1,16 @@
 # 아키텍처
 
-이 문서는 현재 코드 기준 GasStation의 모듈 그래프와 런타임 흐름을 설명하는 단일 출처입니다. 제품 소개나 검증 명령은 `README.md`와 `docs/verification-matrix.md`에 두고, 여기서는 "어디가 무엇을 소유하는가"와 "데이터가 어떻게 흐르는가"에 집중합니다.
+어디가 무엇을 맡고, 데이터가 어떻게 흐르는지 설명한다. 제품 소개는 `README.md`, 검증 명령은 `docs/verification-matrix.md`다.
 
-## 용어 정리
+## 용어
 
 | 용어 | 뜻 |
 | --- | --- |
-| watchlist(관심) | UI에서 저장한 주유소를 비교하는 기능. 코드와 모듈 이름은 `watchlist`, 화면 문구는 "관심"을 사용 |
-| 스냅샷 | 특정 캐시 버킷에 대해 마지막으로 저장한 주유소 목록 |
-| 스냅샷 마커 | `station_cache_snapshot` 한 행. 빈 결과도 "성공한 조회"로 구분하기 위해 따로 유지 |
-| stale | 저장된 결과가 `StationCachePolicy`의 freshness 경계를 넘긴 상태 |
-| 주소 라벨 | 현재 좌표를 지오코더로 변환한 표시용 주소. 목록에서는 `서울특별시 강남구 역삼동`처럼 행정동까지만 보여줌 |
+| watchlist(관심) | 저장한 주유소 비교. 코드 이름은 `watchlist`, 화면 문구는 "관심" |
+| 스냅샷 | 한 캐시 버킷의 마지막 성공 목록 |
+| 스냅샷 마커 | `station_cache_snapshot` 한 행. 빈 결과도 성공으로 남긴다 |
+| stale | `StationCachePolicy` freshness를 넘긴 상태 |
+| 주소 라벨 | 표시용 주소. 목록에는 행정동까지만 보여준다 |
 
 ## 모듈 그래프
 
@@ -70,136 +70,96 @@ flowchart LR
     benchmark["benchmark"] --> app
 ```
 
-## 모듈별 책임
+그래프는 Gradle `implementation(project(...))`와 benchmark `targetProjectPath`를 따른다. `core:model`은 좌표·거리·가격·브랜드·유종 enum을 공유하므로 network, designsystem, settings가 `domain:station`을 거치지 않고 쓴다. 위치는 `feature:station-list -> domain:location -> core:location`만 탄다. `data:station`은 `core:location`을 모른다.
+
+## 모듈 책임
 
 | 모듈 | 책임 |
 | --- | --- |
-| `app` | Hilt 조립, startup hook 실행, navigation, flavor별 바인딩, first-content startup reporting bridge, 외부 지도 런처 연결, Logcat 기반 이벤트 로거 연결, flavor별 `CrashReporter` 구현(NoOp/Logcat) Hilt 바인딩 |
-| `feature:station-list` | `LocationStateMachine` 위치/address generation, `StationSearchOrchestrator` 관찰 session, `RefreshCoordinator` 단일 work, `StationListCommandQueue` 승인형 FIFO, `StationListStateInputs`/`StationListStateAssembler` 순수 투영, 얇은 `StationListViewModel`의 action/lifecycle 조정 |
-| `feature:settings` | 설정 요약 목록과 상세 선택 화면 렌더링, 같은 `SettingsViewModel` 공유 |
-| `feature:watchlist` | 저장한 주유소 비교 화면 렌더링 |
-| `domain:location` | `LocationRepository`, 위치 permission/result 모델, 위치 조회/availability 유스케이스 |
-| `domain:settings` | `SettingsRepository`, `UserPreferences`, 관찰/업데이트 유스케이스 |
-| `domain:station` | `StationRepository`, 검색/비교 유스케이스, 도메인 모델, `StationEvent`/`StationEventLogger` 이벤트 계약 |
-| `data:settings` | DataStore data source를 domain `UserPreferences`로 매핑하는 설정 저장소 구현 |
-| `data:station` | Room 스냅샷/히스토리/watchlist와 원격 조회를 조합하는 저장소 구현, 검색 결과/watchlist 읽기 모델 조립, 일시적 refresh 실패 1회 재시도, 성공 refresh 이후 캐시 정리 |
-| `core:model` | `Coordinates`, `DistanceMeters`, `MoneyWon` 값 객체, `Coordinates.distanceTo`, `Brand.fromCode`, `Brand`, `BrandFilter`, `FuelType`, `MapProvider`, `SearchRadius`, `SortOrder` 공유 enum vocabulary |
-| `core:observability` | `CrashReporter` 같은 SDK-agnostic 관찰/진단 계약 |
-| `core:designsystem` | `GasStationTheme`, Urban Signal 색상/타이포/spacing token, bottom/top chrome, metric/row/guidance 공유 UI primitive, 실제 브랜드 drawable 매핑 |
-| `core:location` | `domain:location` 구현체, Android 위치 provider, availability flow, API 33+ 지오코더 callback과 pre-33 fallback, Android 주소 후보를 domain 정규화 규칙으로 변환, `DemoLocationOverride` 계약, repository/provider Hilt 바인딩 |
-| `core:network` | direct Opinet과 proxy 두 endpoint 모드를 `StationNetworkSource` 계약으로 추상화(`NetworkStationFetcher` vs `ProxyStationFetcher`), Opinet Retrofit 서비스, 로컬 KATEC 변환, 원격 fetcher. `FuelType`, `SearchRadius` 같은 공유 검색 입력만 받아 원격 DTO를 정규화. endpoint 모드와 base URL은 `app`이 주입한 `NetworkRuntimeConfig`만 따름 |
+| `app` | Hilt, startup, navigation, flavor, 외부 지도, 이벤트 로거, CrashReporter 바인딩 |
+| `feature:station-list` | 위치 generation, 관찰 session, refresh work, FIFO command, 순수 상태 투영, 얇은 ViewModel |
+| `feature:settings` | 설정 요약/상세. 같은 ViewModel 공유 |
+| `feature:watchlist` | 저장 주유소 비교 |
+| `domain:location` | 위치 계약과 use case |
+| `domain:settings` | 설정 계약과 `UserPreferences` |
+| `domain:station` | 검색/비교 계약, `StationEvent` |
+| `data:settings` | DataStore → domain 매핑 |
+| `data:station` | Room 스냅샷/히스토리/관심과 원격 조회 조합, 재시도, 캐시 정리 |
+| `core:model` | 값 객체와 공유 enum |
+| `core:observability` | SDK에 묶이지 않은 관찰 계약 |
+| `core:designsystem` | Urban Signal 토큰, chrome, 브랜드 drawable |
+| `core:location` | 위치 provider, 지오코더, demo override |
+| `core:network` | direct Opinet / proxy fetcher. 모드 선택은 `app` |
 | `core:database` | Room DB, DAO, migration |
-| `core:datastore` | storage-local `StoredUserPreferences` DataStore와 커스텀 serializer. 선호값은 primitive/string enum name으로 저장 |
-| `tools:demo-seed` | Opinet 결과를 기준으로 demo seed JSON을 다시 생성하는 JVM CLI |
-| `benchmark` | `demo` 경로를 대상으로 startup-to-first-content, list scroll, refresh, watchlist 진입 macrobenchmark와 baseline profile journey 측정 |
+| `core:datastore` | 설정 DTO 저장 |
+| `tools:demo-seed` | demo seed JSON 생성 |
+| `benchmark` | demo macrobenchmark, baseline profile |
 
-## 의존성 해석 기준
+어디에 두지 말지는 [모듈 계약](module-contracts.md)이다.
 
-문서의 모듈 그래프는 Gradle 프로젝트 간 연결(`implementation(project(...))`, benchmark의 `targetProjectPath`)을 기준으로 맞춥니다. `core:model`은 좌표/거리/가격 값 객체, 거리 계산, 브랜드 fallback, 브랜드/유종/설정 enum vocabulary를 공유하므로 `core:network`, `core:designsystem`, `domain:settings`, `data:station`이 `domain:station`을 거치지 않고 이 모듈에 직접 의존합니다. `domain:settings`의 `UserPreferences` public model은 `core:model` enum을 노출하므로 `domain:settings`는 `core:model`을 public API로 게시합니다. `core:datastore`는 storage-local DTO만 저장하고, `data:settings`가 이를 `domain:settings.UserPreferences`로 매핑하므로 storage module은 domain settings model에 의존하지 않습니다. `core:designsystem`은 `Brand`와 `BrandFilter`를 리소스/표시 라벨에 매핑하지만 주유소 검색 정책이나 화면 상태는 소유하지 않습니다. 반대로 저장소 구현(`data:station`)은 위치 인프라를 직접 알 필요가 없으므로 `core:location`에 의존하지 않고, 위치는 `feature:station-list -> domain:location -> core:location` 경로로만 들어옵니다.
+## UI
 
-## Presentation hierarchy
+공통 색은 canvas `#FFFCF2`, chrome `#222222`, signal `#FFDC00`이다. 가격·거리는 metric, Nearby/Watchlist는 borderless row, Settings는 flat row, 권한/GPS/empty/failure는 guidance다. 화면별 문구와 분기는 `feature:*`가 맡는다.
 
-화면 정보 위계는 `core:designsystem`의 공통 primitive를 먼저 통과합니다. canvas는 `#FFFCF2`, black chrome은 `#222222`, yellow decision signal은 `#FFDC00`입니다. 가격과 거리처럼 비교 판단에 쓰이는 숫자는 metric primitive를 사용하고, Nearby/Watchlist는 borderless row, Settings는 flat row, 권한/GPS/loading/empty/failure는 guidance primitive, stale/approximate는 status banner로 표현합니다.
+- Nearby: 32sp 가격이 먼저. 브랜드는 아이콘만.
+- Watchlist: 28sp 가격, 108–116dp row, 360dp × 800dp에서 5행. 200% 글꼴이면 늘어나고 스크롤된다.
+- Settings: shared row. 저장은 `domain:settings` use case.
+- `app`: `주변·관심·설정` bottom nav. SettingsDetail에서만 숨긴다.
 
-이 primitive들은 배치와 텍스트 역할만 소유합니다. "브랜드 label을 숨긴다", "GPS가 loading보다 먼저 보인다", "어떤 실패 문구를 쓴다" 같은 화면별 판단은 계속 `feature:*`가 소유합니다.
+RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`다. 실제 identity는 세 Brand를 유지하고, 필터만 `알뜰`로 묶는다.
 
-화면별 핵심 계약:
+Launcher, monochrome, splash는 `ic_brand_drop` 같은 물방울이다. `installSplashScreen()`은 `super.onCreate()` 직전이다. 첫 frame이 준비되면 180ms fade/scale로 빠져나가고, 시스템 애니메이션이 꺼져 있으면 바로 제거한다. splash는 권한·seed·네트워크를 기다리지 않는다.
 
-- `feature:station-list`: 32sp 가격을 첫 번째 읽기 대상으로 두고, 거리와 역명을 이어 보여줍니다. 브랜드는 실제 drawable 아이콘만 노출하고 visible brand label은 렌더링하지 않습니다.
-- Station-list 파일 소유: `StationListScreen.kt`는 screen scaffold와 refresh action을, `StationListFilterRail.kt`와 `StationListFilterMenu.kt`는 filter chip과 anchored menu를, `StationListCards.kt`는 borderless row와 watch toggle을, `StationListPriceHistoryUiModel.kt`는 명시적인 가격 이력 표시 상태를, `StationListStates.kt`는 permission/GPS/loading/empty/failure 안내를 맡습니다. 동시성은 `LocationStateMachine.kt`, `StationSearchOrchestrator.kt`, `RefreshCoordinator.kt`, `StationListCommandQueue.kt`가 분리해 소유합니다. `StationListStateInputs.kt`는 typed immutable input과 `projectStationSearchResult`의 station item identity projection을, `StationListStateAssembler.kt`는 부수효과 없는 최종 UI state 조합을, `StationListViewModel.kt`는 action routing·collaborator lifecycle 수집·결과 번역·assembler 출력 게시를 맡습니다.
-- `feature:watchlist`: 28sp 가격과 108–116dp 기본 row로 저장 항목을 비교합니다. 실제 brand icon만 보여주며 visible label은 반복하지 않고, 200% 글꼴에서는 row가 확장되어 scroll됩니다.
-- `feature:settings`: 설정 main/detail 모두 shared row rhythm을 쓰되, 값 저장은 기존 `domain:settings` update use case 경로를 유지합니다.
-- `app`: `주변·관심·설정` bottom navigation의 tab별 state/scroll을 `saveState`/`restoreState`로 보존하고 SettingsDetail에서만 bottom navigation을 숨깁니다.
+## 런타임
 
-브랜드 자산은 생성하거나 recolor하지 않습니다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`, SKE/GSC/HDO/SOL/E1G/SKG는 각 checked-in drawable을 사용합니다.
+### 목록
 
-실제 주유소 identity는 `Brand.RTO`, `Brand.RTX`, `Brand.NHO`로 보존합니다. 선택 UI만 `BrandFilter.ALTEUL` 하나로 그룹화하고 `matches()`가 세 identity를 모두 포함합니다. 화면에 표시하는 이름과 drawable은 계속 개별 `Brand`가 결정하며, `BrandFilter.ETC`는 선택 목록의 마지막에 둡니다.
-
-## Launch splash
-
-Launcher, themed monochrome, splash는 `ic_brand_drop`의 같은 refined-droplet path geometry를 공유하고 각 surface는 inset과 색상만 소유합니다. `MainActivity`는 `super.onCreate()` 직전에 AndroidX `installSplashScreen()`을 호출하며, API 24 이상 모든 버전은 launcher yellow 위에 정적 검정 물방울을 표시합니다. API 31+ AVD settle은 matched-pair startup gate를 만족시키기 위해 제거했고 framework splash도 같은 static foreground를 해석합니다. 첫 Activity frame이 준비되면 기존 app-owned `SplashExitAnimator`가 180ms fade/scale exit를 적용하며, system animator scale이 0이면 즉시 제거합니다. Splash는 permission, location, demo seed, preferences, network readiness를 기다리지 않습니다.
-
-## 런타임 흐름
-
-### 1. 목록 화면
-
-1. `GasStationNavHost`가 시작 화면으로 `StationListRoute`를 띄웁니다.
-2. Route는 위치 권한 상태를 `StationListViewModel` 액션으로 전달하고, started 구간에서 위치 availability 수집을 시작합니다. 앱 진입은 Android permission dialog를 열지 않습니다. 권한 안내 CTA만 permission request를 시작하며, terminal denial이 두 번 이상이고 rationale을 더 보여 줄 수 없으면 같은 CTA가 앱 설정 화면을 엽니다.
-3. ViewModel은 ViewModel-scoped `LocationStateMachine`으로 `ObserveLocationAvailabilityUseCase`를 다루고, 같은 machine을 공유하는 ViewModel-scoped `RefreshCoordinator`가 새로고침 시점의 `GetCurrentLocationUseCase`를 호출합니다. ViewModel은 별도로 `ObserveUserPreferencesUseCase`를 구독하며, DataStore의 첫 선호값 emission이 readiness 경계이므로 Nearby는 그 전 `UserPreferences.default()`를 렌더링하거나 action에 쓰지 않습니다.
-4. `LocationStateMachine`은 permission, GPS, 위치 요청, 주소 요청 generation을 한 동기화 경계에서 관리합니다. provider 호출은 lock 밖에서 suspend하고 복귀 뒤 exact active token을 확인해 상태를 원자적으로 commit합니다. 정밀 권한이 approximate로 낮아지면 좌표·주소·recovery refresh를 제거하며, superseded 결과는 조용히 폐기합니다. 위치 조회가 성공하면 현재 좌표를 먼저 검색에 연결하고, `RefreshCoordinator`가 caller/ViewModel scope에 시작한 `resolveAddressLabel`은 refresh와 indicator finalization을 막지 않는 표시용 context로 뒤따릅니다.
-5. `StationListViewModel`은 permission, known/enabled GPS, 현재 좌표, loaded preferences가 모두 준비된 경우에만 검색 입력(`radius`, `fuelType`, `brandFilter`, `sortOrder`)으로 eligible `StationQuery`를 만듭니다. denied permission은 body state에서 가장 먼저 평가되어 demo override, retained coordinate, cache result, auto/manual refresh보다 우선합니다. GPS 비활성화는 permission과 별도 body state와 location-settings command를 사용합니다. `StationSearchOrchestrator`는 usable location으로 만든 query만 관찰하고 `ObserveNearbyStationsUseCase` 결과, cache snapshot state, pending blocking refresh failure를 조합합니다.
-6. 쓰기 work는 `LocationStateMachine -> RefreshCoordinator -> RefreshNearbyStationsUseCase` 경로를 따릅니다. coordinator는 한 개의 exact active-work identity와 job을 유지하고 completion cleanup을 시작 전에 등록하며, 위치 획득 뒤·refresh 전·terminal 결과 전달 전에 latest eligible query를 재검증합니다. `RefreshStarting(query)`를 inline suspending callback으로 먼저 전달해 `StationSearchOrchestrator.ensureActiveQuery(query)`가 즉시 활성화되므로 빠른 fake/실패도 새 query에 귀속됩니다. 읽기 관찰은 별도로 `StationSearchOrchestrator -> ObserveNearbyStationsUseCase` 경로를 유지합니다. repository 예외와 정상 completion은 active `ObservationSession(query, retryGeneration)` 안에서 failure가 되고 collector는 유지됩니다. 같은 query retry는 마지막 snapshot을 보존해 관찰만 재구독하고 remote refresh를 시작하지 않습니다.
-7. `DefaultStationRepository.observeNearbyStations()`는 atomic Room bucket snapshot 아래에서 freshness ticker, watch 상태, 가격 히스토리를 결합해 `StationSearchResult`를 만듭니다. marker/row 원자성, 시간 경계, latest refresh persistence의 상세 정책은 [오프라인 전략](offline-strategy.md)이 소유합니다.
-8. `RefreshCoordinator.state`가 loading/refreshing을 소유하고, ViewModel은 사용자 action dispatch, coordinator 결과를 orchestrator/analytics/FIFO command로 번역하며 collaborator flow의 lifecycle 수집과 assembler 출력 게시만 맡습니다. ViewModel은 필드를 inline 생성하거나 refresh/query/queue 동시성을 소유하지 않습니다. `projectStationSearchResult`는 metadata-only emission에서 이미 매핑한 station list identity를 재사용하고, `StationListStateAssembler`는 location, preference, refresh, search, blocking failure, FIFO command의 typed immutable snapshot을 I/O·clock·Flow·logging 없이 최종 `StationListUiState`로 조합하며 station/command list instance도 그대로 보존합니다. body 우선순위는 permission -> GPS -> preference failure/loading -> snapshot 없는 blocking failure/initial loading -> results이고, `hasCachedSnapshot`이 있는 빈 결과는 refresh 중에도 settled empty입니다. FIFO head는 suspend handler가 정상 반환하고 coroutine이 active일 때만 exact ID로 acknowledge됩니다. 실패/취소한 head는 다음 START/route attachment에 남아 있으므로 외부 side effect는 at-least-once이고 process-death 보존은 약속하지 않습니다.
+1. `GasStationNavHost`가 `StationListRoute`를 연다. 입장만으로 권한 dialog를 열지 않는다. CTA가 요청하고, 거부가 반복되면 앱 설정으로 바뀐다.
+2. DataStore 첫 설정값이 오기 전에는 Nearby가 `UserPreferences.default()`를 쓰지 않는다.
+3. 권한, GPS, 좌표, 설정이 준비되면 `StationQuery`가 생긴다. 권한 거부는 demo 좌표나 캐시보다 먼저다.
+4. 읽기는 `StationSearchOrchestrator`가 관찰하고, 쓰기는 `RefreshCoordinator`가 한 번에 하나씩 한다.
+5. 저장소는 마커와 행을 한 트랜잭션으로 읽어 `StationSearchResult`를 만든다. 캐시 정책은 [오프라인 전략](offline-strategy.md)이다.
+6. `StationListStateAssembler`가 최종 `StationListUiState`를 만든다. body 순서는 permission → GPS → 설정 실패/로딩 → 스냅샷 없는 실패/로딩 → 결과다.
 
 <!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 
-첫 usable content가 렌더링되면 `feature:station-list`가 순수 policy로 이 상태를 판단하고, `app`의 Compose host가 그 신호를 받아 `reportFullyDrawn()`을 한 번 호출합니다. 이 연결은 startup metric 보고용이며, 검색 정책이나 cache/stale 판단은 계속 feature/data/domain 경계에 남습니다.
+첫 쓸 수 있는 내용이 그려지면 `app`이 `reportFullyDrawn()`을 한 번 호출한다. 검색 정책은 이 신호와 무관하다.
 
-### 2. 새로고침과 실패 처리
+### 새로고침
 
-1. 새로고침은 먼저 현재 위치를 얻습니다.
-2. 위치 조회 계약은 `domain:location`의 `GetCurrentLocationUseCase`가 담당하고, 실제 구현은 `core:location`의 `DefaultLocationRepository`가 제공합니다.
-3. `demo`에서는 `DemoLocationOverride`가 approximate 또는 precise grant 뒤에만 고정 좌표를 공급하고, 새로고침 자체는 seed 기반 `SeedStationRemoteDataSource`를 통해 같은 저장소 갱신 경로를 탑니다. permission denial은 이 override보다 먼저 종료됩니다.
-4. `prod`에서는 `ForegroundLocationProvider`가 성공, timeout, unavailable, permission denied, 예외를 `LocationLookupResult`로 돌려줍니다.
-5. `core:network`은 direct/proxy transport failure를 typed reason으로 분류하고, `data:station`의 `StationRetryPolicy`가 retryable reason의 한 번 재시도를 단독 소유합니다. `core:observability`의 safe reporter는 SDK-neutral 진단만 제공하며 flavor SDK binding은 `app`이 조립합니다.
-6. 성공은 key별 latest generation만 guarded transaction에서 스냅샷과 가격 히스토리를 갱신하고, `StationCachePolicy.retainFor` 기준 7일보다 오래된 캐시 행과 스냅샷 마커를 정리합니다. superseded completion은 정상적으로 조용히 끝납니다.
-7. 최종 최신 실패 시 `StationRefreshException(reason)`이 올라오고, 기존 캐시는 그대로 유지됩니다.
-8. 전면 실패 여부는 `StationListUiState.blockingFailure`와 repository marker에서 그대로 투영한 `StationListUiState.hasCachedSnapshot` 조합으로 결정합니다. marker가 있는 빈 결과는 성공한 EmptyState입니다. marker와 row가 모두 없을 때 known blocking failure가 있으면 Failure, 없으면 아직 결과가 없는 InitialLoading입니다.
+위치를 얻고, `demo`는 seed remote, `prod`는 실제 provider다. 재시도는 `StationRetryPolicy`가 한 번만 한다. 성공하면 최신 generation만 스냅샷과 히스토리를 바꾸고 7일보다 오래된 캐시를 정리한다. 실패해도 기존 스냅샷은 남는다. 캐시 있음은 `hasCachedSnapshot`이다.
 
-중요한 점은 `fetchedAt`만으로 캐시 존재를 판단하지 않는다는 것입니다. 코드가 실제로 보는 기준은 `StationSearchResult.hasCachedSnapshot`이며, 이 값은 `station_cache_snapshot` 행 존재 여부와 맞물립니다.
+### 설정
 
-### 3. 설정 화면
+요약과 상세가 같은 `SettingsViewModel`을 쓴다. 저장 성공 뒤에만 상세에서 돌아간다. Kakao 저장 이름은 `KAKAO_MAP`이다. 옛 `KAKAO_NAVI`는 읽을 때 복원하고 다음 쓰기부터 현재 이름을 쓴다.
 
-1. `SettingsRoute`는 DataStore의 첫 선호값 emission 전에는 loading만 렌더링하고 action을 받지 않습니다. emission 뒤에는 설정 요약 목록을, `SettingsDetailRoute`는 항목별 상세 선택 화면을 렌더링합니다. 이 경계 전 `UserPreferences.default()`는 화면 기본값으로 사용하지 않습니다.
-2. 상세 화면은 별도 ViewModel을 만들지 않고, `GasStationNavHost`에서 settings back stack owner를 공유받아 같은 `SettingsViewModel`을 사용합니다.
-3. 사용자가 값을 바꾸면 `UpdateFuelTypeUseCase`, `UpdateSearchRadiusUseCase`, `UpdateBrandFilterUseCase`, `UpdateMapProviderUseCase`, `UpdatePreferredSortOrderUseCase` 같은 명시적 설정 유스케이스를 통해 `UserPreferences`가 갱신됩니다. mutation은 DataStore가 실제로 commit한 값을 반환하며, Settings detail은 그 성공 반환 뒤에만 목록으로 돌아갑니다. 실패하면 detail은 이전 값을 유지한 채 실패를 표시합니다. 목록 화면, 관심 화면의 유종 context, 외부 지도 handoff도 같은 committed 값을 반영합니다.
-4. 지도 provider의 현재 Kakao identity는 `KAKAO_MAP`입니다. `data:settings`는 legacy 저장값 `KAKAO_NAVI`를 `KAKAO_MAP`으로 읽고, 다음 쓰기부터 현재 enum name을 저장합니다.
+### 관심
 
-### 4. watchlist(관심) 화면
+목록이 넘긴 좌표가 없으면 관심 탭은 disabled다. 좌표가 바뀌면 이전 route를 버린다. 저장 항목은 선택 유종의 캐시·히스토리로 비교하고, 가격이 없어도 행을 지우지 않는다. watch 변경은 station ID별 마지막 의도만 Room에 들어간다.
 
-1. 목록 화면이 전달한 최신 좌표는 app navigation state의 payload로 유지됩니다. 좌표가 없으면 관심 tab은 disabled semantics를 노출하며, 좌표가 바뀌면 이전 concrete route를 제거하고 새 payload route로 이동합니다.
-2. `WatchlistViewModel`은 `SavedStateHandle`에서 기준 좌표를 읽고 `ObserveUserPreferencesUseCase`의 선택 유종을 결합해 `WatchlistQuery(origin, fuelType)`로 `ObserveWatchlistUseCase`를 구독합니다.
-3. 저장소는 `watched_station`, 선택 유종의 station별 최신 캐시, 같은 유종의 가격 히스토리를 조합해 `WatchedStationSummary`를 만듭니다. 최신 캐시는 DAO가 stationId 선행 index와 deterministic tie-breaker로 station별 한 행만 반환합니다.
-4. 선택 유종의 캐시와 히스토리가 모두 없어도 저장 당시 identity·좌표·브랜드를 유지하고 nullable price를 명시적 unavailable 상태로 렌더링합니다. 반경·브랜드 필터·Nearby 정렬은 저장 항목을 제거하거나 watched-time 순서를 바꾸지 않습니다.
-5. 설정 또는 watchlist 관찰이 실패하면 `WatchlistUiState.loadFailed`로 전면 실패와 retry action을 노출하며, retry는 두 흐름을 처음부터 다시 구독합니다.
-6. 화면은 별도 위치 조회, refresh session, snackbar undo 없이 summary와 저장 행을 렌더링합니다. 이 좌표 payload는 navigation state이며 검색/위치 비즈니스 정책은 아닙니다.
-7. watch 변경은 `feature -> domain:station WatchMutationResult -> data:station LatestWatchIntentGate -> Room`으로 흐릅니다. station ID별 공유 gate는 update/remove 중 최신 intent만 DAO에 전달하고, watch ON의 `INSERT IGNORE`는 최초 `watchedAt`을 보존하며 두 관찰은 `watchedAt` 내림차순 뒤 station ID 오름차순으로 안정화합니다. `WatchToggled` analytics는 `Committed`에만 기록되고 superseded/cancelled 작업은 조용히 끝납니다.
+### 외부 지도
 
-### 5. 외부 지도 handoff
+TMAP, 카카오맵, 네이버 지도 package를 명시한다. 앱이 없으면 Play Store app URI → HTTPS Store 순이다. 전부 실패하면 화면 feedback이다.
 
-1. `GasStationNavHost`는 committed `UserPreferences.mapProvider`를 Nearby row click의 `ExternalMapLauncher` 호출에 전달합니다.
-2. `IntentExternalMapLauncher`는 TMAP(`com.skt.tmap.ku`), 카카오맵(`net.daum.android.map`), 네이버 지도(`com.nhn.android.nmap`) package를 route intent에 명시합니다. NAVER URI의 `appname`은 runtime application ID입니다.
-3. route 실행이 불가능하면 Play Store app URI, HTTPS Store 순으로 fallback합니다. `ActivityNotFoundException`과 `SecurityException`은 다음 fallback으로 이어지고, 모든 경로가 실패한 `ExternalMapLaunchResult.Failed`는 feature callback의 `false`와 사용자 feedback으로 변환됩니다.
+## flavor
 
-## flavor와 startup hook
-
-| flavor | startup hook | 실제 동작 |
+| flavor | startup | 동작 |
 | --- | --- | --- |
-| `demo` | `DemoSeedStartupHook` | DB 비우기 -> seed 적재 -> `UserPreferences.default()`로 재설정 |
-| `prod` | `ProdSecretsStartupHook` | 사용자 로컬 `opinet.apikey` 존재 확인 |
+| `demo` | `DemoSeedStartupHook` | DB 비우고 seed 적재, 설정을 default로 |
+| `prod` | `ProdSecretsStartupHook` | `opinet.apikey` 존재 확인 |
 
-추가로 `demo`는 다음 두 바인딩이 함께 들어갑니다.
+`demo`는 권한 허용 뒤 강남역 2번 출구 고정 좌표와 seed remote source를 붙인다.
 
-- `DemoLocationModule`: permission grant 뒤 강남역 2번 출구 고정 좌표를 위치로 공급
-- `DemoStationRemoteDataSourceModule`: seed 자산 기반 원격 데이터 소스를 optional binding으로 주입
+## 구현 메모
 
-## 핵심 구현 결정
-
-- 스냅샷 저장은 `station_cache`와 `station_cache_snapshot` 두 테이블로 나눕니다.
-  이유: 빈 결과도 "성공한 마지막 조회"로 남겨야 하기 때문입니다.
-- 캐시 키는 위치 버킷(250m), 반경, 유종만 포함합니다.
-  브랜드 필터와 정렬은 읽기 모델에서 적용해 캐시 재사용률을 높입니다.
-- 위치 좌표는 앱 안에서 WGS84 -> KATEC으로 변환한 뒤 Opinet에 넘깁니다.
-  별도 좌표 변환 API를 호출하지 않습니다.
-- Opinet base URL이 HTTP를 사용하므로 앱 network security config는 cleartext 예외를 `www.opinet.co.kr` 정확한 도메인에만 둡니다.
-- `prod` API key는 `BuildConfig`를 통해 클라이언트에 들어가므로 APK에서 완전히 숨길 수 있는 secret boundary가 아닙니다. 현재 범위에서는 수용하지만 공개 서비스 배포 전에는 backend proxy, key restriction, quota monitoring을 별도 설계합니다.
-- 원격 조회 endpoint는 `core:network`의 `StationNetworkSource`로 추상화하고, `StationEndpointMode.DirectOpinet`(기본)와 `Proxy` 중 무엇을 쓸지는 `app/src/main/java/com/gasstation/di/AppConfigModule.kt`가 `BuildConfig.STATION_ENDPOINT_MODE`/`PROXY_BASE_URL`(Gradle property `gasstation.stationEndpointMode`/`gasstation.proxyBaseUrl`)로 결정해 `NetworkRuntimeConfig`로 주입합니다. proxy 모드에서는 `NetworkModule.requireValidProxyBaseUrl`이 `/`로 끝나는 절대 http(s) URL만 통과시키고 blank/malformed base URL은 Retrofit 생성 전에 설정 오류로 거부합니다. proxy 서버 자체는 배포돼 있지 않으며 승격 조건은 `docs/adr/2026-05-18-backend-proxy-escalation.md`를 따릅니다.
-- 로컬 Room/DataStore 상태는 재생성 가능한 캐시와 reference watchlist/settings로 보고 Android backup/data extraction을 비활성화합니다.
-- 현재 주소는 검색 입력이 아니라 표시용 컨텍스트입니다. 지오코더가 도로명, 국가 코드, 건물 동을 섞어 주더라도 목록 상단에는 행정동 단위 라벨만 노출합니다.
-- API 33 이상 주소 조회는 지오코더 callback API를 coroutine으로 감싸고, pre-33은 기존 동기 API를 I/O dispatcher에서 fallback으로 사용합니다. callback error는 `LocationAddressLookupResult.Error`, 성공했지만 빈 결과는 `Unavailable`, cancellation은 그대로 전파됩니다.
-- `UserPreferences`는 Proto가 아니라 커스텀 key-value serializer를 쓰는 DataStore로 저장합니다. 저장 모듈은 `StoredUserPreferences` string DTO만 알고, enum name의 domain fallback은 `data:settings` mapper가 담당합니다.
-- Kakao provider는 `KAKAO_MAP`을 현재 저장 identity로 사용합니다. `data:settings`는 legacy `KAKAO_NAVI`를 읽을 때만 migration하고 새 쓰기는 현재 이름만 저장합니다.
-- 외부 지도 route intent는 provider package를 명시합니다. NAVER는 runtime application ID를 `appname`으로 직렬화하고, app route -> Play Store app URI -> HTTPS Store 순으로 fallback한 뒤 최종 실패를 UI에 반환합니다.
-- `StationEvent` 계약은 `SearchRefreshed`, `WatchToggled`, `CompareViewed`, `ExternalMapOpened`, `RefreshFailed`, `LocationFailed`, `RetryAttempted`를 정의합니다. 실제 emit 경로는 저장소 refresh 성공, watch toggle, watchlist 비교 표시, 외부 지도 handoff 요청, refresh 실패, 위치 실패, retry 결과이며, Logcat 구현은 모든 variant를 문자열로 매핑합니다. 이벤트 로깅 중 일반 예외는 사용자 흐름이나 저장소 성공을 실패로 바꾸지 않도록 격리하지만, cancellation과 fatal error는 삼키지 않습니다.
-- release build는 R8 minification을 켜지만, resource shrinking은 splash/icon/external map 리소스 확인 전까지 의도적으로 보류합니다.
+- 빈 성공을 남기려고 `station_cache`와 `station_cache_snapshot`을 나눈다.
+- 캐시 키는 위치 버킷(250m), 반경, 유종이다. 브랜드·정렬은 읽기 모델에서 적용한다.
+- 좌표는 앱 안에서 WGS84 → KATEC으로 바꾼다.
+- Opinet HTTP는 `www.opinet.co.kr`에만 cleartext를 연다.
+- `prod` 키는 `BuildConfig`라서 APK에서 숨기지 못한다. proxy 승격은 ADR을 본다.
+- endpoint 모드는 `app`이 `NetworkRuntimeConfig`로 주입한다. proxy URL은 `/`로 끝나는 절대 http(s)만 통과한다.
+- Room/DataStore는 Android backup을 끈다.
+- 주소는 검색 입력이 아니라 표시용이다. 행정동까지만 보여준다.
+- `UserPreferences`는 Proto가 아니라 key-value DataStore다.
+- `StationEvent`는 refresh, watch, 비교, 지도, 실패, 재시도다. 로깅 예외가 사용자 흐름을 실패로 바꾸지 않는다.
+- release는 R8 minify를 켠다. resource shrinking은 splash/icon 확인 전까지 보류한다.

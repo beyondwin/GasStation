@@ -1,57 +1,44 @@
-# GasStation 검증과 전달
+# 검증과 전달
 
-이 문서는 변경에 맞는 검증을 선택하고 결과, 미검증 범위와 local/remote 상태를 분리해 전달하는 방법을 설명합니다. 명령의 단일 소유자는 [검증 매트릭스](../verification-matrix.md)와 각 specialist runbook입니다.
+변경에 맞는 검증을 고르고, 돌린 것과 안 돌린 것을 나눠 남긴다. 명령은 [검증 매트릭스](../verification-matrix.md)와 각 런북이 맞는다.
 
-## 검증 범위 선택
+## 범위
 
-검증은 많을수록 좋은 것이 아니라 변경된 계약을 보호해야 합니다.
+많을수록 좋은 것이 아니다. 바뀐 계약을 보호한다.
 
-1. [검증 매트릭스](../verification-matrix.md)에서 변경 유형과 위험에 맞는 명령 owner를 선택합니다.
-2. domain/data/core의 작은 계약 테스트에서 시작해 feature integration, app flavor 조립으로 확장합니다.
-3. 문서 변경은 live 계약인지 historical evidence인지 구분합니다.
-4. device, release, build-input과 performance 증거는 각각의 specialist runbook을 따릅니다.
-5. `demo`와 `prod` 중 확인하지 않은 경로를 결과에서 명시합니다.
+1. [검증 매트릭스](../verification-matrix.md)에서 명령을 고른다.
+2. domain/data/core의 작은 테스트부터 feature, app 조립으로 넓힌다.
+3. 문서 변경은 live인지 이력인지 가른다.
+4. 기기, 릴리스, 빌드 입력, 성능은 각 런북을 따른다.
+5. `demo`와 `prod` 중 안 본 경로를 결과에 적는다.
 
-선택 기준과 테스트 의미는 [테스트 전략](../test-strategy.md), API 24/28/36 runtime은 [기기 검증](../runbooks/device-verification.md), release는 [배포](../deployment.md), physical-device benchmark는 [성능](../performance.md), governed dependency/reproducibility는 [Build Input Provenance](../runbooks/build-input-provenance.md)가 소유합니다.
+테스트 의미는 [테스트 전략](../test-strategy.md), 기기는 [기기 검증](../runbooks/device-verification.md), 릴리스는 [배포](../deployment.md), 성능은 [성능](../performance.md), 빌드 입력은 [Build Input Provenance](../runbooks/build-input-provenance.md)다.
 
-## 증거 기록
+## 남길 것
 
-handoff에는 다음을 남깁니다.
+- 기준 HEAD와 최종 HEAD
+- 변경 파일과 각 파일이 맡은 의미
+- 실행한 명령과 결과
+- 실패 후 고쳤다면 원인과 다시 돌린 범위
+- 안 돌린 기기, hosted, 네트워크, 릴리스
+- tracked/untracked/ignored, remote를 바꿨는지
 
-- 기준 HEAD와 최종 HEAD.
-- 변경 파일과 각 파일이 담당하는 의미.
-- 실제 실행한 명령과 exit/result 요약.
-- 실패 후 수정했다면 실패 원인과 다시 실행한 범위.
-- 실행하지 않은 device, hosted, network, release 또는 remote 범위.
-- tracked/untracked/ignored 상태와 remote mutation 여부.
+과거 PASS나 다른 HEAD 결과를 이번 증거로 쓰지 않는다. 물리 기기 성능 숫자는 JSON/trace 없이 바꾸지 않는다. `prod` 실서버 호출도 별도 권한 없이 smoke로 쓰지 않는다.
 
-과거 PASS, 다른 HEAD의 결과, emulator smoke나 문서상의 계획을 현재 실행 증거로 승격하지 않습니다. physical-device 성능 수치는 실제 기기 JSON/trace 근거 없이 갱신하지 않고, `prod` 실서버·Opinet 호출도 별도 권한 없이 smoke 대상으로 사용하지 않습니다.
+## 커밋과 전달
 
-## Commit과 handoff
+diff를 읽고 관련 없는 파일이 섞이지 않았는지 본다. conventional subject를 쓰고, 되돌릴 수 있는 단위로 stage한다. push, PR, tag, release는 요청에 있을 때만 한다.
 
-commit 전에는 관련 diff를 읽고 사용자 변경이나 unrelated file이 섞이지 않았는지 확인합니다. 저장소의 conventional subject를 사용하고 목적별로 되돌릴 수 있는 단위로 stage합니다. push, PR, tag, release, publish와 deploy는 요청 범위에 포함된 경우에만 수행합니다.
+전달할 때 이 순서가 분명해야 한다.
 
-handoff 순서는 다음이 명확합니다.
+1. 결과와 commit SHA
+2. 돌린 검증과 결과
+3. 안 돌린 범위
+4. local branch/worktree와 remote
+5. 다음 사람이 재현할 시작점
 
-1. 변경 결과와 commit SHA.
-2. 실행한 검증과 결과.
-3. 미검증·`NOT RUN` 범위.
-4. local branch/worktree와 remote 상태.
-5. 다음 검토자가 재현할 진입점.
+사용자 흐름, 모듈 책임, 캐시, 검증 명령, 릴리스 경계가 바뀌면 같은 변경에서 live 문서도 본다. PR에는 문서 영향 yes/no와 고친 경로를 남긴다.
 
-## 문서 영향 전달
+이력 본문은 그때의 기록으로 둔다.
 
-현재 사용자 흐름, 모듈 책임, 상태·cache 정책, 검증 명령이나 release 경계가 바뀌면 관련 live owner 문서를 같은 변경에서 확인합니다. PR에는 문서 영향 yes/no, 영향을 받은 catalog owner, 갱신한 경로, 현재 문서를 바꾸지 않았다면 그 이유를 남깁니다.
-
-이력 문서는 당시 판단과 측정의 body를 보존합니다. 새 README 같은 navigation surface를 추가해도 기존 이력 파일명에서 승인·완료 상태를 추론하거나 오래된 claim을 현재 값에 맞춰 다시 쓰지 않습니다.
-
-## 완료 체크
-
-- 관련 source와 test diff를 직접 읽었다.
-- 현재 활성 모듈과 owner 경계를 확인했다.
-- 변경 유형에 맞는 검증을 새 결과로 실행했다.
-- 문서 영향과 catalog owner를 확인했다.
-- 미실행 범위를 PASS처럼 표현하지 않았다.
-- local/remote 상태와 다음 검토 진입점을 남겼다.
-
-작업 중 소유자가 불명확하면 [변경 플레이북](change-playbook.md)으로 돌아갑니다. 전체 현재 문서는 [문서 허브](../README.md)에서 찾습니다.
+작업 중 소유자가 안 보이면 [변경 플레이북](change-playbook.md)으로 돌아간다. 전체 문서는 [문서 허브](../README.md)다.

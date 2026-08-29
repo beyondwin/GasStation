@@ -1,6 +1,6 @@
 # Build Input Provenance
 
-이 문서는 GasStation의 검토된 빌드 입력, 문서 검증 bridge, unsigned prod release 재현성의 운영 owner다. 정책의 단일 기계 기준은 `config/quality/build-inputs.json`, 실행기는 `scripts/quality/verify_build_inputs.py`, Gradle 진입점은 `scripts/quality/build_inputs/run_gradle.sh`다.
+검토된 빌드 입력과 unsigned prod 재현성의 운영 기준이다. 정책은 `config/quality/build-inputs.json`, 실행기는 `scripts/quality/verify_build_inputs.py`, Gradle 진입점은 `scripts/quality/build_inputs/run_gradle.sh`다.
 
 ## 보장 범위와 정직한 경계
 

@@ -44,7 +44,7 @@
     {
       "path": "docs/README.md",
       "kind": "runbook",
-      "owner": "문서 탐색과 독자별 진입 경로",
+      "owner": "문서 지도",
       "authoritativeSources": ["docs/documentation-catalog.json", "settings.gradle.kts", "scripts/agent/check_contracts.py"],
       "reviewTriggers": ["현재 문서의 소유·경로·분류 변경", "새 live 문서 또는 specialist hub 추가"],
       "verificationScope": "scripts/agent/verify.sh docs; 카탈로그 항목과 허브 링크를 수동으로 대조"
@@ -60,7 +60,7 @@
     {
       "path": "docs/onboarding/developer-onboarding-guide.md",
       "kind": "runbook",
-      "owner": "새 Android 기여자의 안정적인 온보딩 라우터",
+      "owner": "처음 맡은 사람의 온보딩 입구",
       "authoritativeSources": ["settings.gradle.kts", "docs/project-reading-guide.md", "docs/module-contracts.md", "docs/agent-workflow.md", "docs/state-model.md"],
       "reviewTriggers": ["온보딩 경로 추가·이동", "전제 조건 또는 독자별 완료 기준 변경", "연결된 현재 계약의 경로 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 네 온보딩 경로와 현재 계약 링크를 대조"
@@ -100,7 +100,7 @@
     {
       "path": "docs/agent-workflow.md",
       "kind": "runbook",
-      "owner": "기능·수정 작업의 표준 실행 순서",
+      "owner": "기능·수정 작업 순서",
       "authoritativeSources": ["settings.gradle.kts", "docs/module-contracts.md", "docs/state-model.md", "scripts/agent/preflight.sh", "scripts/agent/verify.sh"],
       "reviewTriggers": ["모듈 책임 또는 상태·캐시 작업 경로 변경", "작업 시작·검증·handoff 절차 변경", "station-list owner·command 모델·state test 선택 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 링크된 계약·명령과 관련 테스트 경로를 대조"
@@ -108,7 +108,7 @@
     {
       "path": "docs/project-reading-guide.md",
       "kind": "runbook",
-      "owner": "질문·기능·변경 목적에서 코드와 계약으로 가는 읽기 경로",
+      "owner": "질문에서 코드와 계약으로 가는 표",
       "authoritativeSources": ["settings.gradle.kts", "app/src/main/java/com/gasstation/navigation/GasStationNavHost.kt", "data/station/src/main/kotlin/com/gasstation/data/station/DefaultStationRepository.kt", "docs/state-model.md"],
       "reviewTriggers": ["주요 feature owner 또는 코드 진입점 이동", "현재 계약 문서의 경로·소유 변경", "station-list collaborator 또는 focused test reading path 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; 표의 파일과 모듈 경로를 실제 저장소에서 확인"
@@ -164,7 +164,7 @@
     {
       "path": "docs/security-trade-offs.md",
       "kind": "contract",
-      "owner": "보안 선택과 승격 조건",
+      "owner": "보안 선택과 바꿀 조건",
       "authoritativeSources": ["app/build.gradle.kts", "core/network/src/main/kotlin/com/gasstation/core/network/di/NetworkRuntimeConfig.kt", "app/src/prod/kotlin"],
       "reviewTriggers": ["secret 주입·network endpoint·cleartext 정책 변경", "proxy 도입 또는 배포 범위 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; app/network 설정과 현재 ADR을 대조"
@@ -172,7 +172,7 @@
     {
       "path": "docs/deployment.md",
       "kind": "runbook",
-      "owner": "Android release, tag, GitHub Release, APK 산출물",
+      "owner": "릴리스, tag, GitHub Release, APK",
       "authoritativeSources": ["app/build.gradle.kts", ".github/workflows/android.yml", "docs/release-notes"],
       "reviewTriggers": ["version·tag·release asset·서명·publish workflow 변경"],
       "verificationScope": "scripts/agent/verify.sh docs; release workflow와 현재 release note 계약을 대조"

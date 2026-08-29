@@ -1,53 +1,64 @@
-# GasStation 문서 허브
+# 문서
 
-이 문서는 현재 GasStation을 이해하고 변경할 때 시작하는 사람용 허브입니다. 지금 앱 버전은 `app/build.gradle.kts`를, 지금 동작은 코드와 `settings.gradle.kts`를, 문서 소유는 [documentation-catalog.json](documentation-catalog.json)을 우선합니다.
+필요한 문서만 고른다. 지금 동작은 코드와 `settings.gradle.kts`가 기준이다. 문서 목록은 [documentation-catalog.json](documentation-catalog.json)이다.
 
-5분 경로: 제품을 보려면 [루트 README](../README.md), 로컬 실행은 [시작하기](onboarding/getting-started.md), 변경은 [변경 플레이북](onboarding/change-playbook.md), 검증은 [검증 매트릭스](verification-matrix.md)입니다.
+| 하고 싶은 일 | 문서 |
+| --- | --- |
+| 앱을 돌려본다 | [README](../README.md), [시작하기](onboarding/getting-started.md) |
+| 처음 맡았다 | [온보딩](onboarding/developer-onboarding-guide.md) |
+| 어디를 고칠지 찾는다 | [읽기 가이드](project-reading-guide.md) |
+| 작업 순서 | [작업 절차](agent-workflow.md), [변경 플레이북](onboarding/change-playbook.md) |
+| 모듈을 어디에 둘지 | [모듈 계약](module-contracts.md) |
+| 구조와 흐름 | [아키텍처](architecture.md), [둘러보기](onboarding/architecture-tour.md) |
+| 화면 상태 | [상태 모델](state-model.md) |
+| 캐시·실패 | [오프라인 전략](offline-strategy.md) |
+| 어떤 테스트를 돌릴지 | [검증 매트릭스](verification-matrix.md), [테스트 전략](test-strategy.md) |
+| 릴리스 | [배포](deployment.md) |
+| 에이전트 규칙 | [AGENTS.md](../AGENTS.md) |
 
-## 1. 새 기여자와 로컬 실행
+## 시작
 
-- 제품 목적, `demo`/`prod` 실행 경로, 빠른 시작: [루트 README](../README.md)
-- 설치 조건, 기여와 커밋 기준: [CONTRIBUTING.md](../CONTRIBUTING.md)
-- 작업 시작 전 운영 계약: [AGENTS.md](../AGENTS.md), [docs/AGENTS.md](AGENTS.md)
-- 목적별 코드 읽기와 첫 변경의 진입점: [프로젝트 읽기 가이드](project-reading-guide.md)
-- 현재 작업 순서와 체크리스트: [에이전트 워크플로](agent-workflow.md)
-- 기존 온보딩 핸드북의 안정적인 진입점: [개발자 온보딩 가이드](onboarding/developer-onboarding-guide.md)
-- 저장소 준비와 `demo`/`prod` 첫 build: [시작하기](onboarding/getting-started.md)
-- 제품 원칙, 레이어와 runtime 흐름: [아키텍처 둘러보기](onboarding/architecture-tour.md)
-- 소유자·테스트·문서 영향을 찾는 첫 변경 경로: [변경 플레이북](onboarding/change-playbook.md)
-- 검증 선택, 증거와 local/remote handoff: [검증과 전달](onboarding/verification-and-delivery.md)
-- UI 정체성과 가격 우선 원칙: [.impeccable.md](../.impeccable.md)
+- [README](../README.md) — 제품, demo/prod, 미리보기
+- [기여](../CONTRIBUTING.md) — 설치, 커밋
+- [AGENTS.md](../AGENTS.md), [docs/AGENTS.md](AGENTS.md) — 작업 규칙
+- [온보딩](onboarding/developer-onboarding-guide.md)
+  - [시작하기](onboarding/getting-started.md)
+  - [아키텍처 둘러보기](onboarding/architecture-tour.md)
+  - [변경 플레이북](onboarding/change-playbook.md)
+  - [검증과 전달](onboarding/verification-and-delivery.md)
+- [읽기 가이드](project-reading-guide.md)
+- [작업 절차](agent-workflow.md)
+- [디자인](../.impeccable.md)
 
-## 2. 아키텍처와 기능 변경
+## 계약
 
-- 활성 18개 모듈의 정확한 그래프와 런타임 흐름: [아키텍처](architecture.md)
-- 모듈별 소유 범위와 금지 의존: [모듈 계약](module-contracts.md)
-- 상태 전이, 사용자 액션, 화면 effect: [상태 모델](state-model.md)
-- 캐시, stale, refresh 실패, watchlist fallback: [오프라인 전략](offline-strategy.md)
-- 보안 선택과 backend proxy 승격 조건: [보안 트레이드오프](security-trade-offs.md)
+- [아키텍처](architecture.md)
+- [모듈 계약](module-contracts.md)
+- [상태 모델](state-model.md)
+- [오프라인 전략](offline-strategy.md)
+- [보안](security-trade-offs.md)
+- [core:database](../core/database/AGENTS.md)
+- [benchmark](../benchmark/AGENTS.md)
 
-## 3. 테스트·릴리스·운영 검증
+## 검증·운영
 
-- device, build-input, release, performance 절차의 owner 지도: [운영 런북 허브](runbooks/README.md)
-- 변경 유형에서 필요한 검증 범위를 고르는 기준: [테스트 전략](test-strategy.md), [검증 매트릭스](verification-matrix.md)
-- API 24/28/36 에뮬레이터 lane, receipt, failure triage와 승격 기준: [Android 기기 검증 런북](runbooks/device-verification.md)
-- 배포, tag, GitHub Release, APK 산출물: [배포](deployment.md)
-- macrobenchmark, 물리 기기 측정, 성능 근거: [성능](performance.md)
-- build cache·configuration cache와 CI 속도 결정: [빌드 속도](build-velocity.md)
-- 현재 릴리스 변경 요약: [CHANGELOG.md](../CHANGELOG.md)
+- [런북](runbooks/README.md)
+- [검증 매트릭스](verification-matrix.md)
+- [테스트 전략](test-strategy.md)
+- [기기 검증](runbooks/device-verification.md)
+- [빌드 입력](runbooks/build-input-provenance.md)
+- [배포](deployment.md)
+- [성능](performance.md)
+- [빌드 속도](build-velocity.md)
+- [CHANGELOG](../CHANGELOG.md)
 
-### 모듈별 운영 계약
+## 결정·이력
 
-- Room schema, snapshot, migration, cache 데이터 변경: [core:database AGENTS](../core/database/AGENTS.md)
-- macrobenchmark 증거, physical device, selector 계약: [benchmark AGENTS](../benchmark/AGENTS.md)
+이력은 그때의 기록이다. 지금 코드에 맞춰 다시 쓰지 않는다.
 
-## 4. 결정·근거·이력 조사
-
-- ADR의 역할과 현재 truth 확인 경로: [ADR 허브](adr/README.md)
-- 현재 수용된 아키텍처 결정: [ADR — Backend Proxy Escalation](adr/2026-05-18-backend-proxy-escalation.md)
-- 설계와 구현 계획의 작성 당시 기록: [Superpowers 이력 허브](superpowers/README.md)
-- 심층 분석 및 개선 이력: [분석 이력 허브](history/README.md), [개선 작업 이력 허브](improvements/README.md)
-- Compose stability 측정 스냅샷: [Compose metrics 이력 허브](compose-metrics/README.md)
-- 버전별 릴리스 근거: [Release note 이력 허브](release-notes/README.md)
-
-이력 문서는 결정 배경과 측정 근거를 찾는 데 사용합니다. 현재 동작이나 완료 상태는 이력 파일명만으로 판단하지 말고, 위의 현재 계약 문서와 실제 저장소를 다시 확인합니다.
+- [ADR](adr/README.md), [Backend proxy](adr/2026-05-18-backend-proxy-escalation.md)
+- [설계 이력](superpowers/README.md)
+- [분석 이력](history/README.md)
+- [개선 이력](improvements/README.md)
+- [Compose metrics](compose-metrics/README.md)
+- [릴리스 노트](release-notes/README.md)

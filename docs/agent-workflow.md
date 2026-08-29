@@ -1,260 +1,141 @@
-# Agent Workflow
+# 작업 절차
 
-이 문서는 GasStation에서 새 기능을 추가하거나 기존 기능을 수정할 때 따라야 할 실전 절차의 단일 출처다. 짧은 원칙은 `AGENTS.md`, 구조 설명은 `docs/architecture.md`, 모듈 위치 판단은 `docs/module-contracts.md`를 기준으로 한다.
+기능을 넣거나 고칠 때의 순서다. 짧은 규칙은 `AGENTS.md`, 구조는 `docs/architecture.md`, 위치는 `docs/module-contracts.md`다.
 
-## Working Model
+## 기본
 
-GasStation은 clean architecture에 가까운 멀티모듈 Android 앱이다. 작업은 화면 파일 하나를 고치는 방식보다 "계약 -> 구현 -> 상태 -> 화면 -> 검증" 순서로 보는 편이 안전하다.
+화면 파일 하나부터 고치지 않는다. 계약 → 구현 → 상태 → 화면 → 검증 순이 안전하다.
 
-기본 흐름:
+1. 목적을 한 문장으로 정한다.
+2. 관련 문서와 테스트를 찾는다.
+3. 정책을 누가 맡는지 정한다.
+4. domain 계약이 바뀌는지 본다.
+5. data/core 구현이 필요한지 본다.
+6. feature의 state, action, command, screen을 맞춘다.
+7. demo/prod와 테스트 범위를 본다.
+8. 문서가 약속한 동작이 바뀌면 문서를 고친다.
 
-1. 변경 목적을 한 문장으로 정한다.
-2. 관련 문서와 테스트를 먼저 찾는다.
-3. 어떤 모듈이 정책을 소유하는지 결정한다.
-4. domain 계약이나 모델 변경이 필요한지 확인한다.
-5. data/core 구현 변경이 필요한지 확인한다.
-6. feature의 UI state, action, command/effect, UI model, screen을 조정한다.
-7. demo/prod 경로와 테스트 범위를 확인한다.
-8. 문서가 약속한 동작과 달라졌다면 문서를 갱신한다.
+## 시작 전
 
-## Before Any Change
+- `git status --short`
+- 활성 모듈은 `settings.gradle.kts`
+- 지금 동작은 live 문서와 코드
+- `docs/superpowers/` 등은 이력이다
+- 구현보다 테스트를 먼저 읽는다
+- 새 dependency 전에 같은 계층의 기존 패턴을 찾는다
+- UI면 `core:designsystem`을 먼저 본다
+- 상태/캐시면 `docs/state-model.md`, `docs/offline-strategy.md`
 
-작업 시작 전에 아래를 확인한다.
+비사소한 변경은 `scripts/agent/preflight.sh`로 branch, worktree, dirty path, Java, SDK를 본다. 이어 할 작업이면 `git worktree list`와 그 공간의 status를 보고 같은 작업을 이어간다. 기존 변경을 stash/reset하지 않고, 같은 목적의 worktree를 중복 만들지 않는다.
 
-- `git status --short`로 기존 사용자 변경을 확인한다.
-- 실제 활성 모듈은 `settings.gradle.kts` 기준으로 판단한다.
-- 현재 구조와 동작 판단은 live 문서와 실제 코드를 우선한다.
-- `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 설계/분석 이력이다. 사용자가 이력 분석을 요청했거나 결정 배경이 필요할 때 근거로 보되, 현재 계약으로 바로 사용하지 않는다.
-- 관련 테스트 파일을 먼저 읽고 현재 계약을 파악한다.
-- 새 dependency를 추가하기 전에 같은 계층의 기존 패턴을 찾는다.
-- UI 작업이면 `core:designsystem` 토큰과 공통 component를 먼저 확인한다.
-- 상태/캐시 작업이면 `docs/state-model.md`와 `docs/offline-strategy.md`를 먼저 읽는다.
+## 어디에 두나
 
-## Continuation And Worktrees
+1. `settings.gradle.kts`에서 활성인지 확인
+2. `docs/module-contracts.md`에서 금지 항목 확인
+3. 정책은 domain/data, 화면은 feature, 조립은 app
+4. `core:*`가 앱 정책을 먹기 시작하면 domain/data가 맞는지 다시 본다
 
-비사소한 변경은 먼저 `scripts/agent/preflight.sh`로 branch, linked worktree, dirty path, Java, Android SDK, 기존 progress ledger를 확인합니다.
+## 새 기능
 
-이전 작업을 이어갈 때는 다음 순서를 지킵니다.
+1. 기존 route로 충분한지, 새 route가 필요한지
+2. 새 개념이면 `domain:*`부터
+3. 저장·원격·캐시면 `data:*` 또는 `core:*`
+4. feature에 action, state, command
+5. navigation은 마지막에 `app`
+6. 사용자에게 보이면 demo에서 재현되는지
+7. 테스트는 domain/data부터, feature로 흐름을 막는다
 
-1. `git worktree list`에서 이미 만든 작업 공간이 있는지 확인합니다.
-2. 대상 worktree의 `git status --short`, 관련 diff, `.superpowers/sdd/progress.md`를 읽습니다.
-3. 미커밋 변경과 마지막으로 통과한 검증을 확인한 뒤 같은 작업을 이어갑니다.
-4. linked worktree에 `local.properties`만 없다면 `scripts/agent/bootstrap-worktree.sh`를 사용합니다.
+값이 domain/data 원천인지 feature 파생인지 먼저 가른다.
 
-기존 변경을 자동 stash/reset/clean하지 않으며, 같은 목적의 branch나 worktree를 중복 생성하지 않습니다.
+## 기존 동작
 
-## Module Placement
+- 정렬/필터: `domain:station` 모델, `DefaultStationRepository`
+- 위치: `domain:location` → `core:location`
+- 주소: `AddressLabelNormalizer` → `core:location` → station-list 표시
+- 설정: `domain:settings` use case
+- cache/stale: `StationCachePolicy`, `core:database`
+- 재시도: `StationRetryPolicy`
+- 관심 비교: `DefaultStationRepository`, `feature:watchlist`
+- 이벤트: `StationEvent`, `CrashReporter`
+- 외부 지도: `ExternalMapLauncher`
 
-모듈 위치 판단의 단일 출처는 `docs/module-contracts.md`다. 이 문서는 절차 문서이므로 전체 모듈 표를 반복하지 않는다.
+## UI
 
-작업 중에는 아래 순서로 소유자를 좁힌다.
+기준 화면은 station list다.
 
-1. `settings.gradle.kts`에서 현재 활성 모듈인지 확인한다.
-2. `docs/module-contracts.md`에서 소유 범위와 "이 모듈에 두지 말 것"을 확인한다.
-3. 소유자가 둘 이상이면 "정책은 domain/data, 표시와 interaction은 feature, 조립은 app" 기준으로 나눈다.
-4. `core:*`가 앱 정책을 흡수하기 시작하면 먼저 `domain` 또는 `data` 소유가 맞는지 확인한다.
+1. `core:designsystem` 토큰과 component
+2. feature에 중복 metric/row가 있으면 공유 primitive 후보인지 본다
+3. 가격이 첫 시선, 거리가 두 번째
+4. 브랜드 아이콘만 쓰고 visible 브랜드 텍스트를 넣지 않는다
+5. permission, GPS, loading, empty, failure가 같은 guidance로 읽히게 한다
+6. semantics와 test tag를 지우면 대체 테스트를 같이 만든다
+7. `testTag`는 ASCII, 스크린 리더 문구는 `contentDescription`
+8. `주변·관심·설정` icon-only nav, SettingsDetail에서만 숨긴다
 
-## Adding A Feature
+색은 `#FFFCF2`, `#222222`, `#FFDC00`이다.
 
-새 기능은 다음 순서로 설계한다.
+## 설정
 
-1. 사용자 흐름이 기존 route 안에 들어가는지, 새 route가 필요한지 결정한다.
-2. 새 도메인 개념이 있으면 `domain:*` 모델과 use case부터 정의한다.
-3. 저장, 원격 조회, 캐시 조합이 필요하면 `data:*` 또는 `core:*` 구현 위치를 정한다.
-4. feature에는 action, state, command/effect, UI model을 만든다.
-5. navigation 연결은 마지막에 `app`에서 조립한다.
-6. demo 경로가 필요한 기능이면 seed, startup hook, UI test 영향을 확인한다.
-7. 테스트는 domain/data/core 단위 계약부터 막고 feature test로 사용자 흐름을 확인한다.
+`UserPreferences` → update use case → datastore DTO → settings repository → feature. 목록 query에 영향을 주면 station-list도 본다. feature가 `SettingsRepository`를 직접 부르지 않는다.
 
-새 기능이 단순 UI 표시처럼 보여도, 값의 기준 원천이 domain/data인지 feature 파생 상태인지 먼저 구분한다.
-
-## Modifying Existing Behavior
-
-기존 동작을 바꿀 때는 먼저 현재 소유자를 찾는다.
-
-- 정렬/필터: `domain:station` 모델과 `data:station/DefaultStationRepository.kt`
-- 위치 조회: `domain:location` 계약과 `core:location` 구현
-- 주소 표시: `domain:location/AddressLabelNormalizer.kt` 정규화, `core:location` Android 주소 후보 변환, `feature:station-list` 표시 정책
-- 설정 저장: `domain:settings` use case, `data:settings`, `core:datastore`
-- cache/stale: `data:station/StationCachePolicy.kt`, `core:database`
-- refresh retry: `data:station/StationRetryPolicy.kt`, `data:station/DefaultStationRepository.kt`
-- watchlist 비교: `data:station/DefaultStationRepository.kt`, `feature:watchlist`
-- station event/관찰 계약: `domain:station/model/StationEvent.kt`, `domain:station/StationEventLogger.kt`, `core:observability/CrashReporter.kt`, 앱의 flavor별 analytics/observability 바인딩
-- 외부 지도: `app/src/main/java/com/gasstation/map/ExternalMapLauncher.kt`, `StationListCommandPayload.OpenExternalMap`
-
-소유자가 둘 이상이면 "정책은 domain/data, 표시와 interaction은 feature" 기준으로 나눈다.
-
-## UI And Design Work
-
-UI 작업은 station list를 기준 화면으로 본다. 이 화면이 가격, 거리, freshness, permission, GPS, refresh, watch, external map을 모두 포함하기 때문이다.
-
-순서:
-
-1. `core:designsystem`의 color, typography, spacing, component를 먼저 확인한다.
-2. feature 내부에 중복된 metric, supporting block, status surface가 있으면 shared primitive 후보인지 판단한다.
-3. 가격은 첫 번째 시선, 거리는 두 번째 판단 기준으로 유지한다.
-4. station list에서는 borderless price-first row와 실제 브랜드 아이콘 계약을 유지하고 visible 브랜드 텍스트를 추가하지 않는다.
-5. watchlist에서도 실제 브랜드 로고만 보여주며 visible 브랜드 label을 반복하지 않는다.
-6. 상태 화면은 permission, GPS, loading, empty, blocking failure가 같은 guidance system처럼 읽히게 한다.
-7. semantics, content description, test tag를 제거할 때는 대체 테스트를 함께 만든다.
-8. Compose `testTag`는 도구용 selector이므로 안정적인 ASCII 값을 쓰고, 사용자/스크린 리더 문구는 `contentDescription` 같은 접근성 semantics로 분리한다.
-9. filter menu는 anchor 정렬, viewport 안쪽 배치, 선택 항목의 색/체크 표시, 작은 화면에서 마지막 항목까지의 scroll을 함께 확인한다.
-10. icon-only navigation은 탭 `contentDescription`, 선택/활성 semantics, 비활성 `stateDescription`, 48dp touch target, 안정적인 ASCII test tag를 확인한다.
-
-Urban Signal 기준 canvas는 `#FFFCF2`, black chrome은 `#222222`, yellow signal은 `#FFDC00`입니다. 최상위 화면은 `주변·관심·설정` bottom navigation을 사용하고 SettingsDetail에서만 숨깁니다.
-
-UI 변경 후에는 screenshot/readme story가 glanceable speed에서 여전히 읽히는지 확인한다.
-
-## Settings Changes
-
-새 설정 항목이나 설정 동작 변경은 다음 경로를 따른다.
-
-1. `domain/settings/model/UserPreferences.kt`
-2. 필요한 `domain/settings/usecase/*`
-3. `core/datastore/*` storage DTO, serializer, data source
-4. `data/settings/DefaultSettingsRepository.kt` domain mapper
-5. `feature/settings/*`
-6. 설정이 목록 조회에 영향을 주면 `feature/station-list/*`
-7. 테스트와 문서 갱신
-
-feature가 `SettingsRepository`를 직접 호출하지 않게 유지한다. 설정 쓰기는 명시적 update use case를 통한다.
-
-## Location Changes
-
-위치 경계는 아래 방향을 유지한다.
+## 위치
 
 `feature:station-list -> domain:location -> core:location`
 
-규칙:
+feature는 Android provider를 모른다. 권한 상태는 route에서 domain 타입으로 바꾼다. 현재 위치는 refresh 때 `GetCurrentLocationUseCase`, availability는 foreground에서 `ObserveLocationAvailabilityUseCase`다. 주소는 검색 입력이 아니라 표시다.
 
-- feature는 Android provider나 `core:location` 구현 타입을 알지 않는다.
-- OS permission 상태는 route에서 domain 타입으로 변환한다.
-- 현재 위치 조회는 refresh 시점에 `GetCurrentLocationUseCase`로 호출한다.
-- availability는 foreground 구간에서 `ObserveLocationAvailabilityUseCase`로 관찰한다.
-- demo override는 `core:location` 내부 구현 세부사항이어야 한다.
+## 검색과 캐시
 
-주소 라벨은 검색 입력이 아니라 표시용 context다. 행정동 정규화 규칙은 `domain:location`, Android 지오코더 후보 변환은 `core:location`, 목록 상단 배치는 `feature:station-list`가 담당한다.
+- 캐시 키는 위치 버킷, 반경, 유종
+- 브랜드·정렬은 읽기 모델
+- 좌표가 있는 상태에서 조건이 바뀌면 refresh를 다시 요청한다
+- 실패해도 기존 스냅샷은 유지한다
+- 성공한 빈 결과와 캐시 없음은 다르다
+- 전면 실패는 `hasCachedSnapshot`으로 본다
+- 재시도는 `StationRetryPolicy`, 결과는 `StationEvent.RetryAttempted`
 
-## Station Search And Cache Changes
+<!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](offline-strategy.md#기계-판독-정책-계약)
 
-목록 검색과 cache/stale 정책은 가장 회귀 위험이 높다.
-
-핵심 기준:
-
-- 캐시 키는 위치 버킷, 반경, 유종 중심이다.
-- 브랜드 필터와 정렬은 읽기 모델 단계에서 적용한다.
-- 현재 좌표가 유지된 상태에서 반경, 유종, 브랜드, 정렬 조건이 바뀌면 active query refresh가 다시 요청된다. 브랜드/정렬은 캐시 키가 아니지만 UI 읽기 모델과 refresh input에는 포함된다.
-- 실패해도 기존 스냅샷은 유지한다.
-- 성공한 빈 결과와 캐시 없음은 다르다.
-- UI 전면 실패 판단은 `hasCachedSnapshot` 의미를 기준으로 한다.
-- `StationRetryPolicy`가 application retry를 소유하고, retry 결과는 `StationEvent.RetryAttempted`로 기록한다.
-  <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](offline-strategy.md#기계-판독-정책-계약)
-
-변경 전 확인 파일:
-
-- `domain/station/model/StationQuery.kt`
-- `domain/station/model/StationQueryCacheKey.kt`
-- `domain/station/model/StationSearchResult.kt`
-- `data/station/DefaultStationRepository.kt`
-- `data/station/StationSearchResultAssembler.kt`
-- `data/station/WatchlistSummaryAssembler.kt`
-- `data/station/StationCachePolicy.kt`
-- `data/station/StationRetryPolicy.kt`
-- `core/database/src/main/kotlin/com/gasstation/core/database/station/*`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListViewModel.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/LocationStateMachine.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationSearchOrchestrator.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/RefreshCoordinator.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListCommandQueue.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateInputs.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListStateAssembler.kt`
-- `feature/station-list/src/main/kotlin/com/gasstation/feature/stationlist/StationListBodyState.kt`
-
-테스트는 repository, cache/retry policy와 각 state owner의 집중 테스트, 다섯 개 ViewModel integration suite를 함께 본다. station-list의 generation, observation, refresh, command, projection, watch 동시성 변경은 [검증 매트릭스의 집중 회귀](verification-matrix.md#station-list-상태-동시성-집중-회귀)를 따른다.
+동시성 변경은 [검증 매트릭스의 집중 회귀](verification-matrix.md#station-list-상태-동시성-집중-회귀)를 따른다.
 
 <!-- station-list-state-contract-ref -->[상태 모델의 구조화된 station-list 계약](state-model.md#station-list-결정적-상태-계약)
 
-## Watchlist Changes
+## 관심
 
-watchlist는 현재 목록의 복제 화면이 아니라 저장 항목 비교 화면이다.
+현재 목록의 복제가 아니다. 기준 좌표는 navigation payload와 `SavedStateHandle`이다. 최신 캐시가 없어도 저장 항목을 유지한다. 기본 row는 108–116dp, 5행이 보이고 200% 글꼴이면 스크롤된다. selector는 `bottom-nav-watchlist`, `station-list-watch-toggle`, `watchlist-card`다.
 
-규칙:
+## demo / prod
 
-- 기준 좌표는 app navigation state가 관리하는 최신 좌표 payload와 `SavedStateHandle`에서 온다. 좌표 변경 시 이전 concrete watchlist route는 재사용하지 않는다.
-- 별도 위치 조회나 refresh 세션 상태를 들고 있지 않는다.
-- 저장 항목은 최신 캐시가 없어도 가격 히스토리와 저장된 좌표/브랜드/이름으로 가능한 만큼 복원한다.
-- 기본 row는 108–116dp로 360dp × 800dp에서 다섯 개 complete row를 보여주고, 200% font scale에서는 clipping 없이 확장·scroll한다.
-- 실제 브랜드 icon만 보여주며 visible label은 반복하지 않는다. RTO/RTX/NHO는 `ic_rtx`, ETC는 `ic_etc`를 사용한다.
-- connected와 benchmark의 top-level 진입 selector는 `bottom-nav-watchlist`, 저장/행 selector는 각각 `station-list-watch-toggle`, `watchlist-card`다.
+둘 다 정식이다. `demo`는 seed와 고정 좌표, `prod`는 실제 키·위치·네트워크. 사용자에게 보이면 demo에서 재현되는지 본다. 자동화는 실서버에 기대지 않는다.
 
-변경 전 확인 파일:
+## 테스트 선택
 
-- `feature/watchlist/WatchlistViewModel.kt`
-- `feature/watchlist/WatchlistScreen.kt`
-- `domain/station/usecase/ObserveWatchlistUseCase.kt`
-- `data/station/DefaultStationRepository.kt`
-- `data/station/WatchlistSummaryAssembler.kt`
-- `data/station/*Watchlist*Test.kt`
+값 객체는 `domain:*:test` / `core:model:test`. 캐시는 `data:station:testDebugUnitTest`. UI는 해당 feature test. 조립은 `app:testDemoDebugUnitTest` / `app:testProdDebugUnitTest`. 명령 조합은 `docs/verification-matrix.md`다.
 
-## Demo And Prod
+## 문서
 
-`demo`와 `prod`는 둘 다 정식 경로다.
+설명이 지금 코드와 사용자 흐름을 바꾸면 live 문서도 고친다. 일회성 설계는 `docs/superpowers/`에 남긴다.
 
-- `demo`: seed DB 적재, preferences reset, 고정 좌표, 반복 가능한 UI/test/benchmark 경로
-- `prod`: 실제 Opinet API key, 실제 위치, 실제 네트워크 경로
-
-새 동작이 사용자 플로우에 보이면 demo에서 재현 가능한지 확인한다. demo seed를 바꾸면 README screenshot, UI test, benchmark 전제도 함께 점검한다.
-
-`prod` 실행에는 `opinet.apikey`가 필요하지만, 자동화는 실서버 상태에 의존하지 않는 방향을 우선한다.
-
-## Testing Selection
-
-작은 변경도 관련 계층의 테스트를 고른다.
-
-- 값 객체/도메인 규칙: `domain:*:test`, `core:model:test`
-- 비치명 예외 보고 계약: `core:observability:test`
-- 저장소/캐시/watchlist: `data:station:testDebugUnitTest`
-- 설정 저장: `domain:settings:test`, `data:settings:testDebugUnitTest`, `core:datastore:testDebugUnitTest`
-- 위치: `domain:location:test`, `core:location:testDebugUnitTest`
-- UI state와 Compose 계약: 해당 `feature:*:testDebugUnitTest`
-- 새로 추가하거나 반복 setup을 정리하는 coroutine ViewModel test: `Dispatchers.Main`이 필요하면 feature-local JUnit rule/helper를 우선하고, station-list는 `MainDispatcherRule` 계약을 따른다.
-- app 조립/flavor/startup: `app:testDemoDebugUnitTest`, `app:testProdDebugUnitTest`
-- demo 실제 플로우: `app:connectedDemoDebugAndroidTest`
-- benchmark: `benchmark:assemble` 또는 실기기 evidence 수집용 `benchmark:connectedBenchmarkAndroidTest`
-
-정확한 명령 조합은 `docs/verification-matrix.md`를 따른다.
-
-## Documentation Updates
-
-문서 업데이트 기준은 "설명이 현재 코드와 사용자가 겪는 흐름을 바꾸는가"입니다. 일회성 설계와 구현 계획은 `docs/superpowers/specs/`와 `docs/superpowers/plans/`에 남기지만, 현재 계약이 바뀌면 아래 live 문서도 함께 확인합니다.
-
-| 변경 유형 | 확인하거나 갱신할 문서 |
+| 변경 | 문서 |
 | --- | --- |
-| 모듈 책임, 의존 방향, 새 위치 판단 | `docs/module-contracts.md`, `docs/architecture.md` |
-| 구조, 런타임 흐름, 데이터 흐름 | `docs/architecture.md`, 필요 시 `docs/project-reading-guide.md` |
-| 상태 원천, lifecycle, UI effect 의미 | `docs/state-model.md` |
-| 캐시, stale, refresh 실패, watchlist fallback | `docs/offline-strategy.md` |
-| UI 정보 위계, 디자인 토큰, 공통 primitive | `README.md`, `.impeccable.md`, `docs/architecture.md` |
-| 테스트 의미, 테스트 선택 기준 | `docs/test-strategy.md` |
-| 실제 Gradle 명령, CI 범위, 검증 깊이 | `docs/verification-matrix.md`, `.github/workflows/android.yml` |
-| 릴리스, 배포, 버전, 공개 배포 전 gate | `docs/deployment.md`, `CHANGELOG.md`, `docs/release-notes/` |
-| 성능 측정, benchmark journey, baseline profile | `docs/performance.md`, `docs/verification-matrix.md`, `README.md`의 Performance Snapshot |
-| 보안 결정, secret/key/proxy/backup trade-off | `docs/security-trade-offs.md`, `docs/adr/` |
-| 새 학습 경로, 온보딩 흐름, 문서 라우팅 | `docs/project-reading-guide.md`, `docs/onboarding/developer-onboarding-guide.md`, `README.md` 문서 지도 |
+| 모듈·의존 | `module-contracts.md`, `architecture.md` |
+| 흐름 | `architecture.md` |
+| 상태 | `state-model.md` |
+| 캐시 | `offline-strategy.md` |
+| UI | `README.md`, `.impeccable.md` |
+| 테스트 의미 | `test-strategy.md` |
+| 명령·CI | `verification-matrix.md` |
+| 릴리스 | `deployment.md`, `CHANGELOG.md` |
+| 성능 | `performance.md` |
+| 보안 | `security-trade-offs.md` |
 
-문서만 바꿨더라도 현재 계약을 설명하는 문장이 바뀌면 실제 파일 경로, Gradle task, 모듈 include가 여전히 맞는지 확인합니다. 과거 이력 문서만 바꿨다면 수정한 파일을 명시해 `git diff --check -- <changed files>`를 우선 실행합니다.
+AGENTS.md에는 항상 필요한 규칙만 넣는다.
 
-AGENTS.md에는 모든 작업자가 항상 알아야 하는 원칙만 추가한다. 특정 변경 유형에서만 필요한 긴 설명은 이 문서나 전문 문서로 보낸다.
+## 끝내기 전
 
-## Final Review Checklist
-
-작업을 마치기 전에 확인한다.
-
-- 새 코드나 문서가 현재 활성 모듈 기준과 맞는가?
-- 문서 설명이 현재 코드, `settings.gradle.kts`, live 문서 기준과 충돌하지 않는가?
-- feature가 infra 구현을 직접 알게 되지 않았는가?
-- domain이 Android/UI/storage DTO를 노출하지 않는가?
-- data가 화면 상태나 문구를 소유하지 않는가?
-- demo와 prod 중 하나만 우연히 동작하는 구조가 아닌가?
-- 문서에 쓴 사용자 흐름이 테스트로 보호되는가?
-- AGENTS.md에 들어간 내용이 정말 모든 작업자에게 필요한가?
+- 활성 모듈 기준과 맞는가
+- feature가 infra를 직접 알게 되지 않았는가
+- domain이 Android/UI/storage DTO를 노출하지 않는가
+- data가 화면 문구를 소유하지 않는가
+- demo와 prod 중 하나만 우연히 동작하지 않는가
+- 문서의 사용자 흐름이 테스트로 막히는가

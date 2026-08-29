@@ -1,6 +1,6 @@
-# Android 기기 검증 런북
+# Android 기기 검증
 
-이 문서는 API 24/28/36 에뮬레이터 검증의 운영 소유자입니다. 테스트의 계층별 의미는 [`docs/test-strategy.md`](../test-strategy.md), 정확한 전체 저장소 검증 조합은 [`docs/verification-matrix.md`](../verification-matrix.md)를 따릅니다. 이 경로는 `demo` 앱, Room migration, API 36 Geocoder callback을 제한된 기기 매트릭스에서 확인하며 `prod` 실통신이나 물리 기기 성능을 증명하지 않습니다.
+API 24/28/36 에뮬레이터 운영의 기준이다. 테스트 의미는 [테스트 전략](../test-strategy.md), 명령 조합은 [검증 매트릭스](../verification-matrix.md)다. `demo` 앱, Room migration, API 36 Geocoder를 본다. `prod` 실통신이나 물리 기기 성능은 여기서 증명하지 않는다.
 
 ## 지원 호스트와 사전 조건
 

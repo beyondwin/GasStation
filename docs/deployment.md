@@ -1,8 +1,8 @@
-# 배포 절차
+# 배포
 
-이 문서는 GasStation 새 버전을 발행할 때 확인할 배포 흐름의 단일 출처입니다. `docs/verification-matrix.md`는 검증 명령을, `CHANGELOG.md`와 `docs/release-notes/`는 버전별 변경 설명을 소유합니다.
+새 버전을 발행할 때 본다. 명령은 `docs/verification-matrix.md`, 버전 설명은 `CHANGELOG.md`와 `docs/release-notes/`다.
 
-## 현재 배포 경계
+## 경계
 
 - 공식 실행 경로는 `demo`와 `prod`입니다. 둘 다 release 전에 빌드 가능해야 합니다.
 - GitHub Actions는 PR, `main`, `v*` tag에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble, coverage를 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage report와 ratchet은 모두 차단형이며, 판정 evidence도 artifact로 남깁니다.
