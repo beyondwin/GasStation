@@ -10,7 +10,7 @@
 - `data:*`는 저장과 조합을 한다. Compose 상태를 만들지 않는다.
 - `core:*`는 여러 모듈이 쓰는 인프라와 값 객체만 둔다.
 - 경계는 `verifyModuleBoundaries`(CI `static-analysis`)가 막는다. 18개 활성 모듈의 직접 의존은 `config/quality/production-dependency-policy.txt`의 exact row다. wildcard는 없다. 의도된 예외는 `core:location → domain:location` 한 줄이다.
-- 공개 ABI owner는 `core:model`, `core:observability`, `domain:location`, `domain:settings`, `domain:station`이다. `verifyPublicApiBoundaries`가 Android/Compose/Room/Retrofit/DataStore 타입 누수를 막는다.
+- 공개 ABI owner는 `core:model`, `core:observability`, `domain:location`, `domain:settings`, `domain:station`이다. `verifyPublicApiBoundaries`가 `android.*`, `androidx.*`, `com.google.android.gms.*`, `retrofit2.*`, `okhttp3.*`, `com.google.gson.*` 타입 누수를 막는다.
 
 ## Exact public ABI mappings
 

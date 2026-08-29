@@ -32,9 +32,9 @@
 
 ## 관찰
 
-마커와 행을 **한 Room 트랜잭션**에서 읽는다. 두 DAO Flow를 `combine`하지 않는다.
+invalidation마다 마커와 `stationId ASC`로 정렬한 행을 **하나의 Room transaction** 안에서 읽어 `StationBucketSnapshot` 하나만 내보낸다. 두 DAO Flow를 `combine`하지 않는다.
 
-마커 없음: `stations` 빈 목록, `hasCachedSnapshot = false`. 보여줄 캐시가 없다.
+마커 없음: `stations` 빈 목록, `hasCachedSnapshot = false`. 보여줄 캐시가 없다. 마커가 없으면 관찰자는 행을 빈 목록으로 정규화한다.
 
 마커만 있고 행 0건: `hasCachedSnapshot = true`. 성공한 빈 결과다. 전면 오류가 아니다.
 
@@ -46,7 +46,7 @@
 
 ## 성공한 새로고침
 
-같은 키에서는 가장 나중에 시작한 generation만 저장에 들어간다.
+같은 키에서는 가장 나중에 시작한 generation만 저장에 들어간다. 승인된 generation에서만 `fetchedAt`은 guarded write 안에서, entity 생성과 transaction 직전에 잡는다.
 
 1. 기존 `station_cache` 행 삭제
 2. 새 스냅샷 행 저장
@@ -56,11 +56,11 @@
 6. 7일보다 오래된 행·마커 정리
 7. `StationEvent.SearchRefreshed`
 
-실패한 refresh는 기존 캐시를 지우지 않는다.
+실패한 refresh는 기존 캐시를 지우지 않는다. participant tombstone은 모든 generation이 끝날 때까지 남고, opaque entry identity가 replacement entry에 대한 stale ticket의 ABA 재사용을 막는다.
 
 ## 실패한 새로고침
 
-실패 종류는 `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`이다. 빈 목록은 성공이다. 재시도 횟수와 HTTP 범위는 아래 계약의 `retry`다. 늦은 generation은 조용히 끝난다. 기존 스냅샷은 남는다.
+실패 종류는 `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`이다. 빈 목록은 성공이다. 요청 유종과 같지 않은 proxy 행은 거부한다. 재시도 횟수와 HTTP 범위는 아래 계약의 `retry`다. 늦은 generation은 조용히 끝난다. 기존 스냅샷은 남는다.
 
 ## 기계 판독 정책 계약
 
