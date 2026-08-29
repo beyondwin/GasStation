@@ -55,7 +55,11 @@ def read_command() -> Tuple[Optional[str], str, Optional[str]]:
         if isinstance(payload_cwd, str) and os.path.isdir(payload_cwd)
         else process_cwd
     )
-    tool_input = payload.get("tool_input")
+    # Claude/Codex send snake_case `tool_input`; Grok sends camelCase `toolInput`.
+    if "tool_input" in payload:
+        tool_input = payload.get("tool_input")
+    else:
+        tool_input = payload.get("toolInput")
     if not isinstance(tool_input, dict):
         return None, command_cwd, INVALID_INPUT_REASON
     command = tool_input.get("command")

@@ -57,7 +57,7 @@ gh release view vX.Y.Z --json url,assets
 
 JVM mutation job은 `release-publish.needs`의 unconditional tag prerequisite입니다. strict verifier와 station 45/location 75 native floor를 함께 적용하고 모든 증거를 업로드합니다. settings는 score floor만 report-only이며 malformed/status/source/no-coverage 위반은 차단합니다.
 
-Mutation job은 exact `ubuntu-24.04`에서 `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`과 reviewed runner-images release identity를 먼저 검사합니다. Linux env/Bash/Python/Git의 type, executable mode, content와 version은 그 실행에서 관측될 뿐 고정 executable provenance가 아닙니다. 공식 release의 `internal.ubuntu24.json`은 SBOM이나 immutable VM/binary digest가 아니며, 관측 receipt도 signed attestation이 아닙니다. image rotation은 fail closed 후 reviewed recapture가 필요하고 최종 binary supply-chain remediation는 Task 9 범위입니다.
+Mutation job은 exact `ubuntu-24.04`에서 `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`과 reviewed runner-images release identity를 먼저 검사합니다. 후속 `20260823.283.1`은 recapture 없이 허용합니다. Linux env/Bash/Python/Git의 type, executable mode, content와 version은 그 실행에서 관측될 뿐 고정 executable provenance가 아닙니다. 공식 release의 `internal.ubuntu24.json`은 SBOM이나 immutable VM/binary digest가 아니며, 관측 receipt도 signed attestation이 아닙니다. image rotation은 fail closed 후 reviewed recapture가 필요하고 최종 binary supply-chain remediation는 Task 9 범위입니다.
 
 Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있으면 note를 갱신하고 자산을 `--clobber`로 다시 올리며, tag 자체를 이동하거나 다시 만들지 않습니다. 자동화 도입 전에 만들어진 기존 tag를 보강할 때는 그 tag의 CI 성공과 release note를 확인한 뒤 `gh release create <tag> --verify-tag --notes-file <note>`로 Release record만 추가합니다.
 

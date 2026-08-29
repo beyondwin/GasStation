@@ -5,7 +5,7 @@ GasStation은 한국 운전자가 현재 위치 기반으로 가까운 주유소
 ## 시작하기
 
 1. Java 21 이상, Android SDK 37. 앱의 Java/Kotlin bytecode target은 JVM 17입니다.
-2. 저장소의 agent script와 Codex/Claude hook은 Python 3.9 이상 표준 라이브러리만 사용합니다.
+2. 저장소의 agent script와 Codex/Claude/Grok hook은 Python 3.9 이상 표준 라이브러리만 사용합니다. PreToolUse는 `tool_input`과 `toolInput`을 같은 명령 정책으로 검사합니다.
 3. `~/.gradle/gradle.properties`에 `opinet.apikey`를 둘 수 있습니다. `demo` 빌드는 키 없이 동작합니다.
 4. 처음에는 `demo`로 검증하세요.
 
@@ -70,6 +70,7 @@ JVM mutation 설정은 `./gradlew verifyPitestConfiguration --warning-mode fail`
 ## 행동 강령
 
 존중과 건설적 토론을 원칙으로 합니다. 사용자 데이터/위치 처리에 영향을 주는 PR은 보안 영향을 명시합니다.
+
 ## Build input changes
 
 Wrapper, GitHub Action, JDK, Android SDK 또는 Maven/plugin 입력을 바꿀 때는 [Build Input Provenance](docs/runbooks/build-input-provenance.md)의 one-input-family 절차와 [검증 매트릭스](docs/verification-matrix.md)의 strict/cold-home 명령을 따른다. Raw developer Gradle 실행 결과는 governed receipt나 release 재현성 증거가 아니다.

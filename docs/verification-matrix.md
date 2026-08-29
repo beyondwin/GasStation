@@ -412,7 +412,7 @@ production과 test-source Android Lint는 서로 다른 blocking CI job과 artif
   --continue
 ```
 
-각 job은 성공/실패와 무관하게 `**/build/reports/lint-results-*`를 올립니다. artifact 이름은 각각 `lint-production-reports`, `lint-test-source-reports`이고 XML/text/HTML/SARIF를 포함합니다. 두 job 모두 warning까지 blocking이며, hosted CI 실행은 아직 검증하지 않았습니다. JVM-only `gasstation.jvm.library` 모듈과 `benchmark`는 이 Android Lint 경로가 커버한다고 주장하지 않습니다.
+각 job은 성공/실패와 무관하게 `**/build/reports/lint-results-*`를 올립니다. artifact 이름은 각각 `lint-production-reports`, `lint-test-source-reports`이고 XML/text/HTML/SARIF를 포함합니다. 두 job 모두 warning까지 blocking이며 `main` Android CI에서 실행됩니다. JVM-only `gasstation.jvm.library` 모듈과 `benchmark`는 이 Android Lint 경로가 커버한다고 주장하지 않습니다.
 
 ## 기본 Fast Path와 Opt-in 확장
 
@@ -648,7 +648,7 @@ Do not add this command to the default PR gate. It depends on a connected physic
 
 Canonical Gradle flags는 configuration cache, configuration-cache-problems fail, no build cache, rerun tasks, no parallel, warning-mode fail입니다. 모듈은 순차 실행하고 PIT만 module당 2 thread를 사용하며 workflow timeout은 60분입니다. retry, `--continue`, exclusion, history input/output, dry-run은 없습니다. configuration-cache 검증은 격리된 project/user cache에서 동일 command를 두 번 실행해 첫 run 저장과 둘째 run 재사용을 모두 확인합니다.
 
-Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64`, `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`, runner-images tag `ubuntu24/20260816.277`, commit `3b5f596ffecb076aa5f3c3ded95b145f6daeb016`, `internal.ubuntu24.json` SHA-256 `35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19`를 gate합니다. Python locator `/usr/bin/python3 -> python3.12`를 확인한 뒤 canonical `/usr/bin/python3.12`만 실행합니다. Linux tool full numeric mode와 content/version hash는 매 실행 receipt에 관측하며 고정 executable-byte claim이 아닙니다. Darwin은 별도의 reviewed fixed-hash profile입니다.
+Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64`, `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`(runner-images tag `ubuntu24/20260816.277`, commit `3b5f596ffecb076aa5f3c3ded95b145f6daeb016`, `internal.ubuntu24.json` SHA-256 `35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19`)을 gate합니다. 후속 `20260823.283.1`은 `config/quality/linux-runner-image-successors.json`으로 recapture 없이 허용합니다. Python locator `/usr/bin/python3 -> python3.12`를 확인한 뒤 canonical `/usr/bin/python3.12`만 실행합니다. Linux tool full numeric mode와 content/version hash는 매 실행 receipt에 관측하며 고정 executable-byte claim이 아닙니다. Darwin은 별도의 reviewed fixed-hash profile입니다.
 
 두 workflow는 top-level `CI_JAVA_VERSION: "21"`을 정확히 한 번 선언하고, `mutation_java`를 포함한 모든 `actions/setup-java@v5`가 정확히 `java-version: ${{ env.CI_JAVA_VERSION }}`를 사용합니다. Android workflow의 공통 Java/Robolectric 관계는 `verifyCiRobolectricRuntime`가 검사하고, mutation structural checker는 primary/weekly 양쪽의 top-level 값·canonical reference·중복 및 job/step shadow 금지를 검사합니다. 이 값은 설치할 Java major를 선택할 뿐 Java-home 경로를 운반하지 않습니다.
 

@@ -4,6 +4,28 @@
 
 ## Unreleased
 
+## 1.5.0 - 2026-08-29
+
+### 사용자 영향
+
+- 주변 목록 신선도는 DB 변경 없이도 시간이 지나면 다시 계산됩니다.
+- 연속 새로고침은 나중에 시작한 결과가 이깁니다. 늦게 도착한 이전 요청이 최신 가격을 덮지 않습니다.
+- 위치 권한 변경 중 이전 좌표가 뒤늦게 적용되지 않습니다.
+- 관심 저장/해제는 마지막 탭만 반영합니다.
+
+### 개발자 영향
+
+- station 데이터 계약(최신 refresh, freshness, atomic snapshot, typed retry, Room schema)과 주변 목록 상태 분리(위치·관찰·refresh·command·projection)를 테스트와 live 문서로 고정했습니다.
+- CI는 production/test lint, coverage ratchet, public ABI, sealed mutation, unsigned prod 재현을 차단합니다. tag Release는 이 경로가 모두 성공한 뒤에만 게시됩니다.
+- 문서 허브, catalog, 온보딩 4경로를 현재 계약 입구로 묶었습니다.
+- PreToolUse hook이 Claude/Codex `tool_input`과 Grok `toolInput`을 같은 정책으로 검사합니다.
+- Gradle dependency verification metadata를 제거하고, Ubuntu 24.04 image 후속 `20260823.283.1`을 recapture 없이 허용합니다.
+
+### 문서와 검증
+
+- README, 배포, 테스트 전략, 검증 매트릭스를 v1.5.0과 현재 CI 표면에 맞췄습니다.
+- 상세 릴리즈 노트는 [docs/release-notes/2026-08-29-v1.5.0.md](docs/release-notes/2026-08-29-v1.5.0.md)를 봅니다.
+
 ## 1.4.0 - 2026-07-31
 
 ### 사용자 영향
