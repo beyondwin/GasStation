@@ -29,7 +29,7 @@
 | 사용자 플로우 | 현재 위치 조회 -> 주변 목록 확인 -> 관심 저장 -> 관심 목록 비교 -> 외부 지도 열기 |
 | 구조 | `app / feature / domain / data / core / tools / benchmark` 멀티모듈 |
 | 런타임 | 재현 가능한 `demo`, 실제 Opinet Open API 키 기반 `prod` |
-| 현재 앱 버전 | `1.4.0` (`versionCode` 10) |
+| 현재 앱 버전 | `1.5.0` (`versionCode` 11) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 | 데이터 | `prod`는 실시간 Opinet API 응답, `demo`는 승인된 seed JSON 자산 |
 | 검증 | 단위 테스트, Compose/Robolectric, 기기 UI 테스트, 매크로벤치마크 |
@@ -117,19 +117,14 @@ live seed refresh와 `prod` 런타임 검색은 모두 `opinet.apikey`만 사용
 
 ## 릴리즈
 
-- [CHANGELOG](CHANGELOG.md): 버전별 주요 변경 사항을 요약합니다.
-- [GitHub Releases](https://github.com/beyondwin/GasStation/releases): 태그별 릴리즈 노트, demo APK, unsigned prod APK, SHA-256 checksum을 게시합니다.
-- [배포 절차](docs/deployment.md): release branch, 검증, tag push, GitHub Release 자동 게시, signing/secret 경계를 정리합니다.
-- [Unreleased](CHANGELOG.md#unreleased): v1.4.0 이후 변경 사항을 추적합니다.
-- [1.4.0 릴리즈 노트](docs/release-notes/2026-07-31-v1.4.0.md): refined droplet launcher/splash, reduced-motion-safe signal pulse, navigation inset 수정, GitHub Release 자동화를 정리합니다.
-- [1.3.0 릴리즈 노트](docs/release-notes/2026-07-25-v1.3.0.md): Urban Signal UI, 설정·권한 상태 무결성, 선택 유종 기반 관심 비교, 외부 지도 계약, toolchain·CI 보강을 정리합니다.
-- [1.2.0 릴리즈 노트](docs/release-notes/2026-06-07-v1.2.0.md): proxy readiness, DB/remote 입력 검증, refresh transaction, module boundary guard, mutation gate, release-readiness fixes를 정리합니다.
-- [1.1.3 릴리즈 노트](docs/release-notes/2026-05-18-v1.1.3.md): hero benchmark evidence, first usable content startup reporting, backend proxy ADR, physical-device performance snapshot, 배포 절차 문서화를 정리합니다.
-- [1.1.2 릴리즈 노트](docs/release-notes/2026-05-14-v1.1.2.md): build/test 속도 개선, CI 메모리 안정화, 검증 경로 분리를 정리합니다.
-- [1.1.1 릴리즈 노트](docs/release-notes/2026-05-13-v1.1.1.md): clean architecture remediation, observability 경계, station-list/data 분리, CI scope 조정을 정리합니다.
-- [1.1.0 릴리즈 노트](docs/release-notes/2026-05-11-v1.1.0.md): production baseline, CI, i18n, screenshot regression, coverage 기반 변경과 검증 결과를 정리합니다.
-- [1.0.2 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.2.md): 2026-05-05 deep analysis required fixes와 검증 결과를 정리합니다.
-- [1.0.1 릴리즈 노트](docs/release-notes/2026-05-05-v1.0.1.md): 2026-05-05 backlog risk resolution 변경의 상세 내용과 검증 결과를 정리합니다.
+지금 버전은 `1.5.0`입니다. 짧은 요약은 [CHANGELOG](CHANGELOG.md), 설치용 APK는 [GitHub Releases](https://github.com/beyondwin/GasStation/releases), 발행 절차는 [배포](docs/deployment.md)를 봅니다.
+
+- [Unreleased](CHANGELOG.md#unreleased): 다음 버전 변경을 추적합니다.
+- [1.5.0](docs/release-notes/2026-08-29-v1.5.0.md): 최신 가격·위치·관심 의도, 품질 게이트, 문서 허브, GitHub Release 경로.
+- [1.4.0](docs/release-notes/2026-07-31-v1.4.0.md): droplet launcher/splash와 자동 GitHub Release.
+- [1.3.0](docs/release-notes/2026-07-25-v1.3.0.md): Urban Signal UI와 권한·설정·관심 비교.
+
+이전 버전 노트는 [릴리즈 노트 허브](docs/release-notes/README.md)에 있습니다.
 
 ## 문서 지도
 

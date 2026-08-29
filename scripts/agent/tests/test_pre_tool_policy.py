@@ -248,6 +248,30 @@ class PreToolPolicyTest(unittest.TestCase):
         self.assertEqual("", result.stdout)
         self.assertIn("destructive git reset", result.stderr)
 
+    def test_grok_camelcase_payload_allows_safe_command(self):
+        payload = {
+            "hookEventName": "pre_tool_use",
+            "toolName": "run_terminal_command",
+            "toolInput": {"command": "./gradlew :app:testDemoDebugUnitTest"},
+            "cwd": str(ROOT),
+        }
+        result = self.run_raw_policy(json.dumps(payload), surface="claude")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", result.stdout)
+        self.assertEqual("", result.stderr)
+
+    def test_grok_camelcase_payload_denies_hard_reset_on_claude_surface(self):
+        payload = {
+            "hookEventName": "pre_tool_use",
+            "toolName": "run_terminal_command",
+            "toolInput": {"command": "git reset --hard HEAD~1"},
+            "cwd": str(ROOT),
+        }
+        result = self.run_raw_policy(json.dumps(payload), surface="claude")
+        self.assertEqual(2, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertIn("destructive git reset", result.stderr)
+
     def test_codex_invalid_payloads_fail_closed_without_traceback(self):
         for raw in INVALID_POLICY_PAYLOADS:
             with self.subTest(raw=raw):

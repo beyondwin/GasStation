@@ -1,6 +1,8 @@
 # GasStation 문서 허브
 
-이 문서는 현재 GasStation을 이해하고 변경할 때 시작하는 사람용 허브입니다. 현재 사실과 계약은 코드, `settings.gradle.kts`, Gradle task, CI workflow를 우선으로 확인합니다. 문서의 소유 범위와 검토 시점은 [documentation-catalog.json](documentation-catalog.json)에 기록합니다.
+이 문서는 현재 GasStation을 이해하고 변경할 때 시작하는 사람용 허브입니다. 지금 앱 버전은 `app/build.gradle.kts`를, 지금 동작은 코드와 `settings.gradle.kts`를, 문서 소유는 [documentation-catalog.json](documentation-catalog.json)을 우선합니다.
+
+5분 경로: 제품을 보려면 [루트 README](../README.md), 로컬 실행은 [시작하기](onboarding/getting-started.md), 변경은 [변경 플레이북](onboarding/change-playbook.md), 검증은 [검증 매트릭스](verification-matrix.md)입니다.
 
 ## 1. 새 기여자와 로컬 실행
 

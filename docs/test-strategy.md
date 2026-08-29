@@ -189,7 +189,7 @@ Baseline provenance는 순환하지 않습니다. candidate baseline은 predeces
 
 `hostNeutralMutationIdentity`는 PIT/plugin 버전, target/source-set, report-generation 설정과 Java 21 Temurin family를 비교하고, `perRunExecutionProvenance`는 선택 profile, 실제 Java executable/configuration/tool 관측값과 receipt를 분리해 보존합니다. host-neutral 설정은 `defaultCharacterEncoding=UTF-8`을 명시적으로 소유하고 pre-exec에서 alternate/same-value duplicate `file.encoding`과 관리 인자가 정확히 하나가 아닌 경우를 거부합니다. Gradle 9.6.1 getter가 ambient 기본 charset을 정규화하므로 null/absence를 증거로 사용하지 않습니다.
 
-Darwin arm64 profile은 검토된 고정 content/version hash를 사용합니다. Linux x86_64 profile은 exact `ubuntu-24.04`, `ImageOS=ubuntu24`, `ImageVersion=20260816.277.1`과 runner-images release identity를 먼저 검사한 뒤 `/usr/bin/env`, `/bin/bash`, `/usr/bin/python3.12`, `/usr/bin/git`의 type/mode/content/version을 매 실행 관측합니다. 이 관측값은 고정 executable provenance나 서명된 attestation이 아닙니다. 초기 Linux 비교는 `NOT_ESTABLISHED`이고 검토된 `recapture-transition`만 이를 수립할 수 있습니다. hosted image rotation은 fail closed 후 정책/transition 재검토가 필요하며 최종 binary supply-chain 강화는 Task 9 범위입니다.
+Darwin arm64 profile은 검토된 고정 content/version hash를 사용합니다. Linux x86_64 profile은 exact `ubuntu-24.04`, `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`과 후속 `20260823.283.1`, runner-images release identity를 먼저 검사한 뒤 `/usr/bin/env`, `/bin/bash`, `/usr/bin/python3.12`, `/usr/bin/git`의 type/mode/content/version을 매 실행 관측합니다. 이 관측값은 고정 executable provenance나 서명된 attestation이 아닙니다. 초기 Linux 비교는 `NOT_ESTABLISHED`이고 검토된 `recapture-transition`만 이를 수립할 수 있습니다. hosted image rotation은 fail closed 후 정책/transition 재검토가 필요하며 최종 binary supply-chain 강화는 Task 9 범위입니다.
 
 ## 의도적으로 약하게 보는 것
 

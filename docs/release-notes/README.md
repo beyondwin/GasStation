@@ -6,8 +6,8 @@
 
 대표 진입점:
 
+- [v1.5.0 release note](2026-08-29-v1.5.0.md)
 - [v1.4.0 release note](2026-07-31-v1.4.0.md)
-- [v1.3.0 release note](2026-07-25-v1.3.0.md)
 - [현재 문서 허브로 돌아가기](../README.md)
 
 이 목록은 최신 몇 개의 탐색 시작점만 제공하며 exhaustive version index가 아닙니다. 과거 release note body는 보존합니다.
