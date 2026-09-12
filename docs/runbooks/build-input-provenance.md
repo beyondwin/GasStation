@@ -1,10 +1,10 @@
-# Build Input Provenance
+# 빌드 입력 근거
 
 검토된 빌드 입력과 unsigned prod 재현성의 운영 기준이다. 정책은 `config/quality/build-inputs.json`, 실행기는 `scripts/quality/verify_build_inputs.py`, Gradle 진입점은 `scripts/quality/build_inputs/run_gradle.sh`다.
 
 ## 보장 범위와 정직한 경계
 
-검증된 SHA-256은 검토한 URL·메타데이터에 대한 byte integrity를 증명한다. publisher identity, 서명 provenance, 취약점 부재, 라이선스 검토를 대신하지 않는다. raw `./gradlew`, Android Studio, 임의 init script와 developer helper는 개발에 사용할 수 있지만 Task 9 receipt나 release gate 증거가 아니다. Task 7·8의 device/runtime lane은 새 정규 실행이 없으면 계속 `NOT RUN`이며 host compile, parser, artifact upload로 승격하지 않는다.
+검증된 SHA-256은 검토한 URL·메타데이터에 대한 byte integrity를 증명한다. publisher identity, 서명 provenance, 취약점 부재, 라이선스 검토를 대신하지 않는다. raw `./gradlew`, Android Studio, 임의 init script와 developer helper는 개발에 사용할 수 있지만 빌드 입력 receipt나 release gate 증거가 아니다. 기기 검증 device/runtime lane은 새 정규 실행이 없으면 계속 `NOT RUN`이며 host compile, parser, artifact upload로 승격하지 않는다.
 
 ## 고정 입력 갱신
 
@@ -24,13 +24,13 @@
 
 ## Android SDK와 Codecov
 
-SDK package는 logical Task 8 image와 실제 sdkmanager coordinate를 구분한다. API 24는 `google_apis`, API 28 AOSP는 실제 `default`, API 36은 `google_apis` 좌표를 사용한다. package revision/hash는 reached lane의 실제 설치 metadata가 있을 때만 receipt에 기록하며 mutable repository 상태는 재검토 대상이다.
+SDK package는 기기 검증 레인 image와 실제 sdkmanager coordinate를 구분한다. API 24는 `google_apis`, API 28 AOSP는 실제 `default`, API 36은 `google_apis` 좌표를 사용한다. package revision/hash는 reached lane의 실제 설치 metadata가 있을 때만 receipt에 기록하며 mutable repository 상태는 재검토 대상이다.
 
-API 37 platform은 integer `compileSdk=37`에서 package path를 추정하지 않는다. Policy capture 직전에 exact `https://dl.google.com/android/repository/repository2-3.xml`을 새로 받아 reviewed body SHA-256과 old exact `platforms;android-37` 부재를 확인하고, `platforms;android-37.0` API `37.0`, extension `22`, layoutlib `15`, revision `2`, `Android SDK Platform 37.0`, `channel-0`, `platform-37.0_r02.zip`/`67281901`/repository SHA-1 record를 source receipt에 묶는다. SHA-1은 Google XML 필드를 보존한 source metadata일 뿐 Task 9의 archive authentication 주장이 아니다. XML body나 inventory가 바뀌면 old coordinate로 fallback하지 말고 policy review로 돌아간다.
+API 37 platform은 integer `compileSdk=37`에서 package path를 추정하지 않는다. Policy capture 직전에 exact `https://dl.google.com/android/repository/repository2-3.xml`을 새로 받아 reviewed body SHA-256과 old exact `platforms;android-37` 부재를 확인하고, `platforms;android-37.0` API `37.0`, extension `22`, layoutlib `15`, revision `2`, `Android SDK Platform 37.0`, `channel-0`, `platform-37.0_r02.zip`/`67281901`/repository SHA-1 record를 source receipt에 묶는다. SHA-1은 Google XML 필드를 보존한 source metadata일 뿐 빌드 입력 고정의 archive authentication 주장이 아니다. XML body나 inventory가 바뀌면 old coordinate로 fallback하지 말고 policy review로 돌아간다.
 
 Local Linux command-line tools는 `commandlinetools-linux-15859902_latest.zip`의 exact size/SHA-256과 141-member listing SHA-256, one `cmdline-tools/source.properties`, zero archive `package.xml`로 인증한다. Safe extraction 뒤 identity는 `cmdline-tools/latest/source.properties`의 exact 86 bytes, SHA-256, mode `0644`, LF-terminated `Pkg.Revision=22.0`, `Pkg.Path=cmdline-tools;22.0`, `Pkg.Desc=Android SDK Command-line Tools` 세 field가 소유한다. ZIP stored mode `100755`는 input fact이고 installed mode가 아니다. `cmdline-tools/latest/package.xml`을 만들거나 복사해 증거로 쓰는 것은 금지한다.
 
-`sdkmanager`는 local evidence SDK에 `build-tools;36.0.0`, `platforms;android-37.0`, `platform-tools`만 설치한다. Installed receipt는 이 세 root의 `package.xml`만 허용하고 각 relative path, coordinate, owner role, size, SHA-256, mode `0644`를 기록한다. Selected binary는 command-line-tools role의 `sdkmanager`/`avdmanager`, build-tools role의 `aapt2`/`apksigner`/`zipalign`, platform-tools role의 `adb` 정확히 여섯 개이며 각 path, owner role, size, SHA-256, mode `0755`를 기록한다. Missing/extra file, source/package/binary role swap, fake command-line-tools XML, emulator/system-image install은 실패한다. Emulator와 Task-8 system-image coordinate는 실제 lane 실행 전까지 `runtimeEvidence: NOT RUN`을 유지한다.
+`sdkmanager`는 local evidence SDK에 `build-tools;36.0.0`, `platforms;android-37.0`, `platform-tools`만 설치한다. Installed receipt는 이 세 root의 `package.xml`만 허용하고 각 relative path, coordinate, owner role, size, SHA-256, mode `0644`를 기록한다. Selected binary는 command-line-tools role의 `sdkmanager`/`avdmanager`, build-tools role의 `aapt2`/`apksigner`/`zipalign`, platform-tools role의 `adb` 정확히 여섯 개이며 각 path, owner role, size, SHA-256, mode `0755`를 기록한다. Missing/extra file, source/package/binary role swap, fake command-line-tools XML, emulator/system-image install은 실패한다. Emulator와 기기 검증 system-image coordinate는 실제 lane 실행 전까지 `runtimeEvidence: NOT RUN`을 유지한다.
 
 Codecov upload는 선택적·비차단이다. action full SHA만으로 충분하지 않고 정책에 고정한 Codecov CLI binary URL, size, SHA-256을 검증한 뒤 action의 `binary` input으로 전달한다. `use_pypi`와 임의 downloader는 허용하지 않으며 token은 coverage job에만 둔다.
 
@@ -65,15 +65,15 @@ Terminal `PASS`는 정적 build-input 검증, configuration-cache reuse, 정확�
 
 Repository/default/CI/ordinary-local과 nested TestKit timeout은 15분이다. Convention suite는 `maxParallelForks=5`, 전체 90 tests, no retry/shard/skip 계약을 유지한다. TestKit fixture는 필요한 dependency cache seed만 공유하며 dependency verification metadata를 복사하거나 별도 capture graph를 실행하지 않는다.
 
-`build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 Task 8 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
+`build/reports/build-inputs/local-linux-host.json`과 `local-linux-evidence-package.json`은 이 emulated local boundary만 나타낸다. Hosted evidence와 기기 검증 device/emulator/ADB runtime은 별도 실행 전까지 `NOT RUN`이다.
 
-## 문서 Gradle bridge와 Task 10 handoff
+## 문서 Gradle bridge
 
 Governed 문서 검증은 byte-stable `scripts/quality/build_inputs/docs_gradle_validation_bridge.py`만 Gradle child를 소유한다. facade는 고정 경로 `scripts/docs/validate.py`, callable은 `validate_repository(root: pathlib.Path, *, discovered_gradle_tasks: frozenset[str] | None) -> list[str]`다. 직접 facade 실행은 local diagnostic일 뿐 accepted receipt를 만들지 않는다.
 
 Bridge는 `scripts/docs/extensions/`를 repository-relative sorted order로 정확히 한 번 로드하고, 실행된 모든 `scripts/docs/**/*.py` production source를 dynamic closure receipt에 기록한다. tests/cache/bytecode는 제외한다. guarded import는 docs 밖 repository Python, 특히 `scripts/quality/**` import를 거부한다.
 
-Task 10과 Documentation Phase 5는 bridge bytes와 정책 static hash를 그대로 두고 fixed facade의 bytes 및 docs-only extension/helper만 바꿀 수 있다. default와 bridge mode는 동일한 sorted extension/source set을 실행해야 한다. bridge, facade path/callable, allowed source roots를 바꾸거나 static hash를 새로 고쳐야 한다면 Task 9 review로 돌아온다.
+문서 검증을 이어서 바꿀 때는 bridge bytes와 정책 static hash를 그대로 두고, 고정 facade의 bytes 및 docs-only extension/helper만 바꿀 수 있다. default와 bridge mode는 동일한 sorted extension/source set을 실행해야 한다. bridge, facade path/callable, allowed source roots를 바꾸거나 static hash를 새로 고쳐야 한다면 빌드 입력 정책 review로 돌아온다.
 
 ## Unsigned prod release 재현성과 release binding
 

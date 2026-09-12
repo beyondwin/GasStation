@@ -38,7 +38,7 @@
 
 ## 레이어
 
-자주 바뀌지 않는 방향만 그린다. 18개 모듈의 직접 의존은 [아키텍처](docs/architecture.md#모듈-그래프)가 맞는다.
+자주 바뀌지 않는 방향만 그린다. 18개 모듈의 직접 의존은 [아키텍처](docs/architecture.md#모듈-그래프)가 맞는다. 스냅샷, 오래됨, 요청 세대는 [쉬운 말](docs/architecture.md#쉬운-말)을 본다.
 
 ```mermaid
 flowchart LR

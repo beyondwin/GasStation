@@ -2,7 +2,7 @@
 
 속도 설정은 결과가 맞을 때만 유지한다. 지금 `gradle.properties`는 `org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`다. 검증이 깨지면 제품 코드보다 이 경계를 먼저 본다.
 
-## Local Timing Snapshot
+## 로컬 시간 스냅샷
 
 Date: 2026-05-31
 Machine: local developer machine
@@ -19,14 +19,14 @@ At implementation commit `12e619b8...`, the final local convention run completed
 
 The single governed Linux invocation at `4173dd05...` exited 2 after 0.602362792s because inherited `SSH_AUTH_SOCK` was rejected before attempt allocation. That duration is infrastructure preflight latency, not convention-suite build time: the status is attempt 0 and `NOT_MEASURED`, with no same-code retry. The exact invocation and evidence interpretation live in the [verification matrix](verification-matrix.md#build-input-provenance와-unsigned-release-재현성).
 
-## Decisions
+## 결정
 
 - Keep `org.gradle.parallel=true` enabled because the fast local check and release assemble passed with the current module graph.
 - Keep `org.gradle.caching=true` enabled because the verification commands passed with the current build cache configuration.
 - Keep `org.gradle.configuration-cache=true` enabled only while the documented verification matrix stays green. If a task becomes incompatible, disable configuration cache for the failing command before changing product code.
 - Keep `:app:assembleProdRelease` outside the PR default gate. It remains a `main` and `v*` tag gate in GitHub Actions and a release/deployment local check.
 
-## CI Interpretation
+## CI 해석
 
 GitHub Actions already separates `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `release-assemble`, and `coverage`. The `assemble` job intentionally runs demo debug, prod debug, and benchmark assemble as separate Gradle invocations to avoid a memory peak on hosted runners.
 

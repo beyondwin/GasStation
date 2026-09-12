@@ -25,7 +25,7 @@
 
 ## 계약
 
-- 모듈 그래프와 흐름: [아키텍처](../architecture.md)
+- 모듈 그래프와 흐름, 쉬운 말: [아키텍처](../architecture.md)
 - 어디에 둘지: [모듈 계약](../module-contracts.md)
 - 목록 상태: [상태 모델](../state-model.md)
 - 캐시·실패: [오프라인 전략](../offline-strategy.md)

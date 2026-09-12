@@ -1,4 +1,4 @@
-# Contributing to GasStation
+# 기여하기
 
 외부 기여를 환영한다.
 

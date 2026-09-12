@@ -1,6 +1,6 @@
 # 읽기 가이드
 
-질문에서 코드와 계약으로 가는 표다. 문서 분류는 [문서 허브](README.md), 소유는 [documentation-catalog.json](documentation-catalog.json)이다. 지금 판단은 코드와 `settings.gradle.kts`가 먼저다.
+질문에서 코드와 계약으로 가는 표다. 문서 분류는 [문서 허브](README.md), 소유는 [documentation-catalog.json](documentation-catalog.json)이다. 지금 판단은 코드와 `settings.gradle.kts`가 먼저다. 스냅샷·오래됨·요청 세대는 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
 
 ## 에이전트
 
@@ -19,12 +19,13 @@
 | 변경을 시작하려면 | `AGENTS.md`, `settings.gradle.kts`, `docs/agent-workflow.md` |
 | 처음 맡은 사람 | [문서 허브](README.md), `docs/onboarding/developer-onboarding-guide.md` |
 | 전체 구조 | `settings.gradle.kts`, `docs/architecture.md`, `docs/module-contracts.md` |
+| 용어가 안 보이면 | [아키텍처 쉬운 말](architecture.md#쉬운-말) |
 | 앱이 어디서 시작하나 | `App.kt`, `MainActivity.kt`, `GasStationNavHost.kt` |
 | 목록 상태는 어디서 만들어지나 | `StationListViewModel`, `LocationStateMachine`, `StationSearchOrchestrator`, `RefreshCoordinator`, `StationListCommandQueue`, `StationListStateAssembler` |
 | 설정 화면이 둘인 이유 | `GasStationNavHost`, `SettingsRoute`, `SettingsDetailRoute`, 같은 `SettingsViewModel` |
 | 관심은 어떻게 만들어지나 | `WatchlistViewModel`, `ObserveWatchlistUseCase`, `DefaultStationRepository`, `WatchlistSummaryAssembler` |
 | 디자인 | `.impeccable.md`, `core/designsystem` |
-| 오프라인·stale | `DefaultStationRepository`, `StationSearchResultAssembler`, `StationCachePolicy` |
+| 오프라인·오래됨 | `DefaultStationRepository`, `StationSearchResultAssembler`, `StationCachePolicy` |
 | 재시도 | `StationRetryPolicy`, `DefaultStationRepository` |
 | demo | `DemoSeedStartupHook`, `DemoLocationModule`, `DemoSeedStationRemoteDataSource` |
 | prod | `ProdSecretsStartupHook`, `app/build.gradle.kts` |

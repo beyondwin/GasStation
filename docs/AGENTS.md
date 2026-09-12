@@ -1,6 +1,6 @@
-# Documentation Agent Contract
+# 문서 작업 규칙
 
-`docs/`를 바꿀 때 루트 `AGENTS.md`를 보완한다.
+`docs/`를 바꿀 때 루트 `AGENTS.md`를 보완한다. 설명은 쉬운 말로 쓰고, 코드 이름과 잠긴 계약 문구는 그대로 둔다.
 
 ## 범위
 

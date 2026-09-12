@@ -57,7 +57,7 @@ gh release view vX.Y.Z --json url,assets
 
 JVM mutation job은 `release-publish.needs`의 unconditional tag prerequisite입니다. strict verifier와 station 45/location 75 native floor를 함께 적용하고 모든 증거를 업로드합니다. settings는 score floor만 report-only이며 malformed/status/source/no-coverage 위반은 차단합니다.
 
-Mutation job은 exact `ubuntu-24.04`에서 `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`과 reviewed runner-images release identity를 먼저 검사합니다. 후속 `20260823.283.1`은 recapture 없이 허용합니다. Linux env/Bash/Python/Git의 type, executable mode, content와 version은 그 실행에서 관측될 뿐 고정 executable provenance가 아닙니다. 공식 release의 `internal.ubuntu24.json`은 SBOM이나 immutable VM/binary digest가 아니며, 관측 receipt도 signed attestation이 아닙니다. image rotation은 fail closed 후 reviewed recapture가 필요하고 최종 binary supply-chain remediation는 Task 9 범위입니다.
+Mutation job은 exact `ubuntu-24.04`에서 `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`과 reviewed runner-images release identity를 먼저 검사합니다. 후속 `20260823.283.1`은 recapture 없이 허용합니다. Linux env/Bash/Python/Git의 type, executable mode, content와 version은 그 실행에서 관측될 뿐 고정 executable provenance가 아닙니다. 공식 release의 `internal.ubuntu24.json`은 SBOM이나 immutable VM/binary digest가 아니며, 관측 receipt도 signed attestation이 아닙니다. image rotation은 fail closed 후 reviewed recapture가 필요하고, 최종 binary supply-chain 고정은 [Build Input Provenance](runbooks/build-input-provenance.md) 범위다.
 
 Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있으면 note를 갱신하고 자산을 `--clobber`로 다시 올리며, tag 자체를 이동하거나 다시 만들지 않습니다. 자동화 도입 전에 만들어진 기존 tag를 보강할 때는 그 tag의 CI 성공과 release note를 확인한 뒤 `gh release create <tag> --verify-tag --notes-file <note>`로 Release record만 추가합니다.
 
@@ -69,11 +69,11 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 이 상태는 unsigned prod-release의 same-host/workspace-independent 재현성만 의미한다. demo-debug는 probe 대상이 아니고 기존 demo asset 이름은 유지한다. signed artifact, cross-OS, hosted image 자체의 immutable identity는 주장하지 않는다. Hosted probe가 아직 실행되지 않은 source는 `HOSTED BUILD-INPUT EVIDENCE: NOT RUN`이며 로컬 결과로 바꾸지 않는다. 자세한 mismatch triage는 [Build Input Provenance](runbooks/build-input-provenance.md)를 따른다.
 
-Task 9 구현 lineage는 `12e619b8...`와 narrow fix `4173dd05...`이며 exact final HEAD의 scoped review는 finding 없는 SPEC PASS / QUALITY PASS입니다. 이것은 release 또는 배포 증거가 아닙니다. `4173dd05...`의 governed Linux entry는 attempt allocation 전 infrastructure preflight에서 멈췄으므로 `NOT_MEASURED`이고, 같은 코드 retry는 수행되지 않았으며 승인되지 않았습니다. Hosted build-input, signed/cross-host reproducibility, device/emulator, push, PR, tag, release, publish, deploy와 그 밖의 remote action은 모두 `NOT RUN`입니다.
+빌드 입력 고정 구현 lineage는 `12e619b8...`와 narrow fix `4173dd05...`이며 exact final HEAD의 scoped review는 finding 없는 SPEC PASS / QUALITY PASS다. 이것은 release 또는 배포 증거가 아니다. `4173dd05...`의 governed Linux entry는 attempt allocation 전 infrastructure preflight에서 멈췄으므로 `NOT_MEASURED`이고, 같은 코드 retry는 수행되지 않았으며 승인되지 않았습니다. Hosted build-input, signed/cross-host reproducibility, device/emulator, push, PR, tag, release, publish, deploy와 그 밖의 remote action은 모두 `NOT RUN`입니다.
 
 ## 기기 진단 workflow와 release 경계
 
-`.github/workflows/device-evidence.yml`의 API 28 PR smoke는 초기 report-only이며, API 24/28/36 scheduled/manual job은 실패를 숨기지 않는 진단 경로입니다. Task 8에서는 어느 job도 `release-publish.needs`가 아니고 tag/Release를 차단하거나 발행 근거를 대체하지 않습니다. API 28 PR status의 blocking 승격은 [Android 기기 검증 런북](runbooks/device-verification.md)의 반복 hosted evidence와 별도 review 조건을 만족한 후의 독립 변경으로만 수행합니다. hosted run이 없으면 `HOSTED NOT RUN`으로 남기며 release PASS로 해석하지 않습니다.
+`.github/workflows/device-evidence.yml`의 API 28 PR smoke는 초기 report-only이며, API 24/28/36 scheduled/manual job은 실패를 숨기지 않는 진단 경로입니다. 지금 기기 검증 workflow에서는 어느 job도 `release-publish.needs`가 아니고 tag/Release를 차단하거나 발행 근거를 대체하지 않는다. API 28 PR status의 blocking 승격은 [Android 기기 검증 런북](runbooks/device-verification.md)의 반복 hosted evidence와 별도 review 조건을 만족한 후의 독립 변경으로만 수행합니다. hosted run이 없으면 `HOSTED NOT RUN`으로 남기며 release PASS로 해석하지 않습니다.
 
 ## Android 산출물
 

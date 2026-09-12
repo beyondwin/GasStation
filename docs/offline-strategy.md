@@ -1,6 +1,6 @@
 # 오프라인 전략
 
-마지막 성공 스냅샷을 버리지 않는다. 실패와 빈 결과를 구분한 채 계속 보여준다. 구현은 `DefaultStationRepository`와 `core:database`다.
+마지막 성공 스냅샷을 버리지 않는다. 실패와 빈 결과를 구분한 채 계속 보여준다. 구현은 `DefaultStationRepository`와 `core:database`다. 스냅샷·오래됨은 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
 
 ## 답
 

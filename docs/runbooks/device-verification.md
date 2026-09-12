@@ -54,13 +54,13 @@ cleanup도 caller 문자열을 신뢰하지 않습니다. GMD baseline, task 종
 
 `PASS`는 정규 wrapper가 정확한 source commit에서 모든 identity를 zero failure/error/skip으로 실행하고, device/receipt/hash/cleanup 검증까지 통과했을 때만 사용합니다. `FAIL`은 실행했지만 어느 계약이든 실패한 상태, `QUARANTINED`는 활성 overlay로 인한 non-PASS 상태, `NOT RUN`은 지원·권한 있는 attempt 자체가 없는 상태입니다.
 
-초기 PR job만 job-level `continue-on-error: true`인 report-only입니다. 개별 step은 실패를 숨기지 않습니다. scheduled/manual job은 실패 시 red이지만 Task 8에서는 `release-publish` 선행 조건이 아닙니다. PR job을 blocking으로 승격하려면 최신 정책/selector/workflow/test 변경 뒤 세 번 연속 weekly 전체 매트릭스 PASS와 세 번의 서로 다른 PR smoke PASS, 완전한 artifact, zero skip, qualification 기간 전체 무격리, 재시도/폐기 없음, source SHA와 run/artifact identity를 인용한 별도 리뷰 커밋이 필요합니다.
+초기 PR job만 job-level `continue-on-error: true`인 report-only입니다. 개별 step은 실패를 숨기지 않습니다. scheduled/manual job은 실패 시 red이지만 지금 기기 검증에서는 `release-publish` 선행 조건이 아니다. PR job을 blocking으로 승격하려면 최신 정책/selector/workflow/test 변경 뒤 세 번 연속 weekly 전체 매트릭스 PASS와 세 번의 서로 다른 PR smoke PASS, 완전한 artifact, zero skip, qualification 기간 전체 무격리, 재시도/폐기 없음, source SHA와 run/artifact identity를 인용한 별도 리뷰 커밋이 필요합니다.
 
 격리는 `config/quality/device-evidence-quarantine.json`에 정규 test identity 하나, owner, issue, reason, created/expiry를 기록하며 최대 7일입니다. wildcard/class/API 단위 격리, `@Ignore`, inventory 삭제, `|| true`는 허용하지 않습니다. 활성 격리는 canonical expected set을 바꾸지 않고 항상 `QUARANTINED`/DEGRADED입니다.
 
 ## 현재 runtime 증거와 한계
 
-2026-08-21 Task-8 구현 준비 시점의 상태는 다음과 같습니다.
+2026-08-21 기기 검증 구현 준비 시점의 상태는 다음과 같다.
 
 - API-28 failure-artifact transport: `NOT RUN` — 현재 작업은 Darwin arm64/no-push/no-hosted-run 권한 경계이며 controlled device probe를 실행하지 않았습니다.
 - `api24-scheduled`, `api28-pr-smoke`, `api28-scheduled`, `api36-scheduled`: 모두 `NOT RUN` — host parser/TestKit/compile 증거만 있으며 지원 Linux x86_64/KVM runtime attempt가 없습니다.

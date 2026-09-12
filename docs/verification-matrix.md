@@ -65,7 +65,7 @@ git diff --check -- README.md CHANGELOG.md CONTRIBUTING.md docs/deployment.md do
 - README 명령을 바꿨으면 그 명령이나 더 좁은 관련 명령을 돌린다.
 - demo story나 screenshot을 바꿨으면 `:app:assembleDemoDebug` 또는 관련 UI test를 본다.
 - 배포 절차는 `docs/deployment.md`와 이 문서의 릴리스 절을 같이 본다.
-- 성능 숫자는 `docs/performance.md`와 이 문서의 Hero Benchmark Evidence를 같이 본다.
+- 성능 숫자는 `docs/performance.md`와 이 문서의 물리 기기 성능 증거를 같이 본다.
 
 ## 빠른 로컬 확인
 
@@ -180,7 +180,7 @@ compiler/Test/Roborazzi convention 자체의 TestKit gate와 현재 strict modul
 
 <!-- command-owner: station-state-concurrency -->
 
-location generation, observation recovery, latest watch intent, acknowledged FIFO command, refresh work identity, 순수 projection 또는 얇은 ViewModel 조합을 변경했을 때의 canonical regression입니다.
+위치 요청 세대, 관찰 복구, 마지막 관심 의도, 승인된 명령 대기열, 새로고침 신원, 순수 화면 조합 또는 얇은 ViewModel 조합을 바꿨을 때의 집중 회귀다.
 
 ```bash
 ./gradlew \
@@ -217,7 +217,7 @@ location generation, observation recovery, latest watch intent, acknowledged FIF
 
 `verifyDemoSeedAsset`는 `opinet.apikey`나 네트워크 없이 체크인된 `app/src/demo/assets/demo-station-seed.json`의 15개 query matrix, origin/version, history key·가격·timestamp, RTO/ETC portfolio station을 검증합니다. `:tools:demo-seed:test`도 실제 체크인 asset을 읽어 같은 계약을 CI에서 보호합니다. 반면 `generateDemoSeed`는 실제 Opinet 데이터를 갱신하는 운영자용 live refresh이므로 로컬 `opinet.apikey`가 필요하며 자동화 gate에 포함하지 않습니다.
 
-### Refined launcher and static splash droplet
+### 런처와 정적 splash 물방울
 
 ```bash
 ./gradlew \
@@ -424,7 +424,7 @@ Compose compiler report와 metric은 기본 생성하지 않습니다. 분석이
 
 ## 검증 깊이 측정
 
-JVM mutation은 아래의 `Sealed JVM mutation verification` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 최종 blocking commit에서는 station 45/location 75 floor와 settings integrity/no-coverage 판정을 수행하고 tag release prerequisite로 동작합니다.
+JVM mutation은 아래의 `봉인된 JVM mutation 검증` 절에 있는 canonical runner로만 실행합니다. plugin-created `pitest` task 직접 호출은 guard가 거부합니다. 최종 blocking commit에서는 station 45/location 75 floor와 settings integrity/no-coverage 판정을 수행하고 tag release prerequisite로 동작합니다.
 
 의존성 신선도는 `.github/dependabot.yml`이 Gradle과 GitHub Actions 생태계를 매주 확인해 그룹 PR로 보고합니다. Gradle Wrapper는 distribution URL과 `distributionSha256Sum`, wrapper JAR, `config/quality/build-inputs.json`을 함께 검토해야 하므로 그룹에서 제외합니다. 로컬 `dependencyUpdates` 태스크는 최신 플러그인도 Gradle 10에서 제거될 `Task.project` API를 실행하므로 제거했습니다.
 
@@ -547,7 +547,7 @@ gh release download vX.Y.Z --pattern "GasStation-*.apk" --pattern SHA256SUMS.txt
 (cd <empty-directory> && sha256sum -c SHA256SUMS.txt)
 ```
 
-physical-device 성능 수치를 갱신하는 릴리스라면 "Hero Benchmark Evidence" 명령을 추가로 실행하고 `docs/performance.md`와 해당 릴리즈 노트에 기기/variant/측정일을 남깁니다.
+물리 기기 성능 숫자를 갱신하는 릴리스라면 이 문서의 물리 기기 성능 증거 명령을 추가로 실행하고 `docs/performance.md`와 해당 릴리즈 노트에 기기/variant/측정일을 남긴다.
 
 ## 기기 기반 UI 확인
 
@@ -589,27 +589,27 @@ ANDROID_SERIAL=<device serial> ./gradlew :benchmark:connectedBenchmarkAndroidTes
 - station save 후 watchlist 진입
 - baseline profile 수집 시 startup, refresh, scroll, watchlist 진입
 
-## Hero Benchmark Evidence
+## 물리 기기 성능 증거
 
-Hero benchmarks require a physical device for committed performance numbers. Emulator runs are allowed only as smoke checks. Use the `benchmark` build variant (forks `release` with `isDebuggable=false`, `isProfileable=true`, debug signing) so the same minified APK macrobenchmark expects can be installed and traced without a release keystore.
+커밋할 성능 숫자는 물리 기기가 필요하다. 에뮬레이터는 smoke만 한다. `benchmark` 빌드 타입은 `release`를 포크해 `isDebuggable=false`, `isProfileable=true`, debug 서명을 쓴다. 같은 minify APK를 키스토어 없이 설치하고 추적할 수 있다.
 
 ```bash
 ./gradlew :app:assembleDemoBenchmark :benchmark:assembleBenchmark
 ANDROID_SERIAL=<device serial> ./gradlew :app:installDemoBenchmark :benchmark:connectedBenchmarkAndroidTest
 ```
 
-The connected command installs the `demoBenchmark` target APK before running the benchmark APK. The watchlist benchmark launches `com.gasstation.demo/com.gasstation.MainActivity` explicitly and uses Compose test tags exposed as resource IDs: `station-list-watch-toggle`, `bottom-nav-watchlist`, and `watchlist-card`. If those selectors fail, treat it as a benchmark contract regression before changing production UI copy.
+연결된 명령은 벤치마크 APK를 돌리기 전에 `demoBenchmark` 대상 APK를 설치한다. 관심 벤치마크는 `com.gasstation.demo/com.gasstation.MainActivity`를 직접 열고, 리소스 ID로 노출한 Compose test tag `station-list-watch-toggle`, `bottom-nav-watchlist`, `watchlist-card`를 쓴다. selector가 실패하면 제품 문구보다 벤치마크 계약을 먼저 본다.
 
-`verifyRoborazziDebug`는 designsystem icon-only navigation, Nearby populated light/dark와 shared states, `radius_menu_open_state`·`fuel_menu_open_state`·`brand_menu_open_state`, Watchlist 5행, Settings overview/detail과 BrandFilter light/dark snapshot을 검증합니다. 320dp menu containment와 큰 글꼴 summary/station metadata, Watchlist/Settings의 200% font scale은 Compose 접근성 테스트가 소유합니다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행합니다.
+`verifyRoborazziDebug`는 designsystem icon-only navigation, Nearby populated light/dark와 shared states, `radius_menu_open_state`·`fuel_menu_open_state`·`brand_menu_open_state`, Watchlist 5행, Settings overview/detail과 BrandFilter light/dark snapshot을 검증한다. 320dp menu containment와 큰 글꼴 summary/station metadata, Watchlist/Settings의 200% font scale은 Compose 접근성 테스트가 소유한다. record 후에는 생성 이미지를 직접 검사한 다음 verify를 실행한다.
 
-After a successful run, inspect generated JSON and trace artifacts:
+성공한 뒤에는 생성된 JSON과 trace를 본다.
 
 ```bash
 find benchmark/build/outputs/connected_android_test_additional_output -name '*benchmarkData.json' -print
 find benchmark/build/outputs/connected_android_test_additional_output -name '*.perfetto-trace' -print
 ```
 
-Do not add this command to the default PR gate. It depends on a connected physical device and is part of release or portfolio evidence collection. The committed reference numbers and known limitations live in [`docs/performance.md`](performance.md).
+이 명령을 기본 PR gate에 넣지 않는다. 연결된 물리 기기가 필요하고, 릴리스 또는 포트폴리오 증거 수집용이다. 커밋된 숫자와 한계는 [`docs/performance.md`](performance.md)다.
 
 ## 참고
 
@@ -617,7 +617,7 @@ Do not add this command to the default PR gate. It depends on a connected physic
 - `./benchmark/run-demo-benchmark.sh`는 빠른 assemble 확인용 래퍼입니다.
 - 앱 모듈의 사용 가능한 variant/task 표면은 `./gradlew :app:tasks --all`로 다시 확인할 수 있습니다.
 
-## Sealed JVM mutation verification
+## 봉인된 JVM mutation 검증
 
 `verifyPitestConfiguration`은 생성된 route와 route receipt를 입력으로 요구하므로 독립 실행하지 않습니다. 로컬 실행과 판정은 아래 한 entry만 사용합니다. 이것이 route, route receipt, configuration gate, attempt, canonical Gradle, completion, strict XML measurement, observation/verification summary와 final receipt를 순서대로 소유합니다. baseline 갱신용 `--capture-kind`는 수동 검토 때만 추가하며 ordinary CI/agent에서는 사용하지 않습니다.
 
@@ -648,7 +648,7 @@ Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64
 
 `actions/setup-java@v5`의 `steps.mutation_java.outputs.path`는 env로 전달하지 않습니다. sanitized custom shell에서 mode 077 directory를 만들고 `set -C`로 `build/quality/pitest-runtime/bootstrap/java-home.selector`를 한 번 생성합니다. selector는 0600 이하 regular non-symlink 단일 line인지 검증한 뒤 삭제되며, mutation run step은 `GASSTATION_PITEST_BOOTSTRAP=sealed-v1`을 포함한 absolute `/usr/bin/env -i` → `/bin/bash --noprofile --norc -euo pipefail {0}` shell을 사용합니다. pre-existing/retargeted/중복 selector, workflow/job/step env Java transport, PATH-selected Python/Git/Gradle, hostile JVM/Gradle/Git/Python environment는 fail closed입니다.
 
-Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 Task 9가 소유합니다.
+Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 [Build Input Provenance](runbooks/build-input-provenance.md)가 소유한다.
 
 ## Build input provenance와 unsigned release 재현성
 
@@ -714,7 +714,7 @@ python3 scripts/quality/verify_build_inputs.py release-bind \
   --artifact-name reproducible-prod-release-receipt-<source-commit>
 ```
 
-동일한 size/SHA-256만 same-host/workspace-independent unsigned prod-release 재현성 `PASS`다. demo-debug, signed APK, cross-OS/runner 재현성은 이 판정에 포함하지 않는다. Hosted build-input evidence와 Task 8 device lane을 실행하지 않았으면 각각 `NOT RUN`으로 남긴다.
+동일한 size/SHA-256만 same-host/workspace-independent unsigned prod-release 재현성 `PASS`다. demo-debug, signed APK, cross-OS/runner 재현성은 이 판정에 포함하지 않는다. Hosted build-input evidence와 기기 검증 레인을 실행하지 않았으면 각각 `NOT RUN`으로 남긴다.
 
 현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, literal local main base, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
 
@@ -734,7 +734,7 @@ python3 scripts/quality/build_inputs/local_colima_evidence.py \
 
 ## Bounded Android device evidence
 
-Task 8의 host-only 구현 준비 gate는 실제 device `PASS`와 분리합니다.
+기기 검증의 host-only 구현 준비 gate는 실제 device `PASS`와 분리한다.
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/quality/tests -v

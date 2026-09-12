@@ -1,6 +1,8 @@
 # 문서
 
-필요한 문서만 고른다. 지금 동작은 코드와 `settings.gradle.kts`가 기준이다. 문서 목록은 [documentation-catalog.json](documentation-catalog.json)이다.
+필요한 문서만 고른다. 지금 동작은 코드와 `settings.gradle.kts`가 기준이다. 목록은 [documentation-catalog.json](documentation-catalog.json)이다.
+
+지금 문서가 현재 계약이다. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 그때의 기록이라 지금 완료로 읽지 않는다. 스냅샷, 오래됨, 요청 세대 같은 말은 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
 
 | 하고 싶은 일 | 문서 |
 | --- | --- |

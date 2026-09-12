@@ -1,6 +1,6 @@
 # 상태 모델
 
-상태가 어디서 생기고 얼마나 사는지 설명한다.
+상태가 어디서 생기고 얼마나 사는지 설명한다. 요청 세대, 명령 대기열, 화면 조합은 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
 
 ## 층
 
@@ -31,12 +31,12 @@
 
 한 reducer가 아니다.
 
-- `LocationStateMachine` — 권한, GPS, 좌표, 주소, 네 generation
-- `StationSearchOrchestrator` — query, 캐시, 관찰, 전면 실패
-- `RefreshCoordinator` — 위치 획득과 단일 refresh job
-- `StationListCommandQueue` — FIFO와 exact-head 승인
-- assembler — 한 시점 입력을 UI로 투영. I/O 없음
-- ViewModel — 연결만. generation, refresh identity, retry, 투영, FIFO 정책을 다시 구현하지 않는다
+- `LocationStateMachine` — 권한, GPS, 좌표, 주소, 네 요청 세대
+- `StationSearchOrchestrator` — 검색, 캐시, 관찰, 전면 실패
+- `RefreshCoordinator` — 위치 획득과 한 번에 하나인 새로고침
+- `StationListCommandQueue` — 들어온 순서 대기열과 맨 앞 항목만 승인
+- assembler — 한 시점 입력을 화면으로 모은다. 저장·네트워크 없음
+- ViewModel — 연결만. 요청 세대, 새로고침 신원, 재시도, 화면 조합, 대기열 정책을 다시 구현하지 않는다
 
 이 값은 저장되지 않는다. 화면을 떠나면 사라진다.
 
@@ -187,6 +187,6 @@ head의 handler가 정상 끝나고 coroutine이 살아 있을 때만 그 ID를 
 - 실행 중 위치: `LocationStateMachine`
 - 검색/캐시/실패: `StationSearchOrchestrator`
 - 새로고침: `RefreshCoordinator`
-- FIFO: `StationListCommandQueue`
+- 명령 대기열: `StationListCommandQueue`
 - 연결: `StationListViewModel`
-- 최종 UI: `StationListStateAssembler`
+- 최종 화면: `StationListStateAssembler`

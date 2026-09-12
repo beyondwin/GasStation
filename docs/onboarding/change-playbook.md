@@ -67,6 +67,6 @@
 | 테스트·CI | [테스트 전략](../test-strategy.md), [검증 매트릭스](../verification-matrix.md) |
 | 릴리스·성능·보안 | [배포](../deployment.md), [성능](../performance.md), [보안](../security-trade-offs.md) |
 
-이력 파일만 고쳤다면 본문을 지금 사실처럼 고치지 않는다. live 사실이 바뀌면 [catalog](../documentation-catalog.json)의 owner를 기준으로 현재 문서를 고친다.
+이력 파일만 고쳤다면 본문을 지금 사실처럼 고치지 않는다. 지금 문서의 사실이 바뀌면 [catalog](../documentation-catalog.json)의 owner를 기준으로 현재 문서를 고친다.
 
 처음부터 cache policy나 build logic을 넓게 바꾸지 않는다. 다음은 [검증과 전달](verification-and-delivery.md). 지도는 [문서 허브](../README.md)다.

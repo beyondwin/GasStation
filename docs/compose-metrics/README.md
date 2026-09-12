@@ -6,4 +6,6 @@
 
 - [design system](core-designsystem.md)
 - [station-list](feature-station-list.md)
+- [settings](feature-settings.md)
+- [watchlist](feature-watchlist.md)
 - [문서 허브](../README.md)

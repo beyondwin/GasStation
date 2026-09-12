@@ -67,7 +67,7 @@ GasStation을 바꿀 때 이 파일부터 읽는다. 긴 절차는 아래 문서
 - 길을 잃었을 때: `docs/project-reading-guide.md`
 - 작업 순서: `docs/agent-workflow.md`
 - 모듈 위치: `docs/module-contracts.md`
-- 구조: `docs/architecture.md`
+- 구조와 쉬운 말: `docs/architecture.md`
 - 상태: `docs/state-model.md`
 - 캐시·stale·실패: `docs/offline-strategy.md`
 - 테스트와 명령: `docs/test-strategy.md`, `docs/verification-matrix.md`

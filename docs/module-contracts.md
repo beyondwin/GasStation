@@ -1,6 +1,6 @@
 # 모듈 계약
 
-어디에 무엇을 두고, 어디에 두지 말지 판단한다. 흐름은 `docs/architecture.md`, 파일은 `docs/project-reading-guide.md`다.
+어디에 무엇을 두고, 어디에 두지 말지 판단한다. 흐름과 쉬운 말은 `docs/architecture.md`, 파일은 `docs/project-reading-guide.md`다.
 
 ## 공통
 
@@ -27,7 +27,7 @@
 | 모듈 | 소유 | 직접 의존 | 두지 말 것 |
 | --- | --- | --- | --- |
 | `app` | 조립, startup, navigation, flavor, 외부 앱, endpoint 모드 선택 | `feature:*`, `data:*`, 필요한 `core:*`/`domain:*` | 캐시 정책, 비즈니스 규칙 |
-| `feature:station-list` | 위치 generation, 관찰, refresh, FIFO, 순수 투영, 얇은 ViewModel | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit, `core:location` 직접 호출, ViewModel에 동시성 재집중 |
+| `feature:station-list` | 위치 요청 세대, 관찰, 새로고침, 명령 대기열, 화면 조합, 얇은 ViewModel | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit, `core:location` 직접 호출, ViewModel에 동시성 재집중 |
 | `feature:settings` | 설정 요약/상세 UI | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 |
 | `feature:watchlist` | 관심 비교 UI | `domain:station`, `domain:settings`, `core:model`, `core:designsystem` | 위치 조회, refresh session |
 | `domain:location` | 위치 계약, use case | `core:model` | Android 위치 API |
@@ -53,7 +53,7 @@
 - 위치: `domain:location` → `core:location` → station-list
 - 주소를 목록에 연결: station-list가 `StationQuery`를 만든다. `data:station`에 위치 타입을 넣지 않는다
 - 주소 표시: 정규화는 `AddressLabelNormalizer`, Android 변환은 `core:location`, 배치는 station-list
-- 목록 상태: generation은 `LocationStateMachine`, 관찰은 orchestrator, refresh는 coordinator, FIFO는 queue, 투영은 assembler, 연결만 ViewModel
+- 목록 상태: 요청 세대는 `LocationStateMachine`, 관찰은 orchestrator, 새로고침은 coordinator, 명령 대기열은 queue, 화면 조합은 assembler, 연결만 ViewModel
 - 브랜드 아이콘: `Brand`/`BrandFilter`, `BrandIcon.kt`, `BrandLabels.kt`. 노출 정책은 각 feature
 - 캐시/stale: `StationCachePolicy`, `core:database`
 - 재시도: `StationRetryPolicy`, `DefaultStationRepository`, 이벤트는 `StationEvent`

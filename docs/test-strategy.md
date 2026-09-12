@@ -33,7 +33,7 @@ Android Lint error/warning은 build를 멈춘다. production `static-analysis`�
 | `core:designsystem` | token/chrome/BrandIcon, Roborazzi | Urban Signal 토큰, 브랜드 drawable |
 | `data:settings` | `DefaultSettingsRepositoryTest` | domain 매핑, `KAKAO_NAVI` → `KAKAO_MAP` |
 | `data:station` | `DefaultStationRepositoryTest`, `StationRetryPolicyTest`, `LatestWatchIntentGateTest` | 캐시 조합, 재시도, 최신 watch 의도 |
-| `feature:station-list` | owner tests + 다섯 integration suite, Roborazzi | 위치·관찰·refresh·FIFO·투영 |
+| `feature:station-list` | owner tests + 다섯 integration suite, Roborazzi | 위치·관찰·새로고침·명령 대기열·화면 조합 |
 | `feature:settings` | `SettingsViewModelTest`, Roborazzi | 설정 상태, commit 뒤 복귀 |
 | `feature:watchlist` | `WatchlistViewModelTest`, Roborazzi | 가격 없음 유지, 5행, 200% 글꼴 |
 | `app` | startup, backup, cleartext, 외부 지도, splash | flavor 조립, 권한, 리소스 |
@@ -64,7 +64,7 @@ Android Lint error/warning은 build를 멈춘다. production `static-analysis`�
 
 <!-- station-data-policy-ref: freshness -->[구조화된 `freshness` 계약](offline-strategy.md#기계-판독-정책-계약)
 
-- station-list owner tests — generation, 관찰 복구, refresh identity, FIFO, 순수 투영
+- station-list owner tests — 요청 세대, 관찰 복구, 새로고침 신원, 명령 대기열, 순수 화면 조합
 - 다섯 ViewModel integration suite — preferences, command, watch, location, refresh
 - `LatestWatchIntentGateTest` / `WatchedStationDaoTest` — 마지막 의도, `INSERT IGNORE`, 안정적 순서
 

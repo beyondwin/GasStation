@@ -1,4 +1,4 @@
-# Benchmark Agent Contract
+# 성능 측정 작업 규칙
 
 `benchmark`를 바꿀 때 루트 `AGENTS.md`를 보완한다.
 

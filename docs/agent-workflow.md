@@ -1,6 +1,6 @@
 # 작업 절차
 
-기능을 넣거나 고칠 때의 순서다. 짧은 규칙은 `AGENTS.md`, 구조는 `docs/architecture.md`, 위치는 `docs/module-contracts.md`다.
+기능을 넣거나 고칠 때의 순서다. 짧은 규칙은 `AGENTS.md`, 구조와 쉬운 말은 `docs/architecture.md`, 위치는 `docs/module-contracts.md`다.
 
 ## 기본
 

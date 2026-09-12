@@ -1,4 +1,4 @@
-# Architecture Decision Records
+# 결정 기록
 
 중요한 선택의 배경과 조건을 남긴다. 날짜나 파일명만으로 지금 배포가 끝났다고 보지 않는다.
 
