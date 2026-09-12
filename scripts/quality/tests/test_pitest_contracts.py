@@ -198,11 +198,13 @@ class LinuxObservedProfileTest(unittest.TestCase):
             validate_linux_profile(forged)
 
     def test_linux_image_identity_accepts_reviewed_successor_image_version(self) -> None:
-        environment = mock.Mock()
-        environment.read_text.return_value = "ImageOS=ubuntu24\nImageVersion=20260823.283.1\n"
-        with mock.patch("verify_pitest.Path", return_value=environment):
-            identity = _linux_image_identity(LINUX_PROFILE)
-        self.assertEqual(LINUX_PROFILE["image"]["ImageVersion"], identity["ImageVersion"])
+        for version in ("20260823.283.1", "20260907.300.1"):
+            with self.subTest(version=version):
+                environment = mock.Mock()
+                environment.read_text.return_value = f"ImageOS=ubuntu24\nImageVersion={version}\n"
+                with mock.patch("verify_pitest.Path", return_value=environment):
+                    identity = _linux_image_identity(LINUX_PROFILE)
+                self.assertEqual(LINUX_PROFILE["image"]["ImageVersion"], identity["ImageVersion"])
 
     def test_linux_image_identity_rejects_unknown_image_version(self) -> None:
         environment = mock.Mock()
