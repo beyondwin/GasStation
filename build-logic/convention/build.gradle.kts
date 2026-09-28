@@ -154,8 +154,8 @@ val testKitDependencySeeds =
     listOf(
         "com.google.android:android:4.1.1.4",
         "androidx.annotation:annotation-experimental:1.6.0",
-        "androidx.annotation:annotation-jvm:1.7.0",
-        "androidx.core:core-ktx:1.19.0",
+        "androidx.annotation:annotation-jvm:1.11.0",
+        "androidx.core:core-ktx:1.19.1",
         "com.google.guava:guava:33.7.1-jre",
         "com.google.guava:guava:33.7.1-jre",
         "org.junit:junit-bom:6.1.3",
