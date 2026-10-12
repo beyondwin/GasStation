@@ -67,7 +67,7 @@ jobs:
             --output build/reports/build-inputs/build-input-receipt.json
       - name: Upload build-input evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: build-input-evidence-${{ github.sha }}-${{ github.run_attempt }}
           path: build/reports/build-inputs/**
@@ -75,7 +75,7 @@ jobs:
           retention-days: 7
       - name: Upload source-bound reproducibility receipt
         if: success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: reproducible-prod-release-receipt-${{ github.sha }}
           path: |
@@ -116,7 +116,7 @@ jobs:
         run: scripts/quality/build_inputs/run_gradle.sh :build-logic:convention:test --no-configuration-cache --warning-mode fail
       - name: Upload production lint reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: lint-production-reports
           path: "**/build/reports/lint-results-*"
@@ -124,7 +124,7 @@ jobs:
           retention-days: 7
       - name: Upload dependency and public API reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dependency-public-api-reports
           path: |
@@ -153,7 +153,7 @@ jobs:
             --continue
       - name: Upload test-source lint reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: lint-test-source-reports
           path: "**/build/reports/lint-results-*"
@@ -208,7 +208,7 @@ jobs:
         run: scripts/quality/build_inputs/run_gradle.sh verifyRoborazziDebug --warning-mode fail
       - name: Upload screenshot diffs on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: roborazzi-diffs
           path: "**/build/outputs/roborazzi/**"
@@ -236,7 +236,7 @@ jobs:
           cp "${apks[0]}" "release-assets/GasStation-${GITHUB_REF_NAME#v}-demo-debug.apk"
       - name: Upload demo APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-demo-apk
           path: release-assets/*.apk
@@ -252,7 +252,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Download source-bound reproducibility receipt
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: reproducible-prod-release-receipt-${{ github.sha }}
           path: build/reports/build-inputs/probe
@@ -274,7 +274,7 @@ jobs:
             "release-assets/GasStation-${GITHUB_REF_NAME#v}-prod-release-unsigned.apk"
       - name: Upload unsigned prod APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-prod-apk
           path: release-assets/*.apk
@@ -326,7 +326,7 @@ jobs:
             --warning-mode fail
       - name: Upload coverage evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage-evidence
           path: |
@@ -346,7 +346,7 @@ jobs:
             --output build/quality/build-inputs/codecovcli_linux
       - name: Upload to Codecov
         continue-on-error: true
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           binary: build/quality/build-inputs/codecovcli_linux
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -397,7 +397,7 @@ jobs:
             scripts/quality/run_pitest.sh --event tag --java-home-file build/quality/pitest-runtime/bootstrap/java-home.selector
       - name: Upload mutation evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pitest-evidence
           path: |
@@ -417,13 +417,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: release-*-apk
           path: release-assets
           merge-multiple: true
       - name: Download source-bound reproducibility receipt
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: reproducible-prod-release-receipt-${{ github.sha }}
           path: build/reports/build-inputs/probe
