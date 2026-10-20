@@ -20,7 +20,7 @@
 - `git status --short`
 - 활성 모듈은 `settings.gradle.kts`
 - 지금 동작은 live 문서와 코드
-- `docs/superpowers/` 등은 이력이다
+- `docs/history/`, `docs/improvements/` 등은 이력이다
 - 구현보다 테스트를 먼저 읽는다
 - 새 dependency 전에 같은 계층의 기존 패턴을 찾는다
 - UI면 `core:designsystem`을 먼저 본다
@@ -114,7 +114,7 @@ feature는 Android provider를 모른다. 권한 상태는 route에서 domain �
 
 ## 문서
 
-설명이 지금 코드와 사용자 흐름을 바꾸면 live 문서도 고친다. 일회성 설계는 `docs/superpowers/`에 남긴다.
+설명이 지금 코드와 사용자 흐름을 바꾸면 live 문서도 고친다. 과거에 삭제된 설계·계획은 Git 이력에서 확인한다.
 
 | 변경 | 문서 |
 | --- | --- |

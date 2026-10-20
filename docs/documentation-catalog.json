@@ -242,14 +242,6 @@
       "verificationScope": "scripts/agent/verify.sh docs; 대표 ADR와 현재 owner 링크를 대조"
     },
     {
-      "path": "docs/superpowers/README.md",
-      "kind": "history",
-      "owner": "설계·구현 계획 이력의 안전한 탐색 경로",
-      "authoritativeSources": ["docs/superpowers/specs", "docs/superpowers/plans", "docs/architecture.md", "docs/agent-workflow.md"],
-      "reviewTriggers": ["spec·plan 위치 또는 역사 분류 변경", "대표 navigation link 변경"],
-      "verificationScope": "scripts/agent/verify.sh docs; 대표 이력 링크와 current-truth 경고를 대조"
-    },
-    {
       "path": "docs/history/README.md",
       "kind": "history",
       "owner": "repository 분석 이력 탐색과 현재 계약 분리",

@@ -138,7 +138,7 @@ EOF
 cat > "$fixture/repo/docs/AGENTS.md" <<'EOF'
 # Documentation contract
 
-Run `scripts/agent/verify.sh docs`; keep `docs/superpowers/` historical.
+Run `scripts/agent/verify.sh docs`; keep `docs/history/` historical.
 EOF
 cat > "$fixture/repo/core/database/AGENTS.md" <<'EOF'
 # Database contract
@@ -342,7 +342,6 @@ EOF
 mkdir -p \
   "$fixture/repo/docs/onboarding" \
   "$fixture/repo/docs/adr" \
-  "$fixture/repo/docs/superpowers" \
   "$fixture/repo/docs/history" \
   "$fixture/repo/docs/improvements" \
   "$fixture/repo/docs/compose-metrics"
@@ -354,7 +353,6 @@ printf '# Verification and delivery\n' > "$fixture/repo/docs/onboarding/verifica
 printf '# Runbooks\n' > "$fixture/repo/docs/runbooks/README.md"
 printf '# ADR\n' > "$fixture/repo/docs/adr/README.md"
 printf '# Decision\n' > "$fixture/repo/docs/adr/2026-05-18-backend-proxy-escalation.md"
-printf '# Superpowers\n' > "$fixture/repo/docs/superpowers/README.md"
 printf '# History\n' > "$fixture/repo/docs/history/README.md"
 printf '# Improvements\n' > "$fixture/repo/docs/improvements/README.md"
 printf '# Compose metrics\n' > "$fixture/repo/docs/compose-metrics/README.md"
@@ -383,7 +381,7 @@ paths = [
     "docs/runbooks/README.md",
     "docs/runbooks/build-input-provenance.md", "docs/runbooks/device-verification.md",
     "core/database/AGENTS.md", "benchmark/AGENTS.md",
-    "docs/adr/README.md", "docs/superpowers/README.md", "docs/history/README.md",
+    "docs/adr/README.md", "docs/history/README.md",
     "docs/improvements/README.md", "docs/compose-metrics/README.md",
     "docs/release-notes/README.md",
     "docs/adr/2026-05-18-backend-proxy-escalation.md",
@@ -1696,7 +1694,7 @@ if [[ "${GASSTATION_CHECK_REAL_REPO:-0}" == 1 ]]; then
   assert_contract_anchor AGENTS.md 'scripts/agent/preflight.sh'
   assert_contract_anchor AGENTS.md 'scripts/agent/verify.sh auto'
   assert_contract_anchor docs/AGENTS.md 'scripts/agent/verify.sh docs'
-  assert_contract_anchor docs/AGENTS.md 'docs/superpowers/'
+  assert_contract_anchor docs/AGENTS.md 'docs/history/'
   assert_contract_anchor core/database/AGENTS.md 'StationSearchResult.hasCachedSnapshot'
   assert_contract_anchor core/database/AGENTS.md 'fallbackToDestructiveMigration'
   assert_contract_anchor benchmark/AGENTS.md 'demoBenchmark'

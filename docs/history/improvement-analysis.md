@@ -1,4 +1,4 @@
-> 이 문서는 1.0.2 시점의 분석 history입니다. 1.1.0 이후의 baseline 결정은 `docs/superpowers/specs/2026-05-11-production-baseline-design.md`가 단일 출처입니다.
+> 이 문서는 1.0.2 시점의 분석 history입니다. 1.1.0 이후의 baseline 결정은 [2026-05-11-production-baseline-design.md (삭제 전 기록)](https://github.com/beyondwin/GasStation/blob/444f54a82167e48603943b3a07e1af0eb381d64c/docs/superpowers/specs/2026-05-11-production-baseline-design.md)가 단일 출처입니다.
 
 # GasStation 개선 분석
 

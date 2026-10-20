@@ -12,7 +12,7 @@
 
 ### 1. 이력만 바꿈
 
-`docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`만 바꿨다면 그 파일만 본다.
+`docs/history/`, `docs/improvements/`, `docs/compose-metrics/`만 바꿨다면 그 파일만 본다.
 
 ```bash
 git diff --check -- <changed files>

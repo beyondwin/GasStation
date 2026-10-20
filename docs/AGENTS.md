@@ -6,7 +6,7 @@
 
 - live 문서 목록은 [`documentation-catalog.json`](documentation-catalog.json)이다.
 - 온보딩 입구는 `docs/onboarding/developer-onboarding-guide.md`다. 지금 동작의 설명은 연결된 live 문서가 맞는다.
-- `docs/superpowers/`, `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`, 과거 release note는 이력이거나 당시 증거다. 파일명만으로 지금 완료를 추론하지 않는다.
+- `docs/history/`, `docs/improvements/`, `docs/compose-metrics/`, 과거 release note는 이력이거나 당시 증거다. 파일명만으로 지금 완료를 추론하지 않는다.
 
 ## 기준
 

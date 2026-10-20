@@ -34,7 +34,7 @@
 - 보안: [보안](../security-trade-offs.md)
 - 전체 지도: [문서 허브](../README.md)
 
-문서와 코드가 다르면 코드를 먼저 본다. `docs/superpowers/` 파일명으로 지금 완료를 판단하지 않는다.
+문서와 코드가 다르면 코드를 먼저 본다. 과거 설계·계획 파일명으로 지금 완료를 판단하지 않는다.
 
 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](../offline-strategy.md#기계-판독-정책-계약)
 

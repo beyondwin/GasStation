@@ -6,7 +6,7 @@ GasStation을 바꿀 때 이 파일부터 읽는다. 긴 절차는 아래 문서
 
 - 시작 전 `git status --short`로 기존 변경을 본다.
 - 활성 모듈은 폴더가 아니라 `settings.gradle.kts`의 `include`다.
-- 판단 순서는 코드와 `settings.gradle.kts` → live 문서 → `docs/superpowers/`, `docs/history/`, `docs/improvements/` 이력이다.
+- 판단 순서는 코드와 `settings.gradle.kts` → live 문서 → `docs/history/`, `docs/improvements/` 이력이다.
 - 이어 할 작업이면 새 branch/worktree를 만들기 전에 `git worktree list`, status, diff, `.superpowers/sdd/progress.md`를 본다.
 - 비사소한 변경 전 `scripts/agent/preflight.sh`, 끝나기 전 `scripts/agent/verify.sh auto`를 쓴다.
 - 새 의존이나 위치를 정하기 전에 `docs/module-contracts.md`를 본다.

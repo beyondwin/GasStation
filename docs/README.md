@@ -2,7 +2,7 @@
 
 필요한 문서만 고른다. 지금 동작은 코드와 `settings.gradle.kts`가 기준이다. 목록은 [documentation-catalog.json](documentation-catalog.json)이다.
 
-지금 문서가 현재 계약이다. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 그때의 기록이라 지금 완료로 읽지 않는다. 스냅샷, 오래됨, 요청 세대 같은 말은 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
+지금 문서가 현재 계약이다. `docs/history/`, `docs/improvements/`는 그때의 기록이라 지금 완료로 읽지 않는다. 스냅샷, 오래됨, 요청 세대 같은 말은 [아키텍처 쉬운 말](architecture.md#쉬운-말)을 본다.
 
 | 하고 싶은 일 | 문서 |
 | --- | --- |
@@ -59,7 +59,6 @@
 이력은 그때의 기록이다. 지금 코드에 맞춰 다시 쓰지 않는다.
 
 - [ADR](adr/README.md), [Backend proxy](adr/2026-05-18-backend-proxy-escalation.md)
-- [설계 이력](superpowers/README.md)
 - [분석 이력](history/README.md)
 - [개선 이력](improvements/README.md)
 - [Compose metrics](compose-metrics/README.md)

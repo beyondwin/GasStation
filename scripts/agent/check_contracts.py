@@ -60,7 +60,7 @@ CI_REQUIRED_FILES = (
 )
 CI_REQUIRED_ANCHORS = {
     "AGENTS.md": ["scripts/agent/preflight.sh", "scripts/agent/verify.sh auto"],
-    "docs/AGENTS.md": ["scripts/agent/verify.sh docs", "docs/superpowers/"],
+    "docs/AGENTS.md": ["scripts/agent/verify.sh docs", "docs/history/"],
     "core/database/AGENTS.md": [
         "StationSearchResult.hasCachedSnapshot",
         "fallbackToDestructiveMigration",

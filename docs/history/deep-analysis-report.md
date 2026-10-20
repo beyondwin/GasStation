@@ -1,4 +1,4 @@
-> 이 문서는 1.0.2 시점의 분석 history입니다. 1.1.0 이후의 baseline 결정은 `docs/superpowers/specs/2026-05-11-production-baseline-design.md`가 단일 출처입니다.
+> 이 문서는 1.0.2 시점의 분석 history입니다. 1.1.0 이후의 baseline 결정은 [2026-05-11-production-baseline-design.md (삭제 전 기록)](https://github.com/beyondwin/GasStation/blob/444f54a82167e48603943b3a07e1af0eb381d64c/docs/superpowers/specs/2026-05-11-production-baseline-design.md)가 단일 출처입니다.
 
 # GasStation 프로젝트 심층 분석 보고서
 
@@ -340,7 +340,7 @@ internal class RedactingLoggingInterceptor : Interceptor {
 
 1. **`core/common`, `core/ui` 비활성 디렉터리.** `settings.gradle.kts`에 include되지 않고 `git ls-files core/common core/ui` 결과도 비어 있습니다. 현재 남은 것은 build 산출물뿐이므로 repo commit 대상이 아니라 로컬 workspace hygiene입니다.
 2. **`proj4j` catalog 등록 완료.** `proj4j`는 `gradle/libs.versions.toml`의 version/library alias로 등록됐고 `core/network/build.gradle.kts`는 `implementation(libs.proj4j)`를 사용합니다. 검증은 `:core:network:test`가 통과했습니다.
-3. **`docs/superpowers/specs/`, `docs/superpowers/plans/` 이력 문서가 현재 기준과 어긋날 수 있음.** `docs/project-reading-guide.md`가 이미 live 문서 우선 원칙을 설명하므로 새 AGENTS 섹션은 불필요합니다.
+3. **[specs (삭제 전 기록)](https://github.com/beyondwin/GasStation/tree/444f54a82167e48603943b3a07e1af0eb381d64c/docs/superpowers/specs/), [plans (삭제 전 기록)](https://github.com/beyondwin/GasStation/tree/444f54a82167e48603943b3a07e1af0eb381d64c/docs/superpowers/plans/) 이력 문서가 현재 기준과 어긋날 수 있음.** `docs/project-reading-guide.md`가 이미 live 문서 우선 원칙을 설명하므로 새 AGENTS 섹션은 불필요합니다.
 4. **Hilt Module의 의존성 wire 지점이 5–6개 파일에 분산** — dependency map 다이어그램이 README에 있으면 신규 기여자 온보딩에 도움.
 
 ### 구체적 제안
@@ -523,7 +523,7 @@ val surfaceColor = MaterialTheme.colorScheme.surface
 - 사용자 플로우, demo/prod 안정성, 테스트 신뢰성, build reproducibility 중 하나를 실제로 개선한다.
 - 변경 파일의 소유 모듈이 `docs/module-contracts.md`와 맞다.
 - 완료 기준과 검증 명령이 명확하다.
-- 이미 `docs/improvement-analysis.md`나 `docs/superpowers/plans/2026-05-05-remaining-risk-resolution.md`에서 완료된 작업을 중복하지 않는다.
+- 이미 `docs/improvement-analysis.md`나 [2026-05-05-remaining-risk-resolution.md (삭제 전 기록)](https://github.com/beyondwin/GasStation/blob/444f54a82167e48603943b3a07e1af0eb381d64c/docs/superpowers/plans/2026-05-05-remaining-risk-resolution.md)에서 완료된 작업을 중복하지 않는다.
 
 ### 완료됨
 

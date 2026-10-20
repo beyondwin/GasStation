@@ -79,7 +79,6 @@ EXPECTED_LIVE_PATHS = {
     "docs/runbooks/device-verification.md",
     "docs/runbooks/build-input-provenance.md",
     "docs/adr/README.md",
-    "docs/superpowers/README.md",
     "docs/history/README.md",
     "docs/improvements/README.md",
     "docs/compose-metrics/README.md",

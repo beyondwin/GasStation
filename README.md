@@ -102,7 +102,7 @@ opinet.apikey=
 
 전체 지도는 [문서 허브](docs/README.md)다. 코드는 [읽기 가이드](docs/project-reading-guide.md), 작업 순서는 [작업 절차](docs/agent-workflow.md)를 본다.
 
-`docs/superpowers/`, `docs/history/`, `docs/improvements/`는 이력이다. 지금 계약을 여기서 판단하지 않는다.
+`docs/history/`, `docs/improvements/`는 이력이다. 지금 계약을 여기서 판단하지 않는다.
 
 ## 성능
 

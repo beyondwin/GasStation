@@ -9,7 +9,7 @@
 3. `settings.gradle.kts`의 활성 모듈
 4. 아래 표에서 계약과 파일을 고른다
 5. 관련 테스트를 먼저 읽는다
-6. `docs/superpowers/`, `docs/history/`, `docs/improvements/`는 이력이 필요할 때만 본다
+6. `docs/history/`, `docs/improvements/`는 이력이 필요할 때만 본다
 
 ## 질문
 
