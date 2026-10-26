@@ -11,7 +11,7 @@
 한 변경에서는 wrapper, action, JDK, Android SDK, Maven graph 중 한 input family만 갱신한다. `config/quality/build-inputs.json`을 재생성하고 정책 diff, 공식 source, size, SHA-256, executable identity를 함께 검토한다.
 
 - Gradle 9.6.1 distribution SHA와 현재 wrapper JAR SHA는 Gradle 공식 checksum 자료와 대조한다. distribution URL·wrapper property·wrapper JAR을 함께 검증한 뒤 일반 build/test/lint와 configuration-cache 검증을 다시 수행한다.
-- GitHub Action은 release tag의 annotated/lightweight 상태, peeled commit, tag membership을 공식 GitHub API로 확인한다. workflow의 `uses`는 full commit SHA만 허용한다. composite action은 재귀적으로 child `uses`와 각 manifest hash/runtime까지 닫는다. Dependabot PR도 같은 검토를 통과해야 한다.
+- GitHub Action은 release tag의 annotated/lightweight 상태, peeled commit, tag membership을 공식 GitHub API로 확인한다. workflow의 `uses`는 full commit SHA만 허용한다. composite action은 재귀적으로 child `uses`와 각 manifest hash/runtime까지 닫는다. Action 갱신도 같은 검토를 통과해야 한다.
 - Linux x64 Temurin compile JDK는 `17.0.20+8`, runtime JDK는 `21.0.12.1+1`이다. 반드시 정책의 공식 versioned archive URL, exact byte size, SHA-256을 만족하고 closed extraction 뒤 `release` 및 `bin/java` identity를 확인한다. 단지 다운로드 가능한 이전 archive는 허용하지 않는다. CPU 또는 out-of-cycle security release는 정책 변경 review를 먼저 한다.
 - Temurin archive는 query 없는 exact `github.com/adoptium/...` URL에서 시작해 정책에 고정된 role별 `release-assets.githubusercontent.com/github-production-release-asset/...` path로 가는 `302 -> 200` 한 hop만 허용한다. Signed query는 17개 key의 exact 집합, 고정 응답 filename/content type 값, JWT·signature·UUID·UTC-second grammar와 `skt <= se <= ske` 순서를 모두 검사한다. 최종 `Content-Length`, `Content-Type`, `Accept-Ranges`, streamed byte count와 SHA-256도 정책과 일치해야 하며 완료 archive를 extraction 직전에 다시 hash한다. Receipt에는 query 없는 초기 URL, status/hop, scheme·host·path, sorted key 이름, 문법 검사 결과, 안전한 최종 header, raw Location/effective URL의 size/hash, 최종 archive size/hash만 남긴다. Signed URL/query, JWT, signature, UUID, timestamp, cookie, authorization은 기록·재사용·role 간 공유하지 않는다.
 - protected environment는 `JAVA_HOME`, `JAVA_HOME_17_X64`, `JAVA_HOME_21_X64`, `PATH`, `GRADLE_USER_HOME`과 `GRADLE_OPTS`, `JAVA_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`, `ORG_GRADLE_PROJECT_*`다. 특히 wrapper가 소비하는 `JAVA_OPTS`도 비어 있어야 한다.
@@ -20,7 +20,7 @@
 
 이 샘플 프로젝트는 Gradle dependency verification metadata를 운영하지 않는다. IDE가 source/Javadoc artifact를 받을 때마다 개별 checksum을 수집하는 비용이 샘플의 목적에 비해 크기 때문이다. 이 선택은 Maven artifact bytes를 저장소 밖의 별도 SHA-256 목록과 대조하지 않는다는 뜻이며, 공급망 위험이 0이라는 주장이 아니다.
 
-대신 dependency version은 version catalog와 build script에 명시하고, repository는 `google()`, `mavenCentral()`, Gradle Plugin Portal로 제한하며, 동적 version/range/snapshot은 build-input verifier가 거부한다. Dependabot이 Gradle과 GitHub Actions 갱신을 제안하고, 일반 CI build/test/lint가 실제 호환성을 검증한다. Gradle wrapper distribution은 계속 `distributionSha256Sum`으로 검증하며 governed Gradle 진입점의 init script와 toolchain 환경 봉인도 유지한다.
+대신 dependency version은 version catalog와 build script에 명시하고, repository는 `google()`, `mavenCentral()`, Gradle Plugin Portal로 제한하며, 동적 version/range/snapshot은 build-input verifier가 거부한다. 일반 CI build/test/lint가 실제 호환성을 검증한다. Gradle wrapper distribution은 계속 `distributionSha256Sum`으로 검증하며 governed Gradle 진입점의 init script와 toolchain 환경 봉인도 유지한다.
 
 ## Android SDK와 Codecov
 
