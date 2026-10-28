@@ -198,7 +198,7 @@ TMAP, 카카오맵, 네이버 지도 패키지를 명시한다. 앱이 없으면
 | flavor | 시작 | 동작 |
 | --- | --- | --- |
 | `demo` | `DemoSeedStartupHook` | DB를 비우고 seed를 넣으며, 설정을 기본값으로 돌린다 |
-| `prod` | `ProdSecretsStartupHook` | `opinet.apikey`가 있는지 확인한다 |
+| `prod` | `ProdSecretsStartupHook` | 주입된 endpoint 모드가 direct일 때만 `opinet.apikey`를 확인한다 |
 
 `demo`는 권한 허용 뒤 강남역 2번 출구 고정 좌표와 seed 원격 조회를 붙인다.
 
@@ -208,8 +208,8 @@ TMAP, 카카오맵, 네이버 지도 패키지를 명시한다. 앱이 없으면
 - 캐시 키는 위치 칸(250m), 반경, 유종이다. 브랜드·정렬은 읽은 뒤에 적용한다.
 - 좌표는 앱 안에서 WGS84 → KATEC으로 바꾼다.
 - Opinet HTTP는 `www.opinet.co.kr`에만 연다.
-- `prod` 키는 `BuildConfig`라서 APK에서 숨기지 못한다. proxy 승격은 ADR을 본다.
-- endpoint 모드는 `app`이 `NetworkRuntimeConfig`로 주입한다. proxy URL은 `/`로 끝나는 절대 http(s)만 통과한다.
+- direct `prod` 키는 `BuildConfig`라서 APK에서 숨기지 못한다. proxy 모드는 앱에 Opinet 키 없이 시작한다. proxy 승격은 ADR을 본다.
+- endpoint 모드는 `app`이 `NetworkRuntimeConfig`로 주입한다. proxy URL은 절대 http(s)여야 한다. host만 있는 URL은 `/`로 정규화되며, 경로가 있으면 `/`로 끝나야 한다.
 - Room/DataStore는 Android backup을 끈다.
 - 주소는 검색 입력이 아니라 표시용이다. 행정동까지만 보여준다.
 - `UserPreferences`는 Proto가 아니라 key-value DataStore다.

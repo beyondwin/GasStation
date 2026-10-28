@@ -134,6 +134,21 @@ abstract class GasStationDatabase : RoomDatabase() {
                         `longitudeBucket`,
                         `radiusMeters`,
                         `fuelType`
+                    HAVING MIN(`fetchedAtEpochMillis`) = MAX(`fetchedAtEpochMillis`)
+                    """.trimIndent(),
+                )
+                // A bucket with mixed timestamps cannot prove one successful snapshot. Discard
+                // only that rebuildable cache; keep watched stations and fuel-scoped history.
+                db.execSQL(
+                    """
+                    DELETE FROM `station_cache`
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM `station_cache_snapshot` AS `snapshot`
+                        WHERE `snapshot`.`latitudeBucket` = `station_cache`.`latitudeBucket`
+                            AND `snapshot`.`longitudeBucket` = `station_cache`.`longitudeBucket`
+                            AND `snapshot`.`radiusMeters` = `station_cache`.`radiusMeters`
+                            AND `snapshot`.`fuelType` = `station_cache`.`fuelType`
+                    )
                     """.trimIndent(),
                 )
             }

@@ -124,8 +124,9 @@ class StationListViewModel @Inject internal constructor(
         combine(
             baseInputs,
             searchOrchestrator.blockingFailure,
+            searchOrchestrator.observationFailed,
             commandQueue.commands,
-        ) { base, blockingFailure, commands ->
+        ) { base, blockingFailure, observationFailed, commands ->
             StationListStateAssembler.assemble(
                 StationListStateInputs(
                     preference = base.preference,
@@ -134,6 +135,7 @@ class StationListViewModel @Inject internal constructor(
                     refresh = base.refresh,
                     search = base.search,
                     blockingFailure = blockingFailure,
+                    observationFailed = observationFailed,
                     pendingCommands = commands,
                 ),
             )
@@ -222,6 +224,7 @@ class StationListViewModel @Inject internal constructor(
 
     private fun refresh(showPermissionDeniedFeedback: Boolean) {
         if (readyPreferencesOrNull() == null) return
+        searchOrchestrator.retryObservation()
         requestRefresh(RefreshRequest.AcquireLocation(showPermissionDeniedFeedback = showPermissionDeniedFeedback))
     }
 
@@ -350,15 +353,25 @@ class StationListViewModel @Inject internal constructor(
             val entry = searchOrchestrator.searchResult.value.stations
                 .firstOrNull { it.station.id == stationId }
                 ?: return@launch
-            when (updateWatchState(entry.station, watched)) {
-                WatchMutationResult.Committed -> stationEventLogger.logSafely(
-                    StationEvent.WatchToggled(
-                        stationId = stationId,
-                        watched = watched,
+            try {
+                when (updateWatchState(entry.station, watched)) {
+                    WatchMutationResult.Committed -> stationEventLogger.logSafely(
+                        StationEvent.WatchToggled(
+                            stationId = stationId,
+                            watched = watched,
+                        ),
+                    )
+
+                    WatchMutationResult.Superseded -> Unit
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                commandQueue.enqueue(
+                    StationListCommandPayload.ShowSnackbar(
+                        StringResource.fromId(R.string.station_list_watch_save_failed),
                     ),
                 )
-
-                WatchMutationResult.Superseded -> Unit
             }
         }
     }

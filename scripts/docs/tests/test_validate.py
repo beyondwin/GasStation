@@ -126,7 +126,7 @@ class FixtureRepository:
         )
         self.write(
             VALIDATOR.STATION_DATA_POLICY_OWNER,
-            "# offline-strategy\n\n## 기계 판독 정책 계약\n\n"
+            "# offline-strategy\n\n## 마이그레이션 검증 기록\n\n## 기계 판독 정책 계약\n\n"
             + VALIDATOR.STATION_DATA_POLICY_START
             + "\n```json\n"
             + POLICY_TEXT.rstrip()
@@ -595,7 +595,7 @@ class ValidatorTest(unittest.TestCase):
 
     def test_rejects_rendered_station_policy_drift(self) -> None:
         policy = json.loads(POLICY_TEXT)
-        policy["schema"]["migrationEvidence"]["connectedDeviceExecuted"] = True
+        policy["schema"]["migrationVerificationOwner"] = "docs/test-strategy.md"
         owner = self.repo.root / VALIDATOR.STATION_DATA_POLICY_OWNER
         text = owner.read_text()
         start = text.index(VALIDATOR.STATION_DATA_POLICY_START) + len(VALIDATOR.STATION_DATA_POLICY_START)

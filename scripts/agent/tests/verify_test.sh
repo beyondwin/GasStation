@@ -78,9 +78,39 @@ fi
 assert_not_contains "$release" "--dry-run"
 
 mutation_policy=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file config/quality/mutation-policy.json)
-assert_contains "$mutation_policy" "scopes: data app release"
+assert_contains "$mutation_policy" "scopes: tooling data app release"
 assert_not_contains "$mutation_policy" "verifyPitestConfiguration"
 assert_not_contains "$mutation_policy" "pitestVerified"
+
+for changed_path in scripts/quality/verify_build_inputs.py config/quality/build-inputs.json config/quality/device-evidence-policy.json .github/actions/setup-build-inputs/action.yml; do
+  quality=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file "$changed_path")
+  assert_contains "$quality" "scopes: tooling data app release"
+  assert_contains "$quality" "command: scripts/agent/test.sh"
+done
+
+for changed_path in build-logic/convention/build.gradle.kts build-logic/convention/src/test/kotlin/ExampleTest.kt; do
+  convention=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file "$changed_path")
+  assert_contains "$convention" "scopes: convention app"
+  assert_contains "$convention" "command: ./gradlew :build-logic:convention:test --no-configuration-cache --warning-mode fail"
+  assert_contains "$convention" ":app:assembleProdDebug"
+done
+
+mutation_owner=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file build-logic/convention/src/main/kotlin/quality/mutation/Policy.kt)
+assert_contains "$mutation_owner" "scopes: convention data app release"
+
+for changed_path in tools/demo-seed/src/main/kotlin/Main.kt app/src/demo/assets/demo-station-seed.json; do
+  seed=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file "$changed_path")
+  assert_contains "$seed" "scopes: seed"
+  assert_contains "$seed" ":tools:demo-seed:test :tools:demo-seed:verifyDemoSeedAsset"
+  assert_not_contains "$seed" "generateDemoSeed"
+  if [[ "$changed_path" == app/* ]]; then
+    assert_contains "$seed" "scopes: seed app"
+    assert_contains "$seed" ":app:testDemoDebugUnitTest"
+    assert_contains "$seed" ":app:assembleDemoDebug"
+  else
+    assert_not_contains "$seed" ":app:assembleDemoDebug"
+  fi
+done
 
 unknown=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file tools/new-path/file.kt)
 assert_contains "$unknown" "scopes: fast"
@@ -205,5 +235,25 @@ else
   tooling_status=$?
 fi
 [[ "$tooling_status" -eq 7 ]] || fail "tooling scope returned $tooling_status instead of 7"
+
+cat > "$fixture/docs-scope/scripts/agent/preflight.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+cat > "$fixture/docs-scope/gradlew" <<'EOF'
+#!/usr/bin/env bash
+printf 'gradle:%s\n' "$*" >> "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/calls.log"
+exit "${CONVENTION_TEST_EXIT:-0}"
+EOF
+chmod +x "$fixture/docs-scope/scripts/agent/preflight.sh" "$fixture/docs-scope/gradlew"
+"$fixture/docs-scope/scripts/agent/verify.sh" convention
+convention_calls=$(cat "$fixture/docs-scope/calls.log")
+assert_contains "$convention_calls" "gradle::build-logic:convention:test --no-configuration-cache --warning-mode fail"
+if CONVENTION_TEST_EXIT=9 "$fixture/docs-scope/scripts/agent/verify.sh" convention; then
+  fail "convention test failure was ignored"
+else
+  convention_status=$?
+fi
+[[ "$convention_status" -eq 9 ]] || fail "convention scope returned $convention_status instead of 9"
 
 echo "verify_test: PASS"

@@ -4,7 +4,7 @@
 
 ## API 키
 
-**지금:** `prod` Opinet 키는 Gradle property `opinet.apikey`로 들어가 `BuildConfig.OPINET_API_KEY`가 된다.
+**지금:** direct `prod` Opinet 키는 Gradle property `opinet.apikey`로 들어가 `BuildConfig.OPINET_API_KEY`가 된다.
 
 **한계:** APK를 열면 키를 꺼낼 수 있다. 서버 비밀이 아니다.
 
@@ -12,7 +12,7 @@
 
 **바꿀 때:** 공개 배포, quota 비용, 민감 데이터가 생기면 backend proxy + key restriction + quota monitoring으로 간다.
 
-Android는 `gasstation.stationEndpointMode=proxy`와 `gasstation.proxyBaseUrl`로 proxy를 고를 수 있다. 기본은 direct다. proxy 서버는 아직 기본 배포되지 않는다. URL은 `/`로 끝나는 절대 http(s)만 통과한다. 자세한 조건은 [ADR](adr/2026-05-18-backend-proxy-escalation.md)이다.
+Android는 `gasstation.stationEndpointMode=proxy`와 `gasstation.proxyBaseUrl`로 proxy를 고를 수 있다. 기본은 direct다. proxy 모드는 Opinet 키 없이 시작하며 서버가 upstream 인증을 맡는다. proxy 서버는 아직 기본 배포되지 않는다. URL은 절대 http(s)여야 한다. host만 있는 URL은 `/`로 정규화되며, 경로가 있으면 `/`로 끝나야 한다. 자세한 조건은 [ADR](adr/2026-05-18-backend-proxy-escalation.md)이다.
 
 ## Cleartext HTTP
 

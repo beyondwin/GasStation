@@ -32,7 +32,7 @@
 
 `MainActivity`가 Compose 루트를 연다. `demo`는 seed를 DB에 넣고 설정을 기본값으로 돌린다. 권한을 허용한 뒤에만 고정 좌표가 온다. 권한 거부를 기존 위치나 캐시로 우회하지 않는다.
 
-`prod`는 실제 위치와 네트워크를 쓰고, 키가 없으면 시작에서 실패한다. direct/proxy 선택은 `app`이 하고 조회기가 고르지 않는다. 클라이언트 키는 완전한 비밀이 아니다. 승격은 [보안](../security-trade-offs.md)과 [proxy ADR](../adr/2026-05-18-backend-proxy-escalation.md)을 본다.
+`prod`는 실제 위치와 네트워크를 쓰고, direct 모드에서는 키가 없으면 시작에서 실패한다. proxy 모드는 앱에 Opinet 키를 요구하지 않는다. direct/proxy 선택은 `app`이 하고 조회기가 고르지 않는다. 클라이언트 키는 완전한 비밀이 아니다. 승격은 [보안](../security-trade-offs.md)과 [proxy ADR](../adr/2026-05-18-backend-proxy-escalation.md)을 본다.
 
 ## Nearby
 

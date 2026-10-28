@@ -85,6 +85,14 @@ class DeviceFailureArtifactRule : TestWatcher() {
 private fun requireGmdReceiptForSelectedLane(): Boolean {
     val arguments = InstrumentationRegistry.getArguments()
     val lane = requireNotNull(arguments.getString(LANE_ARGUMENT)) { "Missing $LANE_ARGUMENT instrumentation argument" }
+    if (lane == "local-connected") {
+        val attemptId = InstrumentationRegistry.getArguments().getString("deviceEvidenceAttemptId")
+        require(attemptId != null && Regex("local-[A-Za-z0-9][A-Za-z0-9._-]{0,73}").matches(attemptId)) {
+            "Local connected tests require a local-prefixed deviceEvidenceAttemptId of at most 80 characters"
+        }
+        // Developer execution only: never manufacture a managed-device evidence receipt.
+        return false
+    }
     val avdName = readSystemProperty("ro.boot.qemu.avd_name")
     val expected =
         when (lane) {

@@ -6,7 +6,7 @@ scope=${1:-auto}
 shift || true
 
 case "$scope" in
-  docs|tooling|fast|ui|data|app|release|auto) ;;
+  docs|tooling|convention|seed|fast|ui|data|app|release|auto) ;;
   *) echo "unknown scope: $scope" >&2; exit 64 ;;
 esac
 
@@ -27,7 +27,7 @@ while (($#)); do
       shift 2
       ;;
     *)
-      echo "usage: $0 [docs|tooling|fast|ui|data|app|release|auto] [--dry-run] [--changed-file PATH]" >&2
+      echo "usage: $0 [docs|tooling|convention|seed|fast|ui|data|app|release|auto] [--dry-run] [--changed-file PATH]" >&2
       exit 64
       ;;
   esac
@@ -83,7 +83,14 @@ else
       scripts/agent/*|scripts/docs/*|.codex/*|.claude/*)
         add_scope tooling
         ;;
-      config/quality/mutation-*|scripts/quality/*|build-logic/convention/src/main/kotlin/quality/mutation/*|build-logic/convention/src/test/kotlin/quality/GasStationJvmMutationConventionPluginTest.kt)
+      scripts/quality/*|config/quality/*|.github/actions/setup-build-inputs/*)
+        add_scope tooling
+        add_scope data
+        add_scope app
+        add_scope release
+        ;;
+      build-logic/convention/src/main/kotlin/quality/mutation/*|build-logic/convention/src/test/kotlin/quality/GasStationJvmMutationConventionPluginTest.kt)
+        add_scope convention
         add_scope data
         add_scope app
         add_scope release
@@ -102,7 +109,18 @@ else
         add_scope app
         add_scope release
         ;;
-      app/*|benchmark/*|build-logic/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|.github/workflows/*)
+      build-logic/*)
+        add_scope convention
+        add_scope app
+        ;;
+      tools/demo-seed/*)
+        add_scope seed
+        ;;
+      app/src/demo/assets/demo-station-seed.json)
+        add_scope seed
+        add_scope app
+        ;;
+      app/*|benchmark/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|.github/workflows/*)
         add_scope app
         ;;
       *)
@@ -126,12 +144,19 @@ add_task() {
 }
 
 run_tooling_tests=false
+run_convention_tests=false
 for selected in "${scopes[@]}"; do
   case "$selected" in
     docs)
       ;;
     tooling)
       run_tooling_tests=true
+      ;;
+    convention)
+      run_convention_tests=true
+      ;;
+    seed)
+      for task in :tools:demo-seed:test :tools:demo-seed:verifyDemoSeedAsset; do add_task "$task"; done
       ;;
     fast)
       for task in :core:model:test :core:network:test :domain:location:test :core:observability:test :core:designsystem:testDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest :app:assembleDemoDebug :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :benchmark:assemble; do add_task "$task"; done
@@ -162,7 +187,11 @@ if $run_tooling_tests; then
   echo "command: scripts/agent/test.sh"
 fi
 
-if ((${#gradle_tasks[@]} == 0)); then
+if $run_convention_tests; then
+  echo "command: ./gradlew :build-logic:convention:test --no-configuration-cache --warning-mode fail"
+fi
+
+if ((${#gradle_tasks[@]} == 0)) && ! $run_convention_tests; then
   if $dry_run; then
     exit 0
   fi
@@ -195,19 +224,28 @@ if [[ " ${gradle_tasks[*]} " == *" coverageXmlReport "* ]]; then
   fi
 fi
 
-printf 'command: ./gradlew'
-printf ' %q' "${gradle_tasks[@]}"
-printf ' %q' "${gradle_properties[@]}"
-printf ' --warning-mode fail\n'
+if ((${#gradle_tasks[@]} > 0)); then
+  printf 'command: ./gradlew'
+  printf ' %q' "${gradle_tasks[@]}"
+  printf ' %q' "${gradle_properties[@]}"
+  printf ' --warning-mode fail\n'
+fi
 if $dry_run; then
   exit 0
 fi
 run_contracts_and_tooling_tests
 "$repo_root/scripts/agent/preflight.sh" --require-build --hook
 cd "$repo_root"
-if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then
-  scripts/quality/build_inputs/run_gradle.sh \
-    "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
-else
-  ./gradlew "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
+run_gradle() {
+  if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then
+    scripts/quality/build_inputs/run_gradle.sh "$@"
+  else
+    ./gradlew "$@"
+  fi
+}
+if $run_convention_tests; then
+  run_gradle :build-logic:convention:test --no-configuration-cache --warning-mode fail
+fi
+if ((${#gradle_tasks[@]} > 0)); then
+  run_gradle "${gradle_tasks[@]}" "${gradle_properties[@]}" --warning-mode fail
 fi

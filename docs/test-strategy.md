@@ -26,16 +26,16 @@ Android Lint error/warning은 build를 멈춘다. production `static-analysis`�
 | --- | --- | --- |
 | `core:model` | `ValueObjectInvariantTest`, `BrandFilterTest` | 값 객체, 거리, `ALTEUL` 그룹, ETC-last |
 | `domain:*` | `StationQueryCacheKeyTest`, `AddressLabelNormalizerTest`, `LocationUseCasesTest` | 순수 규칙, 주소 라벨, use case |
-| `core:database` | `StationCacheDaoTest`, `GasStationDatabaseMigrationTest` | DAO, 원자 스냅샷, schema 1–5. device migration은 기기가 있을 때만 주장 |
-| `core:network` | `NetworkStationFetcherTest`, `ProxyStationFetcherTest` | 좌표 변환, direct/proxy 실패 분류, proxy URL |
+| `core:database` | `StationCacheDaoTest`, `GasStationDatabaseMigrationTest` | DAO, 원자 스냅샷, 불일치 legacy 캐시 무효화 후 실제 observer, schema 1–5. device migration은 기기가 있을 때만 주장 |
+| `core:network` | `NetworkStationFetcherTest`, `ProxyStationFetcherTest` | 좌표 변환, direct/proxy 실패 분류, proxy URL, 누락 envelope와 명시적 빈 배열의 구분 |
 | `core:location` | `DefaultLocationRepositoryTest`, `GeocoderAsyncLookupTest` | 위치 조회, 지오코더, demo override |
 | `core:datastore` | `UserPreferencesSerializerTest` | 설정 DTO |
 | `core:designsystem` | token/chrome/BrandIcon, Roborazzi | Urban Signal 토큰, 브랜드 drawable |
 | `data:settings` | `DefaultSettingsRepositoryTest` | domain 매핑, `KAKAO_NAVI` → `KAKAO_MAP` |
 | `data:station` | `DefaultStationRepositoryTest`, `StationRetryPolicyTest`, `LatestWatchIntentGateTest` | 캐시 조합, 재시도, 최신 watch 의도 |
-| `feature:station-list` | owner tests + 다섯 integration suite, Roborazzi | 위치·관찰·새로고침·명령 대기열·화면 조합 |
+| `feature:station-list` | owner tests + integration suite + `StationListObservationRecoveryTest`, Roborazzi | 위치·관찰·새로고침·명령 대기열·화면 조합 |
 | `feature:settings` | `SettingsViewModelTest`, Roborazzi | 설정 상태, commit 뒤 복귀 |
-| `feature:watchlist` | `WatchlistViewModelTest`, Roborazzi | 가격 없음 유지, 5행, 200% 글꼴 |
+| `feature:watchlist` | `WatchlistViewModelTest`, Roborazzi | 가격 없음 유지, 제거 실패·재시도·안내 확인, 5행, 200% 글꼴 |
 | `app` | startup, backup, cleartext, 외부 지도, splash | flavor 조립, 권한, 리소스 |
 | `demo` 경로 | `DemoPermissionFlowTest`, `StationPortfolioFlowTest` | seed, 권한 CTA, 관심 플로우 |
 | `benchmark` | `StationListBenchmark` | startup, scroll, refresh, 관심 진입 |
@@ -115,6 +115,9 @@ PIT는 JVM-only `domain:station`, `domain:location`, `domain:settings`다. 실�
 - 캐시 있음은 `hasCachedSnapshot`
 - 최신 refresh만 저장한다
 - 관심은 가격이 없어도 저장 identity를 유지한다
+- 관심 저장·제거 실패는 상태를 보존하고 재시도를 허용한다
+- 같은 query의 관찰 실패도 화면의 새로고침으로 복구한다
+- proxy의 누락 응답은 캐시를 비우지 않는다
 - 설정은 첫 값 전에 default를 화면에 쓰지 않는다
 - 권한 dialog는 CTA에서만 연다
 - 외부 지도 실패는 사용자에게 알린다

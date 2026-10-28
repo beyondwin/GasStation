@@ -26,6 +26,8 @@
 | 버전 | `1.5.0` (`versionCode` 11) |
 | 저장 | `station_cache`, `station_cache_snapshot`, `station_price_history`, `watched_station` |
 
+관심 저장 실패는 기존 상태를 유지하고 다시 시도 안내를 보여준다. 목록 관찰이 끊기면 저장된 결과를 유지한 채 오류를 알리고 새로고침으로 복구한다.
+
 가격이 카드의 첫 읽기 대상이다. 거리, 역명, 브랜드, 유종, 관심, freshness는 그 결정을 돕는 정보다.
 
 실패해도 마지막 성공 목록을 버리지 않는다.
@@ -60,9 +62,9 @@ flowchart LR
 | 모드 | 쓰는 이유 | 특징 | 빌드 |
 | --- | --- | --- | --- |
 | `demo` | 같은 시작 상태를 반복 | 권한 허용 뒤에만 강남역 2번 출구 고정 좌표. API 키 없음 | `./gradlew :app:assembleDemoDebug` |
-| `prod` | 실제 위치와 API | 시작 시 `opinet.apikey`가 없으면 바로 실패 | `./gradlew :app:assembleProdDebug` |
+| `prod` | 실제 위치와 API | direct 모드는 시작 시 `opinet.apikey`를 검사; proxy 모드는 키 불필요 | `./gradlew :app:assembleProdDebug` |
 
-`prod` 실행에는 발급받은 키가 필요하다. 저장소 `gradle.properties`에 넣지 말고 `~/.gradle/gradle.properties`나 `-Popinet.apikey=<issued-key>`로 넘긴다. [오피넷](https://www.opinet.co.kr), [Open API](https://www.opinet.co.kr/user/custapi/openApiIntro.do).
+`prod` 기본 direct 모드 실행에는 발급받은 키가 필요하다. 명시적으로 선택한 proxy 모드는 앱에 Opinet 키를 넣지 않는다. 저장소 `gradle.properties`에 넣지 말고 `~/.gradle/gradle.properties`나 `-Popinet.apikey=<issued-key>`로 넘긴다. [오피넷](https://www.opinet.co.kr), [Open API](https://www.opinet.co.kr/user/custapi/openApiIntro.do).
 
 키는 Android `BuildConfig`로 들어간다. 한계와 승격 조건은 [보안](docs/security-trade-offs.md)을 본다. 앱은 로컬 캐시/설정을 Android backup으로 내보내지 않는다.
 

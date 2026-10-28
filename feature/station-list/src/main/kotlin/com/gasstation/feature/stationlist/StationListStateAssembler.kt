@@ -17,6 +17,7 @@ internal object StationListStateAssembler {
             isStale = inputs.search.hasCachedSnapshot &&
                 inputs.search.freshness is StationFreshness.Stale,
             blockingFailure = inputs.blockingFailure,
+            observationFailed = inputs.observationFailed,
             stations = inputs.search.stations,
             preferences = readyPreferences,
             preferenceLoadFailed = inputs.preference is PreferenceLoadState.Failed,

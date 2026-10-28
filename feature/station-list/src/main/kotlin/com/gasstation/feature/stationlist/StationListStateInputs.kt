@@ -32,6 +32,7 @@ internal data class StationListStateInputs(
     val search: StationListSearchProjection,
     val blockingFailure: StationListFailureReason?,
     val pendingCommands: List<StationListUiCommand>,
+    val observationFailed: Boolean = false,
 )
 
 internal data class StationListBaseStateInputs(

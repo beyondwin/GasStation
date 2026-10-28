@@ -22,6 +22,7 @@ class ProxyStationFetcher(private val proxyStationService: ProxyStationService) 
             ),
         )
         val rawStations = response.stations
+            ?: return NetworkStationFetchResult.Failure(NetworkStationFailure.InvalidPayload)
         val mappedStations = rawStations.mapNotNull { station ->
             station.toNetworkRemoteStation(expectedFuelType = fuelType)
         }

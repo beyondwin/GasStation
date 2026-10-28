@@ -21,6 +21,7 @@ internal fun StationListUiState.toBodyState(): StationListBodyState {
         !isGpsEnabled -> StationListBodyState.GpsRequired
         preferenceLoadFailed -> StationListBodyState.Failure(StationListFailureReason.PreferencesFailed)
         preferences == null -> StationListBodyState.InitialLoading
+        observationFailed && !hasRenderableSnapshot -> StationListBodyState.Failure(StationListFailureReason.ObservationFailed)
         blockingFailure != null && !hasRenderableSnapshot -> StationListBodyState.Failure(blockingFailure)
         !hasRenderableSnapshot -> StationListBodyState.InitialLoading
         else -> StationListBodyState.Results

@@ -10,6 +10,7 @@ import java.util.Locale
 
 class DeviceEvidenceReceiptRule : TestWatcher() {
     override fun starting(description: Description) {
+        if (!requireGmdReceiptForSelectedLane()) return
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val packageManager = context.packageManager
         val candidates =
@@ -63,6 +64,26 @@ class DeviceEvidenceReceiptRule : TestWatcher() {
         PlatformTestStorageRegistry.getInstance().openOutputFile("device-evidence-device.json")
             .bufferedWriter(Charsets.UTF_8).use { it.write(receipt.toString()) }
     }
+}
+
+private fun requireGmdReceiptForSelectedLane(): Boolean {
+    val lane = requireNotNull(InstrumentationRegistry.getArguments().getString("deviceEvidenceLane")) {
+        "Missing deviceEvidenceLane instrumentation argument"
+    }
+    if (lane == "local-connected") {
+        val attemptId = InstrumentationRegistry.getArguments().getString("deviceEvidenceAttemptId")
+        require(attemptId != null && Regex("local-[A-Za-z0-9][A-Za-z0-9._-]{0,73}").matches(attemptId)) {
+            "Local connected tests require a local-prefixed deviceEvidenceAttemptId of at most 80 characters"
+        }
+        // Developer execution only: never manufacture a managed-device evidence receipt.
+        return false
+    }
+    require(lane == "api36-scheduled") { "Unreviewed location device evidence lane: $lane" }
+    require(Build.VERSION.SDK_INT == 36) { "Device API does not match selected lane: $lane" }
+    require(readSystemProperty("ro.boot.qemu.avd_name") == "gasstationPixel2Api36") {
+        "AVD name does not match selected lane: $lane"
+    }
+    return true
 }
 
 private fun readSystemProperty(name: String): String = ProcessBuilder("/system/bin/getprop", name).start().inputStream

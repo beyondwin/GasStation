@@ -16,6 +16,8 @@ import com.gasstation.core.model.FuelType
 import com.gasstation.core.model.SearchRadius
 import com.gasstation.core.model.SortOrder
 import com.gasstation.core.model.distanceTo
+import com.gasstation.core.network.di.NetworkModule
+import com.gasstation.core.network.station.ProxyStationFetcher
 import com.gasstation.core.observability.CrashReporter
 import com.gasstation.domain.station.StationEventLogger
 import com.gasstation.domain.station.StationRefreshException
@@ -47,6 +49,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Clock
@@ -60,6 +64,48 @@ import kotlin.time.Duration.Companion.seconds
 class DefaultStationRepositoryTest {
     private val now = Instant.parse("2026-04-18T03:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
+
+    @Test
+    fun `invalid proxy envelope preserves cached snapshot and explicit empty response replaces it`() = runBlocking {
+        val query = stationQuery()
+        val cacheKey = query.toCacheKey(bucketMeters = CACHE_BUCKET_METERS)
+        val cached = stationEntity(cacheKey, stationId = "cached", fetchedAt = now.minusSeconds(600))
+        val cacheDao = RecordingStationCacheDao().apply { seed(cached) }
+        val server = MockWebServer()
+        val invalidBodies = listOf("{}", """{"error":"upstream unavailable"}""", """{"stations":null}""")
+        (invalidBodies + """{"stations":[]}""").forEach { body ->
+            server.enqueue(MockResponse().addHeader("Content-Type", "application/json").setBody(body))
+        }
+        server.start()
+        try {
+            val repository = repository(
+                stationCacheDao = cacheDao,
+                remoteDataSource = DefaultStationRemoteDataSource(
+                    ProxyStationFetcher(NetworkModule.provideProxyStationService(server.url("/").toString())),
+                ),
+            )
+            val before = repository.observeNearbyStations(query).first()
+            invalidBodies.forEachIndexed { index, _ ->
+                val failure = assertFailsWith<StationRefreshException> { repository.refreshNearbyStations(query) }
+                assertEquals(StationRefreshFailureReason.InvalidPayload, failure.reason)
+                assertEquals(before, repository.observeNearbyStations(query).first())
+                assertTrue(cacheDao.replaceSnapshotCalls.isEmpty())
+                assertTrue(cacheDao.pruneCutoffCalls.isEmpty())
+                assertEquals(index + 1, server.requestCount)
+            }
+
+            repository.refreshNearbyStations(query)
+
+            val empty = repository.observeNearbyStations(query).first()
+            assertTrue(empty.hasCachedSnapshot)
+            assertTrue(empty.stations.isEmpty())
+            assertEquals(now, empty.fetchedAt)
+            assertEquals(1, cacheDao.replaceSnapshotCalls.size)
+            assertEquals(4, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
 
     @Test
     fun `refreshNearbyStations replaces the cached snapshot for the bucket`() = runBlocking {

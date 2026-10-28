@@ -498,8 +498,7 @@ def _reject_inherited_host_environment(inherited: Mapping[str, str]) -> None:
             or upper.startswith("LIMA_")
             or upper.startswith("DOCKER_")
             or upper.startswith("XDG_")
-            or upper.startswith("GIT_ASKPASS")
-            or upper.startswith("GIT_CREDENTIAL")
+            or upper.startswith("GIT_")
         )
         if value and forbidden:
             raise BuildInputError(f"inherited host configuration is forbidden: {name}")
@@ -909,8 +908,33 @@ def _run(
     return completed
 
 
+def _reject_git_environment() -> None:
+    for name, value in os.environ.items():
+        if value and name.upper().startswith("GIT_"):
+            raise BuildInputError(f"inherited Git configuration is forbidden: {name}")
+
+
+def _run_git(arguments: Sequence[str], *, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+    # -C does not override GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE. Ref-writing
+    # export commands must never inherit repository selection or Git config.
+    _reject_git_environment()
+    return _run(
+        ["/usr/bin/git", *arguments],
+        env={
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+            "GIT_TERMINAL_PROMPT": "0",
+        },
+        check=check,
+    )
+
+
 def _git(*arguments: str, check: bool = True) -> str:
-    return _run(["git", "-C", str(ROOT), *arguments], check=check).stdout.decode("utf-8", "replace").strip()
+    return _run_git(["-C", str(ROOT), *arguments], check=check).stdout.decode("utf-8", "replace").strip()
 
 
 def _safe_policy_path(value: str) -> Path:
@@ -933,11 +957,9 @@ def _preflight(policy: Mapping[str, Any], source_commit: str) -> tuple[str, str]
     main_commit = policy.get("localEvidenceHost", {}).get("mainBaseCommit")
     if main_ref != MAIN_BASE_REF or main_commit != MAIN_BASE_COMMIT:
         raise BuildInputError("local evidence main-base policy drift")
-    if _git("rev-parse", f"{MAIN_BASE_REF}^{{commit}}") != MAIN_BASE_COMMIT:
-        raise BuildInputError("original main ref moved from the reviewed literal commit")
     if _git("cat-file", "-t", source_commit) != "commit" or _git("cat-file", "-t", MAIN_BASE_COMMIT) != "commit":
         raise BuildInputError("source/main object type is not commit")
-    if _run(["git", "-C", str(ROOT), "merge-base", "--is-ancestor", MAIN_BASE_COMMIT, source_commit], check=False).returncode != 0:
+    if _run_git(["-C", str(ROOT), "merge-base", "--is-ancestor", MAIN_BASE_COMMIT, source_commit], check=False).returncode != 0:
         raise BuildInputError("reviewed main base is not an ancestor of source")
     if _git("replace", "-l"):
         raise BuildInputError("Git replace refs are forbidden")
@@ -1372,13 +1394,22 @@ def _verify_docker_client_root(config: Path) -> list[dict[str, Any]]:
 
 
 def _bundle(attempt: Path, source_commit: str) -> tuple[Path, dict[str, str]]:
+    _reject_git_environment()
     export = attempt / "export"
     export.mkdir(mode=0o700)
     bundle = export / "source.bundle"
-    _run(["git", "-C", str(ROOT), "bundle", "create", str(bundle), "HEAD", MAIN_BASE_REF])
-    _run(["git", "-C", str(ROOT), "bundle", "verify", str(bundle)])
+    # The reviewed historical base belongs to the exported repository. The
+    # controller's main branch is free to advance and is never rewritten here.
+    with tempfile.TemporaryDirectory(prefix="bundle-repository-", dir=export) as directory:
+        staging = Path(directory)
+        _run_git(["init", "--bare", str(staging)])
+        _run_git(["-C", str(staging), "fetch", "--no-tags", str(ROOT), source_commit, MAIN_BASE_COMMIT])
+        _run_git(["-C", str(staging), "update-ref", "--no-deref", "HEAD", source_commit])
+        _run_git(["-C", str(staging), "update-ref", MAIN_BASE_REF, MAIN_BASE_COMMIT])
+        _run_git(["-C", str(staging), "bundle", "create", str(bundle), "HEAD", MAIN_BASE_REF])
+    _run_git(["-C", str(ROOT), "bundle", "verify", str(bundle)])
     heads = validate_bundle_heads(
-        _run(["git", "-C", str(ROOT), "bundle", "list-heads", str(bundle)]).stdout.decode("utf-8", "replace"),
+        _run_git(["-C", str(ROOT), "bundle", "list-heads", str(bundle)]).stdout.decode("utf-8", "replace"),
         source_commit=source_commit,
         main_base_commit=MAIN_BASE_COMMIT,
     )
@@ -1512,6 +1543,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     host_resources: dict[str, Any] | None = None
     try:
         policy_value, source_commit = validate_cli(sys.argv[1:] if argv is None else argv)
+        _reject_inherited_host_environment(os.environ)
         policy_path = _safe_policy_path(policy_value)
         policy = load_policy(policy_path, root=ROOT)
         host = policy.get("localEvidenceHost")
@@ -1539,7 +1571,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             policy_sha256=policy_sha,
             host_policy=host,
         )
-        _reject_inherited_host_environment(os.environ)
         attempt = next_attempt(attempts_root)
         attempt.mkdir(mode=0o700)
         runtime_root = isolated_runtime_root(source_commit, policy_sha, attempt.name)

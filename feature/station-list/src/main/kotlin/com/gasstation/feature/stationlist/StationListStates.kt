@@ -141,6 +141,11 @@ private data class StationListFailureCardContent(val title: String, val body: St
 
 @Composable
 private fun StationListFailureReason.toFailureCardContent(): StationListFailureCardContent = when (this) {
+    StationListFailureReason.ObservationFailed -> StationListFailureCardContent(
+        title = stringResource(R.string.station_list_observation_failed_title),
+        body = stringResource(R.string.station_list_observation_failed_body),
+    )
+
     StationListFailureReason.PreferencesFailed -> StationListFailureCardContent(
         title = stringResource(R.string.station_list_preferences_failed_title),
         body = stringResource(R.string.station_list_preferences_failed_body),

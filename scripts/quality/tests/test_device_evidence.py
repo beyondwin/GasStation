@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -38,6 +39,13 @@ class DeviceEvidencePolicyTest(unittest.TestCase):
         ):
             with self.assertRaises(DeviceEvidenceError):
                 instrumentation_receipt_required(*mutation)
+
+    def test_local_connected_execution_is_not_a_canonical_instrumentation_identity(self):
+        for module in ("app", "core:database", "core:location"):
+            with self.subTest(module=module):
+                with self.assertRaisesRegex(DeviceEvidenceError, "unreviewed instrumentation lane"):
+                    instrumentation_receipt_required("local-connected", module, 37, "developer_avd")
+
     def test_checked_in_policy_is_closed_and_exact(self):
         policy = load_policy(POLICY)
 
@@ -47,7 +55,7 @@ class DeviceEvidencePolicyTest(unittest.TestCase):
         )
         self.assertEqual(5, len(policy["inventories"]["appPrSmoke"]))
         self.assertEqual(10, len(policy["inventories"]["appFull"]))
-        self.assertEqual(6, len(policy["inventories"]["roomMigrations"]))
+        self.assertEqual(7, len(policy["inventories"]["roomMigrations"]))
         self.assertEqual(1, len(policy["inventories"]["locationGeocoder"]))
         self.assertEqual([], load_quarantine(POLICY, policy))
         for lane_name in ("api28-pr-smoke", "api28-scheduled"):
@@ -61,6 +69,20 @@ class DeviceEvidencePolicyTest(unittest.TestCase):
                     "gasstationPixel2Api36",
                     lane["resultRoots"][task_index * 3 + 1],
                 )
+
+    def test_room_inventory_matches_instrumented_source_methods(self):
+        source = ROOT / "core/database/src/androidTest/kotlin/com/gasstation/core/database/GasStationDatabaseMigrationInstrumentedTest.kt"
+        text = source.read_text(encoding="utf-8")
+        # This class uses one plain @Test annotation per JUnit method. Strip
+        # comments so documentation examples cannot satisfy the source inventory.
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.DOTALL)
+        methods = re.findall(r"@Test\s+fun\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", text)
+        expected = sorted(
+            f"com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#{method}"
+            for method in methods
+        )
+        self.assertTrue(expected)
+        self.assertEqual(load_policy(POLICY)["inventories"]["roomMigrations"], expected)
 
     def test_policy_rejects_unknown_fields_duplicate_inventory_and_budget_collision(self):
         policy = load_policy(POLICY)
@@ -161,8 +183,15 @@ class DeviceEvidenceVerifierTest(unittest.TestCase):
         result = self._write_complete_attempt("api24-scheduled")
 
         self.assertEqual("PASS", result["status"])
-        self.assertEqual(16, result["counters"]["tests"])
+        self.assertEqual(17, result["counters"]["tests"])
         self.assertFalse(any(path.name.startswith("gmd-task-") for path in (self.attempt_root / "raw").iterdir()))
+
+    def test_local_connected_attempt_cannot_be_promoted_to_canonical_evidence(self):
+        with self.assertRaises(DeviceEvidenceError):
+            self._write_complete_attempt(
+                "api28-pr-smoke",
+                attempt_mutator=lambda attempt: attempt.update(lane="local-connected"),
+            )
 
     def test_each_selected_task_requires_own_log_junit_html_apk_and_raw_receipt(self):
         mutators = (

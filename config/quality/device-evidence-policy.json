@@ -30,9 +30,10 @@
       "com.gasstation.core.location.AndroidAddressResolverDeviceTest#api33GeocoderCallbackPathReturnsTerminalResult"
     ],
     "roomMigrations": [
-      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version1To5PreservesCacheAndDerivesSnapshotAtMaximumTimestamp",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version1To5PreservesConsistentCacheAndDerivesSnapshotTimestamp",
       "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version2To3IntentionallyResetsHistoryWhilePreservingCacheAndWatch",
       "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version2To5PreservesCacheAndWatchButIntentionallyResetsPreFuelHistory",
+      "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version3To5InvalidatesOnlyInconsistentBucketsAndRuntimeObserverReadsRemainingSnapshot",
       "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version3To5PreservesFuelScopedHistoryCacheAndWatch",
       "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version4To5PreservesCacheWatchHistoryAndSnapshot",
       "com.gasstation.core.database.GasStationDatabaseMigrationInstrumentedTest#version4To5PreservesSuccessfulEmptySnapshotMarker"

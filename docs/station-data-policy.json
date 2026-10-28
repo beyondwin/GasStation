@@ -51,14 +51,6 @@
     "supportedMigrationStarts": [1, 2, 3, 4],
     "v2ToV3PriceHistory": "intentional_disposable_reset",
     "v4SuccessfulEmptyMarkerPreserved": true,
-    "migrationEvidence": {
-      "status": "compiled_assets_verified",
-      "hostRobolectricExecuted": true,
-      "instrumentedCompiled": true,
-      "assetsCompared": true,
-      "connectedDeviceAvailable": false,
-      "connectedDeviceExecuted": false,
-      "unavailableReason": "no_connected_device"
-    }
+    "migrationVerificationOwner": "docs/offline-strategy.md#마이그레이션-검증-기록"
   }
 }

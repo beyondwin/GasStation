@@ -50,7 +50,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +67,7 @@ import com.gasstation.core.designsystem.component.GasStationStatusTone
 import com.gasstation.core.designsystem.component.GasStationTopBar
 import com.gasstation.core.designsystem.gasStationFuelTypeLabel
 
+internal const val STATION_LIST_OBSERVATION_FAILURE_TAG = "station-list-observation-failure"
 internal const val STATION_LIST_PULL_REFRESH_TAG = "station-list-pull-refresh"
 internal const val STATION_LIST_DECISION_SUMMARY_TAG = "station-list-decision-summary"
 internal const val STATION_LIST_REFRESH_RAIL_TAG = "station-list-refresh-rail"
@@ -178,7 +181,15 @@ private fun StationListContent(uiState: StationListUiState, onAction: (StationLi
             GasStationStatusBanner(
                 modifier = Modifier
                     .padding(bottom = spacing.space8)
-                    .animateContentSize(),
+                    .animateContentSize()
+                    .then(
+                        if (banner.titleResId == R.string.station_list_observation_failed_title) {
+                            Modifier.testTag(STATION_LIST_OBSERVATION_FAILURE_TAG)
+                                .semantics { liveRegion = LiveRegionMode.Polite }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 text = stringResource(banner.titleResId),
                 detail = bannerDetail,
                 tone = banner.tone.toStatusTone(),

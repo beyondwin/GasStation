@@ -6,9 +6,18 @@ on:
       - ".github/workflows/device-evidence.yml"
       - "app/**"
       - "build-logic/**"
-      - "core/database/**"
-      - "core/location/**"
-      - "config/quality/device-evidence-*.json"
+      - "core/**"
+      - "data/**"
+      - "domain/**"
+      - "feature/**"
+      - "tools/demo-seed/**"
+      - ".github/actions/setup-build-inputs/**"
+      - "build.gradle.kts"
+      - "gradlew"
+      - "gradlew.bat"
+      - "config/quality/**"
+      - "scripts/quality/build_inputs/**"
+      - "scripts/quality/verify_build_inputs.py"
       - "gradle/**"
       - "gradle.properties"
       - "scripts/quality/device/**"
@@ -47,14 +56,16 @@ jobs:
       - uses: ./.github/actions/setup-build-inputs
         timeout-minutes: 8
       - name: Prove KVM access
+        id: kvm
         timeout-minutes: 2
         run: |
           test -c /dev/kvm
-          sudo chown root:kvm /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
           sudo chmod 660 /dev/kvm
           test -r /dev/kvm
           test -w /dev/kvm
       - name: Run canonical report-only API 28 smoke
+        id: evidence
         timeout-minutes: 34
         env:
           GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
@@ -80,6 +91,10 @@ jobs:
         run: |
           {
             echo "### API 28 PR device evidence (report-only)"
+            echo "- KVM preflight: ${{ steps.kvm.outcome }}"
+            echo "- canonical device lane: ${{ steps.evidence.outcome }}"
+            echo "- artifact upload: ${{ steps.upload.outcome }}"
+            echo "- Runtime PASS requires the source-bound verification.json; a green report-only workflow or uploaded artifact is insufficient."
             echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
             echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
             echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
@@ -98,14 +113,16 @@ jobs:
       - uses: ./.github/actions/setup-build-inputs
         timeout-minutes: 8
       - name: Prove KVM access
+        id: kvm
         timeout-minutes: 2
         run: |
           test -c /dev/kvm
-          sudo chown root:kvm /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
           sudo chmod 660 /dev/kvm
           test -r /dev/kvm
           test -w /dev/kvm
       - name: Run canonical API 24 connected AVD lane
+        id: evidence
         timeout-minutes: 59
         env:
           GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
@@ -133,6 +150,10 @@ jobs:
         run: |
           {
             echo "### API 24 scheduled device evidence"
+            echo "- KVM preflight: ${{ steps.kvm.outcome }}"
+            echo "- canonical device lane: ${{ steps.evidence.outcome }}"
+            echo "- artifact upload: ${{ steps.upload.outcome }}"
+            echo "- Runtime PASS requires the source-bound verification.json; a green report-only workflow or uploaded artifact is insufficient."
             echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
             echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
             echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
@@ -151,14 +172,16 @@ jobs:
       - uses: ./.github/actions/setup-build-inputs
         timeout-minutes: 8
       - name: Prove KVM access
+        id: kvm
         timeout-minutes: 2
         run: |
           test -c /dev/kvm
-          sudo chown root:kvm /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
           sudo chmod 660 /dev/kvm
           test -r /dev/kvm
           test -w /dev/kvm
       - name: Run canonical API 28 scheduled lane
+        id: evidence
         timeout-minutes: 58
         env:
           GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
@@ -186,6 +209,10 @@ jobs:
         run: |
           {
             echo "### API 28 scheduled device evidence"
+            echo "- KVM preflight: ${{ steps.kvm.outcome }}"
+            echo "- canonical device lane: ${{ steps.evidence.outcome }}"
+            echo "- artifact upload: ${{ steps.upload.outcome }}"
+            echo "- Runtime PASS requires the source-bound verification.json; a green report-only workflow or uploaded artifact is insufficient."
             echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
             echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
             echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"
@@ -204,14 +231,16 @@ jobs:
       - uses: ./.github/actions/setup-build-inputs
         timeout-minutes: 8
       - name: Prove KVM access
+        id: kvm
         timeout-minutes: 2
         run: |
           test -c /dev/kvm
-          sudo chown root:kvm /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
           sudo chmod 660 /dev/kvm
           test -r /dev/kvm
           test -w /dev/kvm
       - name: Run canonical API 36 scheduled lane
+        id: evidence
         timeout-minutes: 74
         env:
           GASSTATION_DEVICE_RUN_ID: ${{ github.run_id }}
@@ -241,6 +270,10 @@ jobs:
         run: |
           {
             echo "### API 36 scheduled device evidence"
+            echo "- KVM preflight: ${{ steps.kvm.outcome }}"
+            echo "- canonical device lane: ${{ steps.evidence.outcome }}"
+            echo "- artifact upload: ${{ steps.upload.outcome }}"
+            echo "- Runtime PASS requires the source-bound verification.json; a green report-only workflow or uploaded artifact is insufficient."
             echo "- artifact-id: ${{ steps.upload.outputs.artifact-id }}"
             echo "- artifact-url: ${{ steps.upload.outputs.artifact-url }}"
             echo "- artifact-digest: ${{ steps.upload.outputs.artifact-digest }}"

@@ -95,4 +95,7 @@
     <string name="station_list_banner_approx_location_detail">For accurate distance comparison, switch location permission to precise.</string>
     <string name="station_list_banner_stale_title">Showing cached results.</string>
     <string name="station_list_banner_stale_detail">Last updated %1$s</string>
+    <string name="station_list_watch_save_failed">Could not save your watch selection. Please try again.</string>
+    <string name="station_list_observation_failed_title">Could not read changes to the saved results.</string>
+    <string name="station_list_observation_failed_body">Refresh or try again.</string>
 </resources>

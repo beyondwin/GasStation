@@ -1,23 +1,20 @@
 package com.gasstation.startup
 
 import android.app.Application
-import com.gasstation.BuildConfig
+import com.gasstation.core.network.di.NetworkRuntimeConfig
+import com.gasstation.core.network.di.StationEndpointMode
 import timber.log.Timber
 import javax.inject.Inject
 
-class ProdSecretsStartupHook @Inject constructor() : AppStartupHook {
+class ProdSecretsStartupHook @Inject constructor(private val networkConfig: NetworkRuntimeConfig) : AppStartupHook {
     override fun run(application: Application) {
-        requireLocalSecrets(opinetApiKey = BuildConfig.OPINET_API_KEY)
-        Timber.i("Prod secrets loaded from local Gradle properties.")
+        requireLocalSecrets()
+        Timber.i("Prod network configuration validated for %s.", networkConfig.stationEndpointMode)
     }
 
-    internal fun requireLocalSecrets(opinetApiKey: String) {
-        val missingSecrets = buildList {
-            if (opinetApiKey.isBlank()) add("opinet.apikey")
-        }
-
-        check(missingSecrets.isEmpty()) {
-            "Prod flavor requires local secrets: ${missingSecrets.joinToString()}."
+    internal fun requireLocalSecrets() {
+        check(networkConfig.stationEndpointMode != StationEndpointMode.DirectOpinet || networkConfig.opinetApiKey.isNotBlank()) {
+            "Direct prod endpoint requires local secret: opinet.apikey."
         }
     }
 }

@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from device_workflow import check_device_contracts
+from device_workflow import REQUIRED_PR_PATHS, check_device_contracts
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -29,6 +29,9 @@ class DeviceWorkflowContractTest(unittest.TestCase):
             "cancel-comment-decoy": workflow.replace("  cancel-in-progress: false\n", "", 1) + "\n#   cancel-in-progress: false\n",
             "wrong-timeout": workflow.replace("    timeout-minutes: 55", "    timeout-minutes: 54", 1),
             "missing-filter-lane": workflow.replace("--lane api28-pr-smoke", "--lane api28-scheduled", 1),
+            "missing-outcome": workflow.replace("steps.evidence.outcome", "steps.evidence.conclusion", 1),
+            "wrong-kvm-user": workflow.replace('sudo chown "$(id -u):$(id -g)" /dev/kvm', "sudo chown root:kvm /dev/kvm", 1),
+            "negative-path": workflow.replace('      - "feature/**"', '      - "feature/**"\n      - "!feature/station-list/**"'),
             "missing-kvm": workflow.replace("          test -w /dev/kvm\n", "", 1),
             "echoed-kvm": workflow.replace("          test -c /dev/kvm", "          echo 'test -c /dev/kvm'", 1),
             "bad-upload": workflow.replace("          if-no-files-found: error", "          if-no-files-found: warn", 1),
@@ -36,8 +39,8 @@ class DeviceWorkflowContractTest(unittest.TestCase):
             "wrong-step-timeout": workflow.replace("        timeout-minutes: 34", "        timeout-minutes: 33", 1),
             "missing-setup-timeout": workflow.replace("        timeout-minutes: 2\n", "", 1),
             "missing-upload-timeout": workflow.replace(
-                "        timeout-minutes: 3\n        uses: actions/upload-artifact@v7",
-                "        uses: actions/upload-artifact@v7",
+                "        timeout-minutes: 3\n        uses: actions/upload-artifact@",
+                "        uses: actions/upload-artifact@",
                 1,
             ),
             "missing-summary-timeout": workflow.replace(
@@ -56,6 +59,8 @@ class DeviceWorkflowContractTest(unittest.TestCase):
                 1,
             ),
         }
+        for path in REQUIRED_PR_PATHS:
+            mutations[f"missing-path:{path}"] = workflow.replace(f'      - "{path}"\n', "", 1)
         for name, mutated in mutations.items():
             with self.subTest(name=name):
                 with tempfile.TemporaryDirectory() as directory:
@@ -72,7 +77,9 @@ class DeviceWorkflowContractTest(unittest.TestCase):
                             (ROOT / f"config/quality/{name}").read_text(encoding="utf-8"),
                             encoding="utf-8",
                         )
-                    (root / "gradle.properties").write_text("", encoding="utf-8")
+                    shutil.copytree(ROOT / "scripts/quality/device", root / "scripts/quality/device")
+                    shutil.copyfile(ROOT / "gradle.properties", root / "gradle.properties")
+                    self.assertNotEqual(workflow, mutated, f"mutation did not apply: {name}")
                     self.assertNotEqual([], check_device_contracts(root))
 
     def test_executable_phase_bound_mutations_fail_closed(self):

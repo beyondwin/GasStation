@@ -9,6 +9,19 @@ from pathlib import Path
 from device_evidence import DeviceEvidenceError, load_policy
 
 
+REQUIRED_PR_PATHS = {
+    ".github/workflows/device-evidence.yml",
+    ".github/actions/setup-build-inputs/**",
+    "app/**", "build-logic/**", "core/**", "data/**", "domain/**", "feature/**",
+    "tools/demo-seed/**", "build.gradle.kts", "gradle/**", "gradle.properties",
+    "gradlew", "gradlew.bat", "settings.gradle.kts",
+    "config/quality/**", "scripts/quality/build_inputs/**", "scripts/quality/verify_build_inputs.py",
+    "scripts/quality/device/**",
+    "scripts/quality/device_evidence.py", "scripts/quality/device_workflow.py",
+    "scripts/quality/verify_device_evidence.py", "scripts/agent/check_contracts.py",
+}
+
+
 EXPECTED_JOBS = {
     "device-pr-api28": {
         "lane": "api28-pr-smoke",
@@ -113,6 +126,18 @@ def check_device_contracts(root: Path) -> list[str]:
         if not re.search(pattern, active_text):
             issues.append(f".github/workflows/device-evidence.yml:1: {message}")
 
+    path_block = re.search(r"(?ms)^  pull_request:\n    paths:\n(?P<paths>(?:      - [^\n]*\n)+)", active_text)
+    paths = set()
+    if path_block:
+        paths = {
+            line.removeprefix("      - ").strip().strip('"\'')
+            for line in path_block.group("paths").splitlines()
+        }
+    for missing in sorted(REQUIRED_PR_PATHS - paths):
+        issues.append(f".github/workflows/device-evidence.yml:1: required pull-request path missing: {missing}")
+    if any(path.startswith("!") for path in paths):
+        issues.append(".github/workflows/device-evidence.yml:1: negative pull-request paths can hide device changes")
+
     jobs = _job_blocks(active_text)
     if set(jobs) != set(EXPECTED_JOBS):
         issues.append(".github/workflows/device-evidence.yml:1: device job inventory differs")
@@ -187,13 +212,16 @@ def check_device_contracts(root: Path) -> list[str]:
         if active.count(expected_command) != 1:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} canonical wrapper call differs")
         wrapper_steps = [step for step in run_steps if _step_value(step, "run") == expected_command]
-        if len(wrapper_steps) != 1 or _step_value(wrapper_steps[0], "timeout-minutes") != expected["step_timeout"]:
+        if len(wrapper_steps) != 1 or _step_value(wrapper_steps[0], "timeout-minutes") != expected["step_timeout"] or _step_value(wrapper_steps[0], "id") != "evidence":
             issues.append(f".github/workflows/device-evidence.yml:1: {name} wrapper timeout drifted")
-        for required in ("test -c /dev/kvm", "test -r /dev/kvm", "test -w /dev/kvm"):
+        for required in (
+            "test -c /dev/kvm", 'sudo chown "$(id -u):$(id -g)" /dev/kvm',
+            "sudo chmod 660 /dev/kvm", "test -r /dev/kvm", "test -w /dev/kvm",
+        ):
             if not re.search(rf"(?m)^          {re.escape(required)}$", active):
                 issues.append(f".github/workflows/device-evidence.yml:1: {name} KVM proof missing")
         kvm_steps = [step for step in run_steps if "test -c /dev/kvm" in step]
-        if len(kvm_steps) != 1 or _step_value(kvm_steps[0], "timeout-minutes") != "2":
+        if len(kvm_steps) != 1 or _step_value(kvm_steps[0], "timeout-minutes") != "2" or _step_value(kvm_steps[0], "id") != "kvm":
             issues.append(f".github/workflows/device-evidence.yml:1: {name} KVM phase is unbounded")
         verifier_mentions = active.count("verify_device_evidence.py")
         if verifier_mentions != 0:
@@ -215,6 +243,9 @@ def check_device_contracts(root: Path) -> list[str]:
                 issues.append(f".github/workflows/device-evidence.yml:1: {name} upload contract differs")
         if "steps.upload.outputs.artifact-id" not in active or "steps.upload.outputs.artifact-url" not in active or "steps.upload.outputs.artifact-digest" not in active:
             issues.append(f".github/workflows/device-evidence.yml:1: {name} upload identity summary missing")
+        for outcome in ("kvm", "evidence", "upload"):
+            if f"steps.{outcome}.outcome" not in active:
+                issues.append(f".github/workflows/device-evidence.yml:1: {name} {outcome} outcome summary missing")
         summary_steps = [step for step in run_steps if "steps.upload.outputs.artifact-digest" in step]
         if len(summary_steps) != 1 or _step_value(summary_steps[0], "timeout-minutes") != "1":
             issues.append(f".github/workflows/device-evidence.yml:1: {name} upload summary is unbounded")

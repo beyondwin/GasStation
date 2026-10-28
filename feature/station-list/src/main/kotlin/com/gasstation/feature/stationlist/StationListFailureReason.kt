@@ -9,5 +9,7 @@ sealed interface StationListFailureReason {
 
     data object RefreshTimedOut : StationListFailureReason
 
+    data object ObservationFailed : StationListFailureReason
+
     data object RefreshFailed : StationListFailureReason
 }

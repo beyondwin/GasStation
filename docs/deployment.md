@@ -22,7 +22,7 @@ gh workflow list --all --json name,path,state
 - 저장소의 기본 workflow token 권한은 read-only입니다. GitHub Release에 필요한 `contents: write`는 tag-only `release-publish` job에만 부여합니다.
 - 저장소에는 Play Store 자동 배포, signing keystore, 배포 credential을 두지 않습니다.
 - `prodRelease` APK/AAB signing은 저장소 밖의 keystore와 배포자 계정에서 처리합니다.
-- `prod` 런타임에는 사용자 로컬 `opinet.apikey`가 필요합니다. 키는 `~/.gradle/gradle.properties` 또는 `-Popinet.apikey=<issued-key>`로 전달하고 저장소에 커밋하지 않습니다.
+- direct `prod` 런타임에는 사용자 로컬 `opinet.apikey`가 필요합니다. 키는 `~/.gradle/gradle.properties` 또는 `-Popinet.apikey=<issued-key>`로 전달하고 저장소에 커밋하지 않습니다.
 - 원격 조회 endpoint는 기본값이 `gasstation.stationEndpointMode=direct`(direct Opinet)입니다. proxy 빌드는 `-Pgasstation.stationEndpointMode=proxy -Pgasstation.proxyBaseUrl=<https-url>`로 전환하며(`STATION_ENDPOINT_MODE`/`PROXY_BASE_URL` BuildConfig로 주입), proxy 서버 배포는 [`docs/adr/2026-05-18-backend-proxy-escalation.md`](adr/2026-05-18-backend-proxy-escalation.md) 조건을 따릅니다.
 
 ## 릴리스 PR 준비
@@ -112,7 +112,7 @@ GitHub Release 자산 이름은 다음 계약을 따릅니다.
 
 ## 공개 배포 전 보안 gate
 
-현재 `prod`는 Opinet API key를 Android 클라이언트 `BuildConfig`로 주입합니다. 이 방식은 reference/portfolio 범위에서는 단순하고 재현 가능하지만, APK에서 키를 완전히 숨기는 secret boundary가 아닙니다.
+현재 기본 direct `prod`는 Opinet API key를 Android 클라이언트 `BuildConfig`로 주입합니다. 이 방식은 reference/portfolio 범위에서는 단순하고 재현 가능하지만, APK에서 키를 완전히 숨기는 secret boundary가 아닙니다.
 
 아래 조건 중 하나라도 참이면 release 전에 backend proxy 승격을 먼저 설계합니다.
 

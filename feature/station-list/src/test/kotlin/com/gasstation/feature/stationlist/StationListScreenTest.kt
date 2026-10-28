@@ -1123,6 +1123,65 @@ class StationListScreenTest {
     }
 
     @Test
+    fun `observation failure keeps cached rows and exposes accessible refresh guidance`() {
+        assertObservationFailureWithCache(listOf(testStation()))
+        composeRule.onNodeWithTag(STATION_LIST_CARD_TITLE_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `observation failure keeps successful empty snapshot retryable`() {
+        assertObservationFailureWithCache(emptyList())
+        composeRule.onNodeWithText("조건에 맞는 주변 주유소가 없습니다.").assertExists()
+    }
+
+    private fun assertObservationFailureWithCache(stations: List<StationListItemUiModel>) {
+        val actions = mutableListOf<StationListAction>()
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    observationFailed = true,
+                    hasCachedSnapshot = true,
+                    stations = stations,
+                    preferences = UserPreferences.default(),
+                ),
+                snackbarHostState = SnackbarHostState(),
+                onAction = actions::add,
+                onPermissionAction = {},
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(STATION_LIST_OBSERVATION_FAILURE_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText("저장된 목록의 변경을 확인하지 못했습니다.").assertExists()
+        composeRule.onNodeWithText("새로고침하거나 다시 시도해주세요.").assertExists()
+        composeRule.onNodeWithContentDescription("새로고침").performClick()
+        assertEquals(listOf(StationListAction.RefreshRequested), actions)
+    }
+
+    @Test
+    fun `initial observation failure shows working retry action`() {
+        val actions = mutableListOf<StationListAction>()
+        composeRule.setContent {
+            StationListScreen(
+                uiState = StationListUiState(
+                    permissionState = LocationPermissionState.PreciseGranted,
+                    observationFailed = true,
+                    preferences = UserPreferences.default(),
+                ),
+                snackbarHostState = SnackbarHostState(),
+                onAction = actions::add,
+                onPermissionAction = {},
+                onOpenLocationSettings = {},
+            )
+        }
+
+        composeRule.onNodeWithText("저장된 목록의 변경을 확인하지 못했습니다.").assertIsDisplayed()
+        composeRule.onNodeWithText("다시 시도").performClick()
+        assertEquals(listOf(StationListAction.RetryClicked), actions)
+    }
+
+    @Test
     fun `cached results stay visible when blocking failure is null`() {
         composeRule.setContent {
             StationListScreen(

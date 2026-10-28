@@ -401,7 +401,7 @@ state_model = next(entry for entry in entries if entry["path"] == "docs/state-mo
 state_model["authoritativeSources"].insert(0, "docs/station-list-state-contract.json")
 state_model["authoritativeSources"].insert(1, "docs/station-list-state-contract-consumers.json")
 (root / "docs/offline-strategy.md").write_text(
-    "# Offline strategy\n\n## 기계 판독 정책 계약\n\n"
+    "# Offline strategy\n\n## 마이그레이션 검증 기록\n\n## 기계 판독 정책 계약\n\n"
     "<!-- station-data-policy:start -->\n"
     "```json\n"
     + (root / "docs/station-data-policy.json").read_text().rstrip()

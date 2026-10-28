@@ -28,6 +28,8 @@ from scripts.quality.build_inputs.local_colima_evidence import (
     SELECTED_MANIFEST_DESCRIPTOR,
     START_ARGV,
     _recover_prior_attempts,
+    _preflight,
+    _bundle,
     _run_governed_container_command,
     _write_failed_attempt_package,
     _container_labels,
@@ -975,6 +977,70 @@ class LocalColimaEvidenceContractTest(unittest.TestCase):
                     policy_sha256=POLICY_SHA,
                     host_policy=host,
                 )
+
+    @mock.patch.dict(os.environ, {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C", "LC_ALL": "C"}, clear=True)
+    def test_advanced_controller_main_exports_reviewed_base_without_rewriting_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            root.mkdir()
+
+            def git(*arguments: str) -> str:
+                return subprocess.check_output(
+                    ["git", "-C", str(root), *arguments], stderr=subprocess.STDOUT,
+                ).decode().strip()
+
+            git("init", "-b", "main")
+            (root / "source.txt").write_text("reviewed base\n")
+            git("add", ".")
+            git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "base")
+            base = git("rev-parse", "HEAD")
+            (root / "source.txt").write_text("current source\n")
+            git("add", ".")
+            git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "source")
+            source = git("rev-parse", "HEAD")
+            policy = {"localEvidenceHost": {"mainBaseRef": "refs/heads/main", "mainBaseCommit": base}}
+            attempt = Path(directory) / "attempt"
+            attempt.mkdir()
+            module = "scripts.quality.build_inputs.local_colima_evidence"
+            with mock.patch(f"{module}.ROOT", root), mock.patch(f"{module}.MAIN_BASE_COMMIT", base):
+                self.assertEqual((source, base), _preflight(policy, source))
+                original_refs = git("show-ref")
+                original_head = (root / ".git/HEAD").read_bytes()
+                for name, value in (
+                    ("GIT_DIR", str(root / ".git")),
+                    ("GIT_COMMON_DIR", str(root / ".git")),
+                    ("GIT_WORK_TREE", str(root)),
+                    ("GIT_CONFIG_COUNT", "1"),
+                    ("GIT_TEMPLATE_DIR", str(root)),
+                ):
+                    with self.subTest(name=name):
+                        with mock.patch.dict(os.environ, {name: value}):
+                            with self.assertRaisesRegex(BuildInputError, "inherited Git configuration"):
+                                _preflight(policy, source)
+                            with self.assertRaisesRegex(BuildInputError, "inherited Git configuration"):
+                                _bundle(attempt, source)
+                            with self.assertRaisesRegex(BuildInputError, "inherited host configuration"):
+                                sanitized_host_environment(Path(directory) / "unused-runtime", inherited={name: value})
+                        self.assertFalse((attempt / "export").exists())
+                        self.assertEqual(original_refs, git("show-ref"))
+                        self.assertEqual(original_head, (root / ".git/HEAD").read_bytes())
+                bundle, heads = _bundle(attempt, source)
+                self.assertEqual({"HEAD": source, "refs/heads/main": base}, heads)
+                clone = Path(directory) / "clone"
+                subprocess.run(["git", "clone", str(bundle), str(clone)], check=True, capture_output=True)
+                self.assertEqual(source, subprocess.check_output(["git", "-C", str(clone), "rev-parse", "HEAD"]).decode().strip())
+                self.assertEqual(base, subprocess.check_output(["git", "-C", str(clone), "rev-parse", "refs/remotes/origin/main"]).decode().strip())
+                self.assertEqual(source, git("rev-parse", "refs/heads/main"))
+                self.assertEqual("", git("status", "--porcelain"))
+                self.assertEqual(["source.bundle"], sorted(path.name for path in (attempt / "export").iterdir()))
+                with self.assertRaisesRegex(BuildInputError, "exact HEAD"):
+                    _preflight(policy, base)
+                wrong_policy = {"localEvidenceHost": {"mainBaseRef": "refs/heads/main", "mainBaseCommit": source}}
+                with self.assertRaisesRegex(BuildInputError, "policy drift"):
+                    _preflight(wrong_policy, source)
+                (root / "untracked.txt").write_text("dirty")
+                with self.assertRaisesRegex(BuildInputError, "clean"):
+                    _preflight(policy, source)
 
     def test_bundle_heads_must_be_exactly_head_and_literal_main(self) -> None:
         valid = f"{SOURCE} HEAD\n{BASE} refs/heads/main\n"

@@ -65,8 +65,7 @@ class DataCorrectnessContractDocsTest(unittest.TestCase):
             ("Fresh inversion", ("freshness", "fresh", "operator"), ">"),
             ("wrong first stale", ("freshness", "firstStaleAgeMs"), 300000),
             ("Room mutation", ("freshness", "timeCrossingWithoutRoomMutation"), False),
-            ("device execution", ("schema", "migrationEvidence", "connectedDeviceExecuted"), True),
-            ("device available", ("schema", "migrationEvidence", "connectedDeviceAvailable"), True),
+            ("wrong evidence owner", ("schema", "migrationVerificationOwner"), "docs/test-strategy.md"),
             ("incomplete silence", ("superseded", "forbiddenSideEffects"), ["Retry"]),
             ("duplicate status", ("retry", "retryableHttpStatuses"), [408, 408, 429]),
             ("unlisted HTTP retry", ("retry", "unlistedHttpRetryable"), True),
@@ -84,9 +83,9 @@ class DataCorrectnessContractDocsTest(unittest.TestCase):
 
     def test_missing_and_extra_fields_are_rejected(self) -> None:
         missing = copy.deepcopy(self.policy)
-        del missing["schema"]["migrationEvidence"]["status"]
+        del missing["schema"]["migrationVerificationOwner"]
         extra = copy.deepcopy(self.policy)
-        extra["retry"]["allowAll4xx"] = True
+        extra["schema"]["migrationEvidence"] = {"connectedDeviceExecuted": True}
         for label, candidate in (("missing", missing), ("extra", extra)):
             with self.subTest(label=label):
                 with self.assertRaisesRegex(AssertionError, "approved contract"):
@@ -107,7 +106,7 @@ class DataCorrectnessContractDocsTest(unittest.TestCase):
         mutations = (
             changed(self.policy, ("retry", "retryableHttpStatuses"), [404, 408, 429]),
             changed(self.policy, ("freshness", "fresh", "operator"), ">"),
-            changed(self.policy, ("schema", "migrationEvidence", "connectedDeviceExecuted"), True),
+            changed(self.policy, ("schema", "migrationVerificationOwner"), "docs/test-strategy.md"),
             changed(self.policy, ("superseded", "forbiddenSideEffects"), ["Retry"]),
         )
         for candidate in mutations:
@@ -141,6 +140,15 @@ class DataCorrectnessContractDocsTest(unittest.TestCase):
             if isinstance(entry.get("path"), str) and entry["path"].endswith(".md")
         }
         self.assertEqual([], station_data_policy_issues(ROOT, entries, texts))
+
+        missing_heading = dict(texts)
+        missing_heading[STATION_DATA_POLICY_OWNER] = missing_heading[STATION_DATA_POLICY_OWNER].replace(
+            "## 마이그레이션 검증 기록", "## Old record",
+        )
+        self.assertTrue(any(
+            "migration verification owner heading missing" in issue
+            for issue in station_data_policy_issues(ROOT, entries, missing_heading)
+        ))
 
         duplicate_texts = dict(texts)
         duplicate_texts["docs/architecture.md"] += (

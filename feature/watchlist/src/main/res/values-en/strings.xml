@@ -39,4 +39,5 @@
     <string name="watchlist_load_failed_title">Couldn\'t load saved stations.</string>
     <string name="watchlist_load_failed_body">Check your saved settings and price information, then try again.</string>
     <string name="watchlist_retry">Try again</string>
+    <string name="watchlist_remove_failed">Could not remove the saved station. Please try again.</string>
 </resources>

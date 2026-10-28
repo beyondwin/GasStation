@@ -151,15 +151,7 @@ EXPECTED_STATION_DATA_POLICY = {
         "supportedMigrationStarts": [1, 2, 3, 4],
         "v2ToV3PriceHistory": "intentional_disposable_reset",
         "v4SuccessfulEmptyMarkerPreserved": True,
-        "migrationEvidence": {
-            "status": "compiled_assets_verified",
-            "hostRobolectricExecuted": True,
-            "instrumentedCompiled": True,
-            "assetsCompared": True,
-            "connectedDeviceAvailable": False,
-            "connectedDeviceExecuted": False,
-            "unavailableReason": "no_connected_device",
-        },
+        "migrationVerificationOwner": "docs/offline-strategy.md#마이그레이션-검증-기록",
     },
 }
 
@@ -827,6 +819,9 @@ def station_data_policy_issues(
         )
     owner_text = texts.get(STATION_DATA_POLICY_OWNER)
     if owner_text is not None:
+        evidence_path, evidence_anchor = EXPECTED_STATION_DATA_POLICY["schema"]["migrationVerificationOwner"].split("#", 1)
+        if evidence_path not in texts or evidence_anchor not in headings(texts[evidence_path]):
+            issues.append(location(STATION_DATA_POLICY_OWNER, 1, "migration verification owner heading missing"))
         try:
             rendered_policy = parse_station_data_policy_block(owner_text)
             validate_station_data_policy(rendered_policy)

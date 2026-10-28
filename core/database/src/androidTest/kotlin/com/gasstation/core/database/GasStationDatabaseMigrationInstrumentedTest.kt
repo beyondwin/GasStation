@@ -1,11 +1,16 @@
 package com.gasstation.core.database
 
+import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.gasstation.core.database.station.RoomStationBucketSnapshotObserver
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -30,20 +35,62 @@ class GasStationDatabaseMigrationInstrumentedTest {
     }
 
     @Test
-    fun version1To5PreservesCacheAndDerivesSnapshotAtMaximumTimestamp() {
+    fun version1To5PreservesConsistentCacheAndDerivesSnapshotTimestamp() {
         helper.createDatabase(databaseName, 1).use { database ->
-            insertCacheRow(database, stationId = "station-old", fetchedAtEpochMillis = 100L)
+            insertCacheRow(database, stationId = "station-old", fetchedAtEpochMillis = 200L)
             insertCacheRow(database, stationId = "station-latest", fetchedAtEpochMillis = 200L)
         }
 
         helper.runMigrationsAndValidate(databaseName, 5, true, *allMigrations).use { database ->
             assertEquals(2, database.rowCount("station_cache"))
-            assertCacheRow(database, stationId = "station-old", fetchedAtEpochMillis = 100L)
+            assertCacheRow(database, stationId = "station-old", fetchedAtEpochMillis = 200L)
             assertCacheRow(database, stationId = "station-latest", fetchedAtEpochMillis = 200L)
             assertEquals(0, database.rowCount("station_price_history"))
             assertEquals(0, database.rowCount("watched_station"))
             assertSnapshotRow(database, fetchedAtEpochMillis = 200L)
             assertLatestByStationIndex(database)
+        }
+    }
+
+    @Test
+    fun version3To5InvalidatesOnlyInconsistentBucketsAndRuntimeObserverReadsRemainingSnapshot() = runBlocking {
+        helper.createDatabase(databaseName, 3).use { database ->
+            insertCacheRow(database, stationId = "old", fetchedAtEpochMillis = 100L)
+            insertCacheRow(database, stationId = "new", fetchedAtEpochMillis = 200L)
+            insertCacheRow(database, stationId = "diesel-a", fetchedAtEpochMillis = 300L, fuelType = "DIESEL")
+            insertCacheRow(database, stationId = "diesel-b", fetchedAtEpochMillis = 300L, fuelType = "DIESEL")
+            insertWatchedRow(database)
+            insertVersion3HistoryRow(database)
+        }
+        helper.runMigrationsAndValidate(
+            databaseName,
+            5,
+            true,
+            GasStationDatabase.MIGRATION_3_4,
+            GasStationDatabase.MIGRATION_4_5,
+        ).use { database ->
+            assertEquals(2, database.rowCount("station_cache"))
+            assertEquals(1, database.rowCount("station_cache_snapshot"))
+            assertWatchedRow(database)
+            assertHistoryRow(database)
+        }
+
+        val database = Room.databaseBuilder(
+            InstrumentationRegistry.getInstrumentation().targetContext,
+            GasStationDatabase::class.java,
+            databaseName,
+        ).build()
+        try {
+            val observer = RoomStationBucketSnapshotObserver(database)
+            val invalidated = observer.observe(16_649, 50_811, 3_000, "GASOLINE").first()
+            assertNull(invalidated.marker)
+            assertTrue(invalidated.rows.isEmpty())
+            val retained = observer.observe(16_649, 50_811, 3_000, "DIESEL").first()
+            assertEquals(300L, retained.marker?.fetchedAtEpochMillis)
+            assertEquals(listOf("diesel-a", "diesel-b"), retained.rows.map { it.stationId })
+            assertTrue(retained.rows.all { it.fetchedAtEpochMillis == retained.marker?.fetchedAtEpochMillis })
+        } finally {
+            database.close()
         }
     }
 
@@ -165,7 +212,12 @@ class GasStationDatabaseMigrationInstrumentedTest {
         }
     }
 
-    private fun insertCacheRow(database: SupportSQLiteDatabase, stationId: String, fetchedAtEpochMillis: Long) {
+    private fun insertCacheRow(
+        database: SupportSQLiteDatabase,
+        stationId: String,
+        fetchedAtEpochMillis: Long,
+        fuelType: String = "GASOLINE",
+    ) {
         database.execSQL(
             """
             INSERT INTO station_cache (
@@ -177,7 +229,7 @@ class GasStationDatabaseMigrationInstrumentedTest {
                 16_649,
                 50_811,
                 3_000,
-                "GASOLINE",
+                fuelType,
                 stationId,
                 "GSC",
                 "Migrated Station",

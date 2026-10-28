@@ -22,6 +22,15 @@ data class StationListBannerModel(
                     ),
                 )
             }
+            if (uiState.observationFailed) {
+                add(
+                    StationListBannerModel(
+                        titleResId = R.string.station_list_observation_failed_title,
+                        detailResId = R.string.station_list_observation_failed_body,
+                        tone = StationListBannerTone.Error,
+                    ),
+                )
+            }
             if (uiState.isStale) {
                 add(
                     StationListBannerModel(

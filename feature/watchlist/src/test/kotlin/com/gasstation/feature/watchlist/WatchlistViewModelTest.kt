@@ -257,6 +257,49 @@ class WatchlistViewModelTest {
     }
 
     @Test
+    fun `failed removal preserves rows and feedback until acknowledged and permits retry`() = runTest(dispatcher) {
+        Dispatchers.setMain(dispatcher)
+        val repository = RecordingWatchlistRepository(
+            initial = listOf(summary()),
+            removeFailure = IllegalStateException("disk write failed"),
+        )
+        val analytics = RecordingStationEventLogger()
+        val viewModel = watchlistViewModel(repository, MutableStateFlow(UserPreferences.default()), analytics)
+        advanceUntilIdle()
+        analytics.events.clear()
+        val originalRows = viewModel.uiState.value.stations
+
+        viewModel.onAction(WatchlistAction.RemoveClicked("station-1"))
+        advanceUntilIdle()
+
+        assertEquals(originalRows, viewModel.uiState.value.stations)
+        assertEquals(1, viewModel.uiState.value.summary.count)
+        assertFalse(viewModel.uiState.value.loadFailed)
+        assertTrue(analytics.events.isEmpty())
+        val firstFailure = checkNotNull(viewModel.uiState.value.pendingRemovalFailureId)
+
+        repository.summaries.value = listOf(summary(name = "Updated"))
+        advanceUntilIdle()
+        assertEquals(firstFailure, viewModel.uiState.value.pendingRemovalFailureId)
+        viewModel.onAction(WatchlistAction.RemoveClicked("station-1"))
+        advanceUntilIdle()
+        val latestFailure = checkNotNull(viewModel.uiState.value.pendingRemovalFailureId)
+        assertTrue(latestFailure > firstFailure)
+        viewModel.onAction(WatchlistAction.RemovalFailureHandled(firstFailure))
+        assertEquals(latestFailure, viewModel.uiState.value.pendingRemovalFailureId)
+        viewModel.onAction(WatchlistAction.RemovalFailureHandled(latestFailure))
+        assertNull(viewModel.uiState.value.pendingRemovalFailureId)
+
+        repository.removeFailure = null
+        viewModel.onAction(WatchlistAction.RemoveClicked("station-1"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.stations.isEmpty())
+        assertEquals(listOf(StationEvent.WatchToggled("station-1", false)), analytics.events)
+        assertNull(viewModel.uiState.value.pendingRemovalFailureId)
+    }
+
+    @Test
     fun `cancelled remove is not logged as success`() = runTest(dispatcher) {
         Dispatchers.setMain(dispatcher)
         val repository = RecordingWatchlistRepository(
@@ -277,6 +320,7 @@ class WatchlistViewModelTest {
         advanceUntilIdle()
 
         assertTrue(analytics.events.isEmpty())
+        assertNull(viewModel.uiState.value.pendingRemovalFailureId)
         collectionJob.cancel()
     }
 
@@ -340,7 +384,7 @@ private class ThrowingStationEventLogger : StationEventLogger {
 private class RecordingWatchlistRepository(
     initial: List<WatchedStationSummary>,
     private val removeResult: WatchMutationResult = WatchMutationResult.Committed,
-    private val removeFailure: Throwable? = null,
+    var removeFailure: Throwable? = null,
 ) : StationRepository {
     val summaries = MutableStateFlow(initial)
     val queries = mutableListOf<WatchlistQuery>()

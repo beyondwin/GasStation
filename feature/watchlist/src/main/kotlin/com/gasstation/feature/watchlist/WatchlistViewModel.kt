@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,6 +48,7 @@ class WatchlistViewModel @Inject constructor(
 
     private var hasLoggedCompareViewed = false
     private var observationJob: Job? = null
+    private var nextRemovalFailureId = 0L
 
     init {
         observe()
@@ -54,7 +56,7 @@ class WatchlistViewModel @Inject constructor(
 
     private fun observe() {
         observationJob?.cancel()
-        mutableUiState.value = WatchlistUiState(isLoading = true)
+        mutableUiState.update { WatchlistUiState(pendingRemovalFailureId = it.pendingRemovalFailureId) }
         observationJob = observeUserPreferences()
             .map { preferences: UserPreferences -> preferences.fuelType }
             .distinctUntilChanged()
@@ -69,6 +71,7 @@ class WatchlistViewModel @Inject constructor(
                     fuelType = fuelType,
                     stations = items,
                     summary = WatchlistSummaryUiModel.from(items),
+                    pendingRemovalFailureId = mutableUiState.value.pendingRemovalFailureId,
                 )
                 if (!hasLoggedCompareViewed) {
                     hasLoggedCompareViewed = true
@@ -82,6 +85,7 @@ class WatchlistViewModel @Inject constructor(
                 mutableUiState.value = WatchlistUiState(
                     isLoading = false,
                     loadFailed = true,
+                    pendingRemovalFailureId = mutableUiState.value.pendingRemovalFailureId,
                 )
             }
             .launchIn(viewModelScope)
@@ -91,16 +95,27 @@ class WatchlistViewModel @Inject constructor(
         when (action) {
             WatchlistAction.RetryLoad -> observe()
 
-            is WatchlistAction.RemoveClicked -> viewModelScope.launch {
-                when (removeWatchedStation(action.stationId)) {
-                    WatchMutationResult.Committed -> stationEventLogger.logSafely(
-                        StationEvent.WatchToggled(
-                            stationId = action.stationId,
-                            watched = false,
-                        ),
-                    )
+            is WatchlistAction.RemovalFailureHandled -> mutableUiState.update { state ->
+                if (state.pendingRemovalFailureId == action.id) state.copy(pendingRemovalFailureId = null) else state
+            }
 
-                    WatchMutationResult.Superseded -> Unit
+            is WatchlistAction.RemoveClicked -> viewModelScope.launch {
+                try {
+                    when (removeWatchedStation(action.stationId)) {
+                        WatchMutationResult.Committed -> stationEventLogger.logSafely(
+                            StationEvent.WatchToggled(
+                                stationId = action.stationId,
+                                watched = false,
+                            ),
+                        )
+
+                        WatchMutationResult.Superseded -> Unit
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (_: Exception) {
+                    val failureId = nextRemovalFailureId++
+                    mutableUiState.update { it.copy(pendingRemovalFailureId = failureId) }
                 }
             }
         }

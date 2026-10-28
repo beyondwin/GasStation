@@ -60,7 +60,7 @@ invalidation마다 마커와 `stationId ASC`로 정렬한 행을 **하나의 Roo
 
 ## 실패한 새로고침
 
-실패 종류는 `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`이다. 빈 목록은 성공이다. 요청 유종과 같지 않은 proxy 행은 거부한다. 재시도 횟수와 HTTP 범위는 아래 계약의 `retry`다. 늦은 generation은 조용히 끝난다. 기존 스냅샷은 남는다.
+실패 종류는 `InvalidPayload`, `Timeout`, `Network`, `Http(statusCode)`, `Unknown`이다. 명시적인 빈 배열은 성공이다. proxy 응답에 `stations`가 없거나 `null`이면 `InvalidPayload`로 처리해 기존 캐시를 유지한다. 요청 유종과 같지 않은 proxy 행은 거부한다. 재시도 횟수와 HTTP 범위는 아래 계약의 `retry`다. 늦은 generation은 조용히 끝난다. 기존 스냅샷은 남는다.
 
 ## 기계 판독 정책 계약
 
@@ -121,19 +121,19 @@ invalidation마다 마커와 `stationId ASC`로 정렬한 행을 **하나의 Roo
     "supportedMigrationStarts": [1, 2, 3, 4],
     "v2ToV3PriceHistory": "intentional_disposable_reset",
     "v4SuccessfulEmptyMarkerPreserved": true,
-    "migrationEvidence": {
-      "status": "compiled_assets_verified",
-      "hostRobolectricExecuted": true,
-      "instrumentedCompiled": true,
-      "assetsCompared": true,
-      "connectedDeviceAvailable": false,
-      "connectedDeviceExecuted": false,
-      "unavailableReason": "no_connected_device"
-    }
+    "migrationVerificationOwner": "docs/offline-strategy.md#마이그레이션-검증-기록"
   }
 }
 ```
 <!-- station-data-policy:end -->
+
+## 마이그레이션 검증 기록
+
+실행 여부는 정책 상수가 아니다. 위 구조화 계약은 이 절을 검증 기록의 단일 소유자로 가리키며, 기기 연결 여부를 고정 boolean으로 저장하지 않는다.
+
+2026-10-28에 API 37 / arm64-v8a 에뮬레이터에서 `GasStationDatabaseMigrationInstrumentedTest` 7개가 실패·skip 없이 통과했다. 실행은 [검증 매트릭스의 로컬 기기 모드](verification-matrix.md#기기-기반-ui-확인)와 `:core:database:connectedDebugAndroidTest`를 사용했다. 결과는 `core/database/build/outputs/androidTest-results/connected/debug/`에 남는다. host Robolectric migration 6개, instrumented 컴파일, schema 1–5 packaged asset 대조도 통과했다. 이 기록은 해당 로컬 실행이며 canonical API 24/28/36 lane 또는 물리 기기 증거가 아니다.
+
+ 마이그레이션 3→4는 같은 버킷 안의 갱신 시각이 일치하는 캐시만 마커로 복원한다. 시각이 섞인 버킷은 캐시만 비우고 관심 항목·가격 이력은 보존한다. schema 버전과 내보낸 1–5 JSON은 바뀌지 않는다.
 
 ## 관심 fallback
 
@@ -155,7 +155,7 @@ invalidation마다 마커와 `stationId ASC`로 정렬한 행을 **하나의 Roo
 
 ## 운영
 
-- `prod` 검색과 demo seed 생성은 `opinet.apikey`만 쓴다.
+- direct `prod` 검색과 demo seed 생성은 `opinet.apikey`를 쓴다. proxy 모드는 앱에 Opinet 키 없이 서버에 조회한다.
 - `CrashReporter.recordNonFatalSafely`는 원래 오류를 바꾸지 않는다. cancellation과 fatal Error는 삼키지 않는다.
 - Room schema는 `exportSchema = true`다. 현재 버전은 계약의 `schema`가 맞는다. connected device가 없으면 실행했다고 쓰지 않는다.
 - "캐시 있음"은 `fetchedAt != null`이 아니라 `hasCachedSnapshot`이다.

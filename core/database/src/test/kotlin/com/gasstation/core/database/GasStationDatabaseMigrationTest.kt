@@ -6,12 +6,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.gasstation.core.database.station.RoomStationBucketSnapshotObserver
 import com.gasstation.core.database.station.StationCacheEntity
 import com.gasstation.core.database.station.WatchedStationEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -254,6 +256,40 @@ class GasStationDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration drops only mixed timestamp buckets so runtime observer can read migrated cache`() = runBlocking {
+        val db = helper.writableDatabase
+        createVersion3Schema(db)
+        insertVersion1CacheRow(db, version1CacheRow().copy(stationId = "old", fetchedAtEpochMillis = 100L))
+        insertVersion1CacheRow(db, version1CacheRow().copy(stationId = "new", fetchedAtEpochMillis = 200L))
+        insertVersion1CacheRow(db, version1CacheRow().copy(stationId = "diesel-a", fuelType = "DIESEL", fetchedAtEpochMillis = 300L))
+        insertVersion1CacheRow(db, version1CacheRow().copy(stationId = "diesel-b", fuelType = "DIESEL", fetchedAtEpochMillis = 300L))
+        insertVersion2WatchedRow(db)
+        db.execSQL("INSERT INTO station_price_history VALUES ('station-1', 'GASOLINE', 1699, 100)")
+        helper.close()
+
+        val migratedDatabase = Room.databaseBuilder(context, GasStationDatabase::class.java, databaseName)
+            .addMigrations(GasStationDatabase.MIGRATION_3_4, GasStationDatabase.MIGRATION_4_5)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val observer = RoomStationBucketSnapshotObserver(migratedDatabase)
+            val invalidated = observer.observe(16649, 50811, 3_000, "GASOLINE").first()
+            assertNull(invalidated.marker)
+            assertTrue(invalidated.rows.isEmpty())
+            assertTrue(migratedDatabase.stationCacheDao().readStations(16649, 50811, 3_000, "GASOLINE").isEmpty())
+
+            val retained = observer.observe(16649, 50811, 3_000, "DIESEL").first()
+            assertEquals(300L, retained.marker?.fetchedAtEpochMillis)
+            assertEquals(listOf("diesel-a", "diesel-b"), retained.rows.map { it.stationId })
+            assertTrue(retained.rows.all { it.fetchedAtEpochMillis == retained.marker?.fetchedAtEpochMillis })
+            assertEquals(listOf(version2WatchedRow()), migratedDatabase.watchedStationDao().observeWatchedStations().first())
+            assertEquals(1, migratedDatabase.stationPriceHistoryDao().observeByStationIds(listOf("station-1")).first().size)
+        } finally {
+            migratedDatabase.close()
+        }
+    }
+
     private fun createVersion1Schema(db: SupportSQLiteDatabase) {
         db.execSQL(
             """
@@ -383,8 +419,7 @@ class GasStationDatabaseMigrationTest {
         db.execSQL("PRAGMA user_version = 4")
     }
 
-    private fun insertVersion1CacheRow(db: SupportSQLiteDatabase) {
-        val row = version1CacheRow()
+    private fun insertVersion1CacheRow(db: SupportSQLiteDatabase, row: StationCacheEntity = version1CacheRow()) {
         db.execSQL(
             """
             INSERT INTO `station_cache` (

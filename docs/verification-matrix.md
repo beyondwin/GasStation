@@ -5,7 +5,7 @@
 ## 전제
 
 - Gradle과 Robolectric은 Java 21 이상. 앱 bytecode는 JVM 17.
-- `prod` 실행에는 `opinet.apikey`가 필요하다. `demo` 빌드와 assemble에는 키가 없다.
+- direct `prod` 실행에는 `opinet.apikey`가 필요하다. proxy 모드는 키 없이 시작한다. `demo` 빌드와 assemble에는 키가 없다.
 - benchmark는 `demo` 데이터를 쓴다.
 
 ## 문서 변경
@@ -82,7 +82,9 @@ scripts/agent/check-contracts.sh
 | Scope | 실행 범위 |
 | --- | --- |
 | `docs` | live 문서 링크, 경로, toolchain/version/module 계약 |
-| `tooling` | agent·docs script와 로컬 hook의 host-side 회귀 (`scripts/agent/test.sh`) |
+| `tooling` | agent·docs·quality script와 로컬 hook의 host-side 회귀 (`scripts/agent/test.sh`) |
+| `convention` | 별도 invocation의 전체 convention TestKit (`--no-configuration-cache`) |
+| `seed` | demo seed 도구 단위 테스트와 체크인 asset 무통신 검증 |
 | `fast` | 가벼운 host-side 회귀와 demo assemble |
 | `ui` | designsystem/feature UI test와 Roborazzi |
 | `data` | model/domain/data/database 회귀와 module boundary |
@@ -92,7 +94,7 @@ scripts/agent/check-contracts.sh
 
 Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와 assemble은 명시적인 `scripts/agent/verify.sh <scope>` 호출이 소유합니다.
 
-`auto`는 `scripts/agent/`, `scripts/docs/`, 로컬 hook 설정 변경을 `tooling`으로 분류한다. 일반 문서만 바꾸면 `docs`를 고르며, 배포·릴리스 문서는 `release`도 고른다. 앱·빌드 코드가 함께 바뀌면 해당 Gradle 검증도 합친다. 도구만 바꾼 경우에는 host-side 회귀로 script와 checker를 검증한다.
+`auto`는 `scripts/agent/`, `scripts/docs/`, 로컬 hook 설정 변경을 `tooling`으로 분류한다. `scripts/quality/`, `config/quality/`, `.github/actions/setup-build-inputs/`는 `tooling`과 `data app release` 검증을 함께 선택한다. `build-logic/`는 `convention app`을 선택하며 mutation convention은 `data release`도 포함한다. `tools/demo-seed/`는 `seed`를, 체크인 seed asset 변경은 도구·앱 consumer를 함께 검증하는 `seed app`을 선택한다. 전체 convention suite는 configuration cache를 끈 별도 명령으로 실행하고 실패를 전파한다. `seed`는 키·네트워크를 쓰는 `generateDemoSeed`를 실행하지 않는다. 일반 문서만 바꾸면 `docs`, 배포·릴리스 문서는 `docs release`를 고르며 여러 영역이 바뀌면 각 검증을 합친다.
 
 ```bash
 ./gradlew \
@@ -273,7 +275,7 @@ DataStore 첫 emission readiness, committed preference mutation, Nearby query ga
   --warning-mode fail
 ```
 
-`StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 connected demo 경로에서 Nearby와 Settings의 committed 값 공유 및 recreation을 보호합니다. `assembleProdDebug`는 keyless build 확인만 합니다. 실제 prod runtime launch에는 사용자 로컬 `opinet.apikey`가 필요하며, 이 명령은 live Opinet을 검증하지 않습니다.
+`StationPortfolioFlowTest.demoSettingsAndNearby_sharePersistedPreferencesAcrossNavigationAndRecreation`은 connected demo 경로에서 Nearby와 Settings의 committed 값 공유 및 recreation을 보호합니다. `assembleProdDebug`는 keyless build 확인만 합니다. 실제 direct prod runtime launch에는 사용자 로컬 `opinet.apikey`가 필요하며, 이 명령은 live Opinet을 검증하지 않습니다.
 
 ## Permission parity와 explicit-action 집중 회귀
 
@@ -296,6 +298,8 @@ DataStore 첫 emission readiness, committed preference mutation, Nearby query ga
 
 ```bash
 ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=local-connected \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=local-manual \
   -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.DemoPermissionFlowTest \
   --warning-mode fail
 ```
@@ -330,6 +334,8 @@ ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
 ```bash
 ./gradlew :app:compileDemoDebugAndroidTestKotlin --warning-mode fail
 ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=local-connected \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=local-manual \
   -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.StationPortfolioFlowTest \
   --warning-mode fail
 ```
@@ -557,8 +563,13 @@ gh release download vX.Y.Z --pattern "GasStation-*.apk" --pattern SHA256SUMS.txt
 demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.
 
 ```bash
-./gradlew :app:connectedDemoDebugAndroidTest
+ANDROID_SERIAL=<connected-serial> ./gradlew :app:connectedDemoDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=local-connected \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=local-manual \
+  --warning-mode fail
 ```
+
+`local-connected`는 개발자가 연결한 target의 실제 테스트를 실행하는 명시적 모드다. attempt ID는 `local-`로 시작하는 ASCII 영문·숫자·점·밑줄·하이픈, 총 80자 이하다. GMD receipt를 만들지 않으며 이 결과를 아래 API 24/28/36 canonical lane의 `PASS`로 사용할 수 없다. DB는 같은 두 argument와 `:core:database:connectedDebugAndroidTest`를 사용한다.
 
 대표 시나리오:
 
@@ -571,7 +582,9 @@ demo 실제 흐름을 기기나 에뮬레이터에서 확인합니다.
 API 33+ Geocoder callback path를 실제 기기나 에뮬레이터에서 확인합니다. Provider 출력은 환경별로 달라질 수 있으므로 test는 주소 문자열이 아니라 terminal domain result만 검증합니다.
 
 ```bash
-./gradlew :core:location:connectedDebugAndroidTest \
+ANDROID_SERIAL=<connected-serial> ./gradlew :core:location:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceLane=local-connected \
+  -Pandroid.testInstrumentationRunnerArguments.deviceEvidenceAttemptId=local-manual \
   -Pandroid.testInstrumentationRunnerArguments.class=com.gasstation.core.location.AndroidAddressResolverDeviceTest
 ```
 
@@ -719,7 +732,7 @@ python3 scripts/quality/verify_build_inputs.py release-bind \
 
 동일한 size/SHA-256만 same-host/workspace-independent unsigned prod-release 재현성 `PASS`다. demo-debug, signed APK, cross-OS/runner 재현성은 이 판정에 포함하지 않는다. Hosted build-input evidence와 기기 검증 레인을 실행하지 않았으면 각각 `NOT RUN`으로 남긴다.
 
-현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, literal local main base, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
+현재 macOS arm64 controller에서 필수 Linux/amd64 package를 만들 때는 아래 하나의 closed entrypoint만 사용한다. 이 명령은 clean HEAD, 검토된 immutable historical base의 ancestor 관계, 전용 VZ+Rosetta profile/context, mount 없는 two-ref bundle clone, exact Ubuntu/Android/JDK inputs와 ordered `--data --force` cleanup을 내부에서 모두 검사한다. controller의 현재 `main`은 전진할 수 있다. attempt 전용 임시 bare repository가 exact source `HEAD`와 policy의 historical base를 `refs/heads/main`으로 내보내며, 원본 저장소의 ref를 수정하지 않는다. source object·ancestor·clean-tree·exact two-ref bundle 검증은 그대로 유지한다. child row를 직접 실행하거나 profile/context/attempt를 선택하면 accepted evidence가 아니다.
 
 Entrypoint는 profile 생성 전에 host의 logical CPU, physical CPU, physical memory를 fixed `sysctl` argv로 다시 관측하고 정책 최소 14/14/`51539607552`와 비교한다. 전용 profile의 literal argv와 persisted config는 14 vCPU/32 GiB여야 하고 default profile은 입력이나 증거가 아니다. 보존된 historical Metadata TestKit failure package는 당시의 timeout과 five-fork/90-test contract, canonical redacted JUnit suite/case timing, worker, exception/nested-log owner와 hash를 담은 원인 분석 증거일 뿐 현재 Linux aggregate `PASS`가 아니다.
 

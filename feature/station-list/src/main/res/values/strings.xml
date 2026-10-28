@@ -95,4 +95,7 @@
     <string name="station_list_banner_approx_location_detail">정확한 거리 비교가 필요하면 위치 권한을 정확도로 바꿔주세요.</string>
     <string name="station_list_banner_stale_title">저장된 결과를 표시 중입니다.</string>
     <string name="station_list_banner_stale_detail">마지막 갱신 %1$s</string>
+    <string name="station_list_watch_save_failed">관심 상태를 저장하지 못했습니다. 다시 눌러주세요.</string>
+    <string name="station_list_observation_failed_title">저장된 목록의 변경을 확인하지 못했습니다.</string>
+    <string name="station_list_observation_failed_body">새로고침하거나 다시 시도해주세요.</string>
 </resources>

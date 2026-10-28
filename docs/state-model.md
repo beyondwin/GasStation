@@ -42,7 +42,7 @@
 
 권한 dialog는 CTA에서만 연다. 거부는 demo 좌표나 캐시보다 먼저다. 정밀 권한이 대략으로 낮아지면 좌표와 주소를 지운다. GPS 꺼짐은 권한 거부와 다른 안내다.
 
-저장소 예외는 현재 관찰 session 안에서 failure가 된다. 같은 query retry는 관찰만 다시 구독하고 remote refresh를 시작하지 않는다. 캐시 의미는 `hasCachedSnapshot`만 쓴다.
+저장소 예외나 예기치 않은 관찰 종료는 현재 session의 `observationFailed`가 된다. 캐시가 있으면 기존 결과와 오류 배너를 함께 보여주고, 없으면 다시 시도할 수 있는 실패 화면을 보여준다. 같은 query의 `RetryClicked`는 관찰만 다시 구독한다. 상단·당겨서 새로고침은 실패한 관찰을 다시 구독한 뒤 위치와 원격 refresh를 진행한다. 캐시 의미는 `hasCachedSnapshot`만 쓴다.
 
 Nearby는 권한, GPS, 좌표, 설정이 준비된 뒤에만 `StationQuery`를 만든다. 좌표가 있는 상태에서 반경·유종·브랜드·정렬이 바뀌면 refresh를 다시 요청한다. 브랜드·정렬은 캐시 키가 아니지만 읽기 모델에는 들어간다.
 
@@ -59,13 +59,13 @@ Nearby는 권한, GPS, 좌표, 설정이 준비된 뒤에만 `StationQuery`를 �
 
 ## 전면 실패
 
-캐시가 있으면 실패해도 목록을 유지하고 snackbar만 보여준다. 캐시가 없을 때만 `LocationTimedOut`, `LocationFailed`, `RefreshTimedOut`, `RefreshFailed`가 전면 실패가 된다. orchestrator는 캐시가 정말 없는지 확인한 뒤에만 확정한다.
+캐시가 있으면 위치·refresh 실패에도 목록을 유지하고 snackbar를 보여준다. 관찰 실패는 목록 위의 오류 배너로 계속 알린다. 캐시가 없을 때만 `LocationTimedOut`, `LocationFailed`, `RefreshTimedOut`, `RefreshFailed`가 전면 실패가 된다. orchestrator는 캐시가 정말 없는지 확인한 뒤에만 확정한다.
 
 ## 관심
 
 별도 세션 리듀서가 없다. 좌표는 `SavedStateHandle`, 유종은 설정 첫 값 이후다. 가격이 없어도 행을 지우지 않고 `선택 유종 가격 없음`을 보여준다. 반경·브랜드·Nearby 정렬은 포함 여부와 순서를 바꾸지 않는다.
 
-watch 변경은 station ID별 마지막 의도만 Room에 들어간다. 반복 ON은 처음 `watchedAt`을 지킨다. `WatchToggled`는 `Committed`만 기록한다.
+watch 변경은 station ID별 마지막 의도만 Room에 들어간다. 반복 ON은 처음 `watchedAt`을 지킨다. `WatchToggled`는 `Committed`만 기록한다. 저장·해제 실패는 이전 관심 상태를 유지하고 다시 시도 안내를 보여준다. cancellation은 사용자 오류로 바꾸지 않는다. 관심 화면의 제거 실패 안내는 ViewModel에 ID로 남겨, 화면이 다시 활성화되어 snackbar 표시를 마친 뒤 같은 ID를 확인했을 때만 지운다.
 
 ## 설정
 

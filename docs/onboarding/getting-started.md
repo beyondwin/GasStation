@@ -7,7 +7,7 @@
 - Java 21 이상. bytecode target은 JVM 17이다.
 - Android SDK 37, 저장소 Gradle wrapper.
 - agent script용 Python 3.9 이상.
-- `prod`를 실제로 켤 때만 `opinet.apikey`와 위치·네트워크.
+- direct `prod`를 실제로 켤 때만 `opinet.apikey`가 필요하다. direct/proxy 모두 위치·네트워크를 쓴다.
 
 API 키 없이 시작하는 기본은 `demo`다. `demo`는 임시 mock이 아니다. seed DB, 기본 설정, 권한 허용 뒤 고정 좌표로 같은 상태를 반복한다.
 
@@ -46,7 +46,7 @@ APK는 `app/build/outputs/apk/demo/debug/`에 생긴다. Android Studio에서 `d
 
 ## `prod`
 
-`prod`는 실제 위치와 Opinet(또는 proxy)을 쓴다. 빈 키로 빌드는 되지만 앱 시작 시 `ProdSecretsStartupHook`가 바로 실패한다.
+`prod`는 실제 위치와 Opinet(또는 proxy)을 쓴다. 빈 키로 빌드는 되지만 direct 모드로 시작하면 `ProdSecretsStartupHook`가 바로 실패한다. proxy 모드는 앱에 Opinet 키 없이 시작한다.
 
 키는 저장소 `gradle.properties`에 쓰지 않는다. 넣는 위치와 한계는 [README 실행](../../README.md#실행)과 [보안](../security-trade-offs.md)을 본다.
 

@@ -1,5 +1,6 @@
 package com.gasstation.feature.stationlist
 
+import com.gasstation.core.designsystem.string.StringResource
 import com.gasstation.core.model.Coordinates
 import com.gasstation.domain.location.LocationLookupResult
 import com.gasstation.domain.location.LocationPermissionState
@@ -119,6 +120,54 @@ class StationListWatchMutationTest {
     }
 
     @Test
+    fun `failed watch changes retain state show feedback and allow retry`() = runTest(dispatcher) {
+        listOf(true, false).forEach { watched ->
+            val repository = FakeStationRepository(
+                result = StationSearchResult(
+                    stations = listOf(stationEntry().copy(isWatched = !watched)),
+                    freshness = StationFreshness.Fresh,
+                    fetchedAt = null,
+                    hasCachedSnapshot = true,
+                ),
+                watchMutationFailure = IllegalStateException("disk write failed"),
+            )
+            val analytics = RecordingStationEventLogger()
+            val viewModel = stationListViewModel(
+                repository = repository,
+                settingsFixture = SettingsUseCaseTestFixture(UserPreferences.default()),
+                locationRepository = FakeLocationRepository(),
+                analytics = analytics,
+            )
+            viewModel.onAction(StationListAction.PermissionChanged(LocationPermissionState.PreciseGranted))
+            viewModel.onAction(StationListAction.GpsAvailabilityChanged(true))
+            viewModel.onAction(StationListAction.RefreshRequested)
+            advanceUntilIdle()
+            analytics.events.clear()
+            val originalRows = viewModel.uiState.value.stations
+
+            viewModel.onAction(StationListAction.WatchToggled("station-1", watched))
+            advanceUntilIdle()
+
+            assertEquals(originalRows, viewModel.uiState.value.stations)
+            assertTrue(analytics.events.isEmpty())
+            val failure = viewModel.uiState.value.pendingCommands.single()
+            assertEquals(
+                StationListCommandPayload.ShowSnackbar(StringResource.fromId(R.string.station_list_watch_save_failed)),
+                failure.payload,
+            )
+
+            viewModel.onAction(StationListAction.CommandHandled(failure.id))
+            repository.watchMutationFailure = null
+            viewModel.onAction(StationListAction.WatchToggled("station-1", watched))
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
+            assertEquals(listOf(StationEvent.WatchToggled("station-1", watched)), analytics.events)
+            assertEquals(listOf("station-1" to watched, "station-1" to watched), repository.watchStateUpdates)
+        }
+    }
+
+    @Test
     fun `cancelled watch toggle is not logged as success`() = runTest(dispatcher) {
         val repository = FakeStationRepository(
             result = StationSearchResult(
@@ -147,5 +196,6 @@ class StationListWatchMutationTest {
         advanceUntilIdle()
 
         assertTrue(analytics.events.isEmpty())
+        assertTrue(viewModel.uiState.value.pendingCommands.isEmpty())
     }
 }

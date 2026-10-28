@@ -110,6 +110,25 @@ class ProxyStationFetcherTest {
     }
 
     @Test
+    fun `fetchStations rejects missing or null proxy stations instead of accepting empty success`() = runBlocking {
+        listOf("{}", """{"error":"upstream unavailable"}""", """{"stations":null}""").forEach { body ->
+            val server = MockWebServer()
+            server.enqueue(MockResponse().addHeader("Content-Type", "application/json").setBody(body))
+            server.start()
+            try {
+                assertEquals(
+                    "Response body: $body",
+                    NetworkStationFetchResult.Failure(NetworkStationFailure.InvalidPayload),
+                    proxyFetcher(server).fetchStations(TEST_ORIGIN, SearchRadius.KM_3, FuelType.GASOLINE),
+                )
+                assertEquals(1, server.requestCount)
+            } finally {
+                server.shutdown()
+            }
+        }
+    }
+
+    @Test
     fun `fetchStations skips out-of-range coordinates and preserves valid rows`() = runBlocking {
         val server = MockWebServer()
         server.enqueue(
