@@ -26,13 +26,13 @@
 
 Coverage는 report와 ratchet을 함께 본다. 결과는 `build/reports/coverage/verification-summary.json`이다.
 
-JVM mutation 설정은 `./gradlew verifyPitestConfiguration --warning-mode fail`로 확인한다. 실제 PIT는 plugin `pitest` task가 아니라 `scripts/quality/run_pitest.sh`만 쓴다.
+JVM mutation은 [검증 매트릭스의 봉인된 JVM mutation 검증](docs/verification-matrix.md#봉인된-jvm-mutation-검증)을 따른다. `verifyPitestConfiguration`은 runner가 만든 route와 receipt를 요구하므로 독립 실행하지 않는다.
 
 명령을 바꾸면 `docs/verification-matrix.md`를 먼저 고친다.
 
 ## 릴리스
 
-발행은 [`docs/deployment.md`](docs/deployment.md)를 따른다. 릴리스 PR은 `versionCode`/`versionName`, `CHANGELOG.md`, `README.md`, `docs/release-notes/`를 같이 고친다. merge 후 `main`의 같은 SHA에 `vX.Y.Z` 태그를 올리면 CI가 다시 검증하고, 모두 성공하면 demo APK, unsigned prod APK, checksum을 GitHub Release에 올린다.
+발행은 [`docs/deployment.md`](docs/deployment.md)를 따른다. 릴리스 PR은 `versionCode`/`versionName`, `CHANGELOG.md`, `README.md`, `docs/release-notes/`를 같이 고친다. 먼저 [CI 운영 상태](docs/deployment.md#ci-운영-상태)를 확인한다. 활성 workflow에서 `main`의 같은 SHA 검증과 `vX.Y.Z` 태그 검증이 모두 성공해야 demo APK, unsigned prod APK, checksum을 GitHub Release에 올릴 수 있다.
 
 ## 커밋
 

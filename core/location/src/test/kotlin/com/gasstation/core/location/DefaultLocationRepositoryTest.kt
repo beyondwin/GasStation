@@ -2,90 +2,61 @@ package com.gasstation.core.location
 
 import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationAddressLookupResult
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 import java.util.Optional
-import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
-import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
-import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
 
 class DefaultLocationRepositoryTest {
     @Test
-    fun `get current location maps each domain permission to the matching core permission`() = runTest {
+    fun `get current location forwards every permission state to provider`() = runTest {
         val cases = listOf(
-            DomainLocationPermissionState.PreciseGranted to LocationPermissionState.PreciseGranted,
-            DomainLocationPermissionState.ApproximateGranted to
-                LocationPermissionState.ApproximateGranted,
-            DomainLocationPermissionState.Denied to LocationPermissionState.Denied,
+            LocationPermissionState.PreciseGranted,
+            LocationPermissionState.ApproximateGranted,
+            LocationPermissionState.Denied,
         )
 
-        cases.forEach { (domainPermission, expectedCorePermission) ->
-            val provider = FakeForegroundLocationProvider(
-                result = LocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-            )
+        cases.forEach { permissionState ->
+            val expected = LocationLookupResult.Success(Coordinates(37.498095, 127.027610))
+            val provider = FakeForegroundLocationProvider(result = expected)
             val repository = DefaultLocationRepository(
                 context = ContextWrapper(null),
                 foregroundLocationProvider = provider,
-                addressResolver = FakeAddressResolver(DomainLocationAddressLookupResult.Unavailable),
+                addressResolver = FakeAddressResolver(LocationAddressLookupResult.Unavailable),
                 demoLocationOverride = Optional.empty(),
             )
 
-            val result = repository.getCurrentLocation(domainPermission)
-
-            assertEquals(
-                DomainLocationLookupResult.Success(Coordinates(37.498095, 127.027610)),
-                result,
-            )
-            assertEquals(expectedCorePermission, provider.lastPermissionState)
+            assertSame(expected, repository.getCurrentLocation(permissionState))
+            assertSame(permissionState, provider.lastPermissionState)
         }
     }
 
     @Test
-    fun `get current location maps core failures to domain failures`() = runTest {
-        val repository = DefaultLocationRepository(
-            context = ContextWrapper(null),
-            foregroundLocationProvider = FakeForegroundLocationProvider(
-                result = LocationLookupResult.PermissionDenied,
-            ),
-            addressResolver = FakeAddressResolver(DomainLocationAddressLookupResult.Unavailable),
-            demoLocationOverride = Optional.empty(),
-        )
-
-        assertEquals(
-            DomainLocationLookupResult.PermissionDenied,
-            repository.getCurrentLocation(DomainLocationPermissionState.Denied),
-        )
-
+    fun `get current location preserves provider failure results`() = runTest {
         val cases = listOf(
-            LocationLookupResult.Unavailable to DomainLocationLookupResult.Unavailable,
-            LocationLookupResult.TimedOut to DomainLocationLookupResult.TimedOut,
-            LocationLookupResult.Error(IllegalStateException("gps crashed")) to
-                DomainLocationLookupResult.Error(IllegalStateException("gps crashed")),
+            LocationLookupResult.PermissionDenied,
+            LocationLookupResult.Unavailable,
+            LocationLookupResult.TimedOut,
+            LocationLookupResult.Error(IllegalStateException("gps crashed")),
         )
 
-        cases.forEach { (coreResult, expectedDomainResult) ->
-            val fakeProvider = FakeForegroundLocationProvider(result = coreResult)
-            val mappingRepository = DefaultLocationRepository(
+        cases.forEach { expected ->
+            val repository = DefaultLocationRepository(
                 context = ContextWrapper(null),
-                foregroundLocationProvider = fakeProvider,
-                addressResolver = FakeAddressResolver(DomainLocationAddressLookupResult.Unavailable),
+                foregroundLocationProvider = FakeForegroundLocationProvider(result = expected),
+                addressResolver = FakeAddressResolver(LocationAddressLookupResult.Unavailable),
                 demoLocationOverride = Optional.empty(),
             )
 
-            val actual = mappingRepository.getCurrentLocation(
-                DomainLocationPermissionState.ApproximateGranted,
+            assertSame(
+                expected,
+                repository.getCurrentLocation(LocationPermissionState.ApproximateGranted),
             )
-
-            when {
-                coreResult is LocationLookupResult.Error &&
-                    actual is DomainLocationLookupResult.Error -> {
-                    assertEquals(coreResult.throwable.message, actual.throwable.message)
-                }
-
-                else -> assertEquals(expectedDomainResult, actual)
-            }
         }
     }
 
@@ -96,7 +67,7 @@ class DefaultLocationRepositoryTest {
             foregroundLocationProvider = FakeForegroundLocationProvider(
                 result = LocationLookupResult.Unavailable,
             ),
-            addressResolver = FakeAddressResolver(DomainLocationAddressLookupResult.Unavailable),
+            addressResolver = FakeAddressResolver(LocationAddressLookupResult.Unavailable),
             demoLocationOverride = Optional.of(DemoLocationOverride { null }),
         )
 
@@ -107,7 +78,7 @@ class DefaultLocationRepositoryTest {
     fun `get current address delegates coordinates to address resolver`() = runTest {
         val coordinates = Coordinates(37.498095, 127.027610)
         val resolver = FakeAddressResolver(
-            result = DomainLocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
+            result = LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
         )
         val repository = DefaultLocationRepository(
             context = ContextWrapper(null),
@@ -119,7 +90,7 @@ class DefaultLocationRepositoryTest {
         )
 
         assertEquals(
-            DomainLocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
+            LocationAddressLookupResult.Success("서울 영등포구 당산동 194-32"),
             repository.getCurrentAddress(coordinates),
         )
         assertEquals(coordinates, resolver.lastCoordinates)
@@ -132,12 +103,12 @@ class DefaultLocationRepositoryTest {
             foregroundLocationProvider = FakeForegroundLocationProvider(
                 result = LocationLookupResult.Unavailable,
             ),
-            addressResolver = FakeAddressResolver(DomainLocationAddressLookupResult.Unavailable),
+            addressResolver = FakeAddressResolver(LocationAddressLookupResult.Unavailable),
             demoLocationOverride = Optional.empty(),
         )
 
         assertEquals(
-            DomainLocationAddressLookupResult.Unavailable,
+            LocationAddressLookupResult.Unavailable,
             repository.getCurrentAddress(Coordinates(37.498095, 127.027610)),
         )
     }
@@ -152,10 +123,10 @@ private class FakeForegroundLocationProvider(private val result: LocationLookupR
     }
 }
 
-private class FakeAddressResolver(private val result: DomainLocationAddressLookupResult) : AddressResolver {
+private class FakeAddressResolver(private val result: LocationAddressLookupResult) : AddressResolver {
     var lastCoordinates: Coordinates? = null
 
-    override suspend fun addressFor(coordinates: Coordinates): DomainLocationAddressLookupResult {
+    override suspend fun addressFor(coordinates: Coordinates): LocationAddressLookupResult {
         lastCoordinates = coordinates
         return result
     }

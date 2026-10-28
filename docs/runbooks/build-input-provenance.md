@@ -79,6 +79,6 @@ Bridge는 `scripts/docs/extensions/`를 repository-relative sorted order로 정�
 
 재현성 probe는 같은 source에서 두 clean Git tree, 서로 다른 Gradle user home·project cache·Kotlin cache를 사용해 `:app:assembleProdRelease`를 build-cache/configuration-cache 없이 rerun한다. 각 tree는 unsigned prod-release APK 정확히 하나를 내야 하며 size와 SHA-256이 같아야 한다. 서로 다른 APK를 normalize하지 않는다. 이 증거는 same-host/workspace-independent proof이며 cross-OS, runner-image, signed APK 재현성을 주장하지 않는다. demo-debug는 재현성 후보가 아니다.
 
-Probe receipt는 source SHA와 policy hash, exact artifact relative path/name, 두 size/hash를 묶는다. `release-assemble`은 exact source-bound receipt를 내려받아 별도 조립한 prod APK의 unsigned 상태, size, SHA-256을 upload 전에 대조한다. `release-publish`도 receipt와 다운로드한 release artifact를 다시 대조한 뒤 checksum/release mutation을 수행한다. mismatch면 release를 멈추고 두 tree log, JDK/SDK receipt와 zip entry metadata 차이를 조사한다. receipt 자체는 public release asset이 아니다.
+Probe receipt는 source SHA와 policy hash, exact artifact relative path/name, 두 size/hash를 묶는다. `release-assemble`은 exact source-bound receipt와 probe에서 검증한 prod APK를 내려받아 unsigned 상태, size, SHA-256을 upload 전에 다시 대조한다. `release-publish`도 receipt와 다운로드한 release artifact를 다시 대조한 뒤 checksum/release mutation을 수행한다. mismatch면 release를 멈추고 두 tree log, JDK/SDK receipt와 zip entry metadata 차이를 조사한다. receipt 자체는 public release asset이 아니다.
 
 Rollback도 한 input family 단위로 수행한다. 정책을 이전 reviewed bytes로 되돌린 뒤 static checker, configuration-cache check, 일반 build/test/lint, docs bridge, two-copy probe와 release-binding fixture를 다시 실행한다.

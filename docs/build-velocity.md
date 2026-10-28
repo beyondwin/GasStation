@@ -24,11 +24,11 @@ The single governed Linux invocation at `4173dd05...` exited 2 after 0.602362792
 - Keep `org.gradle.parallel=true` enabled because the fast local check and release assemble passed with the current module graph.
 - Keep `org.gradle.caching=true` enabled because the verification commands passed with the current build cache configuration.
 - Keep `org.gradle.configuration-cache=true` enabled only while the documented verification matrix stays green. If a task becomes incompatible, disable configuration cache for the failing command before changing product code.
-- Keep `:app:assembleProdRelease` outside the PR default gate. It remains a `main` and `v*` tag gate in GitHub Actions and a release/deployment local check.
+- `release-assemble`은 `main`과 `v*` tag push에서 검증된 APK를 바인딩·보관한다. PR도 `build-inputs`의 재현성 probe에서 `:app:assembleProdRelease`를 두 번 실행하므로, PR 비용에 release 빌드가 없다고 해석하지 않는다.
 
 ## CI 해석
 
-GitHub Actions already separates `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `release-assemble`, and `coverage`. The `assemble` job intentionally runs demo debug, prod debug, and benchmark assemble as separate Gradle invocations to avoid a memory peak on hosted runners.
+Workflow 정의는 `build-inputs`, `static-analysis`, `lint-tests`, `unit-tests`, `screenshot-tests`, `assemble`, `release-assemble`, `coverage`, `mutation`을 분리한다. 원격 실행 여부는 [CI 운영 상태](deployment.md#ci-운영-상태)에서 확인한다. The `assemble` job intentionally runs demo debug, prod debug, and benchmark assemble as separate Gradle invocations to avoid a memory peak on hosted runners.
 
 ## Mutation cost boundary
 

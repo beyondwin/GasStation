@@ -48,8 +48,12 @@ flowchart LR
     Data --> Domain
     Feature --> Core["core<br/>공유 UI · 인프라"]
     Data --> Core
-    Tools["tools / benchmark"] --> App
+    Benchmark["benchmark"] --> App
+    Tools["tools:demo-seed"] --> Domain
+    Tools --> Core
 ```
+
+`tools:demo-seed`는 JVM CLI다. 생성한 JSON을 `app/src/demo/assets/demo-station-seed.json`에 쓰며 앱 런타임에는 들어가지 않는다.
 
 ## 실행
 
@@ -82,8 +86,6 @@ opinet.apikey=
 ```
 
 키가 없을 때 기존 asset으로 조용히 넘어가지 않는다.
-
-새로고침이 실패해도 기존 스냅샷은 유지한다.
 
 <!-- station-data-policy-ref: retry -->[오프라인 전략의 구조화된 `retry` 계약](docs/offline-strategy.md#기계-판독-정책-계약)
 
@@ -121,4 +123,4 @@ Samsung Galaxy S20+ 5G (`SM-G986N`, Android 13 / API 33), `demoBenchmark`, 2026-
 
 어떤 명령을 돌릴지는 [검증 매트릭스](docs/verification-matrix.md)가 맞는다. 기기, 빌드 입력, 릴리스, 성능은 [런북](docs/runbooks/README.md)을 본다.
 
-GitHub Actions `Android CI`는 PR에서 `agent-contracts`, `static-analysis`, `unit-tests`, `screenshot-tests`, `assemble`, `coverage`, `mutation`을 돌린다. `v*` 태그에서는 이 job이 모두 성공한 뒤에만 GitHub Release에 demo debug APK, unsigned prod release APK, SHA-256 checksum을 올린다.
+저장소에는 PR 검증과 태그 릴리스 workflow가 정의되어 있다. 원격 실행 상태는 [배포의 CI 운영 상태](docs/deployment.md#ci-운영-상태), job별 범위는 [검증 매트릭스](docs/verification-matrix.md#ci-연결)를 본다. workflow 파일이 있다는 사실만으로 자동 검증이나 릴리스 발행을 보장하지 않는다.

@@ -157,8 +157,6 @@ val testKitDependencySeeds =
         "androidx.annotation:annotation-jvm:1.7.0",
         "androidx.core:core-ktx:1.19.0",
         "com.google.guava:guava:33.7.1-jre",
-        "com.google.guava:guava:33.7.1-jre",
-        "org.junit:junit-bom:6.1.3",
         "org.junit:junit-bom:6.1.3",
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0",
         "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.11.0",

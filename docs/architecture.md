@@ -122,6 +122,8 @@ flowchart LR
 
 그래프는 Gradle `implementation(project(...))`와 benchmark `targetProjectPath`를 따른다. `core:model`은 좌표·거리·가격·브랜드·유종 enum을 공유하므로 network, designsystem, settings가 `domain:station`을 거치지 않고 쓴다. 위치는 `feature:station-list -> domain:location -> core:location`만 탄다. `data:station`은 `core:location`을 모른다.
 
+위치 권한과 조회 결과는 `domain:location`의 `LocationPermissionState`, `LocationLookupResult`를 공통 계약으로 쓴다. `core:location` provider와 repository도 이 타입을 직접 사용하고, Android 위치 객체는 구현 경계에서 좌표 값 객체로 바꾼다.
+
 ## 모듈 책임
 
 | 모듈 | 맡는 일 |

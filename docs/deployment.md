@@ -2,10 +2,22 @@
 
 새 버전을 발행할 때 본다. 명령은 `docs/verification-matrix.md`, 버전 설명은 `CHANGELOG.md`와 `docs/release-notes/`다.
 
+## CI 운영 상태
+
+2026-10-28 원격 조회에서 `Android CI`, `Android Device Evidence`, `Scheduled mutation verification`은 모두 `disabled_manually`, `Dependabot Updates`는 `active`였다. 앞의 세 workflow는 사용자 요청으로 중지한 상태이며, 저장소의 workflow 정의와 로컬 검증 명령은 유지한다. Dependabot 업데이트 workflow의 활성 상태는 Android CI 실행 상태와 별개다.
+
+원격 설정은 소스와 별도로 바뀔 수 있으므로 릴리스 전에 다시 확인한다.
+
+```bash
+gh workflow list --all --json name,path,state
+```
+
+비활성 상태에서는 PR·main·태그 push로 아래 자동 검증과 릴리스 발행이 시작되지 않는다. 재활성화는 별도 요청이 있을 때만 수행한다. 아래 절차는 workflow가 활성화된 경우의 실행 계약이며, 기존 성공 run이나 로컬 검증으로 새 SHA의 원격 성공을 대신하지 않는다.
+
 ## 경계
 
 - 공식 실행 경로는 `demo`와 `prod`입니다. 둘 다 release 전에 빌드 가능해야 합니다.
-- GitHub Actions는 PR, `main`, `v*` tag에서 agent contract, static analysis, unit, screenshot, debug/benchmark assemble, coverage를 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage report와 ratchet은 모두 차단형이며, 판정 evidence도 artifact로 남깁니다.
+- GitHub Actions 정의는 PR, `main`, `v*` tag에서 agent contract, build-input 검증과 unsigned prod release 재현, static analysis, test-source lint, unit, screenshot, debug/benchmark assemble, coverage, mutation을 실행하고, `main`/`v*` tag push에서는 `release-assemble`도 추가 실행합니다. Coverage report와 ratchet은 모두 차단형이며, 판정 evidence도 artifact로 남깁니다.
 - `v*` tag에서는 위 job이 모두 성공한 뒤에만 `release-publish`가 GitHub Release를 만들거나 갱신하고 demo debug APK, unsigned prod release APK, `SHA256SUMS.txt`를 게시합니다.
 - 저장소의 기본 workflow token 권한은 read-only입니다. GitHub Release에 필요한 `contents: write`는 tag-only `release-publish` job에만 부여합니다.
 - 저장소에는 Play Store 자동 배포, signing keystore, 배포 credential을 두지 않습니다.
@@ -37,7 +49,7 @@ scripts/agent/verify.sh release
 
 ## Merge 후 tag
 
-PR이 merge되거나 release commit이 `main`에 push된 뒤, 해당 SHA의 GitHub Actions `Android CI`가 성공한 것을 먼저 확인합니다. `main` 검증이 끝난 같은 SHA에만 태그를 만들고 push합니다.
+[CI 운영 상태](#ci-운영-상태)에서 `Android CI`의 활성 상태를 확인한 뒤 진행합니다. PR이 merge되거나 release commit이 `main`에 push된 뒤, 해당 SHA의 GitHub Actions `Android CI`가 성공한 것을 먼저 확인합니다. `main` 검증이 끝난 같은 SHA에만 태그를 만들고 push합니다.
 
 ```bash
 git switch main
@@ -65,7 +77,7 @@ Workflow는 재실행에도 안전합니다. 같은 tag의 Release가 이미 있
 
 ## Unsigned prod-release build-input prerequisite
 
-`build-inputs` job은 exact source에서 두 clean tree의 unsigned `:app:assembleProdRelease` APK size/SHA-256 equality와 source-bound receipt를 실패 완화 없이 만든다. `release-assemble`과 `release-publish`는 이 job을 prerequisite로 요구하고, exact receipt와 별도 조립·다운로드한 prod APK를 upload/checksum/release mutation 전에 다시 검증한다. Receipt 자체는 release asset이 아니다.
+`build-inputs` job은 exact source에서 두 clean tree의 unsigned `:app:assembleProdRelease` APK size/SHA-256 equality와 source-bound receipt를 실패 완화 없이 만든다. `release-assemble`은 이 job의 receipt와 검증된 prod APK를 내려받아 upload 전에 다시 바인딩하고, `release-publish`도 receipt와 배포용 APK를 checksum/release mutation 전에 다시 검증한다. Receipt 자체는 release asset이 아니다.
 
 이 상태는 unsigned prod-release의 same-host/workspace-independent 재현성만 의미한다. demo-debug는 probe 대상이 아니고 기존 demo asset 이름은 유지한다. signed artifact, cross-OS, hosted image 자체의 immutable identity는 주장하지 않는다. Hosted probe가 아직 실행되지 않은 source는 `HOSTED BUILD-INPUT EVIDENCE: NOT RUN`이며 로컬 결과로 바꾸지 않는다. 자세한 mismatch triage는 [Build Input Provenance](runbooks/build-input-provenance.md)를 따른다.
 

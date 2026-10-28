@@ -6,7 +6,7 @@ scope=${1:-auto}
 shift || true
 
 case "$scope" in
-  docs|fast|ui|data|app|release|auto) ;;
+  docs|tooling|fast|ui|data|app|release|auto) ;;
   *) echo "unknown scope: $scope" >&2; exit 64 ;;
 esac
 
@@ -27,7 +27,7 @@ while (($#)); do
       shift 2
       ;;
     *)
-      echo "usage: $0 [docs|fast|ui|data|app|release|auto] [--dry-run] [--changed-file PATH]" >&2
+      echo "usage: $0 [docs|tooling|fast|ui|data|app|release|auto] [--dry-run] [--changed-file PATH]" >&2
       exit 64
       ;;
   esac
@@ -80,6 +80,9 @@ else
       docs/*|README.md|CONTRIBUTING.md|AGENTS.md|.impeccable.md)
         add_scope docs
         ;;
+      scripts/agent/*|scripts/docs/*|.codex/*|.claude/*)
+        add_scope tooling
+        ;;
       config/quality/mutation-*|scripts/quality/*|build-logic/convention/src/main/kotlin/quality/mutation/*|build-logic/convention/src/test/kotlin/quality/GasStationJvmMutationConventionPluginTest.kt)
         add_scope data
         add_scope app
@@ -122,9 +125,13 @@ add_task() {
   gradle_tasks+=("$candidate")
 }
 
+run_tooling_tests=false
 for selected in "${scopes[@]}"; do
   case "$selected" in
     docs)
+      ;;
+    tooling)
+      run_tooling_tests=true
       ;;
     fast)
       for task in :core:model:test :core:network:test :domain:location:test :core:observability:test :core:designsystem:testDebugUnitTest :feature:station-list:testDebugUnitTest :feature:watchlist:testDebugUnitTest :feature:settings:testDebugUnitTest :app:assembleDemoDebug :app:testDemoDebugUnitTest :app:testProdDebugUnitTest :benchmark:assemble; do add_task "$task"; done
@@ -144,11 +151,22 @@ for selected in "${scopes[@]}"; do
   esac
 done
 
+run_contracts_and_tooling_tests() {
+  "$repo_root/scripts/agent/check-contracts.sh"
+  if $run_tooling_tests; then
+    "$repo_root/scripts/agent/test.sh"
+  fi
+}
+
+if $run_tooling_tests; then
+  echo "command: scripts/agent/test.sh"
+fi
+
 if ((${#gradle_tasks[@]} == 0)); then
   if $dry_run; then
     exit 0
   fi
-  "$repo_root/scripts/agent/check-contracts.sh"
+  run_contracts_and_tooling_tests
   exit 0
 fi
 
@@ -184,7 +202,7 @@ printf ' --warning-mode fail\n'
 if $dry_run; then
   exit 0
 fi
-"$repo_root/scripts/agent/check-contracts.sh"
+run_contracts_and_tooling_tests
 "$repo_root/scripts/agent/preflight.sh" --require-build --hook
 cd "$repo_root"
 if [[ ${GASSTATION_BUILD_INPUT_EVIDENCE:-} == sealed-v1 ]]; then

@@ -3,22 +3,22 @@ package com.gasstation.core.location
 import android.annotation.SuppressLint
 import android.content.Context
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationAddressLookupResult
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
+import com.gasstation.domain.location.LocationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import java.util.Optional
 import javax.inject.Inject
-import com.gasstation.domain.location.LocationAddressLookupResult as DomainLocationAddressLookupResult
-import com.gasstation.domain.location.LocationLookupResult as DomainLocationLookupResult
-import com.gasstation.domain.location.LocationPermissionState as DomainLocationPermissionState
-import com.gasstation.domain.location.LocationRepository as DomainLocationRepository
 
 internal class DefaultLocationRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val foregroundLocationProvider: ForegroundLocationProvider,
     private val addressResolver: AddressResolver,
     private val demoLocationOverride: Optional<DemoLocationOverride>,
-) : DomainLocationRepository {
+) : LocationRepository {
     override fun observeAvailability(): Flow<Boolean> = if (demoLocationOverride.isPresent) {
         flowOf(true)
     } else {
@@ -26,21 +26,8 @@ internal class DefaultLocationRepository @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    override suspend fun getCurrentLocation(permissionState: DomainLocationPermissionState): DomainLocationLookupResult =
-        when (val result = foregroundLocationProvider.currentLocation(permissionState.toCorePermissionState())) {
-            is LocationLookupResult.Success -> DomainLocationLookupResult.Success(result.coordinates)
-            LocationLookupResult.PermissionDenied -> DomainLocationLookupResult.PermissionDenied
-            LocationLookupResult.Unavailable -> DomainLocationLookupResult.Unavailable
-            LocationLookupResult.TimedOut -> DomainLocationLookupResult.TimedOut
-            is LocationLookupResult.Error -> DomainLocationLookupResult.Error(result.throwable)
-        }
+    override suspend fun getCurrentLocation(permissionState: LocationPermissionState): LocationLookupResult =
+        foregroundLocationProvider.currentLocation(permissionState)
 
-    override suspend fun getCurrentAddress(coordinates: Coordinates): DomainLocationAddressLookupResult =
-        addressResolver.addressFor(coordinates)
-}
-
-private fun DomainLocationPermissionState.toCorePermissionState(): LocationPermissionState = when (this) {
-    DomainLocationPermissionState.Denied -> LocationPermissionState.Denied
-    DomainLocationPermissionState.ApproximateGranted -> LocationPermissionState.ApproximateGranted
-    DomainLocationPermissionState.PreciseGranted -> LocationPermissionState.PreciseGranted
+    override suspend fun getCurrentAddress(coordinates: Coordinates): LocationAddressLookupResult = addressResolver.addressFor(coordinates)
 }

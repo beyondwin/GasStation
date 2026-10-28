@@ -40,4 +40,4 @@ Android는 `gasstation.stationEndpointMode=proxy`와 `gasstation.proxyBaseUrl`�
 
 ## 빌드 입력
 
-CI는 검토한 action SHA, wrapper checksum, Temurin archive, SDK, Maven SHA를 본다. 이건 byte integrity다. publisher 서명이나 취약점 스캔이 아니다. 절차는 [Build Input Provenance](runbooks/build-input-provenance.md)다.
+빌드 입력 검증은 검토한 action SHA, wrapper checksum, Temurin archive, SDK identity를 확인한다. Maven dependency는 고정 버전과 repository를 검사하지만 artifact별 SHA 목록은 운영하지 않는다. 이 검증은 publisher 서명이나 취약점 스캔을 대신하지 않는다. 절차는 [Build Input Provenance](runbooks/build-input-provenance.md)다.

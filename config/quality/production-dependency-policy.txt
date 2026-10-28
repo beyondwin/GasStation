@@ -50,7 +50,6 @@ scope|:app|project|:feature:settings|implementation|compile=demoBenchmark,demoDe
 scope|:app|project|:feature:station-list|implementation|compile=demoBenchmark,demoDebug,demoRelease,prodBenchmark,prodDebug,prodRelease|runtime=demoBenchmark,demoDebug,demoRelease,prodBenchmark,prodDebug,prodRelease
 scope|:app|project|:feature:watchlist|implementation|compile=demoBenchmark,demoDebug,demoRelease,prodBenchmark,prodDebug,prodRelease|runtime=demoBenchmark,demoDebug,demoRelease,prodBenchmark,prodDebug,prodRelease
 scope|:benchmark|external|androidx.benchmark:benchmark-macro-junit4|implementation|compile=benchmark,debug|runtime=benchmark,debug
-scope|:benchmark|external|androidx.test.espresso:espresso-core|implementation|compile=benchmark,debug|runtime=benchmark,debug
 scope|:benchmark|external|androidx.test.ext:junit|implementation|compile=benchmark,debug|runtime=benchmark,debug
 scope|:benchmark|external|androidx.test.uiautomator:uiautomator|implementation|compile=benchmark,debug|runtime=benchmark,debug
 scope|:benchmark|external|org.jetbrains.kotlin:kotlin-stdlib|api|compile=benchmark,debug|runtime=benchmark,debug
@@ -69,10 +68,8 @@ scope|:core:designsystem|external|androidx.compose.ui:ui-tooling-preview|impleme
 scope|:core:designsystem|external|androidx.compose.ui:ui-tooling|debugImplementation|compile=debug|runtime=debug
 scope|:core:designsystem|external|androidx.compose.ui:ui|implementation|compile=debug,release|runtime=debug,release
 scope|:core:designsystem|external|androidx.compose:compose-bom|implementation|compile=debug,release|runtime=debug,release
-scope|:core:designsystem|external|androidx.core:core-ktx|implementation|compile=debug,release|runtime=debug,release
 scope|:core:designsystem|external|org.jetbrains.kotlin:kotlin-stdlib|api|compile=debug,release|runtime=debug,release
 scope|:core:designsystem|project|:core:model|implementation|compile=debug,release|runtime=debug,release
-scope|:core:location|external|androidx.core:core-ktx|implementation|compile=debug,release|runtime=debug,release
 scope|:core:location|external|com.google.android.gms:play-services-location|implementation|compile=debug,release|runtime=debug,release
 scope|:core:location|external|com.google.dagger:hilt-android|implementation|compile=debug,release|runtime=debug,release
 scope|:core:location|external|org.jetbrains.kotlin:kotlin-stdlib|api|compile=debug,release|runtime=debug,release

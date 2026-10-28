@@ -2,6 +2,8 @@ package com.gasstation.core.location
 
 import android.content.ContextWrapper
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test

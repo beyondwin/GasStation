@@ -3,9 +3,9 @@ package com.gasstation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gasstation.core.location.DemoLocationOverride
 import com.gasstation.core.location.ForegroundLocationProvider
-import com.gasstation.core.location.LocationLookupResult
-import com.gasstation.core.location.LocationPermissionState
 import com.gasstation.core.model.Coordinates
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
 import com.gasstation.test.DeviceFailureArtifactRule
 import com.gasstation.test.DevicePrSmoke
 import dagger.hilt.android.testing.HiltAndroidRule

@@ -82,6 +82,7 @@ scripts/agent/check-contracts.sh
 | Scope | 실행 범위 |
 | --- | --- |
 | `docs` | live 문서 링크, 경로, toolchain/version/module 계약 |
+| `tooling` | agent·docs script와 로컬 hook의 host-side 회귀 (`scripts/agent/test.sh`) |
 | `fast` | 가벼운 host-side 회귀와 demo assemble |
 | `ui` | designsystem/feature UI test와 Roborazzi |
 | `data` | model/domain/data/database 회귀와 module boundary |
@@ -90,6 +91,8 @@ scripts/agent/check-contracts.sh
 | `auto` | changed path를 보수적으로 위 scope에 매핑 |
 
 Codex/Claude hook은 Gradle을 실행하지 않습니다. 무거운 테스트와 assemble은 명시적인 `scripts/agent/verify.sh <scope>` 호출이 소유합니다.
+
+`auto`는 `scripts/agent/`, `scripts/docs/`, 로컬 hook 설정 변경을 `tooling`으로 분류한다. 일반 문서만 바꾸면 `docs`를 고르며, 배포·릴리스 문서는 `release`도 고른다. 앱·빌드 코드가 함께 바뀌면 해당 Gradle 검증도 합친다. 도구만 바꾼 경우에는 host-side 회귀로 script와 checker를 검증한다.
 
 ```bash
 ./gradlew \
@@ -507,15 +510,15 @@ Baseline 교체는 architecture commit의 exact 40-hex HEAD에서 새 evidence�
 
 ## CI 연결
 
-GitHub Actions는 PR 피드백 시간을 줄이기 위해 PR과 release 성격의 push를 다르게 검증합니다. 자세한 내용은 `.github/workflows/android.yml`을 참고합니다.
+아래 표는 `.github/workflows/android.yml`에 정의된 실행 범위다. 원격 활성 여부는 [CI 운영 상태](deployment.md#ci-운영-상태)에서 별도로 확인한다. 비활성 workflow는 정의된 trigger가 발생해도 실행되지 않는다.
 
 | Trigger | 실행 범위 |
 | --- | --- |
-| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark), 독립 blocking `coverage` (report + ratchet) |
+| `pull_request` | `agent-contracts` (agent contract tests + full checker), blocking `build-inputs` (입력 검증 + configuration-cache + unsigned prod release 두 번 재현), blocking `static-analysis` (demo/prod production lint + root Android-library lint + contract guards + convention TestKit), blocking `lint-tests` (동일 lint surface + test source), `unit-tests` (전 모듈 단위 테스트 + demo instrumentation test 컴파일), `screenshot-tests` (verifyRoborazziDebug), `assemble` (demo/prod debug + benchmark), 독립 blocking `coverage` (report + ratchet), `mutation` (PR 변경 domain 모듈) |
 | `push` to `main` | PR 범위(`agent-contracts` 포함) + `release-assemble` (독립 2회 빌드로 검증된 unsigned APK와 source-bound receipt를 그대로 바인딩); coverage는 full-history에서 main before 기준 evidence 생성 |
 | `push` tag `v*` | main 범위 + demo/prod release artifact 보관 + 모든 선행 job 성공 뒤 `release-publish`가 GitHub Release, demo debug APK, unsigned prod release APK, `SHA256SUMS.txt` 게시 |
 
-`prodRelease` assemble은 기본 PR matrix에 포함하지 않습니다. Coverage는 PR/main/tag 모두에서 독립 실행되어 unit-tests와 병렬로 report와 ratchet evidence를 차단형으로 검증합니다.
+`release-assemble` job은 main/tag push에서만 실행한다. 다만 PR의 `build-inputs`도 재현성 검증을 위해 `prodRelease`를 두 번 빌드한다. Coverage는 PR/main/tag 모두에서 독립 실행되어 unit-tests와 병렬로 report와 ratchet evidence를 차단형으로 검증합니다.
 `assemble` job은 GitHub runner의 메모리 피크를 낮추기 위해 demo debug, prod debug, benchmark assemble을 별도 Gradle 호출로 실행합니다.
 저장소 기본 workflow 권한은 read-only이며 `contents: write`는 tag-only `release-publish`에만 둡니다. `scripts/agent/check-contracts.sh --ci`는 release job이 모든 검증 job을 `needs`로 두고 release note, 다운로드 artifact, GitHub CLI 인증과 APK 게시 경로를 유지하는지 확인합니다.
 
@@ -644,9 +647,9 @@ Canonical Gradle flags는 configuration cache, configuration-cache-problems fail
 
 Actions의 primary와 weekly job은 `ubuntu-24.04`만 허용하며 `Linux/x86_64`, `ImageOS=ubuntu24`, 검토된 pin `ImageVersion=20260816.277.1`(runner-images tag `ubuntu24/20260816.277`, commit `3b5f596ffecb076aa5f3c3ded95b145f6daeb016`, `internal.ubuntu24.json` SHA-256 `35b3696018cc49cc1b307943091be1578a18771ee3e375632495d3a027216f19`)을 gate합니다. 후속 `20260823.283.1`과 `20260907.300.1`은 `config/quality/linux-runner-image-successors.json`으로 recapture 없이 허용합니다. Python locator `/usr/bin/python3 -> python3.12`를 확인한 뒤 canonical `/usr/bin/python3.12`만 실행합니다. Linux tool full numeric mode와 content/version hash는 매 실행 receipt에 관측하며 고정 executable-byte claim이 아닙니다. Darwin은 별도의 reviewed fixed-hash profile입니다.
 
-두 workflow는 top-level `CI_JAVA_VERSION: "21"`을 정확히 한 번 선언하고, `mutation_java`를 포함한 모든 `actions/setup-java@v5`가 정확히 `java-version: ${{ env.CI_JAVA_VERSION }}`를 사용합니다. Android workflow의 공통 Java/Robolectric 관계는 `verifyCiRobolectricRuntime`가 검사하고, mutation structural checker는 primary/weekly 양쪽의 top-level 값·canonical reference·중복 및 job/step shadow 금지를 검사합니다. 이 값은 설치할 Java major를 선택할 뿐 Java-home 경로를 운반하지 않습니다.
+두 workflow는 top-level `CI_JAVA_TOOLCHAIN_VERSION: "17.0.20+8"`과 `CI_JAVA_VERSION: "21.0.12.1+1"`을 선언한다. `.github/actions/setup-build-inputs/action.yml`이 정책에 고정한 Temurin archive를 검증·설치하고 compile/runtime JDK 경로를 제공한다. Android workflow의 Java/Robolectric 관계는 `verifyCiRobolectricRuntime`, mutation workflow와 JDK 설치 경계는 mutation 및 build-input checker가 검사한다.
 
-`actions/setup-java@v5`의 `steps.mutation_java.outputs.path`는 env로 전달하지 않습니다. sanitized custom shell에서 mode 077 directory를 만들고 `set -C`로 `build/quality/pitest-runtime/bootstrap/java-home.selector`를 한 번 생성합니다. selector는 0600 이하 regular non-symlink 단일 line인지 검증한 뒤 삭제되며, mutation run step은 `GASSTATION_PITEST_BOOTSTRAP=sealed-v1`을 포함한 absolute `/usr/bin/env -i` → `/bin/bash --noprofile --norc -euo pipefail {0}` shell을 사용합니다. pre-existing/retargeted/중복 selector, workflow/job/step env Java transport, PATH-selected Python/Git/Gradle, hostile JVM/Gradle/Git/Python environment는 fail closed입니다.
+selector 단계는 `umask 077`과 `set -C`를 적용해 검증된 `JAVA_HOME_21_X64`를 `build/quality/pitest-runtime/bootstrap/java-home.selector`에 한 번 쓴다. runner는 0600 이하 regular non-symlink 단일 line인지 검증한 뒤 selector를 삭제한다. mutation 단계는 `/bin/bash --noprofile --norc -euo pipefail {0}`에서 `exec /usr/bin/env -i`로 환경을 초기화하고 bootstrap marker, 검증된 JDK 경로, 제한된 PATH와 locale만 전달한다. pre-existing/retargeted/중복 selector와 허용되지 않은 JVM/Gradle/Git/Python 환경은 실패시킨다.
 
 Hosted execution, artifact upload, image availability는 로컬에서 검증했다고 주장하지 않습니다. image release가 바뀌면 실행을 멈추고 reviewed profile/recapture transition을 갱신합니다. runner-images inventory metadata와 runtime-observed hashes는 signed VM/binary attestation이 아니며 최종 supply-chain pin은 [Build Input Provenance](runbooks/build-input-provenance.md)가 소유한다.
 
@@ -701,7 +704,7 @@ python3 scripts/quality/verify_build_inputs.py capture \
   --output build/reports/build-inputs/build-input-receipt.json
 ```
 
-Workflow blocking phase는 위 strict matrix, configuration-cache, probe, capture를 `ubuntu-24.04`의 독립 `build-inputs` job에서 실패 완화 없이 실행한다. `release-assemble`과 `release-publish`는 source-bound receipt를 필수 prerequisite로 내려받고 APK upload/checksum/release mutation 전에 release binding을 통과해야 한다.
+Workflow blocking phase는 위 정적 입력 검증, configuration-cache, probe, capture를 `ubuntu-24.04`의 독립 `build-inputs` job에서 실패 완화 없이 실행한다. `release-assemble`과 `release-publish`는 source-bound receipt를 필수 prerequisite로 내려받고 APK upload/checksum/release mutation 전에 release binding을 통과해야 한다.
 
 Release candidate는 upload/publish 전에 source-bound probe receipt와 다시 묶는다.
 

@@ -2,6 +2,8 @@ package com.gasstation.core.location
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.gasstation.domain.location.LocationLookupResult
+import com.gasstation.domain.location.LocationPermissionState
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import dagger.hilt.android.qualifiers.ApplicationContext

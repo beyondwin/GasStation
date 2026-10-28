@@ -30,7 +30,7 @@
 | `feature:station-list` | 위치 요청 세대, 관찰, 새로고침, 명령 대기열, 화면 조합, 얇은 ViewModel | `domain:location`, `domain:station`, `domain:settings`, `core:designsystem`, `core:model` | Room/Retrofit, `core:location` 직접 호출, ViewModel에 동시성 재집중 |
 | `feature:settings` | 설정 요약/상세 UI | `core:model`, `domain:settings`, `core:designsystem` | 저장 구현, 네트워크 |
 | `feature:watchlist` | 관심 비교 UI | `domain:station`, `domain:settings`, `core:model`, `core:designsystem` | 위치 조회, refresh session |
-| `domain:location` | 위치 계약, use case | `core:model` | Android 위치 API |
+| `domain:location` | 위치 계약, 권한·조회 결과 타입, use case | `core:model` | Android 위치 API |
 | `domain:settings` | `UserPreferences`, use case | `core:model` as public API | DataStore, Android 타입 |
 | `domain:station` | 검색/비교, `WatchMutationResult`, `StationEvent` | `core:model` | Room entity, Retrofit DTO, SDK |
 | `data:settings` | `SettingsRepository` 구현 | `domain:settings`, `core:datastore` | Compose 상태 |
@@ -38,7 +38,7 @@
 | `core:model` | 값 객체, 공유 enum | 없음 | 앱 정책 |
 | `core:observability` | CrashReporter 계약 | 없음 | 화면 상태, SDK 구현 |
 | `core:designsystem` | 테마, 토큰, 공통 primitive, 브랜드 아이콘 | Compose/Material3, `core:model` | 화면 문구, 검색 정책 |
-| `core:location` | 위치 구현, 지오코더, demo override | `domain:location`, `core:observability`, `core:model` | 카드 배치, flavor 바인딩 |
+| `core:location` | domain 권한·조회 결과를 쓰는 위치 구현, 지오코더, demo override | `domain:location`, `core:observability`, `core:model` | 중복 권한·결과 타입, 카드 배치, flavor 바인딩 |
 | `core:network` | Opinet/proxy fetcher, 좌표 변환 | `core:model` | 캐시 조합, endpoint 선택 |
 | `core:database` | Room, DAO, migration, `INSERT IGNORE` | Room | latest 의도, analytics |
 | `core:datastore` | DataStore DTO | Android DataStore | 화면 상태, domain model |

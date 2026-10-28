@@ -99,6 +99,7 @@ dependencies {
     testImplementation(libs.androidx.test.rules)
     kspTest(libs.hilt.android.compiler)
 
+    androidTestImplementation(project(":domain:location"))
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.rules)

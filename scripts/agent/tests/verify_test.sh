@@ -9,6 +9,20 @@ docs=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file docs/arc
 assert_contains "$docs" "scopes: docs"
 assert_not_contains "$docs" "verifyRoborazziDebug"
 
+for changed_path in scripts/agent/verify.sh scripts/docs/validate.py .codex/hooks.json .claude/settings.json; do
+  tooling=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file "$changed_path")
+  assert_contains "$tooling" "scopes: tooling"
+  assert_contains "$tooling" "command: scripts/agent/test.sh"
+  assert_not_contains "$tooling" "command: ./gradlew"
+done
+
+tooling_and_data=$($repo_root/scripts/agent/verify.sh auto --dry-run \
+  --changed-file scripts/agent/verify.sh \
+  --changed-file core/database/src/main/kotlin/Db.kt)
+assert_contains "$tooling_and_data" "scopes: tooling data"
+assert_contains "$tooling_and_data" "command: scripts/agent/test.sh"
+assert_contains "$tooling_and_data" ":core:database:testDebugUnitTest"
+
 ui=$($repo_root/scripts/agent/verify.sh auto --dry-run --changed-file feature/station-list/src/main/kotlin/Screen.kt)
 assert_contains "$ui" "scopes: ui"
 assert_contains "$ui" "verifyRoborazziDebug"
@@ -175,5 +189,21 @@ chmod +x "$fixture/docs-scope/scripts/agent/check-contracts.sh" "$fixture/docs-s
 docs_calls=$(cat "$fixture/docs-scope/calls.log")
 assert_contains "$docs_calls" "contracts:"
 assert_not_contains "$docs_calls" "docs:--check-gradle-tasks"
+
+cat > "$fixture/docs-scope/scripts/agent/test.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'tooling-tests\n' >> "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/calls.log"
+exit "${TOOLING_TEST_EXIT:-0}"
+EOF
+chmod +x "$fixture/docs-scope/scripts/agent/test.sh"
+"$fixture/docs-scope/scripts/agent/verify.sh" tooling
+tooling_calls=$(cat "$fixture/docs-scope/calls.log")
+assert_contains "$tooling_calls" "tooling-tests"
+if TOOLING_TEST_EXIT=7 "$fixture/docs-scope/scripts/agent/verify.sh" tooling; then
+  fail "tooling test failure was ignored"
+else
+  tooling_status=$?
+fi
+[[ "$tooling_status" -eq 7 ]] || fail "tooling scope returned $tooling_status instead of 7"
 
 echo "verify_test: PASS"
