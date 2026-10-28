@@ -68,6 +68,8 @@ cleanup도 caller 문자열을 신뢰하지 않습니다. GMD baseline, task 종
 - `api24-scheduled`, `api28-pr-smoke`, `api28-scheduled`, `api36-scheduled`: 모두 `NOT RUN` — host parser/TestKit/compile 증거만 있으며 지원 Linux x86_64/KVM runtime attempt가 없습니다.
 - hosted workflow: `HOSTED NOT RUN` — workflow dispatch, push, 원격 run을 수행하지 않았습니다. PR은 report-only 상태를 유지합니다.
 
+2026-10-28에는 별도로 격리한 API 37 / arm64-v8a / 16 KiB 에뮬레이터에서 `local-connected`로 앱 10개, DB migration 7개, 위치 1개가 각각 zero failure/error/skip으로 통과했다. 앱 실행 source는 `1d80239`, DB·위치 실행 source는 `213d4fa`이며 그 사이 변경은 테스트와 테스트 전략 문서뿐이다. 앱 테스트는 화면 밖 설정 항목을 스크롤한 뒤 저장을 확인하고 비동기 지도 전달을 기다린다. 외부 지도 launcher는 테스트 구현이므로 실제 지도 앱 실행 증거는 아니다. 이 로컬 결과는 위 canonical API 24/28/36 lane의 상태를 승격하지 않는다.
+
 사용하는 AOSP/Google emulator 및 hosted runner/SDK package는 mutable하고 OEM permission-controller를 대표하지 않습니다. 이 매트릭스에는 OEM/물리 API 24/28/36, API 37 lane, live `prod`/Opinet, 실네트워크 주소 품질, 물리 기기 Macrobenchmark 증거가 없습니다. 에뮬레이터 UI smoke 결과로 `docs/performance.md`나 README의 물리 기기 수치를 갱신하지 않습니다.
 
 ## 로컬 연결 기기에서 개발 테스트
