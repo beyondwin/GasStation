@@ -126,4 +126,4 @@ PIT는 JVM-only `domain:station`, `domain:location`, `domain:settings`다. 실�
 
 SHA-256은 검토한 bytes와의 integrity다. 같은 host에서 두 clean tree의 unsigned prod APK size/hash가 같을 때만 재현성 PASS다. 명령은 [검증 매트릭스](verification-matrix.md), 운영은 [Build Input Provenance](runbooks/build-input-provenance.md), 시간은 [Build Velocity](build-velocity.md)다.
 
-convention suite는 52 test-class / 90 method, 50분 blocking timeout이다. nested TestKit timeout은 15분이다.
+convention suite는 52 test-class / 90 method, 50분 blocking timeout이다. nested TestKit timeout은 15분이다. outer `Test` task가 Gradle toolchain service로 Adoptium JDK 17/21을 선택하고 fixture에 명시적 home을 전달한다. fixture는 이 경로와 major version을 검사하며 `java.home`이나 사용자 캐시를 재귀 탐색해 다른 vendor의 JDK를 고르지 않는다.

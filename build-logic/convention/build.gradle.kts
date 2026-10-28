@@ -8,6 +8,8 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.jvm.toolchain.JvmVendorSpec
 
 plugins {
     `kotlin-dsl`
@@ -339,13 +341,31 @@ val prepareTask9OrderedTestDispatch =
         }
     }
 
+// Resolve both nested-build toolchains through Gradle's vendor-aware discovery.
+// TestKit disables its own discovery, so the outer Test task must supply both.
+val testKitJavaToolchains = extensions.getByType<JavaToolchainService>()
+val testKitCompileJavaLauncher = testKitJavaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(17))
+    vendor.set(JvmVendorSpec.ADOPTIUM)
+}
+val testKitRuntimeJavaLauncher = testKitJavaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(21))
+    vendor.set(JvmVendorSpec.ADOPTIUM)
+}
+
 tasks.withType<Test>().configureEach {
     dependsOn(prepareTask9OrderedTestDispatch)
     dependsOn(prepareTestKitReadOnlyDependencyCache)
     finalizedBy(verifyTestKitReadOnlyDependencyCache)
     testClassesDirs = files(task9OrderedTestClassRoots)
     binaryResultsDirectory.set(task9OrderedBinaryResults)
+    inputs.property("testKitCompileJavaHome", testKitCompileJavaLauncher.map { it.metadata.installationPath.asFile.canonicalPath })
+    inputs.property("testKitCompileJavaVersion", testKitCompileJavaLauncher.map { it.metadata.javaRuntimeVersion })
+    inputs.property("testKitRuntimeJavaHome", testKitRuntimeJavaLauncher.map { it.metadata.installationPath.asFile.canonicalPath })
+    inputs.property("testKitRuntimeJavaVersion", testKitRuntimeJavaLauncher.map { it.metadata.javaRuntimeVersion })
     doFirst {
+        environment("JAVA_HOME_17_X64", testKitCompileJavaLauncher.get().metadata.installationPath.asFile.canonicalPath)
+        environment("JAVA_HOME_21_X64", testKitRuntimeJavaLauncher.get().metadata.installationPath.asFile.canonicalPath)
         val binaryRoot = task9OrderedBinaryResults.get().asFile.toPath()
         deleteClosedTree(binaryRoot)
         check(!Files.exists(binaryRoot)) { "Task-9 ordered dispatch prior binary results remain" }

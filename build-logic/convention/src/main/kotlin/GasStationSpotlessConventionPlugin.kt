@@ -28,8 +28,14 @@ class GasStationSpotlessConventionPlugin : Plugin<Project> {
             val ktlintVersion = "1.8.0"
 
             kotlin {
-                target("src/**/*.kt")
-                targetExclude("**/build/**", "**/generated/**")
+                // Keep exclusions on the source tree: Spotless targetExclude globs
+                // enumerate their own project-root trees, including mutable build output.
+                target(
+                    fileTree("src") {
+                        include("**/*.kt")
+                        exclude("**/build/**", "**/generated/**")
+                    },
+                )
                 ktlint(ktlintVersion)
                     .editorConfigOverride(
                         mapOf(

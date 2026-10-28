@@ -170,19 +170,21 @@ class GradlePluginTestProject private constructor(
         get() = resolveJavaHome("JAVA_HOME_21_X64", 21)
 
     private fun resolveJavaHome(environmentName: String, major: Int): File {
-        System.getenv(environmentName)?.takeIf(String::isNotBlank)?.let { return File(it).canonicalFile }
-        val candidates =
-            sequenceOf(
-                File(System.getProperty("java.home")),
-                File("/Library/Java/JavaVirtualMachines"),
-                File(System.getProperty("user.home"), ".gradle/jdks"),
-            ).flatMap { root ->
-                if (!root.exists()) emptySequence() else root.walkTopDown().maxDepth(5)
-            }.filter { it.isDirectory && it.resolve("bin/java").isFile && it.resolve("release").isFile }
-        return candidates.firstOrNull { home ->
-            Regex("(?m)^JAVA_VERSION=\"$major(?:[.\"].*)?\"")
-                .containsMatchIn(home.resolve("release").readText())
-        }?.canonicalFile ?: error("TestKit requires a Java $major home or $environmentName")
+        val home = System.getenv(environmentName)
+            ?.takeIf(String::isNotBlank)
+            ?.let { File(it).canonicalFile }
+            ?: error("TestKit requires $environmentName from the convention Test task; run :build-logic:convention:test")
+        require(home.resolve("bin/java").isFile && home.resolve("release").isFile) {
+            "Convention Test task supplied an invalid Java $major home through $environmentName"
+        }
+        val release = Properties().apply {
+            home.resolve("release").inputStream().use { load(it) }
+        }
+        val actualMajor = release.getProperty("JAVA_VERSION").orEmpty().trim('"').substringBefore('.')
+        require(actualMajor == major.toString()) {
+            "Convention Test task requires Java $major through $environmentName, found $actualMajor"
+        }
+        return home
     }
 
     private fun sanitizedEnvironment(): Map<String, String> {
