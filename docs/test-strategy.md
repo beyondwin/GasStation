@@ -35,7 +35,7 @@ Android Lint error/warning은 build를 멈춘다. production `static-analysis`�
 | `data:station` | `DefaultStationRepositoryTest`, `StationRetryPolicyTest`, `LatestWatchIntentGateTest` | 캐시 조합, 재시도, 최신 watch 의도 |
 | `feature:station-list` | owner tests + integration suite + `StationListObservationRecoveryTest`, Roborazzi | 위치·관찰·새로고침·명령 대기열·화면 조합 |
 | `feature:settings` | `SettingsViewModelTest`, Roborazzi | 설정 상태, commit 뒤 복귀 |
-| `feature:watchlist` | `WatchlistViewModelTest`, Roborazzi | 가격 없음 유지, 제거 실패·재시도·안내 확인, 5행, 200% 글꼴 |
+| `feature:watchlist` | `WatchlistViewModelTest`, `WatchlistRouteFeedbackTest`, Roborazzi | 가격 없음 유지, 제거 실패·재시도, 화면 재진입·STOP/START 동안 안내 유지와 표시 완료 후 확인, 5행, 200% 글꼴 |
 | `app` | startup, backup, cleartext, 외부 지도, splash | flavor 조립, 권한, 리소스 |
 | `demo` 경로 | `DemoPermissionFlowTest`, `StationPortfolioFlowTest` | seed, 권한 CTA, 관심 플로우 |
 | `benchmark` | `StationListBenchmark` | startup, scroll, refresh, 관심 진입 |

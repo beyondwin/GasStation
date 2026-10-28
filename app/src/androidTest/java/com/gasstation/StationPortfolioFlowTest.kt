@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.Espresso
@@ -63,6 +64,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Rect as ComposeRect
@@ -262,13 +264,17 @@ class StationPortfolioFlowTest {
         waitForNearby()
 
         rule.onNodeWithTag("bottom-nav-settings", useUnmergedTree = true).performClick()
-        rule.onNodeWithTag("settings-row-map-provider", useUnmergedTree = true).performClick()
-        rule.onNodeWithTag("settings-option-NAVER_MAP", useUnmergedTree = true).performClick()
+        selectSetting("settings-row-map-provider", "settings-option-NAVER_MAP")
+        awaitPreferences("Map provider selection") { it.mapProvider == MapProvider.NAVER_MAP }
         rule.onNodeWithTag("bottom-nav-nearby", useUnmergedTree = true).performClick()
+        waitForNearby()
         rule.onAllNodesWithTag("station-list-row", useUnmergedTree = true)
             .onFirst()
             .performClick()
 
+        rule.waitUntil(5_000) {
+            (externalMapLauncher as RecordingExternalMapLauncher).providers.isNotEmpty()
+        }
         assertEquals(
             listOf(MapProvider.NAVER_MAP),
             (externalMapLauncher as RecordingExternalMapLauncher).providers,
@@ -311,8 +317,8 @@ class StationPortfolioFlowTest {
     }
 
     private fun selectSetting(rowTag: String, optionTag: String) {
-        rule.onNodeWithTag(rowTag, useUnmergedTree = true).performClick()
-        rule.onNodeWithTag(optionTag, useUnmergedTree = true).performClick()
+        rule.onNodeWithTag(rowTag, useUnmergedTree = true).performScrollTo().performClick()
+        rule.onNodeWithTag(optionTag, useUnmergedTree = true).performScrollTo().performClick()
         rule.waitUntil(5_000) {
             rule.onAllNodesWithTag("settings-screen-list", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -475,7 +481,7 @@ class StationPortfolioFlowTest {
     }
 
     private class RecordingExternalMapLauncher : ExternalMapLauncher {
-        val providers = mutableListOf<MapProvider>()
+        val providers = CopyOnWriteArrayList<MapProvider>()
 
         override fun open(
             provider: MapProvider,
