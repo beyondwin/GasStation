@@ -516,6 +516,8 @@ PR과 local changed 판정에는 `-Pgasstation.coverageBaseRef=<40-hex-base>`를
 
 Baseline 교체는 architecture commit의 exact 40-hex HEAD에서 새 evidence를 생성한 뒤 `verify_coverage.py capture --predecessor-commit <same HEAD>`로 수행합니다. 새 baseline은 그 HEAD의 기존 baseline/policy blob hash를 고정하며 ancestry와 policy lineage를 검증하고 floor 감소 또는 200bp 초과 인상을 거부합니다. 첫 baseline만 predecessor가 없습니다.
 
+2026-10-28 보완의 baseline은 `729bbfb8fb79fc3ee1edb4773480734bb7acd679`에서 측정·capture했다. `ProdSecretsStartupHook`의 임시 누락 키 목록을 실제 선택된 network config 검사로 바꾸면서 `:app|assembly` 실행 가능 라인은 589→586, 분기는 126→130이 됐다. 이 코드 감소와 새 복구 경로의 측정값을 반영했으며 source 제외, coverage policy, 모든 line/branch floor는 변경하지 않았다. 이전 baseline과 policy의 hash는 predecessor로 보존한다.
+
 ## CI 연결
 
 아래 표는 `.github/workflows/android.yml`에 정의된 실행 범위다. 원격 활성 여부는 [CI 운영 상태](deployment.md#ci-운영-상태)에서 별도로 확인한다. 비활성 workflow는 정의된 trigger가 발생해도 실행되지 않는다.

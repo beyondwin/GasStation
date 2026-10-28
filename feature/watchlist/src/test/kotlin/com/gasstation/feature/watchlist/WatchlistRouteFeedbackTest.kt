@@ -14,7 +14,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gasstation.core.designsystem.GasStationTheme
 import com.gasstation.core.model.Brand
 import com.gasstation.core.model.Coordinates
@@ -99,16 +102,20 @@ class WatchlistRouteFeedbackTest {
     private fun renderRoute() {
         composeRule.runOnUiThread {
             val repository = FailingRemovalRepository()
-            viewModel = WatchlistViewModel(
-                observeWatchlist = ObserveWatchlistUseCase(repository),
-                observeUserPreferences = ObserveUserPreferencesUseCase { MutableStateFlow(UserPreferences.default()) },
-                removeWatchedStation = RemoveWatchedStationUseCase(repository),
-                savedStateHandle = SavedStateHandle(mapOf("latitude" to 37.498095, "longitude" to 127.027610)),
-                stationEventLogger = object : StationEventLogger {
-                    override fun log(event: StationEvent) = Unit
-                },
-            )
-            viewModelStore.put("watchlist", viewModel)
+            val factory = viewModelFactory {
+                initializer {
+                    WatchlistViewModel(
+                        observeWatchlist = ObserveWatchlistUseCase(repository),
+                        observeUserPreferences = ObserveUserPreferencesUseCase { MutableStateFlow(UserPreferences.default()) },
+                        removeWatchedStation = RemoveWatchedStationUseCase(repository),
+                        savedStateHandle = SavedStateHandle(mapOf("latitude" to 37.498095, "longitude" to 127.027610)),
+                        stationEventLogger = object : StationEventLogger {
+                            override fun log(event: StationEvent) = Unit
+                        },
+                    )
+                }
+            }
+            viewModel = ViewModelProvider.create(viewModelStore, factory)[WatchlistViewModel::class]
         }
         composeRule.setContent {
             GasStationTheme {
