@@ -162,6 +162,7 @@ val testKitDependencySeeds =
         "org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.11.0",
         "com.android.tools.build:aapt2:$testKitAapt2Version:linux",
         "com.android.tools.build:aapt2:$testKitAapt2Version:osx",
+        "com.android.tools.build:aapt2:$testKitAapt2Version@pom",
     ).mapIndexed { index, coordinate ->
         configurations.create("testKitVerificationSeed$index") {
             isCanBeConsumed = false
